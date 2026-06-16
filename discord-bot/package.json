@@ -1,0 +1,24 @@
+{
+  "name": "slow-bot",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Bot de Discord profissional e modular",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.17.0",
+    "@napi-rs/canvas": "^1.0.0",
+    "@prisma/client": "^5.22.0",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5",
+    "libsodium-wrappers": "^0.7.15",
+    "opusscript": "^0.1.1"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  }
+}
