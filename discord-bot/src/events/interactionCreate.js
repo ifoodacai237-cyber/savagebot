@@ -30,6 +30,7 @@ import {
   buildEditMenu,
   COLOR_MAP,
 } from '../utils/containerSessions.js';
+import { handleShopInteraction } from '../utils/shopHandlers.js';
 
 // ─── Container preview updater ────────────────────────────────────────────────
 
@@ -138,6 +139,14 @@ export default {
 
       // ── STRING SELECT MENUS ────────────────────────────────────────────────
       if (interaction.isStringSelectMenu()) {
+        // ── LOJA / PERFIL: Menus da loja e banner ──────────────────────────
+        if (
+          interaction.customId.startsWith('shop_') ||
+          interaction.customId.startsWith('profile_')
+        ) {
+          return handleShopInteraction(interaction, client);
+        }
+
         // ── Carregar preset de Ticket ──────────────────────────────────────
         if (interaction.customId === 'strsel_preset_tc') {
           const presetId = interaction.values[0];
@@ -206,6 +215,14 @@ export default {
       // ── BUTTONS ────────────────────────────────────────────────────────────
       if (interaction.isButton()) {
         const { customId } = interaction;
+
+        // ── LOJA / PERFIL: Botões da loja e do perfil ────────────────────
+        if (
+          customId.startsWith('shop_') ||
+          customId === 'profile_banner_btn'
+        ) {
+          return handleShopInteraction(interaction, client);
+        }
 
         // ── INSTAGRAM: Toggle like ───────────────────────────────────────
         if (customId.startsWith('insta_like_')) {

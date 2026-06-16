@@ -88,3 +88,37 @@ model PanelPreset {
 
   @@unique([guildId, type, name])
 }
+
+model ShopRole {
+  id          String   @id @default(cuid())
+  guildId     String
+  roleId      String
+  name        String
+  description String?
+  price       Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@unique([guildId, roleId])
+}
+
+model UserPurchase {
+  id          String   @id @default(cuid())
+  userId      String
+  guildId     String
+  itemType    String
+  itemRef     String
+  purchasedAt DateTime @default(now())
+
+  @@unique([userId, guildId, itemType, itemRef])
+}
+
+model UserProfile {
+  id           String  @id @default(cuid())
+  userId       String
+  guildId      String
+  activeBanner String?
+  bio          String?
+
+  @@unique([userId, guildId])
+}

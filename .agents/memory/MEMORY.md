@@ -1,0 +1,1 @@
+- [Discord Bot Shop System](discord-bot-shop.md) — sistema de loja com banners e cargos; modelos ShopRole/UserPurchase/UserProfile no Prisma; handlers em shopHandlers.js.
