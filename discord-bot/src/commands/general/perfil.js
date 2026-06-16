@@ -5,17 +5,15 @@ import { generateProfileCard } from '../../utils/profileCard.js';
 export default {
   data: new SlashCommandBuilder()
     .setName('perfil')
-    .setDescription('🪪 Ver seu perfil ou o de alguém')
-    .addUserOption(o => o.setName('usuario').setDescription('Usuário para ver o perfil (padrão: você)')),
+    .setDescription('🪪 Ver seu card de perfil com banner equipado'),
   name: 'perfil',
   aliases: ['profile', 'card'],
 
   async execute(interaction) {
     await interaction.deferReply();
 
-    const target = interaction.options.getUser('usuario') ?? interaction.user;
+    const target = interaction.user;
     const member = await interaction.guild.members.fetch(target.id).catch(() => null);
-    const isSelf = target.id === interaction.user.id;
 
     const [eco, profile, purchases] = await Promise.all([
       prisma.economy.findUnique({ where: { userId_guildId: { userId: target.id, guildId: interaction.guildId } } }),
@@ -32,24 +30,19 @@ export default {
     const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases });
     const attachment = new AttachmentBuilder(buf, { name: 'perfil.png' });
 
-    const components = [];
-    if (isSelf) {
-      components.push(
-        new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('profile_banner_btn')
-            .setLabel('Mudar Banner')
-            .setEmoji('🖼️')
-            .setStyle(ButtonStyle.Secondary),
-        )
-      );
-    }
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('profile_banner_btn')
+        .setLabel('Mudar Banner')
+        .setEmoji('🖼️')
+        .setStyle(ButtonStyle.Secondary),
+    );
 
-    return interaction.editReply({ files: [attachment], components });
+    return interaction.editReply({ files: [attachment], components: [row] });
   },
 
-  async executePrefix(message, args) {
-    const target = message.mentions.users.first() ?? message.author;
+  async executePrefix(message) {
+    const target = message.author;
     const member = await message.guild.members.fetch(target.id).catch(() => null);
 
     const [eco, profile, purchases] = await Promise.all([

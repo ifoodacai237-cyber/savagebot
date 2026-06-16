@@ -216,9 +216,10 @@ export default {
       if (interaction.isButton()) {
         const { customId } = interaction;
 
-        // ── LOJA / PERFIL: Botões da loja e do perfil ────────────────────
+        // ── LOJA / PERFIL: Botões da loja, config e perfil ──────────────
         if (
           customId.startsWith('shop_') ||
+          customId.startsWith('loja_cfg_') ||
           customId === 'profile_banner_btn'
         ) {
           return handleShopInteraction(interaction, client);
@@ -723,6 +724,11 @@ export default {
 
       // ── MODALS ─────────────────────────────────────────────────────────────
       if (interaction.isModalSubmit()) {
+
+        // ── LOJA: Config modal ──────────────────────────────────────────
+        if (interaction.customId.startsWith('loja_cfg_modal_')) {
+          return handleShopInteraction(interaction, client);
+        }
 
         // ── INSTAGRAM: Comentário enviado ───────────────────────────────
         if (interaction.customId.startsWith('insta_cmodal_')) {

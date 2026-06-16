@@ -3,13 +3,19 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
+  PermissionFlagsBits,
 } from 'discord.js';
 import prisma from '../database/client.js';
 import { BANNERS, getBanner } from './shopData.js';
 
 const SHOP_COLOR = 0x9B4FD6;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function getEco(userId, guildId) {
   return prisma.economy.upsert({
@@ -19,28 +25,179 @@ async function getEco(userId, guildId) {
   });
 }
 
+async function getCfg(guildId) {
+  return prisma.guildConfig.upsert({ where: { guildId }, create: { guildId }, update: {} });
+}
+
+// ─── Loja Config ──────────────────────────────────────────────────────────────
+
+const LOJA_CFG_FIELDS = {
+  titulo:    { label: 'Título',           db: 'lojaTitle',     max: 100,  paragraph: false },
+  texto:     { label: 'Texto do painel',  db: 'lojaText',      max: 1800, paragraph: true  },
+  banner:    { label: 'URL do Banner',    db: 'lojaBanner',    max: 500,  paragraph: false },
+  thumb:     { label: 'URL da Thumbnail', db: 'lojaThumb',     max: 500,  paragraph: false },
+  cor:       { label: 'Cor Hex (sem #)',  db: 'lojaColor',     max: 6,    paragraph: false },
+  conversao: { label: 'Texto conversão',  db: 'lojaConversao', max: 400,  paragraph: true  },
+};
+
+export function buildLojaConfigPayload(cfg) {
+  const color = cfg.lojaColor ? parseInt(cfg.lojaColor, 16) : SHOP_COLOR;
+
+  const embed = new EmbedBuilder()
+    .setColor(color)
+    .setTitle('⚙️ Configuração do Painel da Loja')
+    .setDescription('Clique em um campo abaixo para editar. As alterações aparecem no próximo `/loja painel`.')
+    .addFields(
+      { name: '🏷️ Título',    value: cfg.lojaTitle     ? `\`${cfg.lojaTitle}\``                  : '*padrão (nome do servidor)*', inline: true },
+      { name: '🎨 Cor',       value: cfg.lojaColor     ? `\`#${cfg.lojaColor}\``                  : '`#9B4FD6` (padrão)',          inline: true },
+      { name: '🖼️ Banner',   value: cfg.lojaBanner    ? `[Ver imagem](<${cfg.lojaBanner}>)`       : '*nenhum*',                    inline: true },
+      { name: '🖼️ Thumbnail', value: cfg.lojaThumb     ? `[Ver imagem](<${cfg.lojaThumb}>)`        : '*ícone do servidor*',         inline: true },
+      {
+        name:  '🔄 Conversão',
+        value: cfg.lojaConversao
+          ? cfg.lojaConversao.slice(0, 200) + (cfg.lojaConversao.length > 200 ? '…' : '')
+          : '*padrão*',
+      },
+      {
+        name:  '📝 Texto',
+        value: cfg.lojaText
+          ? cfg.lojaText.slice(0, 200) + (cfg.lojaText.length > 200 ? '…' : '')
+          : '*padrão*',
+      },
+    )
+    .setFooter({ text: 'Slow Bot · Config da Loja' });
+
+  if (cfg.lojaBanner) embed.setImage(cfg.lojaBanner);
+  if (cfg.lojaThumb)  embed.setThumbnail(cfg.lojaThumb);
+
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('loja_cfg_titulo').setLabel('Título').setEmoji('🏷️').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('loja_cfg_texto').setLabel('Texto').setEmoji('📝').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('loja_cfg_banner').setLabel('Banner').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('loja_cfg_thumb').setLabel('Thumbnail').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('loja_cfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
+  );
+
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('loja_cfg_conversao').setLabel('Conversão').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('loja_cfg_reset').setLabel('Resetar Tudo').setEmoji('♻️').setStyle(ButtonStyle.Danger),
+  );
+
+  return { embeds: [embed], components: [row1, row2] };
+}
+
 // ─── Main dispatcher ──────────────────────────────────────────────────────────
 
 export async function handleShopInteraction(interaction, client) {
   const id = interaction.customId;
 
   if (interaction.isButton()) {
-    if (id === 'shop_comprar')             return handleComprar(interaction);
-    if (id === 'shop_vitrine')             return handleVitrine(interaction);
-    if (id === 'shop_converter')           return handleConverter(interaction);
-    if (id === 'shop_saldo')               return handleSaldo(interaction);
-    if (id === 'shop_cancel')              return interaction.update({ content: '❌ Compra cancelada.', embeds: [], components: [] });
-    if (id.startsWith('shop_buy_'))        return handleBuyConfirm(interaction);
-    if (id.startsWith('shop_ok_'))         return handleBuyExecute(interaction, client);
-    if (id === 'profile_banner_btn')       return handleProfileBannerBtn(interaction);
+    if (id === 'shop_comprar')               return handleComprar(interaction);
+    if (id === 'shop_vitrine')               return handleVitrine(interaction);
+    if (id === 'shop_converter')             return handleConverter(interaction);
+    if (id === 'shop_saldo')                 return handleSaldo(interaction);
+    if (id === 'shop_cancel')                return interaction.update({ content: '❌ Compra cancelada.', embeds: [], components: [] });
+    if (id.startsWith('shop_buy_'))          return handleBuyConfirm(interaction);
+    if (id.startsWith('shop_ok_'))           return handleBuyExecute(interaction, client);
+    if (id === 'profile_banner_btn')         return handleProfileBannerBtn(interaction);
+    if (id === 'shop_config')                return handleLojaConfig(interaction);
+    if (id.startsWith('loja_cfg_'))          return handleLojaCfgBtn(interaction);
   }
 
   if (interaction.isStringSelectMenu()) {
-    if (id === 'shop_type_sel')            return handleTypeSel(interaction);
-    if (id === 'shop_item_sel')            return handleItemSel(interaction);
-    if (id === 'shop_vitrine_sel')         return handleVitrineSel(interaction);
-    if (id === 'profile_banner_sel')       return handleProfileBannerSel(interaction);
+    if (id === 'shop_type_sel')              return handleTypeSel(interaction);
+    if (id === 'shop_item_sel')              return handleItemSel(interaction);
+    if (id === 'shop_vitrine_sel')           return handleVitrineSel(interaction);
+    if (id === 'profile_banner_sel')         return handleProfileBannerSel(interaction);
   }
+
+  if (interaction.isModalSubmit()) {
+    if (id.startsWith('loja_cfg_modal_'))    return handleLojaConfigModal(interaction);
+  }
+}
+
+// ─── ⚙️ Loja Config ───────────────────────────────────────────────────────────
+
+async function handleLojaConfig(interaction) {
+  const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+  if (!isAdmin) {
+    return interaction.reply({ content: '❌ Apenas administradores podem configurar o painel da loja.', ephemeral: true });
+  }
+
+  const cfg = await getCfg(interaction.guildId);
+  return interaction.reply({ ...buildLojaConfigPayload(cfg), ephemeral: true });
+}
+
+async function handleLojaCfgBtn(interaction) {
+  const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+  if (!isAdmin) {
+    return interaction.reply({ content: '❌ Apenas administradores podem configurar a loja.', ephemeral: true });
+  }
+
+  const field = interaction.customId.replace('loja_cfg_', '');
+
+  // Reset all fields
+  if (field === 'reset') {
+    await prisma.guildConfig.upsert({
+      where:  { guildId: interaction.guildId },
+      create: { guildId: interaction.guildId },
+      update: { lojaTitle: null, lojaText: null, lojaBanner: null, lojaThumb: null, lojaColor: null, lojaConversao: null },
+    });
+    const cfg = await getCfg(interaction.guildId);
+    return interaction.update(buildLojaConfigPayload(cfg));
+  }
+
+  const def = LOJA_CFG_FIELDS[field];
+  if (!def) return;
+
+  // Build modal
+  const modal = new ModalBuilder()
+    .setCustomId(`loja_cfg_modal_${field}`)
+    .setTitle(`Editar: ${def.label}`);
+
+  const cfg = await getCfg(interaction.guildId);
+  const cur = cfg[def.db] ?? '';
+
+  const input = new TextInputBuilder()
+    .setCustomId('value')
+    .setLabel(def.label)
+    .setStyle(def.paragraph ? TextInputStyle.Paragraph : TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(def.max)
+    .setPlaceholder('(deixe em branco para voltar ao padrão)');
+
+  if (cur) input.setValue(cur);
+
+  modal.addComponents(new ActionRowBuilder().addComponents(input));
+  return interaction.showModal(modal);
+}
+
+async function handleLojaConfigModal(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const field = interaction.customId.replace('loja_cfg_modal_', '');
+  const def   = LOJA_CFG_FIELDS[field];
+  if (!def) return interaction.editReply({ content: '❌ Campo inválido.' });
+
+  let value = interaction.fields.getTextInputValue('value').trim() || null;
+
+  if (value && field === 'cor') {
+    value = value.replace(/^#/, '').toUpperCase().slice(0, 6);
+  }
+
+  await prisma.guildConfig.upsert({
+    where:  { guildId: interaction.guildId },
+    create: { guildId: interaction.guildId, [def.db]: value },
+    update: { [def.db]: value },
+  });
+
+  const cfg     = await getCfg(interaction.guildId);
+  const payload = buildLojaConfigPayload(cfg);
+
+  return interaction.editReply({
+    content: `✅ **${def.label}** ${value ? 'atualizado!' : 'resetado para o padrão!'}`,
+    ...payload,
+  });
 }
 
 // ─── 🛒 Comprar Algo ──────────────────────────────────────────────────────────
@@ -53,8 +210,8 @@ async function handleComprar(interaction) {
     .setTitle('🛒 O que deseja comprar?')
     .setDescription('Selecione uma categoria abaixo para ver os itens disponíveis.')
     .addFields(
-      { name: '👑 Cargos',            value: `${roles.length} cargo(s) disponível(is)`, inline: true },
-      { name: '🖼️ Banners de Perfil', value: `${BANNERS.length} banners disponíveis`,  inline: true },
+      { name: '👑 Cargos',            value: `${roles.length} cargo(s)`,         inline: true },
+      { name: '🖼️ Banners de Perfil', value: `${BANNERS.length} banners`,        inline: true },
     )
     .setFooter({ text: 'Slow Bot · Loja' });
 
@@ -62,12 +219,8 @@ async function handleComprar(interaction) {
     .setCustomId('shop_type_sel')
     .setPlaceholder('Selecione uma opção')
     .addOptions(
-      new StringSelectMenuOptionBuilder()
-        .setLabel('👑 Cargos').setValue('roles')
-        .setDescription(`${roles.length} cargos disponíveis`),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('🖼️ Banners de Perfil').setValue('banners')
-        .setDescription(`${BANNERS.length} banners disponíveis`),
+      new StringSelectMenuOptionBuilder().setLabel('👑 Cargos').setValue('roles').setDescription(`${roles.length} cargos disponíveis`),
+      new StringSelectMenuOptionBuilder().setLabel('🖼️ Banners de Perfil').setValue('banners').setDescription(`${BANNERS.length} banners disponíveis`),
     );
 
   return interaction.reply({
@@ -90,7 +243,7 @@ async function handleTypeSel(interaction) {
         embeds: [
           new EmbedBuilder().setColor(0xED4245)
             .setTitle('❌ Nenhum cargo disponível')
-            .setDescription('Nenhum cargo foi adicionado à loja ainda.\nUm admin deve usar `/loja admin cargo` para adicionar.'),
+            .setDescription('Nenhum cargo foi adicionado à loja.\nUm admin deve usar `/loja admin cargo`.'),
         ],
         components: [],
       });
@@ -138,7 +291,7 @@ async function handleTypeSel(interaction) {
       .setColor(SHOP_COLOR)
       .setTitle('🖼️ Banners de Perfil')
       .setDescription(
-        'Selecione um banner para ver a prévia e comprar.\nBanners equipados aparecem no seu `/perfil`!\n\n' +
+        'Selecione um banner para ver a prévia e comprar.\n\n' +
         BANNERS.map(b => `${ownedKeys.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} SC\``).join('\n')
       )
       .setImage(BANNERS[0].imageUrl)
@@ -182,8 +335,8 @@ async function handleItemSel(interaction) {
       .setTitle(`👑 ${item.name}`)
       .setDescription(item.description ?? 'Cargo exclusivo do servidor.')
       .addFields(
-        { name: '💰 Preço',      value: `**${item.price.toLocaleString('pt-BR')} SC**`,   inline: true },
-        { name: '👛 Seu Saldo',  value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true },
+        { name: '💰 Preço',     value: `**${item.price.toLocaleString('pt-BR')} SC**`,   inline: true },
+        { name: '👛 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true },
       )
       .setFooter({ text: alreadyOwned ? '✅ Você já possui este cargo' : canAfford ? 'Clique em Comprar para confirmar' : '❌ Saldo insuficiente' });
 
@@ -346,7 +499,7 @@ async function handleVitrine(interaction) {
     .setColor(SHOP_COLOR)
     .setTitle('🖼️ Vitrine de Banners')
     .setDescription(
-      'Aqui estão todos os banners disponíveis!\nSelecione um para ver a prévia e comprar.\n\n' +
+      'Selecione um banner para ver a prévia e comprar!\n\n' +
       BANNERS.map(b =>
         `${ownedKeys.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} SC\`\n> ${b.description}`
       ).join('\n\n')
@@ -377,18 +530,15 @@ async function handleVitrineSel(interaction) {
   const banner = getBanner(key);
   if (!banner) return interaction.update({ content: '❌ Banner não encontrado.', components: [] });
 
-  const [owned, eco] = await Promise.all([
+  const [owned, eco, allOwned] = await Promise.all([
     prisma.userPurchase.findUnique({
       where: { userId_guildId_itemType_itemRef: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'banner', itemRef: key } },
     }),
     getEco(interaction.user.id, interaction.guildId),
+    prisma.userPurchase.findMany({ where: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'banner' } }),
   ]);
 
-  const ownedKeys = new Set(
-    (await prisma.userPurchase.findMany({ where: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'banner' } }))
-      .map(o => o.itemRef)
-  );
-
+  const ownedKeys = new Set(allOwned.map(o => o.itemRef));
   const canAfford = eco.balance >= banner.price;
 
   const embed = new EmbedBuilder()
@@ -439,14 +589,8 @@ async function handleConverter(interaction) {
     .setTitle('🔄 Conversor de SlowCoins')
     .setDescription('Converta suas mensagens e tempo em call para **SlowCoins** e gaste na loja!')
     .addFields(
-      {
-        name: '📊 Tabela de Conversão',
-        value: '> `1.000 mensagens` → **500 SC**\n> `1 hora em call` → **500 SC**',
-      },
-      {
-        name: '💼 Suas Informações',
-        value: `> 💰 Saldo: **${eco.balance.toLocaleString('pt-BR')} SC**\n> 🏦 Banco: **${eco.bank.toLocaleString('pt-BR')} SC**`,
-      },
+      { name: '📊 Tabela de Conversão', value: '> `1.000 mensagens` → **500 SC**\n> `1 hora em call` → **500 SC**' },
+      { name: '💼 Suas Informações',    value: `> 💰 Saldo: **${eco.balance.toLocaleString('pt-BR')} SC**\n> 🏦 Banco: **${eco.bank.toLocaleString('pt-BR')} SC**` },
     )
     .setFooter({ text: 'Sistema de conversão integrado ao contador de mensagens' });
 
@@ -469,17 +613,17 @@ async function handleSaldo(interaction) {
     .setTitle('💰 Meu Saldo')
     .setThumbnail(interaction.user.displayAvatarURL({ size: 64 }))
     .addFields(
-      { name: '💰 Carteira',        value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true },
-      { name: '🏦 Banco',           value: `**${eco.bank.toLocaleString('pt-BR')} SC**`,   inline: true },
-      { name: '📦 Itens na Loja',   value: `**${purchases}** compra(s)`,                   inline: true },
-      { name: '🖼️ Banner Ativo',    value: activeBanner ? activeBanner.name : 'Nenhum',   inline: true },
+      { name: '💰 Carteira',      value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true },
+      { name: '🏦 Banco',         value: `**${eco.bank.toLocaleString('pt-BR')} SC**`,   inline: true },
+      { name: '📦 Itens na Loja', value: `**${purchases}** compra(s)`,                   inline: true },
+      { name: '🖼️ Banner Ativo',  value: activeBanner ? activeBanner.name : 'Nenhum',   inline: true },
     )
     .setFooter({ text: 'Use /eco saldo para mais detalhes • Use /perfil para ver seu card' });
 
   return interaction.reply({ embeds: [embed], ephemeral: true });
 }
 
-// ─── 🖼️ Mudar Banner (botão no /perfil) ──────────────────────────────────────
+// ─── 🖼️ Mudar Banner ──────────────────────────────────────────────────────────
 
 async function handleProfileBannerBtn(interaction) {
   const [owned, profile] = await Promise.all([
@@ -489,37 +633,30 @@ async function handleProfileBannerBtn(interaction) {
 
   if (!owned.length) {
     return interaction.reply({
-      content: '❌ Você não possui nenhum banner!\nUse `/loja painel` e clique em **Vitrine** para ver os banners disponíveis.',
+      content: '❌ Você não possui nenhum banner!\nUse `/loja painel` → **Vitrine** para comprar.',
       ephemeral: true,
     });
   }
 
   const options = [
     new StringSelectMenuOptionBuilder()
-      .setLabel('🚫 Sem banner (padrão)')
-      .setValue('none')
-      .setDescription('Remover banner do perfil')
-      .setEmoji('🚫'),
+      .setLabel('🚫 Sem banner (padrão)').setValue('none').setDescription('Remover banner do perfil').setEmoji('🚫'),
     ...owned.map(p => {
       const b = getBanner(p.itemRef);
       if (!b) return null;
       const isActive = profile?.activeBanner === b.key;
       return new StringSelectMenuOptionBuilder()
-        .setLabel(b.name)
-        .setValue(b.key)
+        .setLabel(b.name).setValue(b.key)
         .setDescription(`${b.price.toLocaleString('pt-BR')} SC${isActive ? ' ✅ Equipado' : ''}`)
         .setEmoji(b.emoji ?? '🖼️');
     }).filter(Boolean),
   ];
 
-  const select = new StringSelectMenuBuilder()
-    .setCustomId('profile_banner_sel')
-    .setPlaceholder('Selecione um banner para equipar')
-    .addOptions(options);
-
   return interaction.reply({
     content: '🖼️ **Selecione o banner para equipar no seu perfil:**',
-    components: [new ActionRowBuilder().addComponents(select)],
+    components: [new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId('profile_banner_sel').setPlaceholder('Selecione um banner').addOptions(options)
+    )],
     ephemeral: true,
   });
 }
@@ -536,7 +673,7 @@ async function handleProfileBannerSel(interaction) {
 
   const msg = activeBanner
     ? `✅ Banner **${getBanner(activeBanner)?.name}** equipado! Use \`/perfil\` para ver o resultado.`
-    : '✅ Banner removido do seu perfil.';
+    : '✅ Banner removido. Use `/perfil` para ver o resultado.';
 
   return interaction.update({ content: msg, components: [] });
 }

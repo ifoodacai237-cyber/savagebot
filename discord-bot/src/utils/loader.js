@@ -47,11 +47,15 @@ export async function registerSlashCommands(client) {
 
   try {
     if (process.env.GUILD_ID) {
+      // Limpa comandos globais para evitar duplicatas/comandos antigos
+      await rest.put(Routes.applicationCommands(client.user.id), { body: [] }).catch(() => {});
+
+      // Registra comandos no servidor específico (aparecem instantaneamente)
       await rest.put(
         Routes.applicationGuildCommands(client.user.id, process.env.GUILD_ID),
         { body }
       );
-      console.log(`✅ ${body.length} slash commands registrados instantaneamente.`);
+      console.log(`✅ ${body.length} slash commands registrados instantaneamente no servidor.`);
     } else {
       await rest.put(Routes.applicationCommands(client.user.id), { body });
       console.log(`✅ ${body.length} slash commands registrados globalmente.`);

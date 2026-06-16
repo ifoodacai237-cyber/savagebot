@@ -7,35 +7,54 @@ import {
   EmbedBuilder,
 } from 'discord.js';
 import prisma from '../../database/client.js';
-import { BANNERS } from '../../utils/shopData.js';
 
-const SHOP_COLOR = 0x9B4FD6;
+const DEFAULT_COLOR = 0x9B4FD6;
+const DEFAULT_CONV  = '> `1000 mensagens` → **500 SC**\n> `1 hora em call` → **500 SC**';
+const DEFAULT_TEXT  =
+  'Deseja adquirir **cargos** e **banners de perfil** exclusivos?\n' +
+  'Aqui você pode comprar tudo com as suas **SlowCoins**!';
+const DEFAULT_FOOTER = 'Slow Bot · Loja';
 
-export function buildShopMain(guild) {
+export function buildShopMain(guild, cfg = {}) {
+  const color     = cfg.lojaColor  ? parseInt(cfg.lojaColor, 16) : DEFAULT_COLOR;
+  const title     = cfg.lojaTitle  ?? `🛒 Loja do ${guild.name}`;
+  const conv      = cfg.lojaConversao ?? DEFAULT_CONV;
+  const bodyText  = cfg.lojaText   ?? DEFAULT_TEXT;
+
+  const desc =
+    bodyText + '\n\n' +
+    '**Conversão 🪙**\n' +
+    conv + '\n\n' +
+    '─────────────────────────────\n' +
+    '*Dúvidas? Acesse o canal de suporte.*';
+
   const embed = new EmbedBuilder()
-    .setColor(SHOP_COLOR)
-    .setTitle(`🛒 Loja do ${guild.name}`)
-    .setDescription(
-      'Deseja adquirir **cargos** e **banners de perfil** exclusivos?\n' +
-      'Aqui você pode comprar tudo com as suas **SlowCoins** apenas interagindo no servidor!\n\n' +
-      '**Conversão 🪙**\n' +
-      '> `1000 mensagens` → **500 SC**\n' +
-      '> `1 hora em call` → **500 SC**\n\n' +
-      '─────────────────────────────\n' +
-      '*Dúvidas ou denúncias? Acesse o canal de suporte.*'
-    )
-    .setThumbnail(guild.iconURL({ size: 128 }) ?? null)
-    .setFooter({ text: `Slow Bot · Loja  •  ${BANNERS.length} banners disponíveis` })
+    .setColor(color)
+    .setTitle(title)
+    .setDescription(desc)
+    .setFooter({ text: DEFAULT_FOOTER })
     .setTimestamp();
 
-  const row = new ActionRowBuilder().addComponents(
+  if (cfg.lojaBanner) embed.setImage(cfg.lojaBanner);
+  if (cfg.lojaThumb)  embed.setThumbnail(cfg.lojaThumb);
+  else                embed.setThumbnail(guild.iconURL({ size: 128 }) ?? null);
+
+  const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('shop_comprar').setLabel('Comprar Algo').setEmoji('🛒').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('shop_vitrine').setLabel('Vitrine').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('shop_converter').setLabel('Converter').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('shop_saldo').setLabel('Meu Saldo').setEmoji('💰').setStyle(ButtonStyle.Secondary),
   );
 
-  return { embeds: [embed], components: [row] };
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('shop_config').setLabel('Configurar Painel').setEmoji('⚙️').setStyle(ButtonStyle.Secondary),
+  );
+
+  return { embeds: [embed], components: [row1, row2] };
+}
+
+async function getCfg(guildId) {
+  return prisma.guildConfig.upsert({ where: { guildId }, create: { guildId }, update: {} });
 }
 
 export default {
@@ -50,13 +69,13 @@ export default {
           s.setName('cargo')
             .setDescription('Adicionar um cargo à loja para venda')
             .addRoleOption(o => o.setName('cargo').setDescription('Cargo a ser vendido').setRequired(true))
-            .addIntegerOption(o => o.setName('preco').setDescription('Preço em SlowCoins (SC)').setRequired(true).setMinValue(1))
+            .addIntegerOption(o => o.setName('preco').setDescription('Preço em SlowCoins').setRequired(true).setMinValue(1))
             .addStringOption(o => o.setName('descricao').setDescription('Descrição do cargo').setRequired(false))
         )
         .addSubcommand(s =>
           s.setName('remover')
             .setDescription('Remover um cargo da loja')
-            .addStringOption(o => o.setName('id').setDescription('ID do item na loja (use /loja admin listar para ver)').setRequired(true))
+            .addStringOption(o => o.setName('id').setDescription('ID do cargo (use /loja admin listar)').setRequired(true))
         )
         .addSubcommand(s =>
           s.setName('listar')
@@ -75,7 +94,6 @@ export default {
         return interaction.reply({ content: '❌ Apenas administradores podem gerenciar a loja.', ephemeral: true });
       }
 
-      // Adicionar cargo
       if (sub === 'cargo') {
         const role  = interaction.options.getRole('cargo');
         const preco = interaction.options.getInteger('preco');
@@ -99,14 +117,12 @@ export default {
               .setTitle('✅ Cargo Adicionado à Loja!')
               .setDescription(`**${role.name}** agora está disponível por **${preco.toLocaleString('pt-BR')} SC**!`)
               .addFields({ name: '📝 Descrição', value: desc })
-              .setFooter({ text: `ID: em /loja admin listar` })
               .setTimestamp(),
           ],
           ephemeral: true,
         });
       }
 
-      // Remover item
       if (sub === 'remover') {
         const id   = interaction.options.getString('id');
         const item = await prisma.shopRole.findUnique({ where: { id } });
@@ -117,12 +133,11 @@ export default {
         return interaction.reply({ content: `✅ **${item.name}** foi removido da loja.`, ephemeral: true });
       }
 
-      // Listar itens
       if (sub === 'listar') {
         const roles = await prisma.shopRole.findMany({ where: { guildId: interaction.guildId } });
         if (!roles.length) {
           return interaction.reply({
-            content: '📭 Nenhum cargo cadastrado na loja ainda.\nUse `/loja admin cargo` para adicionar.',
+            content: '📭 Nenhum cargo cadastrado ainda.\nUse `/loja admin cargo` para adicionar.',
             ephemeral: true,
           });
         }
@@ -132,8 +147,8 @@ export default {
         return interaction.reply({
           embeds: [
             new EmbedBuilder()
-              .setColor(SHOP_COLOR)
-              .setTitle('👑 Cargos Cadastrados na Loja')
+              .setColor(DEFAULT_COLOR)
+              .setTitle('👑 Cargos na Loja')
               .setDescription(desc)
               .setFooter({ text: 'Use o ID para remover com /loja admin remover' }),
           ],
@@ -144,7 +159,8 @@ export default {
 
     // ── PAINEL ───────────────────────────────────────────────────────────────
     if (sub === 'painel') {
-      const payload = buildShopMain(interaction.guild);
+      const cfg     = await getCfg(interaction.guildId);
+      const payload = buildShopMain(interaction.guild, cfg);
       return interaction.reply(payload);
     }
   },
