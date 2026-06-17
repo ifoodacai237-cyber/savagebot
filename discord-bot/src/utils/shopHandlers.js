@@ -509,8 +509,10 @@ async function handleGiftItemSel(interaction) {
       `> 👛 Seu saldo: **${eco.balance.toLocaleString('pt-BR')} SC**\n` +
       `> 📉 Saldo após: **${(eco.balance - price).toLocaleString('pt-BR')} SC**`
     )
-    .setThumbnail(target.user.displayAvatarURL({ size: 64 }))
-    .setFooter({ text: alreadyGifted ? '⚠️ Destinatário já possui este item!' : canAfford ? '' : '❌ Saldo insuficiente!' });
+    .setThumbnail(target.user.displayAvatarURL({ size: 64 }));
+
+  if (alreadyGifted) embed.setFooter({ text: '⚠️ Destinatário já possui este item!' });
+  else if (!canAfford) embed.setFooter({ text: '❌ Saldo insuficiente!' });
 
   const customId = `shop_gok:${targetId}:${itemType}:${ref}`;
 

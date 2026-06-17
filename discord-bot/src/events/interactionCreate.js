@@ -31,6 +31,8 @@ import {
   COLOR_MAP,
 } from '../utils/containerSessions.js';
 import { handleShopInteraction } from '../utils/shopHandlers.js';
+import { radioSessions, createRadioSession } from '../utils/radioManager.js';
+import { buildControlPanel as buildRadioPanel } from '../commands/general/radio.js';
 
 // ─── Container preview updater ────────────────────────────────────────────────
 
@@ -139,6 +141,57 @@ export default {
 
       // ── STRING SELECT MENUS ────────────────────────────────────────────────
       if (interaction.isStringSelectMenu()) {
+        // ── RÁDIO: Selecionar playlist ──────────────────────────────────────
+        if (interaction.customId === 'radio_playlist_sel') {
+          const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.ManageGuild);
+          if (!isAdmin) {
+            return interaction.update({
+              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Apenas administradores podem iniciar o rádio.')],
+              components: [],
+            });
+          }
+          const voiceChannel = interaction.member.voice.channel;
+          if (!voiceChannel) {
+            return interaction.update({
+              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Você precisa estar em um canal de voz.')],
+              components: [],
+            });
+          }
+
+          await interaction.update({
+            embeds: [new EmbedBuilder().setColor(0x9B4FD6).setDescription('📻 Carregando estação e entrando no canal...')],
+            components: [],
+          });
+
+          const playlistKey = interaction.values[0];
+          const session = await createRadioSession({ guild: interaction.guild, channelId: voiceChannel.id, playlistKey });
+
+          if (!session) {
+            return interaction.editReply({
+              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Não foi possível entrar no canal de voz.')],
+              components: [],
+            });
+          }
+
+          const ok = await session.start();
+          if (!ok) {
+            session.stop();
+            return interaction.editReply({
+              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Não foi possível carregar a playlist. Tente novamente.')],
+              components: [],
+            });
+          }
+
+          const panel = buildRadioPanel(session);
+          const publicMsg = await interaction.channel.send(panel);
+          session.controlMessage = { channelId: publicMsg.channelId, messageId: publicMsg.id };
+
+          return interaction.editReply({
+            embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ Rádio iniciado em **${voiceChannel.name}**! Painel enviado no canal.`)],
+            components: [],
+          });
+        }
+
         // ── LOJA / PERFIL / ADMIN: Menus da loja e banner ──────────────────
         if (
           interaction.customId.startsWith('shop_') ||
@@ -216,6 +269,39 @@ export default {
       // ── BUTTONS ────────────────────────────────────────────────────────────
       if (interaction.isButton()) {
         const { customId } = interaction;
+
+        // ── RÁDIO: Controles do painel (admin only) ─────────────────────
+        if (customId === 'radio_toggle' || customId === 'radio_skip' || customId === 'radio_stop') {
+          const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.ManageGuild);
+          if (!isAdmin) {
+            return interaction.reply({
+              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Apenas administradores podem controlar o rádio.')],
+              ephemeral: true,
+            });
+          }
+
+          const session = radioSessions.get(interaction.guildId);
+          if (!session) {
+            return interaction.update({
+              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ O rádio não está mais ativo.')],
+              components: [],
+            });
+          }
+
+          if (customId === 'radio_toggle') {
+            if (session.paused) session.resume(); else session.pause();
+          } else if (customId === 'radio_skip') {
+            await session.skip();
+          } else if (customId === 'radio_stop') {
+            session.stop();
+            return interaction.update({
+              embeds: [new EmbedBuilder().setColor(0xED4245).setTitle('⏹️ Rádio Encerrado').setDescription('O rádio foi parado por um administrador.')],
+              components: [],
+            });
+          }
+
+          return interaction.update(buildRadioPanel(session));
+        }
 
         // ── LOJA / PERFIL: Botões da loja, config e perfil ──────────────
         if (
