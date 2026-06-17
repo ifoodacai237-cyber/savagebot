@@ -58,6 +58,7 @@ async function getCfg(guildId) {
 }
 
 export default {
+  name: 'loja',
   data: new SlashCommandBuilder()
     .setName('loja')
     .setDescription('🛒 Sistema de loja do servidor')

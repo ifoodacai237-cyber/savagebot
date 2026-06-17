@@ -42,26 +42,52 @@ export async function loadCommands(client) {
 }
 
 export async function registerSlashCommands(client) {
-  const body = [...client.commands.values()].map(c => c.data.toJSON());
-  const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+  const rest    = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+  const guildId = process.env.GUILD_ID;
 
+  // ── Serializa e valida cada comando individualmente ──────────────────────
+  const body = [];
+  console.log('📋 Comandos carregados:');
+  for (const cmd of client.commands.values()) {
+    try {
+      const json = cmd.data.toJSON();
+      body.push(json);
+      console.log(`   ✓ /${json.name}`);
+    } catch (e) {
+      console.error(`   ✗ /${cmd.data?.name ?? '?'} — ERRO: ${e.message}`);
+    }
+  }
+
+  // ── 1. Registro no servidor (instantâneo) ────────────────────────────────
+  if (guildId) {
+    try {
+      await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body });
+      const guild = client.guilds.cache.get(guildId)
+        ?? await client.guilds.fetch(guildId).catch(() => null);
+      console.log(`⚡ ${body.length} comandos registrados em "${guild?.name ?? guildId}" (instantâneo).`);
+    } catch (err) {
+      console.error('❌ Erro no registro do servidor:', err.message);
+      if (err.rawError) console.error('   Detalhes:', JSON.stringify(err.rawError, null, 2));
+    }
+  }
+
+  // ── 2. Registro global (todos os servidores, pode levar até 1h) ──────────
   try {
-    // Registra GLOBALMENTE → funciona em todos os servidores
     await rest.put(Routes.applicationCommands(client.user.id), { body });
-    console.log(`✅ ${body.length} slash commands registrados globalmente (todos os servidores).`);
-    console.log(`   🔗 Link de convite (necessário ter scope "applications.commands"):`);
-    console.log(`   https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot%20applications.commands`);
+    console.log(`🌐 ${body.length} comandos registrados globalmente (todos os servidores).`);
   } catch (err) {
-    console.error('❌ Erro ao registrar slash commands:', err.message ?? err);
+    console.error('❌ Erro no registro global:', err.message);
+    if (err.rawError) console.error('   Detalhes:', JSON.stringify(err.rawError, null, 2));
   }
 }
 
 export async function limparSlashCommands(botId, token) {
-  const rest = new REST({ version: '10' }).setToken(token);
-  try {
-    await rest.put(Routes.applicationCommands(botId), { body: [] });
-    console.log('🔴 Slash commands globais removidos (bot offline).');
-  } catch (e) {
-    console.error('[SHUTDOWN] Erro ao limpar commands:', e.message);
-  }
+  const rest    = new REST({ version: '10' }).setToken(token);
+  const guildId = process.env.GUILD_ID;
+
+  const ops = [rest.put(Routes.applicationCommands(botId), { body: [] }).catch(() => {})];
+  if (guildId) ops.push(rest.put(Routes.applicationGuildCommands(botId, guildId), { body: [] }).catch(() => {}));
+
+  await Promise.all(ops);
+  console.log('🔴 Slash commands removidos (bot offline).');
 }
