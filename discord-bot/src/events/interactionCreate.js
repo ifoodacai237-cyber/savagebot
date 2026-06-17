@@ -142,7 +142,7 @@ export default {
       // ── STRING SELECT MENUS ────────────────────────────────────────────────
       if (interaction.isStringSelectMenu()) {
         // ── RÁDIO: Selecionar playlist ──────────────────────────────────────
-        if (interaction.customId === 'radio_playlist_sel') {
+        if (interaction.customId.startsWith('radio_playlist_sel')) {
           const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.ManageGuild);
           if (!isAdmin) {
             return interaction.update({
@@ -150,16 +150,18 @@ export default {
               components: [],
             });
           }
-          const voiceChannel = interaction.member.voice.channel;
+
+          const channelId   = interaction.customId.split(':')[1];
+          const voiceChannel = interaction.guild.channels.cache.get(channelId);
           if (!voiceChannel) {
             return interaction.update({
-              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Você precisa estar em um canal de voz.')],
+              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Canal de voz não encontrado.')],
               components: [],
             });
           }
 
           await interaction.update({
-            embeds: [new EmbedBuilder().setColor(0x9B4FD6).setDescription('📻 Carregando estação e entrando no canal...')],
+            embeds: [new EmbedBuilder().setColor(0x9B4FD6).setDescription(`📻 Carregando estação e entrando em **${voiceChannel.name}**...`)],
             components: [],
           });
 
@@ -168,7 +170,7 @@ export default {
 
           if (!session) {
             return interaction.editReply({
-              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Não foi possível entrar no canal de voz.')],
+              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Não foi possível entrar no canal de voz. Verifique as permissões do bot.')],
               components: [],
             });
           }

@@ -12,53 +12,89 @@ export const PLAYLISTS = {
   lofi: {
     emoji: '🌙',
     name: 'Lo-Fi Chill',
-    query: 'lofi hip hop chill study beats',
+    query: 'lofi hip hop chill study beats playlist',
     color: 0x5865F2,
   },
   phonk: {
     emoji: '🔥',
     name: 'Phonk',
-    query: 'phonk music aggressive mix',
+    query: 'phonk aggressive drift music mix 2024',
     color: 0xED4245,
   },
-  funk: {
+  trapbr: {
     emoji: '🇧🇷',
+    name: 'Trap BR',
+    query: 'trap brasileiro 2024 funk trap nacional',
+    color: 0x2ECC71,
+  },
+  trapusa: {
+    emoji: '🌎',
+    name: 'Trap USA',
+    query: 'trap music usa hip hop 2024 mix',
+    color: 0xE67E22,
+  },
+  black90s: {
+    emoji: '🖤',
+    name: 'Black 90s/2000s',
+    query: 'rnb hip hop 90s 2000s classic hits mix',
+    color: 0x8E44AD,
+  },
+  funk: {
+    emoji: '🎉',
     name: 'Funk Nacional',
-    query: 'funk brasileiro hits 2024',
-    color: 0x57F287,
+    query: 'funk carioca brasileiro hits 2024',
+    color: 0xF39C12,
   },
   pop: {
     emoji: '🎵',
     name: 'Pop Nacional',
-    query: 'pop nacional brasileiro hits 2024',
+    query: 'pop brasileiro hits 2024',
     color: 0xFEE75C,
   },
   eletro: {
     emoji: '⚡',
-    name: 'Eletrônica',
-    query: 'electronic dance music mix 2024',
+    name: 'Eletrônica / EDM',
+    query: 'electronic dance music edm mix 2024',
     color: 0x00D4FF,
   },
   rap: {
     emoji: '🎤',
     name: 'Rap Nacional',
-    query: 'rap nacional brasileiro 2024',
+    query: 'rap nacional brasileiro 2024 melhores',
     color: 0x9B59B6,
+  },
+  pagodao: {
+    emoji: '🥁',
+    name: 'Pagodão / Boteco',
+    query: 'pagode samba brasil 2024 boteco',
+    color: 0xC0392B,
+  },
+  rock: {
+    emoji: '🎸',
+    name: 'Rock Clássico',
+    query: 'classic rock hits 70s 80s 90s mix',
+    color: 0x2C3E50,
+  },
+  reggaeton: {
+    emoji: '🌴',
+    name: 'Reggaeton / Latino',
+    query: 'reggaeton latino hits 2024 mix',
+    color: 0x27AE60,
   },
 };
 
 export class RadioSession {
   constructor({ connection, playlistKey, guildId }) {
-    this.connection      = connection;
-    this.playlistKey     = playlistKey;
-    this.playlist        = PLAYLISTS[playlistKey];
-    this.guildId         = guildId;
-    this.queue           = [];
-    this.currentIndex    = 0;
-    this.paused          = false;
-    this.player          = createAudioPlayer();
-    this.controlMessage  = null;
-    this._loadingNext    = false;
+    this.connection     = connection;
+    this.playlistKey    = playlistKey;
+    this.playlist       = PLAYLISTS[playlistKey];
+    this.guildId        = guildId;
+    this.queue          = [];
+    this.currentIndex   = 0;
+    this.paused         = false;
+    this.player         = createAudioPlayer();
+    this.controlMessage = null;
+    this._loadingNext   = false;
 
     connection.subscribe(this.player);
 
@@ -74,8 +110,14 @@ export class RadioSession {
 
   async loadQueue() {
     try {
-      const results = await play.search(this.playlist.query, { source: { youtube: 'video' }, limit: 10 });
-      this.queue = results.map(v => ({ title: v.title ?? 'Desconhecido', url: v.url, duration: v.durationRaw ?? '?' }));
+      const results = await play.search(this.playlist.query, {
+        source: { youtube: 'video' },
+        limit: 10,
+      });
+      this.queue = results
+        .filter(v => v.url && v.durationInSec > 0 && v.durationInSec < 600)
+        .map(v => ({ title: v.title ?? 'Desconhecido', url: v.url, duration: v.durationRaw ?? '?' }));
+      if (!this.queue.length) throw new Error('Nenhum resultado válido');
     } catch (err) {
       console.error('[RADIO] Erro ao carregar fila:', err.message);
       this.queue = [];
@@ -94,7 +136,9 @@ export class RadioSession {
     try {
       const next = (this.currentIndex + 1) % this.queue.length;
       if (next === 0) await this.loadQueue();
-      await this._playIndex(next);
+      if (this.queue.length) await this._playIndex(next);
+    } catch (err) {
+      console.error('[RADIO] Advance error:', err.message);
     } finally {
       this._loadingNext = false;
     }
@@ -104,20 +148,28 @@ export class RadioSession {
     if (!this.queue[index]) return;
     this.currentIndex = index;
     try {
-      const src    = await play.stream(this.queue[index].url);
-      const res    = createAudioResource(src.stream, { inputType: src.type });
+      const src = await play.stream(this.queue[index].url, { quality: 2 });
+      const res = createAudioResource(src.stream, { inputType: src.type });
       this.player.play(res);
     } catch (err) {
       console.error(`[RADIO] Erro ao tocar ${this.queue[index]?.url}:`, err.message);
       const next = (index + 1) % this.queue.length;
-      if (next !== index) await this._playIndex(next);
+      if (next !== index) {
+        this.currentIndex = next;
+        await this._playIndex(next);
+      }
     }
   }
 
   async skip() {
-    const next = (this.currentIndex + 1) % this.queue.length;
-    if (next === 0) await this.loadQueue();
-    await this._playIndex(next);
+    this._loadingNext = true;
+    try {
+      const next = (this.currentIndex + 1) % this.queue.length;
+      if (next === 0) await this.loadQueue();
+      if (this.queue.length) await this._playIndex(next);
+    } finally {
+      this._loadingNext = false;
+    }
   }
 
   pause() {
@@ -145,20 +197,23 @@ export const radioSessions = new Map();
 
 export async function createRadioSession({ guild, channelId, playlistKey }) {
   const existing = radioSessions.get(guild.id);
-  if (existing) existing.stop();
+  if (existing) {
+    try { existing.stop(); } catch {}
+  }
 
-  const connection = joinVoiceChannel({
-    channelId,
-    guildId:        guild.id,
-    adapterCreator: guild.voiceAdapterCreator,
-    selfDeaf:       true,
-    selfMute:       false,
-  });
-
+  let connection;
   try {
-    await entersState(connection, VoiceConnectionStatus.Ready, 10_000);
-  } catch {
-    connection.destroy();
+    connection = joinVoiceChannel({
+      channelId,
+      guildId:        guild.id,
+      adapterCreator: guild.voiceAdapterCreator,
+      selfDeaf:       true,
+      selfMute:       false,
+    });
+    await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
+  } catch (err) {
+    console.error('[RADIO] Falha ao entrar no canal:', err.message);
+    try { connection?.destroy(); } catch {}
     return null;
   }
 
