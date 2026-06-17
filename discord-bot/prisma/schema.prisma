@@ -74,6 +74,16 @@ model GuildConfig {
   lojaColor      String?
   lojaConversao  String?
   lojaUseDivider Boolean @default(false)
+
+  welcomeChannel   String?
+  welcomeColor     String?
+  welcomeBanner    String?
+  welcomeThumb     String?
+  welcomeFooter    String?
+  welcomeTitle     String?
+  welcomeText      String?
+  welcomeRoles     String?
+  welcomeChannels  String?
 }
 
 model Economy {

@@ -1,1 +1,3 @@
 - [Discord Bot Shop System](discord-bot-shop.md) — sistema de loja com banners e cargos; modelos ShopRole/UserPurchase/UserProfile no Prisma; handlers em shopHandlers.js.
+- [Radio — Streams Diretos](radio-streams.md) — rádio usa FFmpeg + ilovemusic.de (MP3 direto), não YouTube. play-dl falha em Replit com "Sign in to confirm you're not a bot". StreamType.Raw com PCM s16le.
+- [Welcome System](welcome-system.md) — sistema de boas-vindas com painel wcfg_, evento guildMemberAdd.js, comando /boas-vindas. Campos no GuildConfig: welcomeChannel/Color/Banner/Thumb/Footer/Title/Text/Roles/Channels.

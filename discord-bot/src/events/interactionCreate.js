@@ -19,7 +19,7 @@ import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, Colors } from '.
 import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoes.js';
 import { generateTellonymCard } from '../utils/cardGenerator.js';
 import { likesMap } from '../utils/instaState.js';
-import { buildTicketConfigPayload, buildTellonymConfigPayload, DEFAULT_TICKET_TEXT, DEFAULT_TELLONYM_TEXT, DEFAULT_QUESTIONS } from '../utils/configPanels.js';
+import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, DEFAULT_TICKET_TEXT, DEFAULT_TELLONYM_TEXT, DEFAULT_WELCOME_TITLE, DEFAULT_WELCOME_TEXT, DEFAULT_QUESTIONS } from '../utils/configPanels.js';
 import {
   getSession,
   deleteSession,
@@ -94,6 +94,15 @@ const TELLONYM_MODAL_FIELDS = {
   texto:  { label: 'Texto principal do painel',  db: 'tellonymText',   placeholder: 'Clique no botão para enviar uma mensagem... (deixe vazio para padrão)', isUrl: false, isLong: true },
 };
 
+const WELCOME_MODAL_FIELDS = {
+  cor:    { label: 'Cor (hex, ex: 5865F2)',        db: 'welcomeColor',   placeholder: '5865F2 (deixe vazio para padrão)',                isUrl: false, isLong: false },
+  titulo: { label: 'Título (use {server}, {count})', db: 'welcomeTitle', placeholder: '👋 Bem-vindo(a) ao {server}!',                   isUrl: false, isLong: false },
+  banner: { label: 'URL do banner',               db: 'welcomeBanner',  placeholder: 'https://... (deixe vazio para remover)',            isUrl: true,  isLong: false },
+  thumb:  { label: 'URL da thumbnail',            db: 'welcomeThumb',   placeholder: 'https://... (deixe vazio para avatar do usuário)', isUrl: true,  isLong: false },
+  rodape: { label: 'Rodapé (use {server}, {count})', db: 'welcomeFooter', placeholder: '{server} • Membro nº {count}',                  isUrl: false, isLong: false },
+  texto:  { label: 'Texto ({user} {username} {server} {count})', db: 'welcomeText', placeholder: '> Seja bem-vindo(a), {user}!', isUrl: false, isLong: true },
+};
+
 // ─── Handler principal ────────────────────────────────────────────────────────
 
 export default {
@@ -113,6 +122,17 @@ export default {
       // ── CHANNEL SELECT MENUS ───────────────────────────────────────────────
       if (interaction.isChannelSelectMenu()) {
         const channelId = interaction.values[0];
+
+        if (interaction.customId === 'chansel_wc') {
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, welcomeChannel: channelId },
+            update: { welcomeChannel: channelId },
+          });
+          const cfg     = await getCfg(interaction.guildId);
+          const payload = buildWelcomeConfigPayload(cfg);
+          return interaction.update({ ...payload, content: null });
+        }
 
         if (interaction.customId === 'chansel_tc') {
           await prisma.guildConfig.upsert({
@@ -696,6 +716,113 @@ export default {
           return interaction.showModal(modal);
         }
 
+        // ── CONFIG: Boas-Vindas — botões de campo ───────────────────────
+        if (customId.startsWith('wcfg_')) {
+          const field = customId.replace('wcfg_', '');
+
+          if (field === 'test') {
+            await interaction.deferReply({ ephemeral: true });
+            const cfg = await getCfg(interaction.guildId);
+            if (!cfg.welcomeChannel) {
+              return interaction.editReply({ embeds: [errorEmbed('Configure primeiro o **Canal** de boas-vindas.')] });
+            }
+            const channel = interaction.guild.channels.cache.get(cfg.welcomeChannel)
+              ?? await interaction.guild.channels.fetch(cfg.welcomeChannel).catch(() => null);
+            if (!channel) {
+              return interaction.editReply({ embeds: [errorEmbed('Canal de boas-vindas não encontrado.')] });
+            }
+            const color    = cfg.welcomeColor ? (parseInt(cfg.welcomeColor, 16) || 0x5865F2) : 0x5865F2;
+            const member   = interaction.member;
+            const vars     = {
+              user:     `<@${member.id}>`,
+              username: member.user.username,
+              server:   interaction.guild.name,
+              count:    interaction.guild.memberCount.toLocaleString('pt-BR'),
+            };
+            const title = (cfg.welcomeTitle ?? DEFAULT_WELCOME_TITLE).replace(/\{user\}/g, vars.user).replace(/\{username\}/g, vars.username).replace(/\{server\}/g, vars.server).replace(/\{count\}/g, vars.count);
+            const desc  = (cfg.welcomeText  ?? DEFAULT_WELCOME_TEXT ).replace(/\{user\}/g, vars.user).replace(/\{username\}/g, vars.username).replace(/\{server\}/g, vars.server).replace(/\{count\}/g, vars.count);
+            const embed = new EmbedBuilder().setColor(color).setTitle(title).setDescription(desc).setTimestamp();
+            if (cfg.welcomeBanner) embed.setImage(cfg.welcomeBanner);
+            if (cfg.welcomeThumb)  embed.setThumbnail(cfg.welcomeThumb);
+            else                   embed.setThumbnail(member.user.displayAvatarURL({ size: 256 }));
+            if (cfg.welcomeFooter) embed.setFooter({ text: cfg.welcomeFooter.replace(/\{server\}/g, vars.server).replace(/\{count\}/g, vars.count) });
+            const parts = [`<@${member.id}>`];
+            if (cfg.welcomeRoles)    cfg.welcomeRoles.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<@&${id}>`));
+            if (cfg.welcomeChannels) cfg.welcomeChannels.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<#${id}>`));
+            await channel.send({ content: parts.join(' ') + ' *(teste)*', embeds: [embed] });
+            return interaction.editReply({ embeds: [successEmbed('Teste Enviado', `Mensagem de teste enviada em ${channel}.`)] });
+          }
+
+          if (field === 'canal') {
+            const select = new ChannelSelectMenuBuilder()
+              .setCustomId('chansel_wc')
+              .setPlaceholder('Selecione o canal de boas-vindas')
+              .setChannelTypes([ChannelType.GuildText]);
+            return interaction.reply({
+              content: '📣 Selecione o canal onde as boas-vindas serão enviadas:',
+              components: [new ActionRowBuilder().addComponents(select)],
+              ephemeral: true,
+            });
+          }
+
+          if (field === 'cargos') {
+            const cfg = await getCfg(interaction.guildId);
+            const modal = new ModalBuilder().setCustomId('wcfg_modal_cargos').setTitle('🔔 Cargos a Mencionar');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('value')
+                  .setLabel('IDs dos cargos (separados por vírgula)')
+                  .setStyle(TextInputStyle.Paragraph)
+                  .setPlaceholder('Ex: 123456789, 987654321\n(deixe vazio para remover)')
+                  .setValue(cfg.welcomeRoles ?? '')
+                  .setRequired(false)
+                  .setMaxLength(500)
+              ),
+            );
+            return interaction.showModal(modal);
+          }
+
+          if (field === 'canais') {
+            const cfg = await getCfg(interaction.guildId);
+            const modal = new ModalBuilder().setCustomId('wcfg_modal_canais').setTitle('🔗 Canais a Mencionar');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('value')
+                  .setLabel('IDs dos canais (separados por vírgula)')
+                  .setStyle(TextInputStyle.Paragraph)
+                  .setPlaceholder('Ex: 123456789, 987654321\n(deixe vazio para remover)')
+                  .setValue(cfg.welcomeChannels ?? '')
+                  .setRequired(false)
+                  .setMaxLength(500)
+              ),
+            );
+            return interaction.showModal(modal);
+          }
+
+          const def = WELCOME_MODAL_FIELDS[field];
+          if (!def) return;
+
+          const cfg   = await getCfg(interaction.guildId);
+          const modal = new ModalBuilder()
+            .setCustomId(`wcfg_modal_${field}`)
+            .setTitle(`🎉 Boas-Vindas — ${def.label.slice(0, 45)}`);
+          modal.addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('value')
+                .setLabel(def.label.slice(0, 45))
+                .setStyle(def.isLong ? TextInputStyle.Paragraph : TextInputStyle.Short)
+                .setPlaceholder(def.placeholder.slice(0, 100))
+                .setValue((cfg[def.db] ?? ''))
+                .setRequired(false)
+                .setMaxLength(def.isLong ? 1000 : 200)
+            ),
+          );
+          return interaction.showModal(modal);
+        }
+
         // ── INTERAÇÕES: Retribuir ────────────────────────────────────────
         if (customId.startsWith('int_r_')) {
           const parts          = customId.split('_');
@@ -1191,6 +1318,82 @@ export default {
           const cfg     = await getCfg(interaction.guildId);
           const payload = buildTellonymConfigPayload(cfg);
           await interaction.message?.edit(payload).catch(() => {});
+          return interaction.reply({ content: '✅ Campo atualizado!', ephemeral: true });
+        }
+
+        // ── CONFIG: Boas-Vindas — salvar cargos/canais ──────────────────
+        if (interaction.customId === 'wcfg_modal_cargos') {
+          const raw = interaction.fields.getTextInputValue('value').trim();
+          const ids = raw ? raw.split(/[\s,]+/).map(s => s.replace(/[<@&>]/g, '').trim()).filter(s => /^\d{15,20}$/.test(s)).join(',') : null;
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, welcomeRoles: ids },
+            update: { welcomeRoles: ids },
+          });
+          const cfg = await getCfg(interaction.guildId);
+          await interaction.message?.edit(buildWelcomeConfigPayload(cfg)).catch(() => {});
+          return interaction.reply({ content: ids ? `✅ Cargos configurados!` : '✅ Cargos removidos.', ephemeral: true });
+        }
+
+        if (interaction.customId === 'wcfg_modal_canais') {
+          const raw = interaction.fields.getTextInputValue('value').trim();
+          const ids = raw ? raw.split(/[\s,]+/).map(s => s.replace(/[<#>]/g, '').trim()).filter(s => /^\d{15,20}$/.test(s)).join(',') : null;
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, welcomeChannels: ids },
+            update: { welcomeChannels: ids },
+          });
+          const cfg = await getCfg(interaction.guildId);
+          await interaction.message?.edit(buildWelcomeConfigPayload(cfg)).catch(() => {});
+          return interaction.reply({ content: ids ? '✅ Canais configurados!' : '✅ Canais removidos.', ephemeral: true });
+        }
+
+        // ── CONFIG: Boas-Vindas — salvar campo modal ─────────────────────
+        if (interaction.customId.startsWith('wcfg_modal_')) {
+          const field = interaction.customId.replace('wcfg_modal_', '');
+          const def   = WELCOME_MODAL_FIELDS[field];
+          if (!def) return;
+
+          const rawValue = interaction.fields.getTextInputValue('value');
+          let value = rawValue?.trim() ?? '';
+          const isEmpty = value === '';
+
+          if (def.isUrl) {
+            await interaction.deferReply({ ephemeral: true });
+            if (isEmpty) {
+              value = null;
+            } else {
+              const resolved = await resolveImageUrl(value, client);
+              if (resolved === null) {
+                return interaction.editReply({
+                  embeds: [errorEmbed('Não encontrei nenhuma imagem. Cole uma URL direta (ex: `https://i.imgur.com/...`) ou o link de uma mensagem do Discord com imagem.')],
+                });
+              }
+              value = resolved;
+            }
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, [def.db]: value },
+              update: { [def.db]: value },
+            });
+            const cfg = await getCfg(interaction.guildId);
+            await interaction.message?.edit(buildWelcomeConfigPayload(cfg)).catch(() => {});
+            return interaction.editReply({ content: '✅ Campo atualizado!' });
+          }
+
+          if (isEmpty) {
+            value = null;
+          } else if (field === 'cor') {
+            value = value.replace('#', '').toUpperCase();
+          }
+
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, [def.db]: value },
+            update: { [def.db]: value },
+          });
+          const cfg = await getCfg(interaction.guildId);
+          await interaction.message?.edit(buildWelcomeConfigPayload(cfg)).catch(() => {});
           return interaction.reply({ content: '✅ Campo atualizado!', ephemeral: true });
         }
 
