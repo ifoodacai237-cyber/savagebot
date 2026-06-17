@@ -42,25 +42,33 @@ export async function loadCommands(client) {
 }
 
 export async function registerSlashCommands(client) {
-  const body = [...client.commands.values()].map(c => c.data.toJSON());
-  const rest  = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+  const body    = [...client.commands.values()].map(c => c.data.toJSON());
+  const rest    = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+  const guildId = process.env.GUILD_ID;
 
   try {
-    if (process.env.GUILD_ID) {
-      // Limpa comandos globais para evitar duplicatas/comandos antigos
+    if (guildId) {
+      // 1. Limpa qualquer comando global antigo (evita duplicatas)
       await rest.put(Routes.applicationCommands(client.user.id), { body: [] }).catch(() => {});
 
-      // Registra comandos no servidor específico (aparecem instantaneamente)
-      await rest.put(
-        Routes.applicationGuildCommands(client.user.id, process.env.GUILD_ID),
-        { body }
-      );
-      console.log(`✅ ${body.length} slash commands registrados instantaneamente no servidor.`);
+      // 2. Registra no servidor específico → aparecem instantaneamente
+      await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body });
+
+      // 3. Confirma qual servidor foi usado
+      const guild = client.guilds.cache.get(guildId)
+        ?? await client.guilds.fetch(guildId).catch(() => null);
+
+      const nome = guild?.name ?? guildId;
+      console.log(`✅ ${body.length} slash commands registrados em "${nome}" (${guildId}).`);
+      console.log('   ⚠️  Se não aparecerem, reinvite o bot com o scope "applications.commands":');
+      console.log(`   https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot%20applications.commands`);
     } else {
+      // Sem GUILD_ID → registro global (pode levar até 1 hora para aparecer)
       await rest.put(Routes.applicationCommands(client.user.id), { body });
-      console.log(`✅ ${body.length} slash commands registrados globalmente.`);
+      console.log(`✅ ${body.length} slash commands registrados globalmente (até 1h para aparecer).`);
+      console.log('   💡 Defina GUILD_ID nas variáveis de ambiente para registro instantâneo.');
     }
   } catch (err) {
-    console.error('❌ Erro ao registrar slash commands:', err);
+    console.error('❌ Erro ao registrar slash commands:', err.message ?? err);
   }
 }
