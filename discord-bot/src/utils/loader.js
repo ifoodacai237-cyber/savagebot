@@ -42,33 +42,26 @@ export async function loadCommands(client) {
 }
 
 export async function registerSlashCommands(client) {
-  const body    = [...client.commands.values()].map(c => c.data.toJSON());
-  const rest    = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-  const guildId = process.env.GUILD_ID;
+  const body = [...client.commands.values()].map(c => c.data.toJSON());
+  const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
   try {
-    if (guildId) {
-      // 1. Limpa qualquer comando global antigo (evita duplicatas)
-      await rest.put(Routes.applicationCommands(client.user.id), { body: [] }).catch(() => {});
-
-      // 2. Registra no servidor específico → aparecem instantaneamente
-      await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body });
-
-      // 3. Confirma qual servidor foi usado
-      const guild = client.guilds.cache.get(guildId)
-        ?? await client.guilds.fetch(guildId).catch(() => null);
-
-      const nome = guild?.name ?? guildId;
-      console.log(`✅ ${body.length} slash commands registrados em "${nome}" (${guildId}).`);
-      console.log('   ⚠️  Se não aparecerem, reinvite o bot com o scope "applications.commands":');
-      console.log(`   https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot%20applications.commands`);
-    } else {
-      // Sem GUILD_ID → registro global (pode levar até 1 hora para aparecer)
-      await rest.put(Routes.applicationCommands(client.user.id), { body });
-      console.log(`✅ ${body.length} slash commands registrados globalmente (até 1h para aparecer).`);
-      console.log('   💡 Defina GUILD_ID nas variáveis de ambiente para registro instantâneo.');
-    }
+    // Registra GLOBALMENTE → funciona em todos os servidores
+    await rest.put(Routes.applicationCommands(client.user.id), { body });
+    console.log(`✅ ${body.length} slash commands registrados globalmente (todos os servidores).`);
+    console.log(`   🔗 Link de convite (necessário ter scope "applications.commands"):`);
+    console.log(`   https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot%20applications.commands`);
   } catch (err) {
     console.error('❌ Erro ao registrar slash commands:', err.message ?? err);
+  }
+}
+
+export async function limparSlashCommands(botId, token) {
+  const rest = new REST({ version: '10' }).setToken(token);
+  try {
+    await rest.put(Routes.applicationCommands(botId), { body: [] });
+    console.log('🔴 Slash commands globais removidos (bot offline).');
+  } catch (e) {
+    console.error('[SHUTDOWN] Erro ao limpar commands:', e.message);
   }
 }
