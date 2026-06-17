@@ -2,116 +2,111 @@ import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, But
 import prisma from '../../database/client.js';
 import { errorEmbed } from '../../utils/embed.js';
 
-// ─── Definição das Ações ─────────────────────────────────────────────────────
+// ─── Definição das Ações (nomes em inglês + aliases curtos) ──────────────────
 
 export const ACTIONS = {
-  beijar: {
-    emoji:    '💋',
-    gif:      'kiss',
-    color:    0xFF6B9D,
-    desc:     'Dá um beijo em alguém',
-    msg:      (a, b) => `**${a}** beija **${b}**.`,
-    counter:  (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'beijo' : 'beijos'}.*`,
-    btnLabel: 'Dar beijo de volta',
-    retribuir: 'beijar',
+  kiss: {
+    aliases:   ['k', 'bj', 'beijo', 'beijar'],
+    emoji:     '💋',
+    gif:       'kiss',
+    color:     0xFF6B9D,
+    desc:      '💋 Dá um beijo em alguém',
+    msg:       (a, b) => `**${a}** beija **${b}** 💋`,
+    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'beijo' : 'beijos'}.*`,
+    btnLabel:  'Beijar de volta',
+    retribuir: 'kiss',
   },
-  abracar: {
-    emoji:    '🤗',
-    gif:      'hug',
-    color:    0xFFB347,
-    desc:     'Abraça alguém',
-    msg:      (a, b) => `**${a}** abraça **${b}**.`,
-    counter:  (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'abraço' : 'abraços'}.*`,
-    btnLabel: 'Dar abraço de volta',
-    retribuir: 'abracar',
+  hug: {
+    aliases:   ['h', 'abraco', 'abracar'],
+    emoji:     '🤗',
+    gif:       'hug',
+    color:     0xFFB347,
+    desc:      '🤗 Abraça alguém',
+    msg:       (a, b) => `**${a}** abraça **${b}** 🤗`,
+    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'abraço' : 'abraços'}.*`,
+    btnLabel:  'Abraçar de volta',
+    retribuir: 'hug',
   },
-  tapa: {
-    emoji:    '👋',
-    gif:      'slap',
-    color:    0xFF4444,
-    desc:     'Dá um tapa em alguém',
-    msg:      (a, b) => `**${a}** esbofeteia **${b}**.`,
-    counter:  (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'tapa' : 'tapas'}.*`,
-    btnLabel: 'Dar tapa de volta',
-    retribuir: 'tapa',
+  slap: {
+    aliases:   ['s', 'tapa', 'esbofetear'],
+    emoji:     '👋',
+    gif:       'slap',
+    color:     0xFF4444,
+    desc:      '👋 Dá um tapa em alguém',
+    msg:       (a, b) => `**${a}** esbofeteia **${b}** 👋`,
+    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'tapa' : 'tapas'}.*`,
+    btnLabel:  'Dar tapa de volta',
+    retribuir: 'slap',
   },
-  soco: {
-    emoji:    '👊',
-    gif:      'punch',
-    color:    0xFF6600,
-    desc:     'Dá um soco em alguém',
-    msg:      (a, b) => `**${a}** soca **${b}**.`,
-    counter:  (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'soco' : 'socos'}.*`,
-    btnLabel: 'Dar soco de volta',
-    retribuir: 'soco',
+  punch: {
+    aliases:   ['p', 'soco', 'murro'],
+    emoji:     '👊',
+    gif:       'punch',
+    color:     0xFF6600,
+    desc:      '👊 Dá um soco em alguém',
+    msg:       (a, b) => `**${a}** soca **${b}** 👊`,
+    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'soco' : 'socos'}.*`,
+    btnLabel:  'Dar soco de volta',
+    retribuir: 'punch',
   },
   poke: {
-    emoji:    '👉',
-    gif:      'poke',
-    color:    0x7289DA,
-    desc:     'Cutuca alguém',
-    msg:      (a, b) => `**${a}** cutuca **${b}**.`,
-    counter:  (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'cutucada' : 'cutucadas'}.*`,
-    btnLabel: 'Cutucar de volta',
+    aliases:   ['pk', 'cutucar', 'cutuca'],
+    emoji:     '👉',
+    gif:       'poke',
+    color:     0x7289DA,
+    desc:      '👉 Cutuca alguém',
+    msg:       (a, b) => `**${a}** cutuca **${b}** 👉`,
+    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'cutucada' : 'cutucadas'}.*`,
+    btnLabel:  'Cutucar de volta',
     retribuir: 'poke',
   },
-  morder: {
-    emoji:    '😬',
-    gif:      'bite',
-    color:    0xAA0000,
-    desc:     'Morde alguém',
-    msg:      (a, b) => `**${a}** morde **${b}**.`,
-    counter:  (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'mordida' : 'mordidas'}.*`,
-    btnLabel: 'Morder de volta',
-    retribuir: 'morder',
+  bite: {
+    aliases:   ['b', 'morder', 'morde'],
+    emoji:     '😬',
+    gif:       'bite',
+    color:     0xAA0000,
+    desc:      '😬 Morde alguém',
+    msg:       (a, b) => `**${a}** morde **${b}** 😬`,
+    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'mordida' : 'mordidas'}.*`,
+    btnLabel:  'Morder de volta',
+    retribuir: 'bite',
   },
-  carinho: {
-    emoji:    '🥰',
-    gif:      'pat',
-    color:    0xFF69B4,
-    desc:     'Faz carinho em alguém',
-    msg:      (a, b) => `**${a}** faz carinho em **${b}**.`,
-    counter:  (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'carinho' : 'carinhos'}.*`,
-    btnLabel: 'Dar carinho de volta',
-    retribuir: 'carinho',
+  pat: {
+    aliases:   ['pa', 'carinho'],
+    emoji:     '🥰',
+    gif:       'pat',
+    color:     0xFF69B4,
+    desc:      '🥰 Faz carinho em alguém',
+    msg:       (a, b) => `**${a}** faz carinho em **${b}** 🥰`,
+    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'carinho' : 'carinhos'}.*`,
+    btnLabel:  'Dar carinho de volta',
+    retribuir: 'pat',
   },
-  empurrar: {
-    emoji:    '😤',
-    gif:      'kick',
-    color:    0x888888,
-    desc:     'Empurra alguém',
-    msg:      (a, b) => `**${a}** empurra **${b}**.`,
-    counter:  (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'empurrão' : 'empurrões'}.*`,
-    btnLabel: 'Empurrar de volta',
-    retribuir: 'empurrar',
+  push: {
+    aliases:   ['pu', 'empurrar', 'empurra'],
+    emoji:     '😤',
+    gif:       'kick',
+    color:     0x888888,
+    desc:      '😤 Empurra alguém',
+    msg:       (a, b) => `**${a}** empurra **${b}** 😤`,
+    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'empurrão' : 'empurrões'}.*`,
+    btnLabel:  'Empurrar de volta',
+    retribuir: 'push',
   },
 };
 
-// ─── Busca GIF + fonte animê ──────────────────────────────────────────────────
+// ─── Busca GIF animê (nekos.best) ─────────────────────────────────────────────
 
 export async function fetchGif(category) {
   try {
     const res = await fetch(`https://nekos.best/api/v2/${category}?amount=1`, {
-      headers: {
-        'User-Agent': 'SlowBot/1.0 (Discord Bot)',
-        'Accept':     'application/json',
-      },
+      headers: { 'User-Agent': 'SlowBot/1.0', 'Accept': 'application/json' },
     });
-
-    if (!res.ok) {
-      console.error(`[NEKOS] HTTP ${res.status} para ${category}`);
-      return { url: null, anime: null };
-    }
-
+    if (!res.ok) return { url: null, anime: null };
     const data   = await res.json();
     const result = data.results?.[0];
-    const url    = result?.url ?? null;
-    const anime  = result?.anime_name ?? null;
-
-    console.log(`[NEKOS] ${category} → ${url ?? 'sem URL'} | anime: ${anime ?? '?'}`);
-    return { url, anime };
-  } catch (e) {
-    console.error(`[NEKOS ERROR] ${category}: ${e.message}`);
+    return { url: result?.url ?? null, anime: result?.anime_name ?? null };
+  } catch {
     return { url: null, anime: null };
   }
 }
@@ -127,7 +122,7 @@ async function incrementCount(type, fromId, toId, guildId) {
   return row.count;
 }
 
-// ─── Constrói embed + botão ───────────────────────────────────────────────────
+// ─── Constrói embed + botão de retribuição ────────────────────────────────────
 
 export async function buildInteractionEmbed(type, fromUser, toUser, guildId) {
   const action   = ACTIONS[type];
@@ -146,11 +141,10 @@ export async function buildInteractionEmbed(type, fromUser, toUser, guildId) {
   if (gifData.url)   embed.setImage(gifData.url);
   if (gifData.anime) embed.setFooter({ text: `Anime: ${gifData.anime}` });
 
-  const retType = action.retribuir;
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`int_r_${retType}_${fromUser.id}`)
-      .setEmoji(ACTIONS[retType].emoji)
+      .setCustomId(`int_r_${type}_${fromUser.id}`)
+      .setEmoji(ACTIONS[type].emoji)
       .setLabel(action.btnLabel)
       .setStyle(ButtonStyle.Secondary),
   );
@@ -158,11 +152,18 @@ export async function buildInteractionEmbed(type, fromUser, toUser, guildId) {
   return { embeds: [embed], components: [row] };
 }
 
-// ─── Handler genérico ────────────────────────────────────────────────────────
+// ─── Handler genérico ─────────────────────────────────────────────────────────
 
 async function runAction(type, actor, target, guildId, replyFn) {
-  if (target.bot)             return replyFn({ embeds: [errorEmbed('Você não pode interagir com um bot.')], ephemeral: true });
-  if (target.id === actor.id) return replyFn({ embeds: [errorEmbed('Você não pode interagir consigo mesmo.')], ephemeral: true });
+  const actorId  = actor.id ?? actor.user?.id;
+  const targetId = target.id ?? target.user?.id;
+
+  if (target.bot ?? target.user?.bot)
+    return replyFn({ embeds: [errorEmbed('Você não pode interagir com um bot.')], ephemeral: true });
+
+  if (targetId === actorId)
+    return replyFn({ embeds: [errorEmbed('Você não pode interagir consigo mesmo.')], ephemeral: true });
+
   const payload = await buildInteractionEmbed(type, actor, target, guildId);
   return replyFn(payload);
 }
@@ -176,20 +177,37 @@ function makeCommand(type) {
       .setName(type)
       .setDescription(action.desc)
       .addUserOption(o => o.setName('usuario').setDescription('Usuário alvo').setRequired(true)),
-    name: type,
+    name:    type,
+    aliases: action.aliases,
 
     async execute(interaction) {
       await interaction.deferReply();
       const target = interaction.options.getUser('usuario');
       const member = await interaction.guild.members.fetch(target.id).catch(() => target);
-      await runAction(type, interaction.member ?? interaction.user, member, interaction.guildId, opts => interaction.editReply(opts));
+      await runAction(
+        type,
+        interaction.member ?? interaction.user,
+        member,
+        interaction.guildId,
+        opts => interaction.editReply(opts),
+      );
     },
 
-    async executePrefix(message) {
+    async executePrefix(message, args) {
       const target = message.mentions.users.first();
-      if (!target) return message.reply({ embeds: [errorEmbed(`Mencione o usuário. Ex: \`slow ${type} @user\``)] });
+      if (!target) {
+        return message.reply({
+          embeds: [errorEmbed(`Mencione o usuário. Ex: \`slow ${type} @user\` ou \`slow ${action.aliases[0]} @user\``)],
+        });
+      }
       const member = await message.guild.members.fetch(target.id).catch(() => target);
-      await runAction(type, message.member ?? message.author, member, message.guildId, opts => message.reply(opts));
+      await runAction(
+        type,
+        message.member ?? message.author,
+        member,
+        message.guildId,
+        opts => message.reply(opts),
+      );
     },
   };
 }

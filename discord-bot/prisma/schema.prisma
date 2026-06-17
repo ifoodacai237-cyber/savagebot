@@ -60,12 +60,13 @@ model GuildConfig {
   tellonymTitle   String?
   tellonymText    String?
 
-  lojaTitle     String?
-  lojaText      String?
-  lojaBanner    String?
-  lojaThumb     String?
-  lojaColor     String?
-  lojaConversao String?
+  lojaTitle      String?
+  lojaText       String?
+  lojaBanner     String?
+  lojaThumb      String?
+  lojaColor      String?
+  lojaConversao  String?
+  lojaUseDivider Boolean @default(false)
 }
 
 model Economy {

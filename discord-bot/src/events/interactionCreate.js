@@ -139,10 +139,11 @@ export default {
 
       // ── STRING SELECT MENUS ────────────────────────────────────────────────
       if (interaction.isStringSelectMenu()) {
-        // ── LOJA / PERFIL: Menus da loja e banner ──────────────────────────
+        // ── LOJA / PERFIL / ADMIN: Menus da loja e banner ──────────────────
         if (
           interaction.customId.startsWith('shop_') ||
-          interaction.customId.startsWith('profile_')
+          interaction.customId.startsWith('profile_') ||
+          interaction.customId.startsWith('loja_admin_')
         ) {
           return handleShopInteraction(interaction, client);
         }
@@ -220,6 +221,7 @@ export default {
         if (
           customId.startsWith('shop_') ||
           customId.startsWith('loja_cfg_') ||
+          customId.startsWith('loja_admin_') ||
           customId === 'profile_banner_btn'
         ) {
           return handleShopInteraction(interaction, client);
@@ -540,7 +542,16 @@ export default {
           const originalFromId = parts[3];
           if (!ACTIONS[type]) return;
 
-          const from   = interaction.member ?? interaction.user;
+          const from = interaction.member ?? interaction.user;
+
+          // Impede o autor original de reagir ao próprio comando
+          if (from.id === originalFromId) {
+            return interaction.reply({
+              content: '❌ Você não pode reagir ao seu próprio comando!',
+              ephemeral: true,
+            });
+          }
+
           const toUser = await interaction.guild.members.fetch(originalFromId).catch(() =>
             interaction.client.users.fetch(originalFromId).catch(() => null)
           );
@@ -725,8 +736,12 @@ export default {
       // ── MODALS ─────────────────────────────────────────────────────────────
       if (interaction.isModalSubmit()) {
 
-        // ── LOJA: Config modal ──────────────────────────────────────────
-        if (interaction.customId.startsWith('loja_cfg_modal_')) {
+        // ── LOJA: Config, gift e admin modals ──────────────────────────
+        if (
+          interaction.customId.startsWith('loja_cfg_modal_') ||
+          interaction.customId === 'shop_gift_modal' ||
+          interaction.customId.startsWith('loja_admin_modal_')
+        ) {
           return handleShopInteraction(interaction, client);
         }
 
