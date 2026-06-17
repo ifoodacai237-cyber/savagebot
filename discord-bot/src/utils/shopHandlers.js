@@ -524,7 +524,7 @@ async function handleGiftItemSel(interaction) {
 }
 
 async function handleGiftBuyExecute(interaction, client) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferUpdate();
 
   const rest    = interaction.customId.slice('shop_gok:'.length);
   const colonAt = rest.indexOf(':');
