@@ -30,6 +30,9 @@ model Ticket {
   userId    String
   guildId   String
   reason    String
+  answer1   String?
+  answer2   String?
+  answer3   String?
   claimedBy String?
   status    String   @default("open")
   createdAt DateTime @default(now())
@@ -39,14 +42,18 @@ model GuildConfig {
   id             String  @id @default(cuid())
   guildId        String  @unique
 
-  ticketChannel  String?
-  ticketCategory String?
-  ticketColor    String?
-  ticketBanner   String?
-  ticketThumb    String?
-  ticketFooter   String?
-  ticketTitle    String?
-  ticketText     String?
+  ticketChannel   String?
+  ticketCategory  String?
+  ticketColor     String?
+  ticketBanner    String?
+  ticketThumb     String?
+  ticketFooter    String?
+  ticketTitle     String?
+  ticketText      String?
+  ticketPingRole  String?
+  ticketQuestion1 String?
+  ticketQuestion2 String?
+  ticketQuestion3 String?
 
   instaChannel   String?
   instaColor     String  @default("833AB4")

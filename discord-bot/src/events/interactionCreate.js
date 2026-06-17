@@ -19,7 +19,7 @@ import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, Colors } from '.
 import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoes.js';
 import { generateTellonymCard } from '../utils/cardGenerator.js';
 import { likesMap } from '../utils/instaState.js';
-import { buildTicketConfigPayload, buildTellonymConfigPayload, DEFAULT_TICKET_TEXT, DEFAULT_TELLONYM_TEXT } from '../utils/configPanels.js';
+import { buildTicketConfigPayload, buildTellonymConfigPayload, DEFAULT_TICKET_TEXT, DEFAULT_TELLONYM_TEXT, DEFAULT_QUESTIONS } from '../utils/configPanels.js';
 import {
   getSession,
   deleteSession,
@@ -143,24 +143,28 @@ export default {
       if (interaction.isStringSelectMenu()) {
         // ── RÁDIO: Selecionar playlist ──────────────────────────────────────
         if (interaction.customId.startsWith('radio_playlist_sel')) {
+          // Acknowledge immediately to avoid 3-second timeout
+          await interaction.deferUpdate();
+
           const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.ManageGuild);
           if (!isAdmin) {
-            return interaction.update({
+            return interaction.editReply({
               embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Apenas administradores podem iniciar o rádio.')],
               components: [],
             });
           }
 
-          const channelId   = interaction.customId.split(':')[1];
-          const voiceChannel = interaction.guild.channels.cache.get(channelId);
+          const channelId    = interaction.customId.split(':')[1];
+          const voiceChannel = interaction.guild.channels.cache.get(channelId)
+            ?? await interaction.guild.channels.fetch(channelId).catch(() => null);
           if (!voiceChannel) {
-            return interaction.update({
+            return interaction.editReply({
               embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Canal de voz não encontrado.')],
               components: [],
             });
           }
 
-          await interaction.update({
+          await interaction.editReply({
             embeds: [new EmbedBuilder().setColor(0x9B4FD6).setDescription(`📻 Carregando estação e entrando em **${voiceChannel.name}**...`)],
             components: [],
           });
@@ -170,7 +174,7 @@ export default {
 
           if (!session) {
             return interaction.editReply({
-              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Não foi possível entrar no canal de voz. Verifique as permissões do bot.')],
+              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Não foi possível entrar no canal de voz. Verifique as permissões do bot (Conectar + Falar).')],
               components: [],
             });
           }
@@ -179,7 +183,7 @@ export default {
           if (!ok) {
             session.stop();
             return interaction.editReply({
-              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Não foi possível carregar a playlist. Tente novamente.')],
+              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Não foi possível carregar a playlist. Tente novamente em alguns segundos.')],
               components: [],
             });
           }
@@ -377,14 +381,33 @@ export default {
 
         // ── TICKET: Abrir modal ──────────────────────────────────────────
         if (customId === 'ticket_open') {
+          const tcfg = await prisma.guildConfig.findUnique({ where: { guildId: interaction.guildId } });
+          const q1   = tcfg?.ticketQuestion1 || DEFAULT_QUESTIONS[0];
+          const q2   = tcfg?.ticketQuestion2 || DEFAULT_QUESTIONS[1];
+          const q3   = tcfg?.ticketQuestion3 || DEFAULT_QUESTIONS[2];
+
           const modal = new ModalBuilder().setCustomId('ticket_modal').setTitle('📋 Abertura de Ticket');
           modal.addComponents(
             new ActionRowBuilder().addComponents(
               new TextInputBuilder()
-                .setCustomId('ticket_reason')
-                .setLabel('Descreva o motivo do atendimento')
+                .setCustomId('ticket_q1')
+                .setLabel(q1.length > 45 ? q1.slice(0, 42) + '...' : q1)
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true).setMinLength(2).setMaxLength(200)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('ticket_q2')
+                .setLabel(q2.length > 45 ? q2.slice(0, 42) + '...' : q2)
                 .setStyle(TextInputStyle.Paragraph)
                 .setRequired(true).setMinLength(10).setMaxLength(500)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('ticket_q3')
+                .setLabel(q3.length > 45 ? q3.slice(0, 42) + '...' : q3)
+                .setStyle(TextInputStyle.Short)
+                .setRequired(false).setMaxLength(200)
             ),
           );
           return interaction.showModal(modal);
@@ -500,6 +523,56 @@ export default {
               components: [row],
               ephemeral: true,
             });
+          }
+
+          // ── Perguntas do ticket ─────────────────────────────────────
+          if (field === 'perguntas') {
+            const cfg = await getCfg(interaction.guildId);
+            const modal = new ModalBuilder()
+              .setCustomId('tcfg_modal_perguntas')
+              .setTitle('❓ Perguntas do Ticket');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('q1').setLabel('Pergunta 1')
+                  .setStyle(TextInputStyle.Short)
+                  .setPlaceholder(DEFAULT_QUESTIONS[0])
+                  .setValue(cfg.ticketQuestion1 ?? '').setRequired(false).setMaxLength(45)
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('q2').setLabel('Pergunta 2')
+                  .setStyle(TextInputStyle.Short)
+                  .setPlaceholder(DEFAULT_QUESTIONS[1])
+                  .setValue(cfg.ticketQuestion2 ?? '').setRequired(false).setMaxLength(45)
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('q3').setLabel('Pergunta 3')
+                  .setStyle(TextInputStyle.Short)
+                  .setPlaceholder(DEFAULT_QUESTIONS[2])
+                  .setValue(cfg.ticketQuestion3 ?? '').setRequired(false).setMaxLength(45)
+              ),
+            );
+            return interaction.showModal(modal);
+          }
+
+          // ── Ping de cargo ────────────────────────────────────────────
+          if (field === 'ping') {
+            const modal = new ModalBuilder()
+              .setCustomId('tcfg_modal_ping')
+              .setTitle('🔔 Ping da Equipe');
+            const cfg = await getCfg(interaction.guildId);
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('role_id').setLabel('ID do cargo para pingar (ou deixe vazio)')
+                  .setStyle(TextInputStyle.Short)
+                  .setPlaceholder('ex: 123456789012345678 (deixe vazio para desativar)')
+                  .setValue(cfg.ticketPingRole ?? '').setRequired(false).setMaxLength(20)
+              ),
+            );
+            return interaction.showModal(modal);
           }
 
           const def = TICKET_MODAL_FIELDS[field];
@@ -863,10 +936,16 @@ export default {
         // ── TICKET: Criar canal ──────────────────────────────────────────
         if (interaction.customId === 'ticket_modal') {
           await interaction.deferReply({ ephemeral: true });
-          const reason = interaction.fields.getTextInputValue('ticket_reason');
+          const a1     = interaction.fields.getTextInputValue('ticket_q1');
+          const a2     = interaction.fields.getTextInputValue('ticket_q2');
+          const a3     = interaction.fields.getTextInputValue('ticket_q3').trim() || null;
           const guild  = interaction.guild;
           const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
           const color  = parseInt(config?.ticketColor ?? '5865F2', 16);
+
+          const q1 = config?.ticketQuestion1 || DEFAULT_QUESTIONS[0];
+          const q2 = config?.ticketQuestion2 || DEFAULT_QUESTIONS[1];
+          const q3 = config?.ticketQuestion3 || DEFAULT_QUESTIONS[2];
 
           const existing = await prisma.ticket.findFirst({ where: { userId: interaction.user.id, guildId: guild.id, status: 'open' } });
           if (existing)
@@ -882,11 +961,19 @@ export default {
             ],
           });
 
-          await prisma.ticket.create({ data: { channelId: channel.id, userId: interaction.user.id, guildId: guild.id, reason } });
+          await prisma.ticket.create({
+            data: { channelId: channel.id, userId: interaction.user.id, guildId: guild.id, reason: a1, answer1: a1, answer2: a2, answer3: a3 },
+          });
+
+          const answersText = [
+            `**${q1}**\n> ${a1}`,
+            `**${q2}**\n> ${a2}`,
+            a3 ? `**${q3}**\n> ${a3}` : null,
+          ].filter(Boolean).join('\n\n');
 
           const embed = baseEmbed(color)
             .setTitle(config?.ticketTitle ?? '📋 Ticket de Suporte')
-            .setDescription(`**Usuário:** <@${interaction.user.id}>\n**Motivo:** ${reason}`)
+            .setDescription(`**Usuário:** <@${interaction.user.id}>\n\n${answersText}`)
             .setFooter({ text: config?.ticketFooter ?? 'Slow Bot · Suporte' });
 
           if (config?.ticketBanner) embed.setImage(config.ticketBanner);
@@ -898,7 +985,11 @@ export default {
             new ButtonBuilder().setCustomId(`ticket_transcript_${channel.id}`).setLabel('Transcript').setEmoji('📄').setStyle(ButtonStyle.Secondary),
           );
 
-          await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [row] });
+          const pingContent = config?.ticketPingRole
+            ? `<@${interaction.user.id}> <@&${config.ticketPingRole}>`
+            : `<@${interaction.user.id}>`;
+
+          await channel.send({ content: pingContent, embeds: [embed], components: [row] });
           return interaction.editReply({ embeds: [successEmbed('Ticket Criado', `Seu ticket foi aberto em ${channel}.`)] });
         }
 
@@ -960,6 +1051,43 @@ export default {
           });
           await interaction.message?.edit(buildTellonymConfigPayload(cfg)).catch(() => {});
           return interaction.reply({ content: `✅ Preset **${name}** salvo com sucesso!`, ephemeral: true });
+        }
+
+        // ── CONFIG: Ticket — salvar perguntas ───────────────────────────
+        if (interaction.customId === 'tcfg_modal_perguntas') {
+          const q1 = interaction.fields.getTextInputValue('q1').trim() || null;
+          const q2 = interaction.fields.getTextInputValue('q2').trim() || null;
+          const q3 = interaction.fields.getTextInputValue('q3').trim() || null;
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, ticketQuestion1: q1, ticketQuestion2: q2, ticketQuestion3: q3 },
+            update: { ticketQuestion1: q1, ticketQuestion2: q2, ticketQuestion3: q3 },
+          });
+          const cfg     = await getCfg(interaction.guildId);
+          const payload = buildTicketConfigPayload(cfg);
+          await interaction.message?.edit(payload).catch(() => {});
+          return interaction.reply({ content: '✅ Perguntas do ticket atualizadas!', ephemeral: true });
+        }
+
+        // ── CONFIG: Ticket — salvar ping de cargo ────────────────────────
+        if (interaction.customId === 'tcfg_modal_ping') {
+          const rawId = interaction.fields.getTextInputValue('role_id').trim();
+          const roleId = rawId || null;
+          if (roleId && !/^\d{15,20}$/.test(roleId)) {
+            return interaction.reply({ content: '❌ ID inválido. Cole somente o ID numérico do cargo.', ephemeral: true });
+          }
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, ticketPingRole: roleId },
+            update: { ticketPingRole: roleId },
+          });
+          const cfg     = await getCfg(interaction.guildId);
+          const payload = buildTicketConfigPayload(cfg);
+          await interaction.message?.edit(payload).catch(() => {});
+          const msg = roleId
+            ? `✅ O cargo <@&${roleId}> será pingado ao abrir um ticket.`
+            : '✅ Ping de cargo desativado.';
+          return interaction.reply({ content: msg, ephemeral: true });
         }
 
         // ── CONFIG: Ticket — salvar campo modal ─────────────────────────
