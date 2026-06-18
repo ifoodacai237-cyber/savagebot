@@ -20,6 +20,7 @@ export default {
     try {
       const cfg = await prisma.guildConfig.findUnique({ where: { guildId: member.guild.id } });
       if (!cfg?.welcomeChannel) return;
+      if (cfg.welcomeEnabled === false) return;
 
       const channel = member.guild.channels.cache.get(cfg.welcomeChannel)
         ?? await member.guild.channels.fetch(cfg.welcomeChannel).catch(() => null);

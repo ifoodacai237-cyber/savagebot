@@ -75,6 +75,7 @@ model GuildConfig {
   lojaConversao  String?
   lojaUseDivider Boolean @default(false)
 
+  welcomeEnabled   Boolean @default(true)
   welcomeChannel   String?
   welcomeColor     String?
   welcomeBanner    String?

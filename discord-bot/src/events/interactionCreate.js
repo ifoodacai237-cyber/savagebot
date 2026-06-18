@@ -469,7 +469,7 @@ export default {
           const field = customId.replace('tcfg_', '');
 
           if (field === 'enviar') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: 64 });
             const cfg = await getCfg(interaction.guildId);
             const embed = buildConfigEmbed({
               color:       cfg.ticketColor,
@@ -537,11 +537,11 @@ export default {
               .setCustomId('chansel_tc')
               .setPlaceholder('Selecione a categoria dos tickets')
               .setChannelTypes([ChannelType.GuildCategory]);
-            const row = new ActionRowBuilder().addComponents(select);
-            return interaction.reply({
+            const cancelBtn = new ButtonBuilder().setCustomId('tcfg_cancelar').setLabel('Cancelar').setEmoji('↩️').setStyle(ButtonStyle.Secondary);
+            return interaction.update({
               content: '📂 Selecione a categoria onde os tickets serão criados:',
-              components: [row],
-              ephemeral: true,
+              embeds: [],
+              components: [new ActionRowBuilder().addComponents(select), new ActionRowBuilder().addComponents(cancelBtn)],
             });
           }
 
@@ -620,7 +620,7 @@ export default {
           const field = customId.replace('tncfg_', '');
 
           if (field === 'enviar') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: 64 });
             const cfg = await getCfg(interaction.guildId);
             const embed = buildConfigEmbed({
               color:       cfg.tellonymColor,
@@ -688,11 +688,11 @@ export default {
               .setCustomId('chansel_tn')
               .setPlaceholder('Selecione o canal de destino')
               .setChannelTypes([ChannelType.GuildText]);
-            const row = new ActionRowBuilder().addComponents(select);
-            return interaction.reply({
+            const cancelBtn = new ButtonBuilder().setCustomId('tncfg_cancelar').setLabel('Cancelar').setEmoji('↩️').setStyle(ButtonStyle.Secondary);
+            return interaction.update({
               content: '📣 Selecione o canal onde as mensagens do Tellonym serão enviadas:',
-              components: [row],
-              ephemeral: true,
+              embeds: [],
+              components: [new ActionRowBuilder().addComponents(select), new ActionRowBuilder().addComponents(cancelBtn)],
             });
           }
 
@@ -753,15 +753,34 @@ export default {
             return interaction.editReply({ embeds: [successEmbed('Teste Enviado', `Mensagem de teste enviada em ${channel}.`)] });
           }
 
+          if (field === 'cancelar') {
+            const cfg     = await getCfg(interaction.guildId);
+            const payload = buildWelcomeConfigPayload(cfg);
+            return interaction.update({ ...payload, content: null });
+          }
+
+          if (field === 'toggle') {
+            const cfg     = await getCfg(interaction.guildId);
+            const newVal  = !(cfg.welcomeEnabled ?? true);
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, welcomeEnabled: newVal },
+              update: { welcomeEnabled: newVal },
+            });
+            const updated = await getCfg(interaction.guildId);
+            return interaction.update({ ...buildWelcomeConfigPayload(updated), content: null });
+          }
+
           if (field === 'canal') {
             const select = new ChannelSelectMenuBuilder()
               .setCustomId('chansel_wc')
               .setPlaceholder('Selecione o canal de boas-vindas')
               .setChannelTypes([ChannelType.GuildText]);
-            return interaction.reply({
+            const cancelBtn = new ButtonBuilder().setCustomId('wcfg_cancelar').setLabel('Cancelar').setEmoji('↩️').setStyle(ButtonStyle.Secondary);
+            return interaction.update({
               content: '📣 Selecione o canal onde as boas-vindas serão enviadas:',
-              components: [new ActionRowBuilder().addComponents(select)],
-              ephemeral: true,
+              embeds: [],
+              components: [new ActionRowBuilder().addComponents(select), new ActionRowBuilder().addComponents(cancelBtn)],
             });
           }
 
@@ -1083,8 +1102,9 @@ export default {
             type: ChannelType.GuildText,
             parent: config?.ticketCategory ?? null,
             permissionOverwrites: [
-              { id: guild.roles.everyone, deny:  [PermissionFlagsBits.ViewChannel] },
-              { id: interaction.user.id,  allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+              { id: guild.roles.everyone,  deny:  [PermissionFlagsBits.ViewChannel] },
+              { id: interaction.user.id,   allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+              { id: client.user.id,        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.AttachFiles] },
             ],
           });
 

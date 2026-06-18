@@ -237,37 +237,45 @@ export async function createRadioSession({ guild, channelId, playlistKey }) {
   }
 
   let connection;
-  try {
-    connection = joinVoiceChannel({
-      channelId,
-      guildId:        guild.id,
-      adapterCreator: guild.voiceAdapterCreator,
-      selfDeaf:       true,
-      selfMute:       false,
-    });
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      connection = joinVoiceChannel({
+        channelId,
+        guildId:        guild.id,
+        adapterCreator: guild.voiceAdapterCreator,
+        selfDeaf:       true,
+        selfMute:       false,
+      });
 
-    // Registra handler de desconexão ANTES de aguardar o estado Ready,
-    // para que reconexões durante o próprio handshake sejam tratadas.
-    connection.on(VoiceConnectionStatus.Disconnected, async () => {
-      try {
-        await Promise.race([
-          entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
-          entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
-        ]);
-        // Reconectou — ok
-      } catch {
-        // Falhou → para a sessão se ainda existir
-        const sess = radioSessions.get(guild.id);
-        if (sess) sess.stop();
+      await entersState(connection, VoiceConnectionStatus.Ready, 12_000);
+      console.log(`[RADIO] Conectado ao canal (tentativa ${attempt}/${MAX_ATTEMPTS})`);
+      break; // sucesso — sai do loop
+    } catch (err) {
+      console.error(`[RADIO] Tentativa ${attempt}/${MAX_ATTEMPTS} falhou:`, err.message ?? err);
+      try { connection?.destroy(); } catch {}
+      connection = undefined;
+
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise(r => setTimeout(r, 2000 * attempt));
+      } else {
+        return null; // todas as tentativas falharam
       }
-    });
-
-    await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
-  } catch (err) {
-    console.error('[RADIO] Falha ao entrar no canal de voz:', err.message ?? err);
-    try { connection?.destroy(); } catch {}
-    return null;
+    }
   }
+
+  // Registra handler de reconexão após conectar com sucesso
+  connection.on(VoiceConnectionStatus.Disconnected, async () => {
+    try {
+      await Promise.race([
+        entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
+        entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
+      ]);
+    } catch {
+      const sess = radioSessions.get(guild.id);
+      if (sess) sess.stop();
+    }
+  });
 
   const session = new RadioSession({ connection, playlistKey, guildId: guild.id });
   radioSessions.set(guild.id, session);

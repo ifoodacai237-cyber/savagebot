@@ -45,7 +45,7 @@ export function tellonymConfigButtons() {
   return [row1, row2, row3];
 }
 
-export function welcomeConfigButtons() {
+export function welcomeConfigButtons(enabled = true) {
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('wcfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_titulo').setLabel('Título').setEmoji('📝').setStyle(ButtonStyle.Secondary),
@@ -61,6 +61,11 @@ export function welcomeConfigButtons() {
   const row3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('wcfg_canais').setLabel('Canais').setEmoji('🔗').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('wcfg_test').setLabel('Testar').setEmoji('🧪').setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId('wcfg_toggle')
+      .setLabel(enabled ? 'Desativar' : 'Ativar')
+      .setEmoji(enabled ? '🔴' : '🟢')
+      .setStyle(enabled ? ButtonStyle.Danger : ButtonStyle.Success),
   );
   return [row1, row2, row3];
 }
@@ -146,6 +151,7 @@ export function buildWelcomeConfigPayload(cfg) {
   const color    = cfg.welcomeColor ? (parseInt(cfg.welcomeColor, 16) || 0x5865F2) : 0x5865F2;
   const titulo   = cfg.welcomeTitle ?? DEFAULT_WELCOME_TITLE;
   const texto    = cfg.welcomeText  ?? DEFAULT_WELCOME_TEXT;
+  const enabled  = cfg.welcomeEnabled ?? true;
 
   const rolesStr = cfg.welcomeRoles
     ? cfg.welcomeRoles.split(',').filter(Boolean).map(id => `<@&${id.trim()}>`).join(' ') || '*(nenhum)*'
@@ -155,10 +161,11 @@ export function buildWelcomeConfigPayload(cfg) {
     : '*(nenhum)*';
 
   const configEmbed = new EmbedBuilder()
-    .setColor(color)
+    .setColor(enabled ? color : 0x6B6B6B)
     .setTitle('🎉 Configuração — Boas-Vindas')
     .setDescription(
-      'Configure a mensagem de boas-vindas. Placeholders disponíveis:\n' +
+      (enabled ? '✅ **Sistema ATIVO**' : '🔴 **Sistema DESATIVADO**') +
+      '\nConfigure a mensagem de boas-vindas. Placeholders disponíveis:\n' +
       '`{user}` `{username}` `{server}` `{count}`',
     )
     .addFields(
@@ -201,5 +208,5 @@ export function buildWelcomeConfigPayload(cfg) {
     previewEmbed.setFooter({ text: footerText });
   }
 
-  return { embeds: [configEmbed, previewEmbed], components: welcomeConfigButtons() };
+  return { embeds: [configEmbed, previewEmbed], components: welcomeConfigButtons(enabled) };
 }
