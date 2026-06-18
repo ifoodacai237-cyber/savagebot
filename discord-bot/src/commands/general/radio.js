@@ -83,44 +83,40 @@ export default {
     const notAdmin = !interaction.member.permissions.has(PermissionFlagsBits.ManageGuild);
 
     if (sub === 'sair') {
-      if (notAdmin) return interaction.reply({ embeds: [errEmbed('❌ Apenas administradores podem parar o rádio.')], ephemeral: true });
+      if (notAdmin) return interaction.reply({ embeds: [errEmbed('❌ Apenas administradores podem parar o rádio.')], flags: 64 });
       const session = radioSessions.get(interaction.guildId);
-      if (!session) return interaction.reply({ embeds: [errEmbed('❌ O rádio não está ativo.')], ephemeral: true });
+      if (!session) return interaction.reply({ embeds: [errEmbed('❌ O rádio não está ativo.')], flags: 64 });
       session.stop();
-      return interaction.reply({ embeds: [new EmbedBuilder().setColor(RADIO_COLOR).setDescription('⏹️ Rádio encerrado.')], ephemeral: true });
+      return interaction.reply({ embeds: [new EmbedBuilder().setColor(RADIO_COLOR).setDescription('⏹️ Rádio encerrado.')], flags: 64 });
     }
 
     if (sub === 'painel') {
-      if (notAdmin) return interaction.reply({ embeds: [errEmbed('❌ Apenas administradores podem usar este comando.')], ephemeral: true });
+      if (notAdmin) return interaction.reply({ embeds: [errEmbed('❌ Apenas administradores podem usar este comando.')], flags: 64 });
       const session = radioSessions.get(interaction.guildId);
-      if (!session) return interaction.reply({ embeds: [errEmbed('❌ O rádio não está ativo.')], ephemeral: true });
+      if (!session) return interaction.reply({ embeds: [errEmbed('❌ O rádio não está ativo.')], flags: 64 });
       return interaction.reply(buildControlPanel(session));
     }
 
     if (sub === 'entrar') {
-      if (notAdmin) return interaction.reply({ embeds: [errEmbed('❌ Apenas administradores podem iniciar o rádio.')], ephemeral: true });
+      if (notAdmin) return interaction.reply({ embeds: [errEmbed('❌ Apenas administradores podem iniciar o rádio.')], flags: 64 });
 
       const voiceChannel = interaction.options.getChannel('canal');
 
       const playlists = Object.entries(PLAYLISTS);
-      const chunkSize = 10;
-      const rows      = [];
 
-      for (let i = 0; i < playlists.length; i += chunkSize) {
-        const chunk = playlists.slice(i, i + chunkSize);
-        const sel = new StringSelectMenuBuilder()
-          .setCustomId(`radio_playlist_sel:${voiceChannel.id}`)
-          .setPlaceholder('Escolha uma estação...')
-          .addOptions(
-            chunk.map(([key, p]) =>
-              new StringSelectMenuOptionBuilder()
-                .setLabel(`${p.emoji} ${p.name}`)
-                .setValue(key)
-                .setDescription(`Toca músicas de ${p.name} em loop`)
-            )
-          );
-        rows.push(new ActionRowBuilder().addComponents(sel));
-      }
+      // Um único select menu com todas as playlists (Discord aceita até 25 opções).
+      // Usar múltiplos select menus com o mesmo customId causa erro 50035 (IDs duplicados).
+      const sel = new StringSelectMenuBuilder()
+        .setCustomId(`radio_playlist_sel:${voiceChannel.id}`)
+        .setPlaceholder('Escolha uma estação...')
+        .addOptions(
+          playlists.map(([key, p]) =>
+            new StringSelectMenuOptionBuilder()
+              .setLabel(`${p.emoji} ${p.name}`)
+              .setValue(key)
+              .setDescription(`Toca músicas de ${p.name} em loop`)
+          )
+        );
 
       const genreList = playlists.map(([, p]) => `${p.emoji} **${p.name}**`).join('\n');
 
@@ -133,8 +129,8 @@ export default {
               `O bot vai entrar em **${voiceChannel.name}** e tocar em loop.\n\n${genreList}`
             ),
         ],
-        components: rows,
-        ephemeral: true,
+        components: [new ActionRowBuilder().addComponents(sel)],
+        flags: 64,
       });
     }
   },
