@@ -1,5 +1,5 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { getBanner } from './shopData.js';
+import { getBanner, getRingColors } from './shopData.js';
 
 const FONT = '"Noto Sans", "DejaVu Sans", Arial, sans-serif';
 const W = 900, H = 340;
@@ -26,11 +26,17 @@ async function loadUrl(url) {
   return loadImage(buf);
 }
 
-export async function generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases }) {
+function parseCustomEmoji(emoji) {
+  const match = emoji?.match(/<a?:\w+:(\d{10,20})>/);
+  return match ? `https://cdn.discordapp.com/emojis/${match[1]}.png` : null;
+}
+
+export async function generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet }) {
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
   const banner = activeBanner ? getBanner(activeBanner) : null;
+  const { c1, c2 } = getRingColors(activeRing ?? null);
 
   // ── Background ──────────────────────────────────────────────────────────────
   if (banner) {
@@ -41,8 +47,8 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
       ctx.drawImage(img, (W - sw) / 2, (H - sh) / 2, sw, sh);
     } catch {
       const g = ctx.createLinearGradient(0, 0, W, H);
-      const [c1, c2] = banner.gradient ?? ['#1a0533', '#4a1a8a'];
-      g.addColorStop(0, c1); g.addColorStop(1, c2);
+      const [bg1, bg2] = banner.gradient ?? ['#1a0533', '#4a1a8a'];
+      g.addColorStop(0, bg1); g.addColorStop(1, bg2);
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     }
   } else {
@@ -60,10 +66,10 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
   ov.addColorStop(1, 'rgba(0,0,0,0.85)');
   ctx.fillStyle = ov; ctx.fillRect(0, 0, W, H);
 
-  // ── Left accent bar ─────────────────────────────────────────────────────────
+  // ── Left accent bar (uses ring color) ───────────────────────────────────────
   const barGrad = ctx.createLinearGradient(0, 0, 0, H);
-  barGrad.addColorStop(0, '#c084fc');
-  barGrad.addColorStop(1, '#7c3aed');
+  barGrad.addColorStop(0, c1);
+  barGrad.addColorStop(1, c2);
   ctx.fillStyle = barGrad;
   ctx.fillRect(0, 0, 5, H);
 
@@ -75,8 +81,8 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 10, 0, Math.PI * 2); ctx.stroke();
 
   const ringGrad = ctx.createLinearGradient(AV_CX - AV_R, AV_CY - AV_R, AV_CX + AV_R, AV_CY + AV_R);
-  ringGrad.addColorStop(0, '#c084fc');
-  ringGrad.addColorStop(1, '#7c3aed');
+  ringGrad.addColorStop(0, c1);
+  ringGrad.addColorStop(1, c2);
   ctx.strokeStyle = ringGrad;
   ctx.lineWidth = 5;
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 5, 0, Math.PI * 2); ctx.stroke();
@@ -90,6 +96,38 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
     ctx.fillStyle = '#5a5a8a'; ctx.fillRect(AV_CX - AV_R, AV_CY - AV_R, AV_R * 2, AV_R * 2);
   }
   ctx.restore();
+
+  // ── Pet badge (bottom-right of avatar) ──────────────────────────────────────
+  if (activePet) {
+    const petX = AV_CX + AV_R * 0.68;
+    const petY = AV_CY + AV_R * 0.68;
+
+    ctx.fillStyle = '#1a1a2e';
+    ctx.beginPath(); ctx.arc(petX, petY, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = c1;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    const customEmojiUrl = parseCustomEmoji(activePet);
+    if (customEmojiUrl) {
+      try {
+        const petImg = await loadUrl(customEmojiUrl);
+        ctx.drawImage(petImg, petX - 14, petY - 14, 28, 28);
+      } catch {
+        ctx.font = `20px ${FONT}`;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('🐾', petX, petY + 7);
+        ctx.textAlign = 'left';
+      }
+    } else {
+      ctx.font = `20px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(activePet, petX, petY + 7);
+      ctx.textAlign = 'left';
+    }
+  }
 
   // ── Text area ───────────────────────────────────────────────────────────────
   const TX = AV_CX + AV_R + 30;
@@ -125,7 +163,7 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
     ctx.fillStyle = 'rgba(255,255,255,0.07)';
     roundRect(ctx, sx, statsY, 196, 68, 10); ctx.fill();
 
-    ctx.strokeStyle = 'rgba(124,58,237,0.45)';
+    ctx.strokeStyle = `${c2}70`;
     ctx.lineWidth = 1;
     roundRect(ctx, sx, statsY, 196, 68, 10); ctx.stroke();
 

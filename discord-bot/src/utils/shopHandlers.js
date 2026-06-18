@@ -11,7 +11,7 @@ import {
   PermissionFlagsBits,
 } from 'discord.js';
 import prisma from '../database/client.js';
-import { BANNERS, getBanner } from './shopData.js';
+import { BANNERS, getBanner, RING_PRESETS, getRing } from './shopData.js';
 
 const SHOP_COLOR = 0x9B4FD6;
 const DIVIDER    = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
@@ -314,6 +314,11 @@ export async function handleShopInteraction(interaction, client) {
     if (id.startsWith('shop_ok_'))               return handleBuyExecute(interaction, client);
     if (id.startsWith('shop_gok:'))              return handleGiftBuyExecute(interaction, client);
     if (id === 'profile_banner_btn')             return handleProfileBannerBtn(interaction);
+    if (id === 'profile_ring_btn')               return handleProfileRingBtn(interaction);
+    if (id === 'profile_ring_custom')            return handleProfileRingCustom(interaction);
+    if (id === 'profile_ring_remove')            return handleProfileRingRemove(interaction);
+    if (id.startsWith('profile_ring_preset:'))   return handleProfileRingPreset(interaction);
+    if (id === 'profile_pet_btn')                return handleProfilePetBtn(interaction);
     if (id.startsWith('loja_cfg_'))              return handleLojaCfgBtn(interaction);
     if (id === 'loja_admin_cargos')              return handleLojaAdminCargos(interaction);
     if (id === 'loja_admin_personalizar')        return handleLojaConfig(interaction);
@@ -325,6 +330,7 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'shop_item_sel')                  return handleItemSel(interaction);
     if (id === 'shop_vitrine_sel')               return handleVitrineSel(interaction);
     if (id === 'profile_banner_sel')             return handleProfileBannerSel(interaction);
+    if (id === 'profile_pet_sel')                return handleProfilePetSel(interaction);
     if (id.startsWith('shop_gt:'))               return handleGiftTypeSel(interaction);
     if (id.startsWith('shop_gi:'))               return handleGiftItemSel(interaction);
     if (id === 'loja_admin_remove_sel')          return handleLojaAdminRemoveSel(interaction);
@@ -334,6 +340,7 @@ export async function handleShopInteraction(interaction, client) {
     if (id.startsWith('loja_cfg_modal_'))        return handleLojaConfigModal(interaction);
     if (id === 'shop_gift_modal')                return handleGiftModal(interaction, client);
     if (id === 'loja_admin_modal_add_cargo')     return handleLojaAdminAddCargoModal(interaction);
+    if (id === 'profile_ring_custom_modal')      return handleProfileRingCustomModal(interaction);
   }
 }
 
@@ -605,7 +612,10 @@ async function handleGiftBuyExecute(interaction, client) {
 // ─── 🛒 Comprar ───────────────────────────────────────────────────────────────
 
 async function handleComprar(interaction) {
-  const roles = await prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } });
+  const [roles, pets] = await Promise.all([
+    prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } }),
+    prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
+  ]);
 
   const embed = new EmbedBuilder()
     .setColor(SHOP_COLOR)
@@ -614,6 +624,7 @@ async function handleComprar(interaction) {
     .addFields(
       { name: '👑 Cargos',             value: `${roles.length} disponível(is)`, inline: true },
       { name: '🖼️ Banners de Perfil',  value: `${BANNERS.length} banners`,      inline: true },
+      { name: '🐾 Pets',               value: `${pets.length} pet(s)`,          inline: true },
     );
 
   const sel = new StringSelectMenuBuilder()
@@ -622,6 +633,7 @@ async function handleComprar(interaction) {
     .addOptions(
       new StringSelectMenuOptionBuilder().setLabel('👑 Cargos').setValue('roles').setDescription(`${roles.length} cargos disponíveis`),
       new StringSelectMenuOptionBuilder().setLabel('🖼️ Banners').setValue('banners').setDescription(`${BANNERS.length} banners disponíveis`),
+      new StringSelectMenuOptionBuilder().setLabel('🐾 Pets').setValue('pets').setDescription(`${pets.length} pets disponíveis`),
     );
 
   return interaction.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(sel)], ephemeral: true });
@@ -687,6 +699,38 @@ async function handleTypeSel(interaction) {
       components: [new ActionRowBuilder().addComponents(sel)],
     });
   }
+
+  if (type === 'pets') {
+    const pets = await prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } });
+    if (!pets.length) {
+      return interaction.update({
+        embeds: [new EmbedBuilder().setColor(0xED4245).setTitle('❌ Sem Pets').setDescription('Nenhum pet cadastrado ainda. Um admin pode usar `/criar-pet`.')],
+        components: [],
+      });
+    }
+
+    const owned    = await prisma.userPurchase.findMany({ where: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'pet' } });
+    const ownedSet = new Set(owned.map(o => o.itemRef));
+
+    const options = pets.slice(0, 25).map(p =>
+      new StringSelectMenuOptionBuilder()
+        .setLabel(`${p.emoji} ${p.name}`)
+        .setValue(`pet:${p.id}`)
+        .setDescription(`${p.price.toLocaleString('pt-BR')} SC${ownedSet.has(p.id) ? ' ✅' : ''}`)
+    );
+
+    const sel = new StringSelectMenuBuilder().setCustomId('shop_item_sel').setPlaceholder('Selecione um pet').addOptions(options);
+
+    return interaction.update({
+      embeds: [
+        new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🐾 Pets Disponíveis')
+          .setDescription(pets.map(p => `${ownedSet.has(p.id) ? '✅' : '▫️'} **${p.emoji} ${p.name}** — \`${p.price.toLocaleString('pt-BR')} SC\`\n> ${p.description ?? '—'}`).join('\n\n'))
+          .addFields({ name: '💰 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true })
+          .setFooter({ text: 'Após comprar, use /perfil → Meu Pet para equipar' }),
+      ],
+      components: [new ActionRowBuilder().addComponents(sel)],
+    });
+  }
 }
 
 async function handleItemSel(interaction) {
@@ -730,6 +774,26 @@ async function handleItemSel(interaction) {
 
     return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(btn)] });
   }
+
+  if (itemType === 'pet') {
+    const pet = await prisma.pet.findUnique({ where: { id: ref } });
+    if (!pet) return interaction.update({ content: '❌ Pet não encontrado.', embeds: [], components: [] });
+    const owned     = !!(await prisma.userPurchase.findUnique({ where: { userId_guildId_itemType_itemRef: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'pet', itemRef: pet.id } } }));
+    const canAfford = eco.balance >= pet.price;
+
+    const embed = new EmbedBuilder().setColor(SHOP_COLOR).setTitle(`${pet.emoji} ${pet.name}`)
+      .setDescription(pet.description ?? 'Um pet exclusivo do servidor.')
+      .addFields({ name: '💰 Preço', value: `**${pet.price.toLocaleString('pt-BR')} SC**`, inline: true }, { name: '👛 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true })
+      .setFooter({ text: 'Após comprar, use /perfil → Meu Pet para equipar' });
+
+    const btn = new ButtonBuilder().setCustomId(`shop_buy_pet:${pet.id}`)
+      .setLabel(owned ? 'Já Possui' : canAfford ? 'Comprar Pet' : 'Sem Saldo')
+      .setEmoji(owned ? '✅' : '🛒')
+      .setStyle(owned ? ButtonStyle.Secondary : ButtonStyle.Success)
+      .setDisabled(owned || !canAfford);
+
+    return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(btn)] });
+  }
 }
 
 async function handleBuyConfirm(interaction) {
@@ -742,6 +806,10 @@ async function handleBuyConfirm(interaction) {
     const item = await prisma.shopRole.findUnique({ where: { id: key } });
     if (!item) return interaction.reply({ content: '❌ Item não encontrado.', ephemeral: true });
     name = item.name; price = item.price;
+  } else if (type === 'pet') {
+    const pet = await prisma.pet.findUnique({ where: { id: key } });
+    if (!pet) return interaction.reply({ content: '❌ Pet não encontrado.', ephemeral: true });
+    name = `${pet.emoji} ${pet.name}`; price = pet.price;
   } else {
     const b = getBanner(key);
     if (!b) return interaction.reply({ content: '❌ Banner não encontrado.', ephemeral: true });
@@ -775,6 +843,10 @@ async function handleBuyExecute(interaction, client) {
     const item = await prisma.shopRole.findUnique({ where: { id: key } });
     if (!item) return interaction.update({ content: '❌ Item não encontrado.', embeds: [], components: [] });
     name = item.name; price = item.price; itemRef = item.roleId; roleId = item.roleId;
+  } else if (type === 'pet') {
+    const pet = await prisma.pet.findUnique({ where: { id: key } });
+    if (!pet) return interaction.update({ content: '❌ Pet não encontrado.', embeds: [], components: [] });
+    name = `${pet.emoji} ${pet.name}`; price = pet.price; itemRef = pet.id;
   } else {
     const b = getBanner(key);
     if (!b) return interaction.update({ content: '❌ Banner não encontrado.', embeds: [], components: [] });
@@ -799,11 +871,16 @@ async function handleBuyExecute(interaction, client) {
     if (member) await member.roles.add(roleId).catch(() => {});
   }
 
+  const tipByType = {
+    banner: '\n\n🖼️ Use `/perfil` → **Mudar Banner** para equipar!',
+    pet:    '\n\n🐾 Use `/perfil` → **Meu Pet** para equipar!',
+  };
+
   const embed = new EmbedBuilder().setColor(0x57F287).setTitle('✅ Compra Realizada!')
     .setDescription(
       `Você comprou **${name}** com sucesso!\n` +
       `💰 **${price.toLocaleString('pt-BR')} SC** debitados.` +
-      (type === 'banner' ? '\n\n🖼️ Use `/perfil` → **Mudar Banner** para equipar!' : '')
+      (tipByType[type] ?? '')
     ).setTimestamp();
 
   return interaction.update({ embeds: [embed], components: [] });
@@ -913,6 +990,163 @@ async function handleSaldo(interaction) {
     ],
     ephemeral: true,
   });
+}
+
+// ─── 💠 Argola do Perfil ──────────────────────────────────────────────────────
+
+async function handleProfileRingBtn(interaction) {
+  const profile  = await prisma.userProfile.findUnique({ where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } } });
+  const current  = profile?.activeRing ?? 'roxo';
+
+  const makeBtn = (p) => new ButtonBuilder()
+    .setCustomId(`profile_ring_preset:${p.key}`)
+    .setLabel(`${p.emoji} ${p.label}`)
+    .setStyle(current === p.key ? ButtonStyle.Primary : ButtonStyle.Secondary);
+
+  const rows = [
+    new ActionRowBuilder().addComponents(RING_PRESETS.slice(0, 5).map(makeBtn)),
+    new ActionRowBuilder().addComponents(RING_PRESETS.slice(5).map(makeBtn)),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('profile_ring_custom').setLabel('🎨 Cor Personalizada (Hex)').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('profile_ring_remove').setLabel('🚫 Remover Argola').setStyle(ButtonStyle.Danger),
+    ),
+  ];
+
+  const presetInfo = getRing(current);
+  return interaction.reply({
+    embeds: [
+      new EmbedBuilder().setColor(SHOP_COLOR).setTitle('💠 Cor da Argola do Perfil')
+        .setDescription(
+          `Escolha a cor da argola ao redor do seu avatar no card de perfil.\n\n` +
+          `**Atual:** ${presetInfo ? `${presetInfo.emoji} ${presetInfo.label}` : (current?.startsWith('#') ? `Personalizada \`${current}\`` : '🟣 Roxo (padrão)')}`
+        )
+        .setFooter({ text: 'Use /perfil para ver o resultado' }),
+    ],
+    components: rows,
+    ephemeral: true,
+  });
+}
+
+async function handleProfileRingPreset(interaction) {
+  const key = interaction.customId.slice('profile_ring_preset:'.length);
+  const preset = getRing(key);
+  if (!preset) return interaction.reply({ content: '❌ Cor inválida.', ephemeral: true });
+
+  await prisma.userProfile.upsert({
+    where:  { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
+    create: { userId: interaction.user.id, guildId: interaction.guildId, activeRing: key },
+    update: { activeRing: key },
+  });
+
+  const makeBtn = (p) => new ButtonBuilder()
+    .setCustomId(`profile_ring_preset:${p.key}`)
+    .setLabel(`${p.emoji} ${p.label}`)
+    .setStyle(p.key === key ? ButtonStyle.Primary : ButtonStyle.Secondary);
+
+  const rows = [
+    new ActionRowBuilder().addComponents(RING_PRESETS.slice(0, 5).map(makeBtn)),
+    new ActionRowBuilder().addComponents(RING_PRESETS.slice(5).map(makeBtn)),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('profile_ring_custom').setLabel('🎨 Cor Personalizada (Hex)').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('profile_ring_remove').setLabel('🚫 Remover Argola').setStyle(ButtonStyle.Danger),
+    ),
+  ];
+
+  return interaction.update({
+    embeds: [
+      new EmbedBuilder().setColor(SHOP_COLOR).setTitle('💠 Cor da Argola do Perfil')
+        .setDescription(`✅ Argola alterada para **${preset.emoji} ${preset.label}**!\nUse \`/perfil\` para ver o resultado.`)
+        .setFooter({ text: 'Use /perfil para ver o resultado' }),
+    ],
+    components: rows,
+  });
+}
+
+async function handleProfileRingCustom(interaction) {
+  const modal = new ModalBuilder().setCustomId('profile_ring_custom_modal').setTitle('🎨 Cor Personalizada da Argola');
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder().setCustomId('hex').setLabel('Cor em Hex (ex: FF0000 para vermelho)')
+        .setStyle(TextInputStyle.Short).setRequired(true).setMinLength(6).setMaxLength(7)
+        .setPlaceholder('FF0000')
+    )
+  );
+  return interaction.showModal(modal);
+}
+
+async function handleProfileRingCustomModal(interaction) {
+  let hex = interaction.fields.getTextInputValue('hex').trim().replace(/^#/, '').toUpperCase();
+  if (!/^[0-9A-F]{6}$/.test(hex))
+    return interaction.reply({ content: '❌ Cor inválida! Use um hex de 6 dígitos (ex: `FF0000`).',  ephemeral: true });
+
+  await prisma.userProfile.upsert({
+    where:  { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
+    create: { userId: interaction.user.id, guildId: interaction.guildId, activeRing: `#${hex}` },
+    update: { activeRing: `#${hex}` },
+  });
+
+  return interaction.reply({
+    content: `✅ Argola alterada para cor personalizada \`#${hex}\`! Use \`/perfil\` para ver.`,
+    ephemeral: true,
+  });
+}
+
+async function handleProfileRingRemove(interaction) {
+  await prisma.userProfile.upsert({
+    where:  { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
+    create: { userId: interaction.user.id, guildId: interaction.guildId, activeRing: null },
+    update: { activeRing: null },
+  });
+  return interaction.reply({ content: '✅ Argola removida. A cor padrão (roxo) será usada.', ephemeral: true });
+}
+
+// ─── 🐾 Pet do Perfil ─────────────────────────────────────────────────────────
+
+async function handleProfilePetBtn(interaction) {
+  const [owned, profile] = await Promise.all([
+    prisma.userPurchase.findMany({ where: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'pet' } }),
+    prisma.userProfile.findUnique({ where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } } }),
+  ]);
+
+  if (!owned.length)
+    return interaction.reply({ content: '❌ Você não possui nenhum pet!\nUse `/loja painel` → **Comprar** → **Pets** para comprar.', ephemeral: true });
+
+  const petIds  = owned.map(o => o.itemRef);
+  const pets    = await prisma.pet.findMany({ where: { id: { in: petIds } } });
+
+  const opts = [
+    new StringSelectMenuOptionBuilder().setLabel('🚫 Remover pet').setValue('none').setDescription('Não exibir nenhum pet no perfil').setEmoji('🚫'),
+    ...pets.map(p =>
+      new StringSelectMenuOptionBuilder()
+        .setLabel(`${p.emoji} ${p.name}`)
+        .setValue(p.id)
+        .setDescription(profile?.activePet === p.id ? '✅ Equipado' : 'Disponível')
+    ),
+  ];
+
+  return interaction.reply({
+    content: '🐾 **Selecione o pet para equipar no seu perfil:**',
+    components: [new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('profile_pet_sel').setPlaceholder('Selecione um pet').addOptions(opts))],
+    ephemeral: true,
+  });
+}
+
+async function handleProfilePetSel(interaction) {
+  const val       = interaction.values[0];
+  const activePet = val === 'none' ? null : val;
+
+  await prisma.userProfile.upsert({
+    where:  { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
+    create: { userId: interaction.user.id, guildId: interaction.guildId, activePet },
+    update: { activePet },
+  });
+
+  if (!activePet) {
+    return interaction.update({ content: '✅ Pet removido do perfil.', components: [] });
+  }
+
+  const pet = await prisma.pet.findUnique({ where: { id: activePet } }).catch(() => null);
+  return interaction.update({ content: `✅ Pet **${pet?.emoji} ${pet?.name}** equipado! Use \`/perfil\` para ver.`, components: [] });
 }
 
 // ─── 🖼️ Mudar Banner do Perfil ────────────────────────────────────────────────

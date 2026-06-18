@@ -21,13 +21,20 @@ export default {
       prisma.userPurchase.count({ where: { userId: target.id, guildId: interaction.guildId } }),
     ]);
 
+    let activePetEmoji = null;
+    if (profile?.activePet) {
+      const pet = await prisma.pet.findUnique({ where: { id: profile.activePet } }).catch(() => null);
+      activePetEmoji = pet?.emoji ?? null;
+    }
+
     const username     = member?.displayName ?? target.username;
     const avatarUrl    = target.displayAvatarURL({ extension: 'png', size: 256 });
     const balance      = eco?.balance ?? 0;
     const bank         = eco?.bank ?? 0;
     const activeBanner = profile?.activeBanner ?? null;
+    const activeRing   = profile?.activeRing ?? null;
 
-    const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases });
+    const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet: activePetEmoji });
     const attachment = new AttachmentBuilder(buf, { name: 'perfil.png' });
 
     const row = new ActionRowBuilder().addComponents(
@@ -35,6 +42,16 @@ export default {
         .setCustomId('profile_banner_btn')
         .setLabel('Mudar Banner')
         .setEmoji('🖼️')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('profile_ring_btn')
+        .setLabel('Mudar Argola')
+        .setEmoji('💠')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('profile_pet_btn')
+        .setLabel('Meu Pet')
+        .setEmoji('🐾')
         .setStyle(ButtonStyle.Secondary),
     );
 
@@ -51,13 +68,21 @@ export default {
       prisma.userPurchase.count({ where: { userId: target.id, guildId: message.guildId } }),
     ]);
 
-    const username     = member?.displayName ?? target.username;
-    const avatarUrl    = target.displayAvatarURL({ extension: 'png', size: 256 });
-    const buf          = await generateProfileCard({
+    let activePetEmoji = null;
+    if (profile?.activePet) {
+      const pet = await prisma.pet.findUnique({ where: { id: profile.activePet } }).catch(() => null);
+      activePetEmoji = pet?.emoji ?? null;
+    }
+
+    const username = member?.displayName ?? target.username;
+    const avatarUrl = target.displayAvatarURL({ extension: 'png', size: 256 });
+    const buf = await generateProfileCard({
       username, avatarUrl,
       balance:  eco?.balance ?? 0,
       bank:     eco?.bank    ?? 0,
       activeBanner: profile?.activeBanner ?? null,
+      activeRing:   profile?.activeRing   ?? null,
+      activePet:    activePetEmoji,
       purchases,
     });
 

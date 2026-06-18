@@ -184,6 +184,24 @@ export default {
             });
           }
 
+          // ── Verificação de permissão ANTES de tentar conectar ──────────────
+          const botMember = interaction.guild.members.me
+            ?? await interaction.guild.members.fetch(interaction.client.user.id).catch(() => null);
+          const perms = voiceChannel.permissionsFor(botMember);
+          const hasConnect = perms?.has(PermissionFlagsBits.Connect);
+          const hasSpeak   = perms?.has(PermissionFlagsBits.Speak);
+
+          if (!hasConnect || !hasSpeak) {
+            const missing = [!hasConnect && '**Conectar**', !hasSpeak && '**Falar**'].filter(Boolean).join(' e ');
+            return interaction.editReply({
+              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription(
+                `❌ Sem permissão em **${voiceChannel.name}**.\n` +
+                `Dê ao bot a permissão ${missing} nesse canal e tente novamente.`
+              )],
+              components: [],
+            });
+          }
+
           await interaction.editReply({
             embeds: [new EmbedBuilder().setColor(0x9B4FD6).setDescription(`📻 Carregando estação e entrando em **${voiceChannel.name}**...`)],
             components: [],
@@ -194,7 +212,10 @@ export default {
 
           if (!session) {
             return interaction.editReply({
-              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Não foi possível entrar no canal de voz. Verifique as permissões do bot (Conectar + Falar).')],
+              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription(
+                '❌ Falha de conexão ao canal de voz. Isso pode ser uma instabilidade temporária de rede.\n' +
+                'Tente novamente em alguns segundos. Se persistir, verifique se o bot tem permissão **Conectar** e **Falar** no canal.'
+              )],
               components: [],
             });
           }

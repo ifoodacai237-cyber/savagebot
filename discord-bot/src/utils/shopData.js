@@ -76,3 +76,27 @@ export const BANNERS = [
 export function getBanner(key) {
   return BANNERS.find(b => b.key === key) ?? null;
 }
+
+export const RING_PRESETS = [
+  { key: 'roxo',      label: 'Roxo',       emoji: '🟣', c1: '#c084fc', c2: '#7c3aed' },
+  { key: 'azul',      label: 'Azul',       emoji: '🔵', c1: '#60a5fa', c2: '#2563eb' },
+  { key: 'verde',     label: 'Verde',      emoji: '🟢', c1: '#4ade80', c2: '#16a34a' },
+  { key: 'vermelho',  label: 'Vermelho',   emoji: '🔴', c1: '#f87171', c2: '#dc2626' },
+  { key: 'rosa',      label: 'Rosa',       emoji: '🩷', c1: '#f9a8d4', c2: '#ec4899' },
+  { key: 'dourado',   label: 'Dourado',    emoji: '🟡', c1: '#fde68a', c2: '#d97706' },
+  { key: 'ciano',     label: 'Ciano',      emoji: '🩵', c1: '#67e8f9', c2: '#0891b2' },
+  { key: 'branco',    label: 'Branco',     emoji: '⚪', c1: '#f8fafc', c2: '#94a3b8' },
+  { key: 'arco_iris', label: 'Arco-íris',  emoji: '🌈', c1: '#f472b6', c2: '#3b82f6' },
+  { key: 'preto',     label: 'Preto',      emoji: '⚫', c1: '#6b7280', c2: '#111827' },
+];
+
+export function getRing(key) {
+  return RING_PRESETS.find(r => r.key === key) ?? null;
+}
+
+export function getRingColors(activeRing) {
+  if (!activeRing) return { c1: '#c084fc', c2: '#7c3aed' };
+  if (activeRing.startsWith('#')) return { c1: activeRing, c2: activeRing };
+  const preset = getRing(activeRing);
+  return preset ? { c1: preset.c1, c2: preset.c2 } : { c1: '#c084fc', c2: '#7c3aed' };
+}

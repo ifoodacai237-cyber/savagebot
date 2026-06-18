@@ -144,7 +144,22 @@ model UserProfile {
   userId       String
   guildId      String
   activeBanner String?
+  activeRing   String?
+  activePet    String?
   bio          String?
 
   @@unique([userId, guildId])
+}
+
+model Pet {
+  id          String   @id @default(cuid())
+  guildId     String
+  name        String
+  emoji       String
+  description String?
+  price       Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@unique([guildId, name])
 }
