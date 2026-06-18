@@ -129,6 +129,8 @@ export class RadioSession {
     this.controlMessage = null;
     this._ffmpeg        = null;
     this._restarting    = false;
+    this._restartCount  = 0;
+    this._lastRestartAt = 0;
 
     connection.subscribe(this.player);
 
@@ -183,7 +185,22 @@ export class RadioSession {
 
   async _restart() {
     this._restarting = true;
-    await new Promise(r => setTimeout(r, 2000));
+
+    // Reseta contador se último restart foi há mais de 60s
+    const now = Date.now();
+    if (now - this._lastRestartAt > 60_000) this._restartCount = 0;
+    this._lastRestartAt = now;
+    this._restartCount++;
+
+    if (this._restartCount > 8) {
+      console.error('[RADIO] Muitas tentativas de restart, parando sessão.');
+      this.stop();
+      return;
+    }
+
+    const delay = Math.min(2000 * this._restartCount, 15_000);
+    await new Promise(r => setTimeout(r, delay));
+
     try {
       const resource = this._createResource();
       this.player.play(resource);
@@ -267,13 +284,24 @@ export async function createRadioSession({ guild, channelId, playlistKey }) {
   // Registra handler de reconexão após conectar com sucesso
   connection.on(VoiceConnectionStatus.Disconnected, async () => {
     try {
+      // Tenta aguardar reconexão automática (comum ao trocar de região ou instabilidade)
       await Promise.race([
         entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
         entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
       ]);
+      // Reconectou — continua tocando
     } catch {
+      // Não reconectou — verifica se foi destruído externamente
+      if (connection.state.status === VoiceConnectionStatus.Destroyed) return;
+      // Tenta destruir de forma limpa e parar a sessão
+      try { connection.destroy(); } catch {}
       const sess = radioSessions.get(guild.id);
-      if (sess) sess.stop();
+      if (sess) {
+        sess._restarting = true; // evita loop de restart
+        try { if (sess._ffmpeg) sess._ffmpeg.kill('SIGKILL'); } catch {}
+        try { sess.player.stop(true); } catch {}
+        radioSessions.delete(guild.id);
+      }
     }
   });
 

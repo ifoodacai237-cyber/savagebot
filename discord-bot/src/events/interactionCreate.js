@@ -355,7 +355,7 @@ export default {
           customId.startsWith('shop_') ||
           customId.startsWith('loja_cfg_') ||
           customId.startsWith('loja_admin_') ||
-          customId === 'profile_banner_btn'
+          customId.startsWith('profile_')
         ) {
           return handleShopInteraction(interaction, client);
         }

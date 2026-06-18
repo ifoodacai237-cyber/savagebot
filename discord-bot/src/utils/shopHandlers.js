@@ -1116,12 +1116,20 @@ async function handleProfilePetBtn(interaction) {
 
   const opts = [
     new StringSelectMenuOptionBuilder().setLabel('🚫 Remover pet').setValue('none').setDescription('Não exibir nenhum pet no perfil').setEmoji('🚫'),
-    ...pets.map(p =>
-      new StringSelectMenuOptionBuilder()
-        .setLabel(`${p.emoji} ${p.name}`)
+    ...pets.map(p => {
+      const isCustomEmoji = /<a?:\w+:\d+>/.test(p.emoji ?? '');
+      const opt = new StringSelectMenuOptionBuilder()
+        .setLabel(p.name)
         .setValue(p.id)
-        .setDescription(profile?.activePet === p.id ? '✅ Equipado' : 'Disponível')
-    ),
+        .setDescription(profile?.activePet === p.id ? '✅ Equipado' : 'Disponível');
+      if (isCustomEmoji) {
+        const match = p.emoji.match(/<(a?):(\w+):(\d+)>/);
+        if (match) opt.setEmoji({ animated: match[1] === 'a', name: match[2], id: match[3] });
+      } else if (p.emoji) {
+        opt.setEmoji(p.emoji);
+      }
+      return opt;
+    }),
   ];
 
   return interaction.reply({
