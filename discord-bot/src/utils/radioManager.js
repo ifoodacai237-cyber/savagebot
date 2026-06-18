@@ -10,64 +10,64 @@ import {
   StreamType,
 } from '@discordjs/voice';
 
-// ─── Estações de Rádio ────────────────────────────────────────────────────────
+// ─── Estações de Rádio (todos SomaFM — funcionam de IPs de data center) ────────
 
 export const PLAYLISTS = {
   lofi: {
     emoji: '🌙',
-    name: 'Lo-Fi / Groove',
-    streamUrl: 'https://streams.ilovemusic.de/iloveradio17.mp3',
+    name: 'Lo-Fi / Chill',
+    streamUrl: 'https://ice2.somafm.com/groovesalad-128-mp3',
     color: 0x5865F2,
-    genre: 'Lo-Fi / Chillhop',
+    genre: 'Lo-Fi / Ambient Beats',
   },
   deephouse: {
     emoji: '🎧',
     name: 'Deep House',
-    streamUrl: 'https://streams.ilovemusic.de/iloveradio19.mp3',
+    streamUrl: 'https://ice2.somafm.com/beatblender-128-mp3',
     color: 0x00D4FF,
-    genre: 'Deep House / Electronic',
+    genre: 'Deep Electronic / Downtempo',
   },
   hiphop: {
     emoji: '🎤',
     name: 'Hip Hop / Rap',
-    streamUrl: 'https://streams.ilovemusic.de/iloveradio5.mp3',
+    streamUrl: 'https://ice6.somafm.com/illstreet-128-mp3',
     color: 0x9B59B6,
     genre: 'Hip Hop / Rap',
   },
   eletro: {
     emoji: '⚡',
     name: 'Eletrônica / EDM',
-    streamUrl: 'https://streams.ilovemusic.de/iloveradio1.mp3',
-    color: 0x00D4FF,
-    genre: 'EDM / Dance',
+    streamUrl: 'https://ice2.somafm.com/poptron-128-mp3',
+    color: 0x00BFFF,
+    genre: 'Electronic / EDM',
   },
   pop: {
     emoji: '🎵',
-    name: 'Pop Hits',
-    streamUrl: 'https://streams.ilovemusic.de/iloveradio2.mp3',
+    name: 'Pop / Indie',
+    streamUrl: 'https://ice2.somafm.com/indiepop-128-mp3',
     color: 0xFEE75C,
-    genre: 'Pop',
+    genre: 'Pop / Indie Pop',
   },
   indie: {
     emoji: '🎸',
     name: 'Indie / Alternative',
-    streamUrl: 'https://ice2.somafm.com/indiepop-128-mp3',
+    streamUrl: 'https://ice2.somafm.com/bagel-128-mp3',
     color: 0x2ECC71,
-    genre: 'Indie Pop / Alternative',
+    genre: 'Indie / Alternative Rock',
   },
   soul: {
     emoji: '🖤',
     name: 'R&B / Soul',
-    streamUrl: 'https://streams.ilovemusic.de/iloveradio6.mp3',
+    streamUrl: 'https://ice6.somafm.com/lush-128-mp3',
     color: 0x8E44AD,
-    genre: 'R&B / Soul',
+    genre: 'R&B / Soul / Smooth',
   },
   metal: {
     emoji: '🤘',
     name: 'Metal / Rock',
-    streamUrl: 'https://streams.ilovemusic.de/iloveradio7.mp3',
+    streamUrl: 'https://ice2.somafm.com/metal-128-mp3',
     color: 0x2C3E50,
-    genre: 'Rock / Metal',
+    genre: 'Metal / Hard Rock',
   },
   jazz: {
     emoji: '🎷',
@@ -79,27 +79,27 @@ export const PLAYLISTS = {
   chill: {
     emoji: '🌊',
     name: 'Chill / Relaxante',
-    streamUrl: 'https://streams.ilovemusic.de/iloveradio17.mp3',
+    streamUrl: 'https://ice2.somafm.com/fluid-128-mp3',
     color: 0x27AE60,
-    genre: 'Chill / Relaxante',
+    genre: 'Chill / Electronica',
   },
   funk: {
     emoji: '🎉',
     name: 'Dance / Funk',
-    streamUrl: 'https://streams.ilovemusic.de/iloveradio1.mp3',
+    streamUrl: 'https://ice6.somafm.com/7soul-128-mp3',
     color: 0xE67E22,
-    genre: 'Dance / Funk',
+    genre: 'Dance / Indie / Funk',
   },
   reggae: {
     emoji: '🌴',
     name: 'Reggae / Roots',
-    streamUrl: 'https://stream.laut.fm/reggae',
-    color: 0x27AE60,
-    genre: 'Reggae / Roots',
+    streamUrl: 'https://ice2.somafm.com/reggae-128-mp3',
+    color: 0x1DB954,
+    genre: 'Reggae / Ska / Roots',
   },
 };
 
-// ─── FFmpeg: HTTP MP3 → OGG Opus (sem reencoding no Node.js) ─────────────────
+// ─── FFmpeg: HTTP MP3 → OGG Opus ─────────────────────────────────────────────
 
 function spawnRadioStream(url) {
   const proc = spawn('ffmpeg', [
@@ -109,7 +109,7 @@ function spawnRadioStream(url) {
     '-reconnect_delay_max',        '10',
     '-reconnect_on_network_error', '1',
     '-reconnect_on_http_error',    '5xx,4xx',
-    '-user_agent', 'Mozilla/5.0 (compatible; DiscordBot/1.0)',
+    '-user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     '-i', url,
     '-vn',
     '-c:a',   'libopus',

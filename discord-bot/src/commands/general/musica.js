@@ -6,21 +6,30 @@ import {
   ButtonStyle,
   ChannelType,
 } from 'discord.js';
-import { getTrackInfo, createMusicSession, musicSessions } from '../../utils/musicManager.js';
+import { getTrackInfo, createMusicSession, musicSessions, resolveQuery } from '../../utils/musicManager.js';
 
 const MUSIC_COLOR = 0x1DB954;
 
+const PLATFORM_ICONS = {
+  youtube:    '▶️ YouTube',
+  soundcloud: '🟠 SoundCloud',
+  spotify:    '💚 Spotify → YouTube',
+  default:    '🎵 Música',
+};
+
 export function buildMusicPanel(session) {
   const info = session.trackInfo;
+  const platformLabel = PLATFORM_ICONS[info.platform] ?? PLATFORM_ICONS.default;
 
   const embed = new EmbedBuilder()
     .setColor(MUSIC_COLOR)
     .setTitle('🎶 Tocando Agora')
     .setDescription(`**${info.title}**`)
     .addFields(
-      { name: '👤 Canal', value: info.uploader || 'Desconhecido', inline: true },
-      { name: '⏱️ Duração', value: `\`${info.duration}\``, inline: true },
-      { name: '📢 Status', value: session.paused ? '⏸️ Pausado' : '▶️ Tocando', inline: true },
+      { name: '👤 Canal / Artista', value: info.uploader || 'Desconhecido', inline: true },
+      { name: '⏱️ Duração',        value: `\`${info.duration}\``,           inline: true },
+      { name: '📢 Status',         value: session.paused ? '⏸️ Pausado' : '▶️ Tocando', inline: true },
+      { name: '🔗 Fonte',          value: platformLabel, inline: true },
     )
     .setFooter({ text: 'Use os botões abaixo para controlar a música' })
     .setTimestamp();
@@ -46,11 +55,11 @@ export function buildMusicPanel(session) {
 export default {
   data: new SlashCommandBuilder()
     .setName('musica')
-    .setDescription('Toca uma música a partir de um link do YouTube no canal de voz')
+    .setDescription('Toca uma música no canal de voz via link ou pesquisa')
     .addStringOption(opt =>
       opt
-        .setName('link')
-        .setDescription('Link do YouTube da música que deseja tocar')
+        .setName('consulta')
+        .setDescription('Nome da música, artista, ou link (YouTube, SoundCloud, Spotify)')
         .setRequired(true)
     )
     .addChannelOption(opt =>
@@ -63,15 +72,7 @@ export default {
   name: 'musica',
 
   async execute(interaction) {
-    const url = interaction.options.getString('link');
-
-    const isYouTube = /youtube\.com|youtu\.be/.test(url);
-    if (!isYouTube) {
-      return interaction.reply({
-        embeds: [errEmbed('❌ Por enquanto apenas links do YouTube são suportados.\nExemplo: `https://www.youtube.com/watch?v=...`')],
-        flags: 64,
-      });
-    }
+    const consulta = interaction.options.getString('consulta');
 
     let voiceChannel = interaction.options.getChannel('canal');
     if (!voiceChannel) {
@@ -98,13 +99,36 @@ export default {
 
     await interaction.deferReply();
 
+    const { isSearch, platform } = resolveQuery(consulta);
+    const buscandoMsg = isSearch
+      ? `🔍 Pesquisando **"${consulta}"** no YouTube...`
+      : platform === 'spotify'
+        ? '💚 Convertendo link do Spotify para YouTube...'
+        : '⏳ Carregando música...';
+
+    await interaction.editReply({
+      embeds: [new EmbedBuilder().setColor(MUSIC_COLOR).setDescription(buscandoMsg)],
+    });
+
     let info;
     try {
-      info = await getTrackInfo(url);
+      info = await getTrackInfo(consulta);
     } catch (err) {
       console.error('[MUSICA] getTrackInfo falhou:', err.message);
+
+      let errText = '❌ Não foi possível carregar essa música.';
+      if (err.message.includes('not available on this app')) {
+        errText = '❌ Este vídeo não está disponível. Tente outro link ou pesquise pelo nome da música.';
+      } else if (err.message.includes('Private video')) {
+        errText = '❌ Este vídeo é privado.';
+      } else if (err.message.includes('age-restricted') || err.message.includes('age restricted')) {
+        errText = '❌ Este vídeo tem restrição de idade e não pode ser reproduzido.';
+      } else if (err.message.includes('No video formats found')) {
+        errText = '❌ Nenhum formato de áudio disponível para este vídeo.';
+      }
+
       return interaction.editReply({
-        embeds: [errEmbed('❌ Não foi possível carregar essa música.\nVerifique se o link é válido e se a música está disponível.')],
+        embeds: [errEmbed(errText + '\n\nDica: Tente pesquisar pelo **nome da música** em vez do link.')],
       });
     }
 
@@ -115,7 +139,7 @@ export default {
       });
     }
 
-    const ok = await session.play(url, info).catch(err => {
+    const ok = await session.play(info.url, info).catch(err => {
       console.error('[MUSICA] play() falhou:', err.message);
       return false;
     });

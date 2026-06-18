@@ -13,15 +13,52 @@ import {
 // ─── Sessões de música por servidor ──────────────────────────────────────────
 export const musicSessions = new Map();
 
+// ─── Detecta se é URL ─────────────────────────────────────────────────────────
+export function isUrl(str) {
+  return /^https?:\/\//i.test(str);
+}
+
+// ─── Detecta plataforma e monta a query para yt-dlp ──────────────────────────
+export function resolveQuery(input) {
+  if (/youtube\.com|youtu\.be/i.test(input)) {
+    return { query: input, platform: 'youtube', isSearch: false };
+  }
+  if (/soundcloud\.com/i.test(input)) {
+    return { query: input, platform: 'soundcloud', isSearch: false };
+  }
+  if (/spotify\.com/i.test(input)) {
+    // Spotify não tem stream direto — busca o nome no YouTube
+    return { query: input, platform: 'spotify', isSearch: false };
+  }
+  // Qualquer texto → busca no YouTube
+  return { query: `ytsearch1:${input}`, platform: 'youtube', isSearch: true };
+}
+
 // ─── Busca informações da música via yt-dlp ──────────────────────────────────
-export async function getTrackInfo(url) {
+export async function getTrackInfo(rawQuery) {
+  const { query, platform } = resolveQuery(rawQuery);
+
+  // Para Spotify: primeiro pegar o título via yt-dlp (ele extrai metadados) e buscar no YT
+  const ytdlpQuery = platform === 'spotify'
+    ? await resolveSpotifyToYouTube(rawQuery)
+    : query;
+
   return new Promise((resolve, reject) => {
-    const proc = spawn('yt-dlp', [
+    const args = [
       '--no-playlist',
-      '--print', '%(title)s\n%(duration)s\n%(uploader)s\n%(thumbnail)s',
+      '--print', '%(title)s\n%(duration)s\n%(uploader)s\n%(thumbnail)s\n%(webpage_url)s',
       '--no-warnings',
-      url,
-    ]);
+    ];
+
+    // YouTube precisa do client android para evitar bloqueio de IPs de servidor
+    if (platform === 'youtube' || platform === 'spotify') {
+      args.push('--extractor-args', 'youtube:player_client=android');
+      args.push('--format', '18/bestaudio');
+    }
+
+    args.push(ytdlpQuery);
+
+    const proc = spawn('yt-dlp', args);
 
     let stdout = '';
     let stderr = '';
@@ -31,7 +68,9 @@ export async function getTrackInfo(url) {
 
     proc.on('close', code => {
       if (code !== 0) {
-        reject(new Error(stderr.trim() || 'yt-dlp falhou'));
+        const errMsg = stderr.trim() || 'yt-dlp falhou';
+        console.error('[MUSIC] yt-dlp info erro:', errMsg.slice(0, 300));
+        reject(new Error(errMsg));
         return;
       }
       const lines     = stdout.trim().split('\n');
@@ -39,29 +78,65 @@ export async function getTrackInfo(url) {
       const rawDur    = parseInt(lines[1], 10) || 0;
       const uploader  = lines[2] || 'Desconhecido';
       const thumbnail = lines[3] || null;
+      const url       = lines[4] || rawQuery;
 
       const minutes = Math.floor(rawDur / 60);
       const seconds = String(rawDur % 60).padStart(2, '0');
       const duration = rawDur > 0 ? `${minutes}:${seconds}` : 'Desconhecido';
 
-      resolve({ title, duration, uploader, thumbnail, url });
+      resolve({ title, duration, uploader, thumbnail, url, platform });
     });
   });
 }
 
-// ─── Cria stream FFmpeg a partir da URL via yt-dlp ───────────────────────────
-function spawnMusicStream(url) {
-  const ytdlp = spawn('yt-dlp', [
+// ─── Resolve link Spotify → busca no YouTube ─────────────────────────────────
+async function resolveSpotifyToYouTube(spotifyUrl) {
+  return new Promise((resolve) => {
+    const proc = spawn('yt-dlp', [
+      '--no-download',
+      '--print', '%(track)s %(artist)s',
+      '--no-warnings',
+      spotifyUrl,
+    ]);
+
+    let out = '';
+    proc.stdout.on('data', d => { out += d.toString(); });
+    proc.on('close', (code) => {
+      const trackName = out.trim();
+      if (code === 0 && trackName && trackName !== 'NA NA') {
+        resolve(`ytsearch1:${trackName}`);
+      } else {
+        // Fallback: tenta extrair da URL o que der
+        resolve(`ytsearch1:${spotifyUrl}`);
+      }
+    });
+  });
+}
+
+// ─── Stream: yt-dlp → ffmpeg → Discord ───────────────────────────────────────
+function spawnMusicStream(url, platform) {
+  const ytdlpArgs = [
     '--no-playlist',
-    '--format', 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio',
     '--no-warnings',
     '-o', '-',
-    url,
-  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  ];
+
+  if (platform === 'youtube' || platform === 'spotify') {
+    ytdlpArgs.push('--extractor-args', 'youtube:player_client=android');
+    ytdlpArgs.push('--format', '18/bestaudio');
+  } else {
+    ytdlpArgs.push('--format', 'bestaudio');
+  }
+
+  ytdlpArgs.push(url);
+
+  const ytdlp = spawn('yt-dlp', ytdlpArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
 
   ytdlp.stderr.on('data', d => {
     const msg = d.toString().trim();
-    if (msg && !msg.includes('[download]')) console.error('[MUSIC yt-dlp]', msg.slice(0, 200));
+    if (msg && !msg.includes('[download]') && !msg.includes('[info]')) {
+      console.error('[MUSIC yt-dlp]', msg.slice(0, 200));
+    }
   });
 
   const ffmpeg = spawn('ffmpeg', [
@@ -126,7 +201,7 @@ export class MusicSession {
     this._cleanup();
     this.trackInfo = info;
 
-    const { ytdlp, ffmpeg } = spawnMusicStream(url);
+    const { ytdlp, ffmpeg } = spawnMusicStream(url, info.platform);
     this._procs = { ytdlp, ffmpeg };
 
     ffmpeg.on('close', code => {
