@@ -185,7 +185,7 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
   ctx.fillStyle = won ? '#3FB950' : tie ? '#8B949E' : '#F85149';
   ctx.font      = `bold 13px ${FONT}`;
   ctx.textAlign = 'right';
-  ctx.fillText(`${sign}${fmt(change)} SC  •  Saldo: ${fmt(userBalance)} SC`, W - 20, H - 10);
+  ctx.fillText(`${sign}${fmt(change)} 💰  •  Saldo: ${fmt(userBalance)} 💰`, W - 20, H - 10);
 
   return canvas.toBuffer('image/png');
 }
@@ -385,7 +385,7 @@ export function generateTopCard(entries) {
     ctx.fillStyle = '#9B4FD6';
     ctx.font      = `bold 15px ${FONT}`;
     ctx.textAlign = 'right';
-    ctx.fillText(`${fmt(e.total)} SC`, W - 30, y + 33);
+    ctx.fillText(`${fmt(e.total)} 💰`, W - 30, y + 33);
   });
 
   return canvas.toBuffer('image/png');
@@ -457,7 +457,7 @@ export function generateCoinflipCard({ side, resultado, won, bet, userBalance })
 
   ctx.fillStyle = '#888';
   ctx.font      = `13px ${FONT}`;
-  ctx.fillText(`Aposta: ${fmt(bet)} SC  •  ${won ? '+' : '-'}${fmt(bet)} SC  •  Saldo: ${fmt(userBalance)} SC`, W / 2, 338);
+  ctx.fillText(`Aposta: ${fmt(bet)} 💰  •  ${won ? '+' : '-'}${fmt(bet)} 💰  •  Saldo: ${fmt(userBalance)} 💰`, W / 2, 338);
 
   return canvas.toBuffer('image/png');
 }
@@ -529,7 +529,7 @@ export function generateDiceCard({ playerDie, botDie, won, tie, bet, payout, use
   ctx.fillStyle = '#888'; ctx.font = `13px ${FONT}`;
   const change = tie ? 0 : won ? payout - bet : bet;
   const sign   = won ? '+' : tie ? '±' : '-';
-  ctx.fillText(`Aposta: ${fmt(bet)} SC  •  ${sign}${fmt(change)} SC  •  Saldo: ${fmt(userBalance)} SC`, W / 2, 330);
+  ctx.fillText(`Aposta: ${fmt(bet)} 💰  •  ${sign}${fmt(change)} 💰  •  Saldo: ${fmt(userBalance)} 💰`, W / 2, 330);
 
   return canvas.toBuffer('image/png');
 }
@@ -610,10 +610,10 @@ export function generateSlotsCard({ reels, won, betAmount, changeAmount, userBal
 
   ctx.fillStyle = won ? '#3FB950' : '#F85149';
   ctx.font = `bold 22px ${FONT}`; ctx.textAlign = 'center';
-  ctx.fillText(`${won ? '+' : '-'}${fmt(changeAmount)} SC`, W / 2, 322);
+  ctx.fillText(`${won ? '+' : '-'}${fmt(changeAmount)} 💰`, W / 2, 322);
 
   ctx.fillStyle = '#888'; ctx.font = `13px ${FONT}`;
-  ctx.fillText(`Aposta: ${fmt(betAmount)} SC  •  Saldo: ${fmt(userBalance)} SC`, W / 2, 350);
+  ctx.fillText(`Aposta: ${fmt(betAmount)} 💰  •  Saldo: ${fmt(userBalance)} 💰`, W / 2, 350);
 
   return canvas.toBuffer('image/png');
 }
@@ -679,7 +679,7 @@ export function generateRouletteCard({ spin, escolha, won, bet, winAmt, userBala
   ctx.fillStyle = '#888'; ctx.font = `13px ${FONT}`;
   const change = won ? winAmt - bet : bet;
   const sign   = won ? '+' : '-';
-  ctx.fillText(`Aposta: ${fmt(bet)} SC  •  ${sign}${fmt(change)} SC  •  Saldo: ${fmt(userBalance)} SC`, W / 2, 350);
+  ctx.fillText(`Aposta: ${fmt(bet)} 💰  •  ${sign}${fmt(change)} 💰  •  Saldo: ${fmt(userBalance)} 💰`, W / 2, 350);
 
   return canvas.toBuffer('image/png');
 }

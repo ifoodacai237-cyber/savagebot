@@ -37,8 +37,10 @@ function pickGif(key) {
 }
 
 // ─── Colors ────────────────────────────────────────────────────────────────────
-const COL_OK  = 0x9B4FD6;
+const COL_OK   = 0x9B4FD6;
 const COL_WARN = 0xF5C518;
+
+const COIN = '<a:emoji_1:1516993823665033286>';
 
 function makeEmbed(color, title, description) {
   return new EmbedBuilder().setColor(color).setTitle(title).setDescription(description).setTimestamp();
@@ -133,7 +135,7 @@ export default {
         data:  { balance: { increment: amount }, lastDaily: new Date() },
       });
       const embed = makeEmbed(COL_OK, '💰 Daily Coletado!',
-        `Você recebeu **${amount.toLocaleString('pt-BR')} SC**!\n\n> ⏰ Volte em **24 horas** para coletar novamente.`)
+        `Você recebeu **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> ⏰ Volte em **24 horas** para coletar novamente.`)
         .setThumbnail(interaction.user.displayAvatarURL())
         .setImage(pickGif('daily'));
       return interaction.reply({ embeds: [embed] });
@@ -156,7 +158,7 @@ export default {
         data:  { balance: { increment: amount }, lastWork: new Date() },
       });
       const embed = makeEmbed(COL_WARN, '💼 Trabalho Concluído!',
-        `**${msg}** e ganhou **${amount.toLocaleString('pt-BR')} SC**!\n\n> 🕐 Volte em **1 hora** para trabalhar novamente.`)
+        `**${msg}** e ganhou **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> 🕐 Volte em **1 hora** para trabalhar novamente.`)
         .setThumbnail(interaction.user.displayAvatarURL())
         .setImage(pickGif('work'));
       return interaction.reply({ embeds: [embed] });
@@ -170,14 +172,14 @@ export default {
       if (target.bot) return interaction.reply({ embeds: [makeEmbed(0xF85149, '❌ Erro', 'Não é possível pagar bots.')], ephemeral: true });
 
       const eco = await getEco(interaction.user.id, interaction.guildId);
-      if (eco.balance < valor) return interaction.reply({ embeds: [makeEmbed(0xF85149, '❌ Saldo Insuficiente', `Você tem **${eco.balance.toLocaleString('pt-BR')} SC** na carteira.`)], ephemeral: true });
+      if (eco.balance < valor) return interaction.reply({ embeds: [makeEmbed(0xF85149, '❌ Saldo Insuficiente', `Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}** na carteira.`)], ephemeral: true });
 
       await getEco(target.id, interaction.guildId);
       await prisma.economy.update({ where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } }, data: { balance: { decrement: valor } } });
       await prisma.economy.update({ where: { userId_guildId: { userId: target.id,            guildId: interaction.guildId } }, data: { balance: { increment: valor } } });
 
       const embed = makeEmbed(COL_OK, '💸 Transferência Realizada!',
-        `${interaction.user} enviou **${valor.toLocaleString('pt-BR')} SC** para ${target}!`)
+        `${interaction.user} enviou **${valor.toLocaleString('pt-BR')} ${COIN}** para ${target}!`)
         .setImage(pickGif('pagar'));
       return interaction.reply({ embeds: [embed] });
     }
@@ -207,14 +209,14 @@ export default {
       const input = interaction.options.getString('valor').toLowerCase();
       const valor = input === 'tudo' ? eco.balance : parseInt(input);
       if (isNaN(valor) || valor <= 0) return interaction.reply({ embeds: [makeEmbed(0xF85149, '❌ Erro', 'Valor inválido.')], ephemeral: true });
-      if (eco.balance < valor) return interaction.reply({ embeds: [makeEmbed(0xF85149, '❌ Saldo Insuficiente', `Você tem **${eco.balance.toLocaleString('pt-BR')} SC** na carteira.`)], ephemeral: true });
+      if (eco.balance < valor) return interaction.reply({ embeds: [makeEmbed(0xF85149, '❌ Saldo Insuficiente', `Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}** na carteira.`)], ephemeral: true });
 
       await prisma.economy.update({
         where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
         data:  { balance: { decrement: valor }, bank: { increment: valor } },
       });
       const embed = makeEmbed(0x58A6FF, '🏦 Depósito Realizado!',
-        `**${valor.toLocaleString('pt-BR')} SC** depositados com segurança!\n\n> 🔒 Coins no banco estão protegidos de roubos.`)
+        `**${valor.toLocaleString('pt-BR')} ${COIN}** depositados com segurança!\n\n> 🔒 Coins no banco estão protegidos de roubos.`)
         .setImage(pickGif('deposit'));
       return interaction.reply({ embeds: [embed] });
     }
@@ -225,14 +227,14 @@ export default {
       const input = interaction.options.getString('valor').toLowerCase();
       const valor = input === 'tudo' ? eco.bank : parseInt(input);
       if (isNaN(valor) || valor <= 0) return interaction.reply({ embeds: [makeEmbed(0xF85149, '❌ Erro', 'Valor inválido.')], ephemeral: true });
-      if (eco.bank < valor) return interaction.reply({ embeds: [makeEmbed(0xF85149, '❌ Banco Insuficiente', `Você tem **${eco.bank.toLocaleString('pt-BR')} SC** no banco.`)], ephemeral: true });
+      if (eco.bank < valor) return interaction.reply({ embeds: [makeEmbed(0xF85149, '❌ Banco Insuficiente', `Você tem **${eco.bank.toLocaleString('pt-BR')} ${COIN}** no banco.`)], ephemeral: true });
 
       await prisma.economy.update({
         where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
         data:  { bank: { decrement: valor }, balance: { increment: valor } },
       });
       const embed = makeEmbed(COL_OK, '🏧 Saque Realizado!',
-        `**${valor.toLocaleString('pt-BR')} SC** sacados para sua carteira!\n\n> 🪙 Pronto para apostar nos jogos.`)
+        `**${valor.toLocaleString('pt-BR')} ${COIN}** sacados para sua carteira!\n\n> 🪙 Pronto para apostar nos jogos.`)
         .setImage(pickGif('sacar'));
       return interaction.reply({ embeds: [embed] });
     }

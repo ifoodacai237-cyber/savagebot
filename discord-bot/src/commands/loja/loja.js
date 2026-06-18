@@ -10,10 +10,11 @@ import prisma from '../../database/client.js';
 import { buildLojaAdminPayload } from '../../utils/shopHandlers.js';
 
 const DEFAULT_COLOR = 0x9B4FD6;
-const DEFAULT_CONV  = '> `1000 mensagens` → **500 SC**\n> `1 hora em call` → **500 SC**';
+const COIN          = '<a:emoji_1:1516993823665033286>';
+const DEFAULT_CONV  = `> \`1000 mensagens\` → **500 ${COIN}**\n> \`1 hora em call\` → **500 ${COIN}**`;
 const DEFAULT_TEXT  =
-  'Deseja adquirir **cargos** e **banners de perfil** exclusivos?\n' +
-  'Aqui você pode comprar tudo com as suas **SlowCoins**!';
+  `Deseja adquirir **cargos** e **banners de perfil** exclusivos?\n` +
+  `Aqui você pode comprar tudo com as suas **${COIN}**!`;
 const DIVIDER = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
 
 export function buildShopMain(guild, cfg = {}) {

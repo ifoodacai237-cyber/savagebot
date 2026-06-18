@@ -1,6 +1,8 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
 
+const COIN = '<a:emoji_1:1516993823665033286>';
+
 export default {
   data: new SlashCommandBuilder()
     .setName('criar-pet')
@@ -45,7 +47,7 @@ export default {
           .setTitle('🐾 Pet Criado com Sucesso!')
           .setDescription(`**${emoji} ${nome}** agora está disponível na loja!`)
           .addFields(
-            { name: '💰 Preço',      value: `**${preco.toLocaleString('pt-BR')} SC**`, inline: true },
+            { name: '💰 Preço',      value: `**${preco.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
             { name: '📝 Descrição',  value: desc ?? '—',                               inline: true },
             { name: '🆔 ID Interno', value: `\`${pet.id}\``,                           inline: false },
           )

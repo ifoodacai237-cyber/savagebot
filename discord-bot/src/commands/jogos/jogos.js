@@ -47,6 +47,8 @@ function handTotal(cards) {
   return total;
 }
 
+const COIN = '<a:emoji_1:1516993823665033286>';
+
 // ─── Economy helpers ──────────────────────────────────────────────────────────
 async function getEco(userId, guildId) {
   return prisma.economy.upsert({
@@ -115,7 +117,7 @@ export default {
       const lado  = interaction.options.getString('lado');
       const bet   = parseBet(interaction.options.getString('aposta'), eco.balance);
       if (!bet || bet <= 0) return interaction.editReply({ embeds: [errorEmbed('Aposta inválida.')] });
-      if (bet > eco.balance) return interaction.editReply({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} SC**.`)] });
+      if (bet > eco.balance) return interaction.editReply({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.`)] });
 
       const resultado = Math.random() < 0.5 ? 'cara' : 'coroa';
       const won       = resultado === lado;
@@ -132,7 +134,7 @@ export default {
     if (sub === 'slots') {
       const bet = parseBet(interaction.options.getString('aposta'), eco.balance);
       if (!bet || bet <= 0) return interaction.editReply({ embeds: [errorEmbed('Aposta inválida.')] });
-      if (bet > eco.balance) return interaction.editReply({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} SC**.`)] });
+      if (bet > eco.balance) return interaction.editReply({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.`)] });
 
       const reelObjs = [weightedRandom(), weightedRandom(), weightedRandom()];
       const reels    = reelObjs.map(r => r.sym);
@@ -159,7 +161,7 @@ export default {
     if (sub === 'dados') {
       const bet = parseBet(interaction.options.getString('aposta'), eco.balance);
       if (!bet || bet <= 0) return interaction.editReply({ embeds: [errorEmbed('Aposta inválida.')] });
-      if (bet > eco.balance) return interaction.editReply({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} SC**.`)] });
+      if (bet > eco.balance) return interaction.editReply({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.`)] });
 
       const playerDie = Math.floor(Math.random() * 6) + 1;
       const botDie    = Math.floor(Math.random() * 6) + 1;
@@ -180,7 +182,7 @@ export default {
     if (sub === 'blackjack') {
       const bet = parseBet(interaction.options.getString('aposta'), eco.balance);
       if (!bet || bet <= 0) return interaction.editReply({ embeds: [errorEmbed('Aposta inválida.')] });
-      if (bet > eco.balance) return interaction.editReply({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} SC**.`)] });
+      if (bet > eco.balance) return interaction.editReply({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.`)] });
 
       const deck   = shuffle(newDeck());
       let player   = [deck.pop(), deck.pop()];
@@ -221,7 +223,7 @@ export default {
       const bet     = parseBet(interaction.options.getString('aposta'), eco.balance);
       const escolha = interaction.options.getString('escolha').toLowerCase().trim();
       if (!bet || bet <= 0) return interaction.editReply({ embeds: [errorEmbed('Aposta inválida.')] });
-      if (bet > eco.balance) return interaction.editReply({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} SC**.`)] });
+      if (bet > eco.balance) return interaction.editReply({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.`)] });
 
       const RED_SET = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
       const spin    = Math.floor(Math.random() * 37);

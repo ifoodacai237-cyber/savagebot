@@ -4,6 +4,10 @@ import { getBanner, getRingColors } from './shopData.js';
 const FONT = '"Noto Sans", "DejaVu Sans", Arial, sans-serif';
 const W = 900, H = 340;
 
+// ID do emoji de moeda personalizado
+const COIN_EMOJI_ID = '1516993823665033286';
+const COIN_URL      = `https://cdn.discordapp.com/emojis/${COIN_EMOJI_ID}.png`;
+
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -37,6 +41,10 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
 
   const banner = activeBanner ? getBanner(activeBanner) : null;
   const { c1, c2 } = getRingColors(activeRing ?? null);
+
+  // Pré-carrega coin emoji (falha silenciosa)
+  let coinImg = null;
+  try { coinImg = await loadUrl(COIN_URL); } catch {}
 
   // ── Background ──────────────────────────────────────────────────────────────
   if (banner) {
@@ -141,7 +149,7 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
 
   ctx.shadowBlur = 0;
 
-  const bannerLabel = banner ? `🖼️ ${banner.name}` : '🖼️ Sem banner';
+  const bannerLabel = banner ? `${banner.name}` : 'Sem banner';
   ctx.font = `12px ${FONT}`;
   const bw  = ctx.measureText(bannerLabel).width + 22;
   ctx.fillStyle = 'rgba(124,58,237,0.85)';
@@ -151,15 +159,19 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
 
   // ── Stats row ───────────────────────────────────────────────────────────────
   const statsY = AV_CY + 34;
-  const stats = [
-    { icon: '💰', label: 'Carteira', value: `${fmt(balance)} SC` },
-    { icon: '🏦', label: 'Banco',    value: `${fmt(bank)} SC`    },
-    { icon: '🛍️', label: 'Itens',   value: `${purchases} itens`  },
+
+  // Dados de cada card
+  const statsData = [
+    { symbol: '◈', label: 'Carteira', value: `${fmt(balance)}`, hasCoin: true  },
+    { symbol: '◉', label: 'Banco',    value: `${fmt(bank)}`,    hasCoin: true  },
+    { symbol: '✦', label: 'Itens',    value: `${purchases}`,    hasCoin: false, suffix: ' itens' },
   ];
 
-  stats.forEach(({ icon, label, value }, i) => {
+  for (let i = 0; i < statsData.length; i++) {
+    const { symbol, label, value, hasCoin, suffix } = statsData[i];
     const sx = TX + i * 210;
 
+    // Card bg
     ctx.fillStyle = 'rgba(255,255,255,0.07)';
     roundRect(ctx, sx, statsY, 196, 68, 10); ctx.fill();
 
@@ -167,14 +179,25 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
     ctx.lineWidth = 1;
     roundRect(ctx, sx, statsY, 196, 68, 10); ctx.stroke();
 
+    // Label com símbolo Unicode (sem emoji — renderiza limpo)
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.font = `12px ${FONT}`;
-    ctx.fillText(`${icon}  ${label}`, sx + 12, statsY + 22);
+    ctx.font = `13px ${FONT}`;
+    ctx.fillText(`${symbol}  ${label}`, sx + 12, statsY + 22);
 
+    // Valor em negrito
     ctx.fillStyle = '#FFFFFF';
     ctx.font = `bold 19px ${FONT}`;
-    ctx.fillText(value, sx + 12, statsY + 50);
-  });
+
+    if (hasCoin && coinImg) {
+      // Desenha valor + ícone de moeda
+      const valueStr = value;
+      ctx.fillText(valueStr, sx + 12, statsY + 50);
+      const vw = ctx.measureText(valueStr).width;
+      ctx.drawImage(coinImg, sx + 12 + vw + 5, statsY + 33, 18, 18);
+    } else {
+      ctx.fillText(`${value}${suffix ?? ''}`, sx + 12, statsY + 50);
+    }
+  }
 
   // ── Footer ──────────────────────────────────────────────────────────────────
   ctx.fillStyle = 'rgba(255,255,255,0.25)';

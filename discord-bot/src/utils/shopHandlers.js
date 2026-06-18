@@ -15,6 +15,7 @@ import { BANNERS, getBanner, RING_PRESETS, getRing } from './shopData.js';
 
 const SHOP_COLOR = 0x9B4FD6;
 const DIVIDER    = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
+const COIN       = '<a:emoji_1:1516993823665033286>';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -61,7 +62,7 @@ async function handleLojaAdminCargos(interaction) {
   const roles = await prisma.shopRole.findMany({ where: { guildId: interaction.guildId }, orderBy: { price: 'asc' } });
 
   const lines = roles.length
-    ? roles.map(r => `> <@&${r.roleId}> — **${r.price.toLocaleString('pt-BR')} SC**\n> ${r.description ?? '—'}\n> \`${r.id}\``).join('\n\n')
+    ? roles.map(r => `> <@&${r.roleId}> — **${r.price.toLocaleString('pt-BR')} ${COIN}**\n> ${r.description ?? '—'}\n> \`${r.id}\``).join('\n\n')
     : '*Nenhum cargo cadastrado ainda.*';
 
   const embed = new EmbedBuilder()
@@ -84,7 +85,7 @@ async function handleLojaAdminCargos(interaction) {
         new StringSelectMenuOptionBuilder()
           .setLabel(r.name)
           .setValue(r.id)
-          .setDescription(`${r.price.toLocaleString('pt-BR')} SC`)
+          .setDescription(`${r.price.toLocaleString('pt-BR')} ${COIN}`)
       ));
     rows.push(new ActionRowBuilder().addComponents(sel));
   }
@@ -143,7 +144,7 @@ async function handleLojaAdminAddCargoModal(interaction) {
       new EmbedBuilder()
         .setColor(0x57F287)
         .setTitle('✅ Cargo Adicionado!')
-        .setDescription(`<@&${roleId}> agora está disponível por **${price.toLocaleString('pt-BR')} SC**!`)
+        .setDescription(`<@&${roleId}> agora está disponível por **${price.toLocaleString('pt-BR')} ${COIN}**!`)
         .addFields({ name: '📝 Descrição', value: desc ?? '—' }),
     ],
   });
@@ -438,10 +439,10 @@ async function handleGiftTypeSel(interaction) {
         new EmbedBuilder().setColor(SHOP_COLOR)
           .setTitle(`🎁 Presentear ${target.displayName}`)
           .setDescription(roles.map(r =>
-            `> **${r.name}** — \`${r.price.toLocaleString('pt-BR')} SC\`\n> ${r.description ?? '—'}`
+            `> **${r.name}** — \`${r.price.toLocaleString('pt-BR')} ${COIN}\`\n> ${r.description ?? '—'}`
           ).join('\n\n'))
           .setThumbnail(target.user.displayAvatarURL({ size: 64 }))
-          .addFields({ name: '💰 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true }),
+          .addFields({ name: '💰 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true }),
       ],
       components: [new ActionRowBuilder().addComponents(sel)],
     });
@@ -460,7 +461,7 @@ async function handleGiftTypeSel(interaction) {
         new StringSelectMenuOptionBuilder()
           .setLabel(b.name)
           .setValue(`banner:${b.key}`)
-          .setDescription(`${b.price.toLocaleString('pt-BR')} SC${giftedKeys.has(b.key) ? ' ✅ já possui' : ''}`)
+          .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${giftedKeys.has(b.key) ? ' ✅ já possui' : ''}`)
           .setEmoji(b.emoji ?? '🖼️')
       ));
 
@@ -469,11 +470,11 @@ async function handleGiftTypeSel(interaction) {
         new EmbedBuilder().setColor(SHOP_COLOR)
           .setTitle(`🎁 Presentear ${target.displayName}`)
           .setDescription(BANNERS.map(b =>
-            `${giftedKeys.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} SC\``
+            `${giftedKeys.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} ${COIN}\``
           ).join('\n'))
           .setImage(BANNERS[0].imageUrl)
           .setThumbnail(target.user.displayAvatarURL({ size: 64 }))
-          .addFields({ name: '💰 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true }),
+          .addFields({ name: '💰 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true }),
       ],
       components: [new ActionRowBuilder().addComponents(sel)],
     });
@@ -512,9 +513,9 @@ async function handleGiftItemSel(interaction) {
     .setTitle(`🎁 Confirmar Presente`)
     .setDescription(
       `Presentear **${target.displayName}** com **${name}**?\n\n` +
-      `> 💰 Preço: **${price.toLocaleString('pt-BR')} SC**\n` +
-      `> 👛 Seu saldo: **${eco.balance.toLocaleString('pt-BR')} SC**\n` +
-      `> 📉 Saldo após: **${(eco.balance - price).toLocaleString('pt-BR')} SC**`
+      `> 💰 Preço: **${price.toLocaleString('pt-BR')} ${COIN}**\n` +
+      `> 👛 Seu saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN}**\n` +
+      `> 📉 Saldo após: **${(eco.balance - price).toLocaleString('pt-BR')} ${COIN}**`
     )
     .setThumbnail(target.user.displayAvatarURL({ size: 64 }));
 
@@ -561,7 +562,7 @@ async function handleGiftBuyExecute(interaction, client) {
     name = b.name; price = b.price; itemRef = b.key;
   }
 
-  if (eco.balance < price) return interaction.editReply({ content: `❌ Saldo insuficiente! Você tem **${eco.balance.toLocaleString('pt-BR')} SC**.` });
+  if (eco.balance < price) return interaction.editReply({ content: `❌ Saldo insuficiente! Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.` });
 
   const exists = await prisma.userPurchase.findUnique({
     where: { userId_guildId_itemType_itemRef: { userId: targetId, guildId: interaction.guildId, itemType, itemRef } },
@@ -586,7 +587,7 @@ async function handleGiftBuyExecute(interaction, client) {
     .setTitle('🎁 Presente Enviado!')
     .setDescription(
       `Você presenteou **${target.displayName}** com **${name}**!\n` +
-      `> 💰 **${price.toLocaleString('pt-BR')} SC** debitados do seu saldo.`
+      `> 💰 **${price.toLocaleString('pt-BR')} ${COIN}** debitados do seu saldo.`
     )
     .setThumbnail(target.user.displayAvatarURL({ size: 64 }))
     .setTimestamp();
@@ -662,14 +663,14 @@ async function handleTypeSel(interaction) {
         new StringSelectMenuOptionBuilder()
           .setLabel(r.name)
           .setValue(`role:${r.id}`)
-          .setDescription(`${r.price.toLocaleString('pt-BR')} SC${ownedSet.has(r.roleId) ? ' ✅' : ''}`)
+          .setDescription(`${r.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(r.roleId) ? ' ✅' : ''}`)
       ));
 
     return interaction.update({
       embeds: [
         new EmbedBuilder().setColor(SHOP_COLOR).setTitle('👑 Cargos à Venda')
-          .setDescription(roles.map(r => `${ownedSet.has(r.roleId) ? '✅' : '▫️'} **${r.name}** — \`${r.price.toLocaleString('pt-BR')} SC\`\n> ${r.description ?? '—'}`).join('\n\n'))
-          .addFields({ name: '💰 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true }),
+          .setDescription(roles.map(r => `${ownedSet.has(r.roleId) ? '✅' : '▫️'} **${r.name}** — \`${r.price.toLocaleString('pt-BR')} ${COIN}\`\n> ${r.description ?? '—'}`).join('\n\n'))
+          .addFields({ name: '💰 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true }),
       ],
       components: [new ActionRowBuilder().addComponents(sel)],
     });
@@ -685,16 +686,16 @@ async function handleTypeSel(interaction) {
       .addOptions(BANNERS.map(b =>
         new StringSelectMenuOptionBuilder()
           .setLabel(b.name).setValue(`banner:${b.key}`)
-          .setDescription(`${b.price.toLocaleString('pt-BR')} SC${ownedSet.has(b.key) ? ' ✅' : ''}`)
+          .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(b.key) ? ' ✅' : ''}`)
           .setEmoji(b.emoji ?? '🖼️')
       ));
 
     return interaction.update({
       embeds: [
         new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🖼️ Banners de Perfil')
-          .setDescription(BANNERS.map(b => `${ownedSet.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} SC\``).join('\n'))
+          .setDescription(BANNERS.map(b => `${ownedSet.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} ${COIN}\``).join('\n'))
           .setImage(BANNERS[0].imageUrl)
-          .addFields({ name: '💰 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true }),
+          .addFields({ name: '💰 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true }),
       ],
       components: [new ActionRowBuilder().addComponents(sel)],
     });
@@ -716,7 +717,7 @@ async function handleTypeSel(interaction) {
       new StringSelectMenuOptionBuilder()
         .setLabel(`${p.emoji} ${p.name}`)
         .setValue(`pet:${p.id}`)
-        .setDescription(`${p.price.toLocaleString('pt-BR')} SC${ownedSet.has(p.id) ? ' ✅' : ''}`)
+        .setDescription(`${p.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(p.id) ? ' ✅' : ''}`)
     );
 
     const sel = new StringSelectMenuBuilder().setCustomId('shop_item_sel').setPlaceholder('Selecione um pet').addOptions(options);
@@ -724,8 +725,8 @@ async function handleTypeSel(interaction) {
     return interaction.update({
       embeds: [
         new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🐾 Pets Disponíveis')
-          .setDescription(pets.map(p => `${ownedSet.has(p.id) ? '✅' : '▫️'} **${p.emoji} ${p.name}** — \`${p.price.toLocaleString('pt-BR')} SC\`\n> ${p.description ?? '—'}`).join('\n\n'))
-          .addFields({ name: '💰 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true })
+          .setDescription(pets.map(p => `${ownedSet.has(p.id) ? '✅' : '▫️'} **${p.emoji} ${p.name}** — \`${p.price.toLocaleString('pt-BR')} ${COIN}\`\n> ${p.description ?? '—'}`).join('\n\n'))
+          .addFields({ name: '💰 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true })
           .setFooter({ text: 'Após comprar, use /perfil → Meu Pet para equipar' }),
       ],
       components: [new ActionRowBuilder().addComponents(sel)],
@@ -745,7 +746,7 @@ async function handleItemSel(interaction) {
 
     const embed = new EmbedBuilder().setColor(SHOP_COLOR).setTitle(`👑 ${item.name}`)
       .setDescription(item.description ?? 'Cargo exclusivo do servidor.')
-      .addFields({ name: '💰 Preço', value: `**${item.price.toLocaleString('pt-BR')} SC**`, inline: true }, { name: '👛 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true });
+      .addFields({ name: '💰 Preço', value: `**${item.price.toLocaleString('pt-BR')} ${COIN}**`, inline: true }, { name: '👛 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true });
 
     const btn = new ButtonBuilder().setCustomId(`shop_buy_role:${item.id}`)
       .setLabel(owned ? 'Já Possui' : canAfford ? 'Comprar' : 'Sem Saldo')
@@ -764,7 +765,7 @@ async function handleItemSel(interaction) {
 
     const embed = new EmbedBuilder().setColor(SHOP_COLOR).setTitle(b.name)
       .setDescription(b.description).setImage(b.imageUrl)
-      .addFields({ name: '💰 Preço', value: `**${b.price.toLocaleString('pt-BR')} SC**`, inline: true }, { name: '👛 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true });
+      .addFields({ name: '💰 Preço', value: `**${b.price.toLocaleString('pt-BR')} ${COIN}**`, inline: true }, { name: '👛 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true });
 
     const btn = new ButtonBuilder().setCustomId(`shop_buy_banner:${b.key}`)
       .setLabel(owned ? 'Já Possui' : canAfford ? 'Comprar Banner' : 'Sem Saldo')
@@ -783,7 +784,7 @@ async function handleItemSel(interaction) {
 
     const embed = new EmbedBuilder().setColor(SHOP_COLOR).setTitle(`${pet.emoji} ${pet.name}`)
       .setDescription(pet.description ?? 'Um pet exclusivo do servidor.')
-      .addFields({ name: '💰 Preço', value: `**${pet.price.toLocaleString('pt-BR')} SC**`, inline: true }, { name: '👛 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true })
+      .addFields({ name: '💰 Preço', value: `**${pet.price.toLocaleString('pt-BR')} ${COIN}**`, inline: true }, { name: '👛 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true })
       .setFooter({ text: 'Após comprar, use /perfil → Meu Pet para equipar' });
 
     const btn = new ButtonBuilder().setCustomId(`shop_buy_pet:${pet.id}`)
@@ -816,13 +817,13 @@ async function handleBuyConfirm(interaction) {
     name = b.name; price = b.price;
   }
 
-  if (eco.balance < price) return interaction.reply({ content: `❌ Saldo insuficiente! Você tem **${eco.balance.toLocaleString('pt-BR')} SC**.`, ephemeral: true });
+  if (eco.balance < price) return interaction.reply({ content: `❌ Saldo insuficiente! Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.`, ephemeral: true });
 
   const embed = new EmbedBuilder().setColor(0xFEE75C).setTitle('⚠️ Confirmar Compra')
     .setDescription(
-      `Comprar **${name}** por **${price.toLocaleString('pt-BR')} SC**?\n\n` +
-      `> 💰 Saldo atual: **${eco.balance.toLocaleString('pt-BR')} SC**\n` +
-      `> 📉 Saldo após:  **${(eco.balance - price).toLocaleString('pt-BR')} SC**`
+      `Comprar **${name}** por **${price.toLocaleString('pt-BR')} ${COIN}**?\n\n` +
+      `> 💰 Saldo atual: **${eco.balance.toLocaleString('pt-BR')} ${COIN}**\n` +
+      `> 📉 Saldo após:  **${(eco.balance - price).toLocaleString('pt-BR')} ${COIN}**`
     ).setFooter({ text: '⚠️ Esta ação não pode ser desfeita!' });
 
   const row = new ActionRowBuilder().addComponents(
@@ -879,7 +880,7 @@ async function handleBuyExecute(interaction, client) {
   const embed = new EmbedBuilder().setColor(0x57F287).setTitle('✅ Compra Realizada!')
     .setDescription(
       `Você comprou **${name}** com sucesso!\n` +
-      `💰 **${price.toLocaleString('pt-BR')} SC** debitados.` +
+      `💰 **${price.toLocaleString('pt-BR')} ${COIN}** debitados.` +
       (tipByType[type] ?? '')
     ).setTimestamp();
 
@@ -897,14 +898,14 @@ async function handleVitrine(interaction) {
     .setPlaceholder('🖼️ Selecione um banner para ver a prévia')
     .addOptions(BANNERS.map(b =>
       new StringSelectMenuOptionBuilder().setLabel(b.name).setValue(b.key)
-        .setDescription(`${b.price.toLocaleString('pt-BR')} SC${ownedSet.has(b.key) ? ' ✅' : ''}`)
+        .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(b.key) ? ' ✅' : ''}`)
         .setEmoji(b.emoji ?? '🖼️')
     ));
 
   return interaction.reply({
     embeds: [
       new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🖼️ Vitrine de Banners')
-        .setDescription(BANNERS.map(b => `${ownedSet.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} SC\`\n> ${b.description}`).join('\n\n'))
+        .setDescription(BANNERS.map(b => `${ownedSet.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} ${COIN}\`\n> ${b.description}`).join('\n\n'))
         .setImage(BANNERS[0].imageUrl)
         .setFooter({ text: `${BANNERS.length} banners • ✅ = você possui` }),
     ],
@@ -930,7 +931,7 @@ async function handleVitrineSel(interaction) {
     .setCustomId('shop_vitrine_sel').setPlaceholder('Ver outro banner...')
     .addOptions(BANNERS.map(b =>
       new StringSelectMenuOptionBuilder().setLabel(b.name).setValue(b.key)
-        .setDescription(`${b.price.toLocaleString('pt-BR')} SC${ownedSet.has(b.key) ? ' ✅' : ''}`)
+        .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(b.key) ? ' ✅' : ''}`)
         .setEmoji(b.emoji ?? '🖼️')
     ));
 
@@ -943,7 +944,7 @@ async function handleVitrineSel(interaction) {
   return interaction.update({
     embeds: [
       new EmbedBuilder().setColor(SHOP_COLOR).setTitle(banner.name).setDescription(banner.description).setImage(banner.imageUrl)
-        .addFields({ name: '💰 Preço', value: `**${banner.price.toLocaleString('pt-BR')} SC**`, inline: true }, { name: '👛 Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true }),
+        .addFields({ name: '💰 Preço', value: `**${banner.price.toLocaleString('pt-BR')} ${COIN}**`, inline: true }, { name: '👛 Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true }),
     ],
     components: [new ActionRowBuilder().addComponents(sel), new ActionRowBuilder().addComponents(btn)],
   });
@@ -955,10 +956,10 @@ async function handleConverter(interaction) {
   const eco = await getEco(interaction.user.id, interaction.guildId);
   return interaction.reply({
     embeds: [
-      new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🔄 Conversor de SlowCoins')
+      new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🔄 Conversor')
         .addFields(
-          { name: '📊 Conversão', value: '> `1.000 msgs` → **500 SC**\n> `1h em call` → **500 SC**' },
-          { name: '💼 Seu Saldo', value: `> 💰 **${eco.balance.toLocaleString('pt-BR')} SC** na carteira\n> 🏦 **${eco.bank.toLocaleString('pt-BR')} SC** no banco` },
+          { name: '📊 Conversão', value: `> \`1.000 msgs\` → **500 ${COIN}**\n> \`1h em call\` → **500 ${COIN}**` },
+          { name: '💼 Seu Saldo', value: `> 💰 **${eco.balance.toLocaleString('pt-BR')} ${COIN}** na carteira\n> 🏦 **${eco.bank.toLocaleString('pt-BR')} ${COIN}** no banco` },
         ),
     ],
     ephemeral: true,
@@ -981,8 +982,8 @@ async function handleSaldo(interaction) {
       new EmbedBuilder().setColor(SHOP_COLOR).setTitle('💰 Meu Saldo')
         .setThumbnail(interaction.user.displayAvatarURL({ size: 64 }))
         .addFields(
-          { name: '💰 Carteira',       value: `**${eco.balance.toLocaleString('pt-BR')} SC**`, inline: true },
-          { name: '🏦 Banco',          value: `**${eco.bank.toLocaleString('pt-BR')} SC**`,   inline: true },
+          { name: '💰 Carteira',       value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
+          { name: '🏦 Banco',          value: `**${eco.bank.toLocaleString('pt-BR')} ${COIN}**`,   inline: true },
           { name: '📦 Itens',          value: `**${purchases}** compra(s)`,                   inline: true },
           { name: '🖼️ Banner Ativo',   value: activeBanner ? activeBanner.name : 'Nenhum',   inline: true },
         )
