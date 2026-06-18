@@ -43,7 +43,7 @@ export function buildLojaAdminPayload(cfg) {
       '📦 **Cargos** — adicione, remova e veja os cargos à venda\n' +
       '🎨 **Personalizar** — altere título, banner, cor, texto e mais'
     )
-    .setFooter({ text: 'Slow Bot · Admin da Loja' });
+    .setFooter({ text: 'Fallen Bot · Admin da Loja' });
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('loja_admin_cargos').setLabel('Cargos em Estoque').setEmoji('📦').setStyle(ButtonStyle.Primary),
@@ -69,7 +69,7 @@ async function handleLojaAdminCargos(interaction) {
     .setColor(SHOP_COLOR)
     .setTitle('📦 Cargos em Estoque')
     .setDescription(lines)
-    .setFooter({ text: 'Slow Bot · Admin da Loja' });
+    .setFooter({ text: 'Fallen Bot · Admin da Loja' });
 
   const rows = [
     new ActionRowBuilder().addComponents(
@@ -102,7 +102,7 @@ async function handleLojaAdminAddCargo(interaction) {
         .setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('123456789012345678')
     ),
     new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('price').setLabel('Preço (em SlowCoins)')
+      new TextInputBuilder().setCustomId('price').setLabel('Preço (em FallenCoins)')
         .setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('500')
     ),
     new ActionRowBuilder().addComponents(
@@ -193,7 +193,7 @@ export function buildLojaConfigPayload(cfg) {
       { name: '🔄 Conversão', value: cfg.lojaConversao ? cfg.lojaConversao.slice(0, 100) + (cfg.lojaConversao.length > 100 ? '…' : '') : '*padrão*' },
       { name: '📝 Texto',     value: cfg.lojaText      ? cfg.lojaText.slice(0, 100)      + (cfg.lojaText.length      > 100 ? '…' : '') : '*padrão*' },
     )
-    .setFooter({ text: 'Slow Bot · Personalizar Loja' });
+    .setFooter({ text: 'Fallen Bot · Personalizar Loja' });
 
   if (cfg.lojaBanner) embed.setImage(cfg.lojaBanner);
   if (cfg.lojaThumb)  embed.setThumbnail(cfg.lojaThumb);

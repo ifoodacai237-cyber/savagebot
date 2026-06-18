@@ -7,7 +7,7 @@ import {
 import prisma from '../database/client.js';
 import { likesMap, threadsMap } from '../utils/instaState.js';
 
-const PREFIX = 'slow ';
+const PREFIX = 'fallen ';
 
 const cfgCache = new Map();
 async function getGuildCfg(guildId) {

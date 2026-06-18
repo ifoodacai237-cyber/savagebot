@@ -56,6 +56,6 @@ export default {
       await sendPanel(message.channel, message.guildId);
       return message.reply({ embeds: [successEmbed('Painel Criado', 'Painel Tellonym enviado.')] });
     }
-    return message.reply({ embeds: [errorEmbed('Use: `slow tellonym painel` ou `/tellonym config`')] });
+    return message.reply({ embeds: [errorEmbed('Use: `fallen tellonym painel` ou `/tellonym config`')] });
   },
 };

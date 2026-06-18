@@ -197,7 +197,7 @@ function makeCommand(type) {
       const target = message.mentions.users.first();
       if (!target) {
         return message.reply({
-          embeds: [errorEmbed(`Mencione o usuário. Ex: \`slow ${type} @user\` ou \`slow ${action.aliases[0]} @user\``)],
+          embeds: [errorEmbed(`Mencione o usuário. Ex: \`fallen ${type} @user\` ou \`fallen ${action.aliases[0]} @user\``)],
         });
       }
       const member = await message.guild.members.fetch(target.id).catch(() => target);

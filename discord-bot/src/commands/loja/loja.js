@@ -31,7 +31,7 @@ export function buildShopMain(guild, cfg = {}) {
     .setColor(color)
     .setTitle(title)
     .setDescription(desc)
-    .setFooter({ text: 'Slow Bot · Loja' })
+    .setFooter({ text: 'Fallen Bot · Loja' })
     .setTimestamp();
 
   if (cfg.lojaBanner) embed.setImage(cfg.lojaBanner);

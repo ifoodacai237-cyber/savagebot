@@ -15,7 +15,7 @@ export default {
       opt.setName('emoji').setDescription('Emoji do pet (unicode 🐱 ou emoji do servidor <:nome:id>)').setRequired(true).setMaxLength(100)
     )
     .addIntegerOption(opt =>
-      opt.setName('preco').setDescription('Preço em SlowCoins').setRequired(true).setMinValue(1)
+      opt.setName('preco').setDescription('Preço em FallenCoins').setRequired(true).setMinValue(1)
     )
     .addStringOption(opt =>
       opt.setName('descricao').setDescription('Descrição do pet (opcional)').setRequired(false).setMaxLength(200)

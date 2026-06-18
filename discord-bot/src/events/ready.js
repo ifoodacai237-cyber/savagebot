@@ -11,9 +11,9 @@ export default {
     client.user.setPresence({
       status: 'online',
       activities: [{
-        name: 'slow.gg · Transmissão ao vivo',
+        name: 'discord.gg/fallenn',
         type: ActivityType.Streaming,
-        url: 'https://www.twitch.tv/slowbot',
+        url: 'https://www.twitch.tv/fallenn',
       }],
     });
 

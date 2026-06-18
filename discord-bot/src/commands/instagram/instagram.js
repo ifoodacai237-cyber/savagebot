@@ -111,7 +111,7 @@ export default {
           { name: '📥 Entrou no servidor', value: joinedAt ? `<t:${Math.floor(joinedAt.getTime() / 1000)}:R>` : '*(desconhecido)*', inline: true },
           { name: '🏷️ Cargos',         value: roles,                                                inline: false },
         )
-        .setFooter({ text: `Slow Bot · Instagram • ${displayName}` })
+        .setFooter({ text: `Fallen Bot · Instagram • ${displayName}` })
         .setTimestamp();
 
       return interaction.editReply({ embeds: [embed] });
@@ -156,11 +156,11 @@ export default {
           { name: '📥 Entrou no servidor', value: joinedAt ? `<t:${Math.floor(joinedAt.getTime() / 1000)}:R>` : '*(desconhecido)*', inline: true },
           { name: '🏷️ Cargos',         value: roles,                                                inline: false },
         )
-        .setFooter({ text: `Slow Bot · Instagram • ${displayName}` })
+        .setFooter({ text: `Fallen Bot · Instagram • ${displayName}` })
         .setTimestamp();
 
       return message.reply({ embeds: [embed] });
     }
-    return message.reply({ embeds: [errorEmbed('Use: `slow instagram ativar`, `slow instagram desativar` ou `slow instagram perfil [@user]`')] });
+    return message.reply({ embeds: [errorEmbed('Use: `fallen instagram ativar`, `fallen instagram desativar` ou `fallen instagram perfil [@user]`')] });
   },
 };

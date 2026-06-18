@@ -203,7 +203,7 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
   ctx.fillStyle = 'rgba(255,255,255,0.25)';
   ctx.font      = `11px ${FONT}`;
   ctx.textAlign = 'right';
-  ctx.fillText('Slow Bot • Perfil', W - 14, H - 12);
+  ctx.fillText('Fallen Bot • Perfil', W - 14, H - 12);
 
   return canvas.toBuffer('image/png');
 }

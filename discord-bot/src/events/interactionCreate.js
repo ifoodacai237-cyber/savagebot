@@ -92,7 +92,7 @@ const TELLONYM_MODAL_FIELDS = {
   titulo: { label: 'Título do painel',           db: 'tellonymTitle',  placeholder: '💌 Tellonym (deixe vazio para remover)',         isUrl: false, isLong: false },
   banner: { label: 'URL da imagem do banner',    db: 'tellonymBanner', placeholder: 'https://... ou discord.com/channels/... (deixe vazio para remover)', isUrl: true, isLong: false },
   thumb:  { label: 'URL da thumbnail',           db: 'tellonymThumb',  placeholder: 'https://... ou discord.com/channels/... (deixe vazio para remover)', isUrl: true, isLong: false },
-  rodape: { label: 'Texto do rodapé',            db: 'tellonymFooter', placeholder: 'Slow Bot · Tellonym (deixe vazio para remover)',  isUrl: false, isLong: false },
+  rodape: { label: 'Texto do rodapé',            db: 'tellonymFooter', placeholder: 'Fallen Bot · Tellonym (deixe vazio para remover)',  isUrl: false, isLong: false },
   texto:  { label: 'Texto principal do painel',  db: 'tellonymText',   placeholder: 'Clique no botão para enviar uma mensagem... (deixe vazio para padrão)', isUrl: false, isLong: true },
 };
 
@@ -1164,7 +1164,7 @@ export default {
           const embed = baseEmbed(color)
             .setTitle(config?.ticketTitle ?? '📋 Ticket de Suporte')
             .setDescription(`**Usuário:** <@${interaction.user.id}>\n\n${answersText}`)
-            .setFooter({ text: config?.ticketFooter ?? 'Slow Bot · Suporte' });
+            .setFooter({ text: config?.ticketFooter ?? 'Fallen Bot · Suporte' });
 
           if (config?.ticketBanner) embed.setImage(config.ticketBanner);
           if (config?.ticketThumb)  embed.setThumbnail(config.ticketThumb);

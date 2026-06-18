@@ -8,7 +8,7 @@ function buildEmbed(latency, apiLatency) {
       { name: 'WebSocket', value: `\`${latency}ms\``, inline: true },
       { name: 'API',       value: `\`${apiLatency}ms\``, inline: true },
     )
-    .setFooter({ text: 'Slow Bot · Latência' });
+    .setFooter({ text: 'Fallen Bot · Latência' });
 }
 
 export default {

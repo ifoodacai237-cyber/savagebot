@@ -1,10 +1,12 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { baseEmbed, Colors } from '../../utils/embed.js';
+
+const SERVER_INVITE = 'https://discord.gg/fallenn';
 
 function buildEmbed() {
   return baseEmbed(Colors.PRIMARY)
     .setTitle('📖 Comandos Disponíveis')
-    .setDescription('Use `/comando` ou `slow comando`\n\u200b')
+    .setDescription('Use `/comando` ou `fallen comando`\n\u200b')
     .addFields(
       {
         name: '⚙️ Geral',
@@ -27,7 +29,17 @@ function buildEmbed() {
         value: '`tellonym set [link]` — Salvar link\n`tellonym ver [@user]` — Ver link\n`tell @user [msg]` — Mensagem anônima',
       },
     )
-    .setFooter({ text: 'Slow Bot · Sistema de Ajuda' });
+    .setFooter({ text: 'Fallen Bot · Sistema de Ajuda' });
+}
+
+function buildRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setLabel('Entrar no Servidor')
+      .setEmoji('🔗')
+      .setStyle(ButtonStyle.Link)
+      .setURL(SERVER_INVITE),
+  );
 }
 
 export default {
@@ -38,10 +50,10 @@ export default {
   aliases: ['help', 'comandos'],
 
   async execute(interaction) {
-    return interaction.reply({ embeds: [buildEmbed()] });
+    return interaction.reply({ embeds: [buildEmbed()], components: [buildRow()] });
   },
 
   async executePrefix(message) {
-    return message.reply({ embeds: [buildEmbed()] });
+    return message.reply({ embeds: [buildEmbed()], components: [buildRow()] });
   },
 };

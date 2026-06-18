@@ -364,7 +364,7 @@ export function generateTopCard(entries) {
   ctx.fillStyle = '#FFFFFF';
   ctx.font      = `bold 17px ${FONT}`;
   ctx.textAlign = 'center';
-  ctx.fillText('🏆  TOP ECONOMIA — SlowCoins', W / 2, 41);
+  ctx.fillText('🏆  TOP ECONOMIA — FallenCoins', W / 2, 41);
 
   const MEDALS = ['🥇', '🥈', '🥉'];
 
