@@ -245,24 +245,29 @@ export async function createRadioSession({ guild, channelId, playlistKey }) {
       selfDeaf:       true,
       selfMute:       false,
     });
-    await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
+
+    // Registra handler de desconexão ANTES de aguardar o estado Ready,
+    // para que reconexões durante o próprio handshake sejam tratadas.
+    connection.on(VoiceConnectionStatus.Disconnected, async () => {
+      try {
+        await Promise.race([
+          entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
+          entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
+        ]);
+        // Reconectou — ok
+      } catch {
+        // Falhou → para a sessão se ainda existir
+        const sess = radioSessions.get(guild.id);
+        if (sess) sess.stop();
+      }
+    });
+
+    await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
   } catch (err) {
-    console.error('[RADIO] Falha ao entrar no canal:', err.message);
+    console.error('[RADIO] Falha ao entrar no canal de voz:', err.message ?? err);
     try { connection?.destroy(); } catch {}
     return null;
   }
-
-  connection.on(VoiceConnectionStatus.Disconnected, async () => {
-    try {
-      await Promise.race([
-        entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
-        entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
-      ]);
-    } catch {
-      const sess = radioSessions.get(guild.id);
-      if (sess) sess.stop();
-    }
-  });
 
   const session = new RadioSession({ connection, playlistKey, guildId: guild.id });
   radioSessions.set(guild.id, session);
