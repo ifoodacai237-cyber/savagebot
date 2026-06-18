@@ -4,6 +4,7 @@ import {
   createAudioResource,
   AudioPlayerStatus,
   joinVoiceChannel,
+  getVoiceConnection,
   VoiceConnectionStatus,
   entersState,
   StreamType,
@@ -266,11 +267,23 @@ export const radioSessions = new Map();
 // ─── Factory: conecta ao canal e cria sessão ──────────────────────────────────
 
 export async function createRadioSession({ guild, channelId, playlistKey }) {
-  // Para sessão existente (se houver)
+  // Para sessão de rádio existente (se houver)
   const existing = radioSessions.get(guild.id);
   if (existing) {
-    try { existing.stop(); } catch {}
-    await new Promise(r => setTimeout(r, 500));
+    existing._stopped    = true;
+    existing._restarting = true;
+    try { existing.player.stop(true); } catch {}
+    existing._killFFmpeg?.();
+    radioSessions.delete(guild.id);
+  }
+
+  // Destrói QUALQUER conexão de voz ativa no servidor (inclusive /call 24/7)
+  // Isso evita conflito de dois adaptadores de voz para o mesmo guild
+  const anyConn = getVoiceConnection(guild.id);
+  if (anyConn) {
+    console.log('[RADIO] Destruindo conexão de voz existente...');
+    try { anyConn.destroy(); } catch {}
+    await new Promise(r => setTimeout(r, 800));
   }
 
   console.log(`[RADIO] Conectando ao canal ${channelId}...`);

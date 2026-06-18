@@ -1,14 +1,30 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import {
   joinVoiceChannel,
+  getVoiceConnection,
   VoiceConnectionStatus,
   entersState,
 } from '@discordjs/voice';
 import { baseEmbed, errorEmbed, Colors } from '../../utils/embed.js';
+import { radioSessions } from '../../utils/radioManager.js';
 
 async function setupConnection(client, guild, channelId) {
   const channel = guild.channels.cache.get(channelId);
   if (!channel) return null;
+
+  // Para qualquer sessão de rádio ativa antes de entrar
+  const radioSess = radioSessions.get(guild.id);
+  if (radioSess) {
+    try { radioSess.stop(); } catch {}
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  // Destrói qualquer conexão de voz existente
+  const anyConn = getVoiceConnection(guild.id);
+  if (anyConn) {
+    try { anyConn.destroy(); } catch {}
+    await new Promise(r => setTimeout(r, 300));
+  }
 
   const connection = joinVoiceChannel({
     channelId,
