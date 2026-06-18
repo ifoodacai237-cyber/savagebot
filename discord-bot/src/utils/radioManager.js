@@ -295,11 +295,19 @@ export async function createRadioSession({ guild, channelId, playlistKey }) {
     adapterCreator: guild.voiceAdapterCreator,
     selfDeaf:       true,
     selfMute:       false,
+    debug:          true,
   });
 
-  // Log de todos os estados para diagnóstico
+  // Log de todos os estados e mensagens do protocolo de voz
   connection.on('stateChange', (oldState, newState) => {
     console.log(`[RADIO] Conexão: ${oldState.status} → ${newState.status}`);
+  });
+
+  connection.on('debug', (msg) => {
+    // Filtra apenas mensagens relevantes para não poluir o log
+    if (msg.includes('op') || msg.includes('close') || msg.includes('error') || msg.includes('select') || msg.includes('ready') || msg.includes('session')) {
+      console.log('[RADIO WS]', msg.slice(0, 300));
+    }
   });
 
   // ── Aguarda a conexão ficar Ready (SEM handler de Disconnected ainda) ────────
