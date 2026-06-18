@@ -16,35 +16,35 @@ export const PLAYLISTS = {
   lofi: {
     emoji: '🌙',
     name: 'Lo-Fi / Groove',
-    streamUrl: 'https://ice2.somafm.com/groovesalad-128-mp3',
+    streamUrl: 'https://streams.ilovemusic.de/iloveradio17.mp3',
     color: 0x5865F2,
-    genre: 'Lo-Fi / Ambient',
+    genre: 'Lo-Fi / Chillhop',
   },
   deephouse: {
     emoji: '🎧',
     name: 'Deep House',
-    streamUrl: 'https://ice2.somafm.com/deepspaceone-128-mp3',
+    streamUrl: 'https://streams.ilovemusic.de/iloveradio19.mp3',
     color: 0x00D4FF,
-    genre: 'Deep / Ambient Electronic',
+    genre: 'Deep House / Electronic',
   },
   hiphop: {
     emoji: '🎤',
     name: 'Hip Hop / Rap',
-    streamUrl: 'https://ice6.somafm.com/illstreet-128-mp3',
+    streamUrl: 'https://streams.ilovemusic.de/iloveradio5.mp3',
     color: 0x9B59B6,
     genre: 'Hip Hop / Rap',
   },
   eletro: {
     emoji: '⚡',
     name: 'Eletrônica / EDM',
-    streamUrl: 'https://ice2.somafm.com/beatblender-128-mp3',
+    streamUrl: 'https://streams.ilovemusic.de/iloveradio1.mp3',
     color: 0x00D4FF,
-    genre: 'EDM / Eletrônica',
+    genre: 'EDM / Dance',
   },
   pop: {
     emoji: '🎵',
     name: 'Pop Hits',
-    streamUrl: 'https://ice2.somafm.com/poptron-128-mp3',
+    streamUrl: 'https://streams.ilovemusic.de/iloveradio2.mp3',
     color: 0xFEE75C,
     genre: 'Pop',
   },
@@ -53,21 +53,21 @@ export const PLAYLISTS = {
     name: 'Indie / Alternative',
     streamUrl: 'https://ice2.somafm.com/indiepop-128-mp3',
     color: 0x2ECC71,
-    genre: 'Indie / Alternative',
+    genre: 'Indie Pop / Alternative',
   },
   soul: {
     emoji: '🖤',
     name: 'R&B / Soul',
-    streamUrl: 'https://ice2.somafm.com/lush-128-mp3',
+    streamUrl: 'https://streams.ilovemusic.de/iloveradio6.mp3',
     color: 0x8E44AD,
-    genre: 'R&B / Soul / Lush',
+    genre: 'R&B / Soul',
   },
   metal: {
     emoji: '🤘',
     name: 'Metal / Rock',
-    streamUrl: 'https://ice2.somafm.com/metal-128-mp3',
+    streamUrl: 'https://streams.ilovemusic.de/iloveradio7.mp3',
     color: 0x2C3E50,
-    genre: 'Metal / Rock',
+    genre: 'Rock / Metal',
   },
   jazz: {
     emoji: '🎷',
@@ -79,23 +79,23 @@ export const PLAYLISTS = {
   chill: {
     emoji: '🌊',
     name: 'Chill / Relaxante',
-    streamUrl: 'https://ice2.somafm.com/fluid-128-mp3',
+    streamUrl: 'https://streams.ilovemusic.de/iloveradio17.mp3',
     color: 0x27AE60,
     genre: 'Chill / Relaxante',
   },
   funk: {
     emoji: '🎉',
     name: 'Dance / Funk',
-    streamUrl: 'https://ice2.somafm.com/dronezone-128-mp3',
+    streamUrl: 'https://streams.ilovemusic.de/iloveradio1.mp3',
     color: 0xE67E22,
-    genre: 'Ambient / Drone',
+    genre: 'Dance / Funk',
   },
   reggae: {
     emoji: '🌴',
     name: 'Reggae / Roots',
-    streamUrl: 'https://ice2.somafm.com/reggae-128-mp3',
+    streamUrl: 'https://stream.laut.fm/reggae',
     color: 0x27AE60,
-    genre: 'Reggae',
+    genre: 'Reggae / Roots',
   },
 };
 
@@ -236,11 +236,6 @@ export class RadioSession {
     if (this.paused) { this.player.unpause(); this.paused = false; }
   }
 
-  skip() {
-    this._restartCount = 0;
-    this._restart();
-  }
-
   stop() {
     this._stopped    = true;
     this._restarting = true;
@@ -267,7 +262,6 @@ export const radioSessions = new Map();
 // ─── Factory: conecta ao canal e cria sessão ──────────────────────────────────
 
 export async function createRadioSession({ guild, channelId, playlistKey }) {
-  // Para sessão de rádio existente (se houver)
   const existing = radioSessions.get(guild.id);
   if (existing) {
     existing._stopped    = true;
@@ -277,8 +271,6 @@ export async function createRadioSession({ guild, channelId, playlistKey }) {
     radioSessions.delete(guild.id);
   }
 
-  // Destrói QUALQUER conexão de voz ativa no servidor (inclusive /call 24/7)
-  // Isso evita conflito de dois adaptadores de voz para o mesmo guild
   const anyConn = getVoiceConnection(guild.id);
   if (anyConn) {
     console.log('[RADIO] Destruindo conexão de voz existente...');
@@ -288,7 +280,6 @@ export async function createRadioSession({ guild, channelId, playlistKey }) {
 
   console.log(`[RADIO] Conectando ao canal ${channelId}...`);
 
-  // ── Cria a conexão de voz ───────────────────────────────────────────────────
   const connection = joinVoiceChannel({
     channelId,
     guildId:        guild.id,
@@ -298,19 +289,16 @@ export async function createRadioSession({ guild, channelId, playlistKey }) {
     debug:          true,
   });
 
-  // Log de todos os estados e mensagens do protocolo de voz
   connection.on('stateChange', (oldState, newState) => {
     console.log(`[RADIO] Conexão: ${oldState.status} → ${newState.status}`);
   });
 
   connection.on('debug', (msg) => {
-    // Filtra apenas mensagens relevantes para não poluir o log
     if (msg.includes('op') || msg.includes('close') || msg.includes('error') || msg.includes('select') || msg.includes('ready') || msg.includes('session')) {
       console.log('[RADIO WS]', msg.slice(0, 300));
     }
   });
 
-  // ── Aguarda a conexão ficar Ready (SEM handler de Disconnected ainda) ────────
   try {
     await entersState(connection, VoiceConnectionStatus.Ready, 25_000);
     console.log('[RADIO] Conexão de voz estabelecida!');
@@ -320,7 +308,6 @@ export async function createRadioSession({ guild, channelId, playlistKey }) {
     return null;
   }
 
-  // ── Agora que está Ready, configura o handler de reconexão ───────────────────
   connection.on(VoiceConnectionStatus.Disconnected, async () => {
     console.log('[RADIO] Desconectado — tentando reconectar...');
     try {
@@ -345,7 +332,6 @@ export async function createRadioSession({ guild, channelId, playlistKey }) {
     }
   });
 
-  // ── Cria e armazena a sessão ─────────────────────────────────────────────────
   const session = new RadioSession({ connection, playlistKey, guildId: guild.id });
   radioSessions.set(guild.id, session);
   return session;

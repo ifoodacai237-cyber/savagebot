@@ -39,11 +39,6 @@ export function buildControlPanel(session) {
       .setEmoji(session.paused ? '▶️' : '⏸️')
       .setStyle(session.paused ? ButtonStyle.Success : ButtonStyle.Secondary),
     new ButtonBuilder()
-      .setCustomId('radio_skip')
-      .setLabel('Próxima')
-      .setEmoji('⏭️')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
       .setCustomId('radio_stop')
       .setLabel('Parar')
       .setEmoji('⏹️')
@@ -56,11 +51,11 @@ export function buildControlPanel(session) {
 export default {
   data: new SlashCommandBuilder()
     .setName('radio')
-    .setDescription('Sistema de rádio — toca uma playlist em loop no canal de voz')
+    .setDescription('Sistema de rádio — toca uma estação ao vivo no canal de voz')
     .addSubcommand(sub =>
       sub
         .setName('entrar')
-        .setDescription('Entra em um canal de voz e começa a tocar uma playlist em loop')
+        .setDescription('Entra em um canal de voz e começa a tocar uma estação em loop')
         .addChannelOption(opt =>
           opt
             .setName('canal')
@@ -104,8 +99,6 @@ export default {
 
       const playlists = Object.entries(PLAYLISTS);
 
-      // Um único select menu com todas as playlists (Discord aceita até 25 opções).
-      // Usar múltiplos select menus com o mesmo customId causa erro 50035 (IDs duplicados).
       const sel = new StringSelectMenuBuilder()
         .setCustomId(`radio_playlist_sel:${voiceChannel.id}`)
         .setPlaceholder('Escolha uma estação...')

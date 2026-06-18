@@ -55,3 +55,6 @@ externalPort = 3000
 
 [userenv.shared]
 GUILD_ID = "1514018464069582998"
+
+[nix]
+channel = "stable-25_05"

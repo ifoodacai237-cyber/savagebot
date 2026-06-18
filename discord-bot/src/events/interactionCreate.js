@@ -33,6 +33,8 @@ import {
 import { handleShopInteraction } from '../utils/shopHandlers.js';
 import { radioSessions, createRadioSession } from '../utils/radioManager.js';
 import { buildControlPanel as buildRadioPanel } from '../commands/general/radio.js';
+import { musicSessions } from '../utils/musicManager.js';
+import { buildMusicPanel } from '../commands/general/musica.js';
 
 // ─── Container preview updater ────────────────────────────────────────────────
 
@@ -318,7 +320,7 @@ export default {
         const { customId } = interaction;
 
         // ── RÁDIO: Controles do painel (admin only) ─────────────────────
-        if (customId === 'radio_toggle' || customId === 'radio_skip' || customId === 'radio_stop') {
+        if (customId === 'radio_toggle' || customId === 'radio_stop') {
           const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.ManageGuild);
           if (!isAdmin) {
             return interaction.reply({
@@ -337,8 +339,6 @@ export default {
 
           if (customId === 'radio_toggle') {
             if (session.paused) session.resume(); else session.pause();
-          } else if (customId === 'radio_skip') {
-            await session.skip();
           } else if (customId === 'radio_stop') {
             session.stop();
             return interaction.update({
@@ -348,6 +348,28 @@ export default {
           }
 
           return interaction.update(buildRadioPanel(session));
+        }
+
+        // ── MÚSICA: Controles do player ──────────────────────────────────
+        if (customId === 'music_toggle' || customId === 'music_stop') {
+          const session = musicSessions.get(interaction.guildId);
+          if (!session) {
+            return interaction.update({
+              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Não há música tocando no momento.')],
+              components: [],
+            });
+          }
+
+          if (customId === 'music_toggle') {
+            if (session.paused) session.resume(); else session.pause();
+            return interaction.update(buildMusicPanel(session));
+          } else if (customId === 'music_stop') {
+            session.stop();
+            return interaction.update({
+              embeds: [new EmbedBuilder().setColor(0xED4245).setTitle('⏹️ Música Encerrada').setDescription('A reprodução foi parada.')],
+              components: [],
+            });
+          }
         }
 
         // ── LOJA / PERFIL: Botões da loja, config e perfil ──────────────

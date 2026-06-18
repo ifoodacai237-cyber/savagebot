@@ -6,27 +6,37 @@ description: Por que o rádio usa ilovemusic.de em vez de YouTube/play-dl, e com
 ## Problema
 `play-dl` falha em Replit/servidor com erro "Sign in to confirm you're not a bot" ao tentar fazer stream do YouTube. Isso é bloqueio do YouTube contra IPs de data center.
 
-## Solução
-Usar streams de rádio internet diretos (Icecast/SHOUTcast) via FFmpeg.
+## Solução Rádio
+Usar streams de rádio internet diretos (Icecast/SHOUTcast) via FFmpeg com StreamType.OggOpus.
 
-**Provider testado e funcionando:** `https://streams.ilovemusic.de/iloveradioN.mp3`
+**Providers funcionando:**
+- `https://streams.ilovemusic.de/iloveradioN.mp3` — rádio online com músicas reais
+- `https://ice2.somafm.com/<station>-128-mp3` — SomaFM (indie, jazz, metal)
+- `https://stream.laut.fm/<genre>` — laut.fm (reggae)
 
-| Canal | URL | Gênero |
-|-------|-----|--------|
-| iloveradio1  | dance/funk |
-| iloveradio2  | pop        |
-| iloveradio5  | hip hop    |
-| iloveradio6  | r&b        |
-| iloveradio7  | rock       |
-| iloveradio15 | latin      |
-| iloveradio17 | lofi       |
-| iloveradio18 | phonk/trap |
+| Canal | Gênero |
+|-------|--------|
+| iloveradio1  | Dance/EDM |
+| iloveradio2  | Pop |
+| iloveradio5  | Hip Hop |
+| iloveradio6  | R&B |
+| iloveradio7  | Rock |
+| iloveradio15 | Latin |
+| iloveradio17 | Lo-Fi / Chill |
+| iloveradio18 | Phonk/Trap |
+| iloveradio19 | Deep House |
+| stream.laut.fm/reggae | Reggae |
+| somafm indiepop | Indie |
+| somafm metal | Metal |
+| somafm sonicuniverse | Jazz |
 
-## Como funciona
-- `spawn('ffmpeg', ['-reconnect','1','-reconnect_streamed','1','-reconnect_delay_max','5','-i', url, '-f','s16le','-ar','48000','-ac','2','-'])` 
-- `createAudioResource(ffmpegProcess.stdout, { inputType: StreamType.Raw })`
-- opusscript (instalado) converte PCM → Opus para o Discord
+**IMPORTANTE:** NÃO usar SomaFM dronezone/deepspaceone/lush para Dance/Deep House/R&B — são ambient, não músicas reais.
 
-**Why:** FFmpeg tem suporte nativo a HTTP streams com reconnect. StreamType.Raw funciona sem depender de youtube-dl ou yt-dlp.
+## Solução Música (YouTube links)
+yt-dlp instalado via nix (versão 2025). Funciona com spawn em Node.js.
+- `yt-dlp --format bestaudio -o - URL` piped para ffmpeg
+- Veja musicManager.js e comando musica.js
 
-**How to apply:** Qualquer mudança no radio deve usar spawnRadioStream() em radioManager.js, não play-dl.
+**Why:** FFmpeg tem suporte nativo a HTTP streams com reconnect. StreamType.OggOpus é mais eficiente que Raw.
+
+**How to apply:** Rádio usa spawnRadioStream() em radioManager.js. Música usa spawnMusicStream() em musicManager.js, não play-dl.
