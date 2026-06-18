@@ -9,8 +9,7 @@ import {
   StreamType,
 } from '@discordjs/voice';
 
-// ─── Playlists — SomaFM (streams diretos, 200 OK, sem auth) ──────────────────
-// SomaFM é rádio pública gratuita, streams estáveis e acessíveis de qualquer server.
+// ─── Estações de Rádio ────────────────────────────────────────────────────────
 
 export const PLAYLISTS = {
   lofi: {
@@ -99,26 +98,36 @@ export const PLAYLISTS = {
   },
 };
 
-// ─── Spawn FFmpeg para stream de rádio ────────────────────────────────────────
+// ─── FFmpeg: HTTP MP3 → OGG Opus (sem reencoding no Node.js) ─────────────────
 
 function spawnRadioStream(url) {
-  return spawn('ffmpeg', [
-    '-loglevel', 'warning',
-    '-reconnect',            '1',
-    '-reconnect_streamed',   '1',
-    '-reconnect_delay_max',  '5',
+  const proc = spawn('ffmpeg', [
+    '-loglevel', 'error',
+    '-reconnect',                  '1',
+    '-reconnect_streamed',         '1',
+    '-reconnect_delay_max',        '10',
     '-reconnect_on_network_error', '1',
-    '-user_agent', 'Mozilla/5.0 (compatible; RadioBot/1.0)',
+    '-reconnect_on_http_error',    '5xx,4xx',
+    '-user_agent', 'Mozilla/5.0 (compatible; DiscordBot/1.0)',
     '-i', url,
     '-vn',
-    '-ar', '48000',
-    '-ac', '2',
-    '-f', 's16le',
+    '-c:a',   'libopus',
+    '-b:a',   '128k',
+    '-ar',    '48000',
+    '-ac',    '2',
+    '-f',     'ogg',
     'pipe:1',
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+  proc.stderr.on('data', d => {
+    const msg = d.toString().trim();
+    if (msg) console.error('[RADIO FFmpeg]', msg.slice(0, 200));
+  });
+
+  return proc;
 }
 
-// ─── Sessão de rádio ──────────────────────────────────────────────────────────
+// ─── Sessão de Rádio ──────────────────────────────────────────────────────────
 
 export class RadioSession {
   constructor({ connection, playlistKey, guildId }) {
@@ -130,81 +139,79 @@ export class RadioSession {
     this.player         = createAudioPlayer();
     this.controlMessage = null;
     this._ffmpeg        = null;
+    this._stopped       = false;
     this._restarting    = false;
     this._restartCount  = 0;
-    this._lastRestartAt = 0;
-    this._stopped       = false;
+    this._lastRestart   = 0;
 
     connection.subscribe(this.player);
 
     this.player.on(AudioPlayerStatus.Idle, () => {
-      if (!this._restarting && !this.paused && !this._stopped) {
-        console.log('[RADIO] Stream idle, restarting...');
+      if (!this._stopped && !this.paused && !this._restarting) {
+        console.log('[RADIO] Stream idle — reiniciando...');
         this._restart();
       }
     });
 
     this.player.on('error', err => {
       console.error('[RADIO] Player error:', err.message);
-      if (!this._restarting && !this._stopped) this._restart();
+      if (!this._stopped && !this._restarting) this._restart();
     });
   }
 
-  _createResource() {
+  _killFFmpeg() {
     if (this._ffmpeg) {
       try { this._ffmpeg.kill('SIGKILL'); } catch {}
       this._ffmpeg = null;
     }
+  }
+
+  _createResource() {
+    this._killFFmpeg();
     const proc = spawnRadioStream(this.playlist.streamUrl);
     this._ffmpeg = proc;
 
-    proc.stderr.on('data', d => {
-      const msg = d.toString().trim();
-      if (msg && !msg.includes('size=') && !msg.includes('time=') && !msg.includes('speed=')) {
-        console.log('[RADIO FFmpeg]', msg.slice(0, 120));
-      }
-    });
-
-    proc.on('close', (code) => {
-      console.log(`[RADIO] FFmpeg encerrou com código ${code}`);
-      if (code !== 0 && code !== null && !this._restarting && !this.paused && !this._stopped) {
+    proc.on('close', code => {
+      if (code !== 0 && !this._stopped && !this._restarting) {
+        console.log(`[RADIO] FFmpeg saiu (código ${code}) — reiniciando stream...`);
         this._restart();
       }
     });
 
     proc.stdout.on('error', () => {});
 
-    return createAudioResource(proc.stdout, { inputType: StreamType.Raw });
+    return createAudioResource(proc.stdout, { inputType: StreamType.OggOpus });
   }
 
   async start() {
     try {
       const resource = this._createResource();
       this.player.play(resource);
+      console.log('[RADIO] Rádio iniciada:', this.playlist.name);
       return true;
     } catch (err) {
-      console.error('[RADIO] start() failed:', err.message);
+      console.error('[RADIO] start() falhou:', err.message);
       return false;
     }
   }
 
   async _restart() {
-    if (this._stopped) return;
+    if (this._stopped || this._restarting) return;
     this._restarting = true;
 
     const now = Date.now();
-    if (now - this._lastRestartAt > 60_000) this._restartCount = 0;
-    this._lastRestartAt = now;
+    if (now - this._lastRestart > 60_000) this._restartCount = 0;
+    this._lastRestart = now;
     this._restartCount++;
 
-    if (this._restartCount > 10) {
-      console.error('[RADIO] Muitas tentativas consecutivas — parando sessão.');
+    if (this._restartCount > 8) {
+      console.error('[RADIO] Muitas tentativas — encerrando sessão.');
       this.stop();
       return;
     }
 
-    const delay = Math.min(1500 * this._restartCount, 12_000);
-    console.log(`[RADIO] Tentativa ${this._restartCount}/10, aguardando ${delay}ms...`);
+    const delay = Math.min(2000 * this._restartCount, 15_000);
+    console.log(`[RADIO] Restart ${this._restartCount}/8 em ${delay}ms...`);
     await new Promise(r => setTimeout(r, delay));
 
     if (this._stopped) return;
@@ -214,10 +221,18 @@ export class RadioSession {
       this.player.play(resource);
       console.log('[RADIO] Stream reiniciado com sucesso.');
     } catch (err) {
-      console.error('[RADIO] restart failed:', err.message);
+      console.error('[RADIO] Restart falhou:', err.message);
     } finally {
       this._restarting = false;
     }
+  }
+
+  pause() {
+    if (!this.paused) { this.player.pause(); this.paused = true; }
+  }
+
+  resume() {
+    if (this.paused) { this.player.unpause(); this.paused = false; }
   }
 
   skip() {
@@ -225,23 +240,14 @@ export class RadioSession {
     this._restart();
   }
 
-  pause() {
-    this.player.pause();
-    this.paused = true;
-  }
-
-  resume() {
-    this.player.unpause();
-    this.paused = false;
-  }
-
   stop() {
     this._stopped    = true;
     this._restarting = true;
-    try { this.player.stop(true); } catch {}
-    try { if (this._ffmpeg) this._ffmpeg.kill('SIGKILL'); } catch {}
+    try { this.player.stop(true); }  catch {}
+    this._killFFmpeg();
     try { this.connection.destroy(); } catch {}
     radioSessions.delete(this.guildId);
+    console.log('[RADIO] Sessão encerrada:', this.guildId);
   }
 
   get currentTrack() {
@@ -253,67 +259,72 @@ export class RadioSession {
   }
 }
 
-// ─── Mapa de sessões e factory ────────────────────────────────────────────────
+// ─── Mapa de sessões ──────────────────────────────────────────────────────────
 
 export const radioSessions = new Map();
 
+// ─── Factory: conecta ao canal e cria sessão ──────────────────────────────────
+
 export async function createRadioSession({ guild, channelId, playlistKey }) {
+  // Para sessão existente (se houver)
   const existing = radioSessions.get(guild.id);
   if (existing) {
     try { existing.stop(); } catch {}
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 500));
   }
 
-  let connection;
-  const MAX_ATTEMPTS = 3;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      connection = joinVoiceChannel({
-        channelId,
-        guildId:        guild.id,
-        adapterCreator: guild.voiceAdapterCreator,
-        selfDeaf:       true,
-        selfMute:       false,
-      });
+  console.log(`[RADIO] Conectando ao canal ${channelId}...`);
 
-      await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
-      console.log(`[RADIO] Conectado ao canal (tentativa ${attempt}/${MAX_ATTEMPTS})`);
-      break;
-    } catch (err) {
-      console.error(`[RADIO] Tentativa ${attempt}/${MAX_ATTEMPTS} falhou:`, err.message ?? err);
-      try { connection?.destroy(); } catch {}
-      connection = undefined;
+  // ── Cria a conexão de voz ───────────────────────────────────────────────────
+  const connection = joinVoiceChannel({
+    channelId,
+    guildId:        guild.id,
+    adapterCreator: guild.voiceAdapterCreator,
+    selfDeaf:       true,
+    selfMute:       false,
+  });
 
-      if (attempt < MAX_ATTEMPTS) {
-        await new Promise(r => setTimeout(r, 2000 * attempt));
-      } else {
-        return null;
-      }
-    }
+  // Log de todos os estados para diagnóstico
+  connection.on('stateChange', (oldState, newState) => {
+    console.log(`[RADIO] Conexão: ${oldState.status} → ${newState.status}`);
+  });
+
+  // ── Aguarda a conexão ficar Ready (SEM handler de Disconnected ainda) ────────
+  try {
+    await entersState(connection, VoiceConnectionStatus.Ready, 25_000);
+    console.log('[RADIO] Conexão de voz estabelecida!');
+  } catch (err) {
+    console.error('[RADIO] Falhou ao conectar ao canal de voz:', err.message);
+    try { connection.destroy(); } catch {}
+    return null;
   }
 
-  // Handler de reconexão — tolerante a instabilidades momentâneas
+  // ── Agora que está Ready, configura o handler de reconexão ───────────────────
   connection.on(VoiceConnectionStatus.Disconnected, async () => {
+    console.log('[RADIO] Desconectado — tentando reconectar...');
     try {
       await Promise.race([
-        entersState(connection, VoiceConnectionStatus.Signalling, 8_000),
-        entersState(connection, VoiceConnectionStatus.Connecting, 8_000),
+        entersState(connection, VoiceConnectionStatus.Signalling, 6_000),
+        entersState(connection, VoiceConnectionStatus.Connecting, 6_000),
       ]);
-      console.log('[RADIO] Reconectando...');
+      console.log('[RADIO] Reconexão em progresso...');
     } catch {
-      if (connection.state.status === VoiceConnectionStatus.Destroyed) return;
-      try { connection.destroy(); } catch {}
+      console.error('[RADIO] Reconexão falhou — encerrando sessão.');
+      if (connection.state.status !== VoiceConnectionStatus.Destroyed) {
+        try { connection.destroy(); } catch {}
+      }
       const sess = radioSessions.get(guild.id);
       if (sess) {
-        sess._stopped = true;
+        sess._stopped    = true;
         sess._restarting = true;
-        try { if (sess._ffmpeg) sess._ffmpeg.kill('SIGKILL'); } catch {}
+        sess._killFFmpeg?.();
         try { sess.player.stop(true); } catch {}
         radioSessions.delete(guild.id);
       }
     }
   });
 
+  // ── Cria e armazena a sessão ─────────────────────────────────────────────────
   const session = new RadioSession({ connection, playlistKey, guildId: guild.id });
   radioSessions.set(guild.id, session);
   return session;
