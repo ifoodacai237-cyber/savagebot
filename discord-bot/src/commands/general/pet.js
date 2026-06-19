@@ -108,16 +108,16 @@ function getEmojiCdnUrl(emojiStr) {
   return null;
 }
 
-// Aplica imagem grande + thumbnail do emoji na embed
+// Aplica imagem na embed:
+// - Se tiver foto cadastrada: foto grande (setImage) + emoji no canto (setThumbnail)
+// - Sem foto: emoji no canto (setThumbnail) — CDN emoji é PNG transparente, setImage fica ruim
 function applyPetImage(embed, pet) {
   const emojiUrl = getEmojiCdnUrl(pet.emoji);
   if (pet.imageUrl) {
-    // Foto cadastrada: fica grande, emoji fica pequeno no canto
     embed.setImage(pet.imageUrl);
     if (emojiUrl) embed.setThumbnail(emojiUrl);
   } else if (emojiUrl) {
-    // Sem foto: emoji aparece grande
-    embed.setImage(emojiUrl);
+    embed.setThumbnail(emojiUrl);
   }
   return embed;
 }
