@@ -96,6 +96,9 @@ model Economy {
   lastDaily   DateTime?
   lastWork    DateTime?
   dailyStreak Int       @default(0)
+  lastPetPlay DateTime?
+  lastPetFeed DateTime?
+  lastPetPet  DateTime?
 
   @@unique([userId, guildId])
 }

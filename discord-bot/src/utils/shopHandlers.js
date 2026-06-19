@@ -915,28 +915,48 @@ async function handleBuyExecute(interaction, client) {
 // ─── 🖼️ Vitrine ───────────────────────────────────────────────────────────────
 
 async function handleVitrine(interaction) {
-  const allBanners = await getAllBannersForGuild(interaction.guildId);
-  const owned    = await prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } });
+  await interaction.deferReply({ ephemeral: true });
+
+  const [allBanners, owned] = await Promise.all([
+    getAllBannersForGuild(interaction.guildId),
+    prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } }),
+  ]);
   const ownedSet = new Set(owned.map(o => o.itemRef));
+
+  const options = allBanners.slice(0, 25).map(b => {
+    const opt = new StringSelectMenuOptionBuilder()
+      .setLabel(b.name.slice(0, 100))
+      .setValue(b.key)
+      .setDescription(`${b.price.toLocaleString('pt-BR')} moedas${ownedSet.has(b.key) ? ' ✅ Você possui' : ''}`);
+    const isCustomEmoji = /<a?:\w+:\d+>/.test(b.emoji ?? '');
+    if (isCustomEmoji) {
+      const m = b.emoji.match(/<(a?):(\w+):(\d+)>/);
+      if (m) opt.setEmoji({ animated: m[1] === 'a', name: m[2], id: m[3] });
+    } else if (b.emoji) {
+      opt.setEmoji(b.emoji);
+    }
+    return opt;
+  });
 
   const sel = new StringSelectMenuBuilder()
     .setCustomId('shop_vitrine_sel')
     .setPlaceholder('🖼️ Selecione um banner para ver a prévia')
-    .addOptions(allBanners.slice(0, 25).map(b =>
-      new StringSelectMenuOptionBuilder().setLabel(b.name).setValue(b.key)
-        .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(b.key) ? ' ✅' : ''}`)
-        .setEmoji(b.emoji ?? '🖼️')
-    ));
+    .addOptions(options);
 
-  return interaction.reply({
+  const lines = allBanners.map(b =>
+    `${ownedSet.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} ${COIN}\``
+  ).join('\n');
+
+  const desc = lines.length > 3900 ? lines.slice(0, 3900) + '\n…' : lines;
+
+  return interaction.editReply({
     embeds: [
       new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🖼️ Vitrine de Banners')
-        .setDescription(allBanners.map(b => `${ownedSet.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} ${COIN}\`\n> ${b.description}`).join('\n\n'))
+        .setDescription(desc + '\n\n*Selecione um banner abaixo para ver a prévia e comprar.*')
         .setImage(allBanners[0].imageUrl)
-        .setFooter({ text: `${allBanners.length} banners • ✅ = você possui` }),
+        .setFooter({ text: `${allBanners.length} banner(s) disponíve${allBanners.length === 1 ? 'l' : 'is'} • ✅ = você possui` }),
     ],
     components: [new ActionRowBuilder().addComponents(sel)],
-    ephemeral: true,
   });
 }
 
