@@ -99,16 +99,32 @@ async function resolveActivePet(userId, guildId) {
   return pet;
 }
 
-// Aplica a foto do pet na embed (grande = setImage, thumb = setThumbnail)
+// Extrai a URL CDN de um emoji customizado do Discord
+function getEmojiCdnUrl(emojiStr) {
+  const animated = emojiStr?.match(/<a:(\w+):(\d+)>/);
+  if (animated) return `https://cdn.discordapp.com/emojis/${animated[2]}.gif?size=256&quality=lossless`;
+  const staticE  = emojiStr?.match(/<:(\w+):(\d+)>/);
+  if (staticE)  return `https://cdn.discordapp.com/emojis/${staticE[2]}.png?size=256`;
+  return null;
+}
+
+// Aplica imagem grande + thumbnail do emoji na embed
 function applyPetImage(embed, pet) {
-  if (pet.imageUrl) embed.setImage(pet.imageUrl);
+  const emojiUrl = getEmojiCdnUrl(pet.emoji);
+  if (pet.imageUrl) {
+    // Foto cadastrada: fica grande, emoji fica pequeno no canto
+    embed.setImage(pet.imageUrl);
+    if (emojiUrl) embed.setThumbnail(emojiUrl);
+  } else if (emojiUrl) {
+    // Sem foto: emoji aparece grande
+    embed.setImage(emojiUrl);
+  }
   return embed;
 }
 
-// Nome de exibição sem tentar colocar emoji customizado no título
+// Nome de exibição: custom emoji não renderiza em título, usa só o nome
 function petDisplayName(pet) {
   const isCustomEmoji = /<a?:\w+:\d+>/.test(pet.emoji ?? '');
-  // Emojis unicode funcionam no título; custom emojis não renderizam em títulos no Discord
   return isCustomEmoji ? pet.name : `${pet.emoji} ${pet.name}`;
 }
 
