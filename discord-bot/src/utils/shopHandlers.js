@@ -528,13 +528,20 @@ async function handleGiftTypeSel(interaction) {
     const sel = new StringSelectMenuBuilder()
       .setCustomId(`shop_gi:${targetId}`)
       .setPlaceholder('Selecione o banner para presentear')
-      .addOptions(allBanners.slice(0, 25).map(b =>
-        new StringSelectMenuOptionBuilder()
-          .setLabel(b.name)
+      .addOptions(allBanners.slice(0, 25).map(b => {
+        const opt = new StringSelectMenuOptionBuilder()
+          .setLabel(b.name.slice(0, 100))
           .setValue(`banner:${b.key}`)
-          .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${giftedKeys.has(b.key) ? ' ✅ já possui' : ''}`)
-          .setEmoji(b.emoji ?? '🖼️')
-      ));
+          .setDescription(`${b.price.toLocaleString('pt-BR')} moedas${giftedKeys.has(b.key) ? ' ✅ já possui' : ''}`.slice(0, 100));
+        const isCustomEmoji = /<a?:\w+:\d+>/.test(b.emoji ?? '');
+        if (isCustomEmoji) {
+          const m = b.emoji.match(/<(a?):(\w+):(\d+)>/);
+          if (m) opt.setEmoji({ animated: m[1] === 'a', name: m[2], id: m[3] });
+        } else if (b.emoji) {
+          opt.setEmoji(b.emoji);
+        }
+        return opt;
+      }));
 
     return interaction.update({
       embeds: [
@@ -755,12 +762,19 @@ async function handleTypeSel(interaction) {
     const sel = new StringSelectMenuBuilder()
       .setCustomId('shop_item_sel')
       .setPlaceholder('Selecione um banner')
-      .addOptions(allBanners.slice(0, 25).map(b =>
-        new StringSelectMenuOptionBuilder()
-          .setLabel(b.name).setValue(`banner:${b.key}`)
-          .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(b.key) ? ' ✅' : ''}`)
-          .setEmoji(b.emoji ?? '🖼️')
-      ));
+      .addOptions(allBanners.slice(0, 25).map(b => {
+        const opt = new StringSelectMenuOptionBuilder()
+          .setLabel(b.name.slice(0, 100)).setValue(`banner:${b.key}`)
+          .setDescription(`${b.price.toLocaleString('pt-BR')} moedas${ownedSet.has(b.key) ? ' ✅' : ''}`.slice(0, 100));
+        const isCustomEmoji = /<a?:\w+:\d+>/.test(b.emoji ?? '');
+        if (isCustomEmoji) {
+          const m = b.emoji.match(/<(a?):(\w+):(\d+)>/);
+          if (m) opt.setEmoji({ animated: m[1] === 'a', name: m[2], id: m[3] });
+        } else if (b.emoji) {
+          opt.setEmoji(b.emoji);
+        }
+        return opt;
+      }));
 
     return interaction.update({
       embeds: [
@@ -836,7 +850,7 @@ async function handleItemSel(interaction) {
     const canAfford = eco.balance >= b.price;
 
     const embed = new EmbedBuilder().setColor(SHOP_COLOR).setTitle(b.name)
-      .setDescription(b.description).setImage(b.imageUrl)
+      .setDescription(b.description || '\u200b').setImage(b.imageUrl || null)
       .addFields({ name: '💰 Preço', value: `**${b.price.toLocaleString('pt-BR')} ${COIN}**`, inline: true }, { name: '👛 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true });
 
     const btn = new ButtonBuilder().setCustomId(`shop_buy_banner:${b.key}`)
@@ -1079,7 +1093,9 @@ async function handleSaldo(interaction) {
     prisma.userProfile.findUnique({ where: { userId: interaction.user.id } }),
   ]);
 
-  const activeBanner = profile?.activeBanner ? getBanner(profile.activeBanner) : null;
+  const activeBannerObj = profile?.activeBanner
+    ? await resolveBannerForGuild(profile.activeBanner, interaction.guildId)
+    : null;
 
   return interaction.reply({
     embeds: [
@@ -1088,8 +1104,8 @@ async function handleSaldo(interaction) {
         .addFields(
           { name: '💰 Carteira',       value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
           { name: '🏦 Banco',          value: `**${eco.bank.toLocaleString('pt-BR')} ${COIN}**`,   inline: true },
-          { name: '📦 Itens',          value: `**${purchases}** compra(s)`,                   inline: true },
-          { name: '🖼️ Banner Ativo',   value: activeBanner ? activeBanner.name : 'Nenhum',   inline: true },
+          { name: '📦 Itens',          value: `**${purchases}** compra(s)`,                        inline: true },
+          { name: '🖼️ Banner Ativo',   value: activeBannerObj ? activeBannerObj.name : 'Nenhum',   inline: true },
         )
         .setFooter({ text: 'Use /eco saldo para mais detalhes' }),
     ],
@@ -1278,11 +1294,21 @@ async function handleProfileBannerBtn(interaction) {
     new StringSelectMenuOptionBuilder().setLabel('🚫 Sem banner (padrão)').setValue('none').setDescription('Remover banner').setEmoji('🚫'),
     ...resolvedBanners
       .filter(b => b !== null)
-      .map(b => new StringSelectMenuOptionBuilder()
-        .setLabel(b.name).setValue(b.key)
-        .setDescription(`${profile?.activeBanner === b.key ? '✅ Equipado' : 'Disponível'}`)
-        .setEmoji(b.emoji ?? '🖼️')
-      ),
+      .map(b => {
+        const opt = new StringSelectMenuOptionBuilder()
+          .setLabel(b.name.slice(0, 100)).setValue(b.key)
+          .setDescription(profile?.activeBanner === b.key ? '✅ Equipado' : 'Disponível');
+        const isCustomEmoji = /<a?:\w+:\d+>/.test(b.emoji ?? '');
+        if (isCustomEmoji) {
+          const m = b.emoji.match(/<(a?):(\w+):(\d+)>/);
+          if (m) opt.setEmoji({ animated: m[1] === 'a', name: m[2], id: m[3] });
+        } else if (b.emoji) {
+          opt.setEmoji(b.emoji);
+        } else {
+          opt.setEmoji('🖼️');
+        }
+        return opt;
+      }),
   ];
 
   return interaction.reply({
