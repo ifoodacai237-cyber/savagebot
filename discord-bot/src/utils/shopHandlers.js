@@ -980,8 +980,8 @@ async function handleVitrineSel(interaction) {
     .setCustomId('shop_vitrine_sel').setPlaceholder('Ver outro banner...')
     .addOptions(allBanners.slice(0, 25).map(b => {
       const opt = new StringSelectMenuOptionBuilder()
-        .setLabel(b.name).setValue(b.key)
-        .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(b.key) ? ' ✅' : ''}`);
+        .setLabel(b.name.slice(0, 100)).setValue(b.key)
+        .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(b.key) ? ' ✅' : ''}`.slice(0, 100));
       const isCustom = /<a?:\w+:\d+>/.test(b.emoji ?? '');
       if (isCustom) {
         const m = b.emoji.match(/<(a?):(\w+):(\d+)>/);
@@ -1000,7 +1000,7 @@ async function handleVitrineSel(interaction) {
 
   return interaction.update({
     embeds: [
-      new EmbedBuilder().setColor(SHOP_COLOR).setTitle(banner.name).setDescription(banner.description).setImage(banner.imageUrl)
+      new EmbedBuilder().setColor(SHOP_COLOR).setTitle(banner.name).setDescription(banner.description || '\u200b').setImage(banner.imageUrl || null)
         .addFields({ name: '💰 Preço', value: `**${banner.price.toLocaleString('pt-BR')} ${COIN}**`, inline: true }, { name: '👛 Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true }),
     ],
     components: [new ActionRowBuilder().addComponents(sel), new ActionRowBuilder().addComponents(btn)],
