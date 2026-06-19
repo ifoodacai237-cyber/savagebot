@@ -49,7 +49,7 @@ export const BANNERS = [
     name: '🔥 Chamas',
     description: 'Fundo de chamas vibrantes e intensas em tons de laranja e vermelho.',
     price: 2200,
-    imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1549558549-415fe4c37b60?w=1200&q=80',
     gradient: ['#2a0a00', '#aa3300'],
     emoji: '🔥',
   },
