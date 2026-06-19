@@ -523,7 +523,7 @@ async function handleGiftItemSel(interaction) {
     }));
     canAfford = eco.balance >= price;
   } else {
-    const b = getBanner(ref);
+    const b = await resolveBannerForGuild(ref, interaction.guildId);
     if (!b) return interaction.update({ content: '❌ Banner não encontrado.', components: [] });
     name = b.name; price = b.price;
     alreadyGifted = !!(await prisma.userPurchase.findUnique({
@@ -581,7 +581,7 @@ async function handleGiftBuyExecute(interaction, client) {
     if (!item) return interaction.editReply({ content: '❌ Item não encontrado.' });
     name = item.name; price = item.price; itemRef = item.roleId; roleId = item.roleId;
   } else {
-    const b = getBanner(ref);
+    const b = await resolveBannerForGuild(ref, interaction.guildId);
     if (!b) return interaction.editReply({ content: '❌ Banner não encontrado.' });
     name = b.name; price = b.price; itemRef = b.key;
   }
@@ -837,7 +837,7 @@ async function handleBuyConfirm(interaction) {
     if (!pet) return interaction.reply({ content: '❌ Pet não encontrado.', ephemeral: true });
     name = `${pet.emoji} ${pet.name}`; price = pet.price;
   } else {
-    const b = getBanner(key);
+    const b = await resolveBannerForGuild(key, interaction.guildId);
     if (!b) return interaction.reply({ content: '❌ Banner não encontrado.', ephemeral: true });
     name = b.name; price = b.price;
   }
@@ -978,11 +978,19 @@ async function handleVitrineSel(interaction) {
 
   const sel = new StringSelectMenuBuilder()
     .setCustomId('shop_vitrine_sel').setPlaceholder('Ver outro banner...')
-    .addOptions(allBanners.slice(0, 25).map(b =>
-      new StringSelectMenuOptionBuilder().setLabel(b.name).setValue(b.key)
-        .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(b.key) ? ' ✅' : ''}`)
-        .setEmoji(b.emoji ?? '🖼️')
-    ));
+    .addOptions(allBanners.slice(0, 25).map(b => {
+      const opt = new StringSelectMenuOptionBuilder()
+        .setLabel(b.name).setValue(b.key)
+        .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(b.key) ? ' ✅' : ''}`);
+      const isCustom = /<a?:\w+:\d+>/.test(b.emoji ?? '');
+      if (isCustom) {
+        const m = b.emoji.match(/<(a?):(\w+):(\d+)>/);
+        if (m) opt.setEmoji({ animated: m[1] === 'a', name: m[2], id: m[3] });
+      } else if (b.emoji) {
+        opt.setEmoji(b.emoji);
+      }
+      return opt;
+    }));
 
   const btn = new ButtonBuilder().setCustomId(`shop_buy_banner:${banner.key}`)
     .setLabel(owned ? 'Já Possui' : !canAfford ? 'Sem Saldo' : 'Comprar Banner')
