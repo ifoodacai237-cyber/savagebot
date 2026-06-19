@@ -1,5 +1,6 @@
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
@@ -48,13 +49,34 @@ export default {
         const color      = parseInt(cfg.instaColor ?? '833AB4', 16);
         const likeEmoji  = parseEmoji(cfg.instaEmoji ?? '💜');
 
-        try { await message.delete(); } catch {}
-
+        // Pré-busca todos os arquivos de imagem ANTES de deletar a mensagem original
+        const attachmentFiles = [];
         for (const attachment of message.attachments.values()) {
           const isImage = attachment.contentType?.startsWith('image/');
           const isVideo = attachment.contentType?.startsWith('video/');
           if (!isImage && !isVideo) continue;
 
+          let imageBuf = null;
+          if (isImage) {
+            try {
+              const resp = await fetch(attachment.url);
+              imageBuf = Buffer.from(await resp.arrayBuffer());
+            } catch {
+              try {
+                const resp = await fetch(attachment.proxyURL);
+                imageBuf = Buffer.from(await resp.arrayBuffer());
+              } catch {}
+            }
+          }
+
+          const ext = attachment.name?.split('.').pop()?.toLowerCase() ?? 'png';
+          attachmentFiles.push({ attachment, isImage, isVideo, imageBuf, ext });
+        }
+
+        // Deleta a mensagem original SÓ APÓS ter baixado os arquivos
+        try { await message.delete(); } catch {}
+
+        for (const { attachment, isImage, isVideo, imageBuf, ext } of attachmentFiles) {
           const postId       = `${message.id}_${attachment.id}`;
           const authorName   = message.member?.displayName ?? message.author.username;
           const authorAvatar = message.author.displayAvatarURL({ size: 64 });
@@ -65,7 +87,17 @@ export default {
             .setTimestamp();
 
           if (message.content) embed.setDescription(message.content);
-          if (isImage)         embed.setImage(attachment.proxyURL || attachment.url);
+
+          // Monta o arquivo para re-upload (persiste independente da mensagem original)
+          let files = [];
+          if (isImage && imageBuf) {
+            const fileName = `post_${Date.now()}.${ext}`;
+            files = [new AttachmentBuilder(imageBuf, { name: fileName })];
+            embed.setImage(`attachment://${fileName}`);
+          } else if (isImage) {
+            // fallback se o fetch falhou
+            embed.setImage(attachment.proxyURL || attachment.url);
+          }
 
           // Inicializa set de likes em memória
           likesMap.set(postId, new Set());
@@ -83,7 +115,7 @@ export default {
               .setStyle(ButtonStyle.Danger),
           );
 
-          const post = await message.channel.send({ embeds: [embed], components: [baseRow] });
+          const post = await message.channel.send({ embeds: [embed], files, components: [baseRow] });
 
           // Cria thread de comentários e atualiza botões com "Comentar"
           try {

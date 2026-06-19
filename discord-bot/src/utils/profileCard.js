@@ -248,19 +248,36 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
       if (bx + BUBBLE_R * 2 + 6 > W - 14) break;
 
       const def = BADGE_DEFS.find(b => b.key === key);
-      const emoji = guildBadgeEmojis[key] ?? def?.defaultEmoji ?? '🏅';
+      const emojiRaw = guildBadgeEmojis[key] ?? def?.defaultEmoji ?? '🏅';
 
+      // Draw bubble
       ctx.fillStyle = 'rgba(255,255,255,0.12)';
       ctx.beginPath(); ctx.arc(bx + BUBBLE_R, BADGE_Y + BUBBLE_R, BUBBLE_R, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.25)';
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      ctx.font = `18px ${FONT}`;
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(emoji, bx + BUBBLE_R, BADGE_Y + BUBBLE_R + 6);
-      ctx.textAlign = 'left';
+      // Try to render as custom Discord emoji image first
+      const customUrl = parseCustomEmoji(emojiRaw);
+      if (customUrl) {
+        try {
+          const emojiImg = await loadUrl(customUrl);
+          const sz = BUBBLE_R * 1.5;
+          ctx.drawImage(emojiImg, bx + BUBBLE_R - sz / 2, BADGE_Y + BUBBLE_R - sz / 2, sz, sz);
+        } catch {
+          ctx.font = `16px ${FONT}`;
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText('🏅', bx + BUBBLE_R, BADGE_Y + BUBBLE_R + 6);
+          ctx.textAlign = 'left';
+        }
+      } else {
+        ctx.font = `18px ${FONT}`;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(emojiRaw, bx + BUBBLE_R, BADGE_Y + BUBBLE_R + 6);
+        ctx.textAlign = 'left';
+      }
 
       bx += BUBBLE_R * 2 + 8;
     }
