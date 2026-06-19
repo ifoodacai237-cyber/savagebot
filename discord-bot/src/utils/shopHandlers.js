@@ -188,6 +188,50 @@ async function handleLojaAdminRemoveSel(interaction) {
   return interaction.update({ embeds: [embed], components: [] });
 }
 
+// ─── Admin: Remover Banner ────────────────────────────────────────────────────
+
+async function handleBannerAdminRemoveSel(interaction) {
+  const key    = interaction.values[0];
+  const banner = await prisma.customBanner.findFirst({ where: { key, guildId: interaction.guildId, active: true } });
+  if (!banner)
+    return interaction.update({ content: '❌ Banner não encontrado.', embeds: [], components: [] });
+
+  const embed = new EmbedBuilder()
+    .setColor(0xED4245)
+    .setTitle('⚠️ Confirmar Remoção')
+    .setDescription(`Tem certeza que deseja remover o banner **${banner.name}** da loja?\n\nEssa ação não pode ser desfeita.`)
+    .setImage(banner.imageUrl || null)
+    .addFields({ name: '💰 Preço', value: `${banner.price.toLocaleString('pt-BR')} coins`, inline: true })
+    .setFooter({ text: 'Fallen Bot · Admin da Loja' });
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`banner_admin_remove_confirm:${key}`).setLabel('Sim, remover').setEmoji('🗑️').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('banner_admin_remove_cancel').setLabel('Cancelar').setEmoji('✖️').setStyle(ButtonStyle.Secondary),
+  );
+
+  return interaction.update({ embeds: [embed], components: [row] });
+}
+
+async function handleBannerAdminRemoveConfirm(interaction) {
+  const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+  if (!isAdmin) return interaction.reply({ content: '❌ Sem permissão.', ephemeral: true });
+
+  const key    = interaction.customId.split(':')[1];
+  const banner = await prisma.customBanner.findFirst({ where: { key, guildId: interaction.guildId } });
+  if (!banner)
+    return interaction.update({ content: '❌ Banner não encontrado.', embeds: [], components: [] });
+
+  await prisma.customBanner.update({ where: { id: banner.id }, data: { active: false } });
+
+  const embed = new EmbedBuilder()
+    .setColor(0xED4245)
+    .setTitle('🗑️ Banner Removido')
+    .setDescription(`O banner **${banner.name}** foi removido da loja com sucesso.`)
+    .setFooter({ text: 'Fallen Bot · Admin da Loja' });
+
+  return interaction.update({ embeds: [embed], components: [] });
+}
+
 // ─── Personalização (admin) ───────────────────────────────────────────────────
 
 const LOJA_CFG_FIELDS = {
@@ -347,6 +391,8 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'loja_admin_cargos')              return handleLojaAdminCargos(interaction);
     if (id === 'loja_admin_personalizar')        return handleLojaConfig(interaction);
     if (id === 'loja_admin_add_cargo')           return handleLojaAdminAddCargo(interaction);
+    if (id.startsWith('banner_admin_remove_confirm:')) return handleBannerAdminRemoveConfirm(interaction);
+    if (id === 'banner_admin_remove_cancel')     return interaction.update({ content: '❌ Remoção cancelada.', embeds: [], components: [] });
   }
 
   if (interaction.isStringSelectMenu()) {
@@ -358,6 +404,7 @@ export async function handleShopInteraction(interaction, client) {
     if (id.startsWith('shop_gt:'))               return handleGiftTypeSel(interaction);
     if (id.startsWith('shop_gi:'))               return handleGiftItemSel(interaction);
     if (id === 'loja_admin_remove_sel')          return handleLojaAdminRemoveSel(interaction);
+    if (id === 'banner_admin_remove_sel')        return handleBannerAdminRemoveSel(interaction);
   }
 
   if (interaction.isModalSubmit()) {
