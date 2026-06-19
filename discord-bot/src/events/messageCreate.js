@@ -14,8 +14,12 @@ async function getGuildCfg(guildId) {
   if (cfgCache.has(guildId)) return cfgCache.get(guildId);
   const cfg = await prisma.guildConfig.findUnique({ where: { guildId } });
   cfgCache.set(guildId, cfg);
-  setTimeout(() => cfgCache.delete(guildId), 30_000);
+  setTimeout(() => cfgCache.delete(guildId), 5_000);
   return cfg;
+}
+
+export function invalidateGuildCfgCache(guildId) {
+  cfgCache.delete(guildId);
 }
 
 // ─── Utilitário: converte string de emoji para formato do Discord.js ──────────

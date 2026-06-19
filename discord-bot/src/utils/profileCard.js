@@ -4,7 +4,6 @@ import { getBanner, getRingColors } from './shopData.js';
 const FONT = '"Noto Sans", "DejaVu Sans", Arial, sans-serif';
 const W = 900, H = 340;
 
-// ID do emoji de moeda personalizado
 const COIN_EMOJI_ID = '1516993823665033286';
 const COIN_URL      = `https://cdn.discordapp.com/emojis/${COIN_EMOJI_ID}.png`;
 
@@ -35,6 +34,32 @@ function parseCustomEmoji(emoji) {
   return match ? `https://cdn.discordapp.com/emojis/${match[1]}.png` : null;
 }
 
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function computeBadges({ balance, bank, purchases, activePet, activeBanner, activeRing }) {
+  const badges = [];
+  const total  = (balance ?? 0) + (bank ?? 0);
+
+  if (total >= 50000) badges.push({ label: '💎 VIP',         color: 'rgba(88,166,255,0.85)'  });
+  else if (total >= 10000) badges.push({ label: '💰 Rico',   color: 'rgba(253,224,71,0.85)'  });
+  else if (total >= 5000)  badges.push({ label: '🪙 Poupador', color: 'rgba(200,180,60,0.80)' });
+
+  if (purchases >= 10) badges.push({ label: '🏆 Colecionador', color: 'rgba(157,78,221,0.85)' });
+  else if (purchases >= 5) badges.push({ label: '🛍️ Comprador', color: 'rgba(130,60,200,0.80)' });
+
+  if (activePet)                          badges.push({ label: '🐾 Mascote',        color: 'rgba(87,242,135,0.80)'  });
+  if (activeBanner)                       badges.push({ label: '🎨 Estiloso',       color: 'rgba(255,107,107,0.80)' });
+  if (activeRing && activeRing !== 'roxo') badges.push({ label: '💠 Personalizado', color: 'rgba(100,200,220,0.80)' });
+
+  return badges;
+}
+
 export async function generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet }) {
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
@@ -42,7 +67,6 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
   const banner = activeBanner ? getBanner(activeBanner) : null;
   const { c1, c2 } = getRingColors(activeRing ?? null);
 
-  // Pré-carrega coin emoji (falha silenciosa)
   let coinImg = null;
   try { coinImg = await loadUrl(COIN_URL); } catch {}
 
@@ -149,18 +173,22 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
 
   ctx.shadowBlur = 0;
 
+  // ── Banner label (usa a cor da argola) ──────────────────────────────────────
   const bannerLabel = banner ? `${banner.name}` : 'Sem banner';
   ctx.font = `12px ${FONT}`;
-  const bw  = ctx.measureText(bannerLabel).width + 22;
-  ctx.fillStyle = 'rgba(124,58,237,0.85)';
+  const bw = ctx.measureText(bannerLabel).width + 22;
+
+  const ringColor = c1.startsWith('#') ? hexToRgba(c1, 0.85) : c1.replace(')', ',0.85)').replace('rgb(', 'rgba(');
+  ctx.fillStyle = ringColor.startsWith('rgba') ? ringColor : `${c1}`;
+  ctx.globalAlpha = 0.85;
   roundRect(ctx, TX, AV_CY - 12, bw, 22, 11); ctx.fill();
+  ctx.globalAlpha = 1;
   ctx.fillStyle = '#FFFFFF';
   ctx.fillText(bannerLabel, TX + 11, AV_CY + 4);
 
   // ── Stats row ───────────────────────────────────────────────────────────────
   const statsY = AV_CY + 34;
 
-  // Dados de cada card
   const statsData = [
     { symbol: '◈', label: 'Carteira', value: `${fmt(balance)}`, hasCoin: true  },
     { symbol: '◉', label: 'Banco',    value: `${fmt(bank)}`,    hasCoin: true  },
@@ -171,7 +199,6 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
     const { symbol, label, value, hasCoin, suffix } = statsData[i];
     const sx = TX + i * 210;
 
-    // Card bg
     ctx.fillStyle = 'rgba(255,255,255,0.07)';
     roundRect(ctx, sx, statsY, 196, 68, 10); ctx.fill();
 
@@ -179,23 +206,41 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
     ctx.lineWidth = 1;
     roundRect(ctx, sx, statsY, 196, 68, 10); ctx.stroke();
 
-    // Label com símbolo Unicode (sem emoji — renderiza limpo)
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
     ctx.font = `13px ${FONT}`;
     ctx.fillText(`${symbol}  ${label}`, sx + 12, statsY + 22);
 
-    // Valor em negrito
     ctx.fillStyle = '#FFFFFF';
     ctx.font = `bold 19px ${FONT}`;
 
     if (hasCoin && coinImg) {
-      // Desenha valor + ícone de moeda
       const valueStr = value;
       ctx.fillText(valueStr, sx + 12, statsY + 50);
       const vw = ctx.measureText(valueStr).width;
       ctx.drawImage(coinImg, sx + 12 + vw + 5, statsY + 33, 18, 18);
     } else {
       ctx.fillText(`${value}${suffix ?? ''}`, sx + 12, statsY + 50);
+    }
+  }
+
+  // ── Badges (insígnias de conquistas) ────────────────────────────────────────
+  const badges = computeBadges({ balance, bank, purchases, activePet, activeBanner, activeRing });
+  if (badges.length > 0) {
+    const BADGE_Y = statsY + 76;
+    let bx = TX;
+
+    ctx.font = `12px ${FONT}`;
+    for (const badge of badges.slice(0, 6)) {
+      const tw = ctx.measureText(badge.label).width;
+      const bw2 = tw + 18;
+      if (bx + bw2 > W - 14) break;
+
+      ctx.fillStyle = badge.color;
+      roundRect(ctx, bx, BADGE_Y, bw2, 19, 9); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillText(badge.label, bx + 9, BADGE_Y + 13);
+
+      bx += bw2 + 7;
     }
   }
 

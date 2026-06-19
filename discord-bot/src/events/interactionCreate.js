@@ -869,19 +869,16 @@ export default {
           const cfg   = await getCfg(interaction.guildId);
           const modal = new ModalBuilder()
             .setCustomId(`wcfg_modal_${field}`)
-            .setTitle(`🎉 Boas-Vindas — ${def.label.slice(0, 45)}`);
-          modal.addComponents(
-            new ActionRowBuilder().addComponents(
-              new TextInputBuilder()
-                .setCustomId('value')
-                .setLabel(def.label.slice(0, 45))
-                .setStyle(def.isLong ? TextInputStyle.Paragraph : TextInputStyle.Short)
-                .setPlaceholder(def.placeholder.slice(0, 100))
-                .setValue((cfg[def.db] ?? ''))
-                .setRequired(false)
-                .setMaxLength(def.isLong ? 1000 : 200)
-            ),
-          );
+            .setTitle((`🎉 BV — ${def.label}`).slice(0, 45));
+          const wcfgInput = new TextInputBuilder()
+            .setCustomId('value')
+            .setLabel(def.label.slice(0, 45))
+            .setStyle(def.isLong ? TextInputStyle.Paragraph : TextInputStyle.Short)
+            .setPlaceholder(def.placeholder.slice(0, 100))
+            .setRequired(false)
+            .setMaxLength(def.isLong ? 1000 : 200);
+          if (cfg[def.db]) wcfgInput.setValue(cfg[def.db]);
+          modal.addComponents(new ActionRowBuilder().addComponents(wcfgInput));
           return interaction.showModal(modal);
         }
 
@@ -890,11 +887,20 @@ export default {
           const parts          = customId.split('_');
           const type           = parts[2];
           const originalFromId = parts[3];
+          const originalToId   = parts[4];
           if (!ACTIONS[type]) return;
 
           const from = interaction.member ?? interaction.user;
 
-          // Impede o autor original de reagir ao próprio comando
+          // Apenas o alvo original pode retribuir
+          if (originalToId && from.id !== originalToId) {
+            return interaction.reply({
+              content: '❌ Apenas a pessoa marcada pode retribuir esta interação!',
+              ephemeral: true,
+            });
+          }
+
+          // Impede o autor original de reagir ao próprio comando (legado)
           if (from.id === originalFromId) {
             return interaction.reply({
               content: '❌ Você não pode reagir ao seu próprio comando!',
@@ -908,7 +914,7 @@ export default {
           if (!toUser) return interaction.reply({ embeds: [errorEmbed('Usuário não encontrado.')], ephemeral: true });
 
           await interaction.deferReply();
-          const payload = await buildInteractionEmbed(type, from, toUser, interaction.guildId);
+          const payload = await buildInteractionEmbed(type, from, toUser);
           return interaction.editReply(payload);
         }
 
@@ -1086,11 +1092,12 @@ export default {
       // ── MODALS ─────────────────────────────────────────────────────────────
       if (interaction.isModalSubmit()) {
 
-        // ── LOJA: Config, gift e admin modals ──────────────────────────
+        // ── LOJA: Config, gift, admin e argola custom ──────────────────
         if (
           interaction.customId.startsWith('loja_cfg_modal_') ||
           interaction.customId === 'shop_gift_modal' ||
-          interaction.customId.startsWith('loja_admin_modal_')
+          interaction.customId.startsWith('loja_admin_modal_') ||
+          interaction.customId === 'profile_ring_custom_modal'
         ) {
           return handleShopInteraction(interaction, client);
         }

@@ -413,7 +413,7 @@ async function handleGiftTypeSel(interaction) {
   if (type === 'roles') {
     const roles  = await prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } });
     const gifted = await prisma.userPurchase.findMany({
-      where: { userId: targetId, guildId: interaction.guildId, itemType: 'role' },
+      where: { userId: targetId, itemType: 'role' },
     });
     const giftedRefs = new Set(gifted.map(g => g.itemRef));
 
@@ -450,7 +450,7 @@ async function handleGiftTypeSel(interaction) {
 
   if (type === 'banners') {
     const gifted = await prisma.userPurchase.findMany({
-      where: { userId: targetId, guildId: interaction.guildId, itemType: 'banner' },
+      where: { userId: targetId, itemType: 'banner' },
     });
     const giftedKeys = new Set(gifted.map(g => g.itemRef));
 
@@ -495,7 +495,7 @@ async function handleGiftItemSel(interaction) {
     if (!item) return interaction.update({ content: '❌ Item não encontrado.', components: [] });
     name = item.name; price = item.price;
     alreadyGifted = !!(await prisma.userPurchase.findUnique({
-      where: { userId_guildId_itemType_itemRef: { userId: targetId, guildId: interaction.guildId, itemType: 'role', itemRef: item.roleId } },
+      where: { userId_itemType_itemRef: { userId: targetId, itemType: 'role', itemRef: item.roleId } },
     }));
     canAfford = eco.balance >= price;
   } else {
@@ -503,7 +503,7 @@ async function handleGiftItemSel(interaction) {
     if (!b) return interaction.update({ content: '❌ Banner não encontrado.', components: [] });
     name = b.name; price = b.price;
     alreadyGifted = !!(await prisma.userPurchase.findUnique({
-      where: { userId_guildId_itemType_itemRef: { userId: targetId, guildId: interaction.guildId, itemType: 'banner', itemRef: b.key } },
+      where: { userId_itemType_itemRef: { userId: targetId, itemType: 'banner', itemRef: b.key } },
     }));
     canAfford = eco.balance >= price;
   }
@@ -565,7 +565,7 @@ async function handleGiftBuyExecute(interaction, client) {
   if (eco.balance < price) return interaction.editReply({ content: `❌ Saldo insuficiente! Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.` });
 
   const exists = await prisma.userPurchase.findUnique({
-    where: { userId_guildId_itemType_itemRef: { userId: targetId, guildId: interaction.guildId, itemType, itemRef } },
+    where: { userId_itemType_itemRef: { userId: targetId, itemType, itemRef } },
   });
   if (exists) return interaction.editReply({ content: `❌ **${target.displayName}** já possui **${name}**!` });
 
@@ -575,7 +575,7 @@ async function handleGiftBuyExecute(interaction, client) {
   });
 
   await prisma.userPurchase.create({
-    data: { userId: targetId, guildId: interaction.guildId, itemType, itemRef },
+    data: { userId: targetId, itemType, itemRef },
   });
 
   if (itemType === 'role' && roleId) {
@@ -653,7 +653,7 @@ async function handleTypeSel(interaction) {
       });
     }
 
-    const owned    = await prisma.userPurchase.findMany({ where: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'role' } });
+    const owned    = await prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'role' } });
     const ownedSet = new Set(owned.map(o => o.itemRef));
 
     const sel = new StringSelectMenuBuilder()
@@ -677,7 +677,7 @@ async function handleTypeSel(interaction) {
   }
 
   if (type === 'banners') {
-    const owned    = await prisma.userPurchase.findMany({ where: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'banner' } });
+    const owned    = await prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } });
     const ownedSet = new Set(owned.map(o => o.itemRef));
 
     const sel = new StringSelectMenuBuilder()
@@ -710,7 +710,7 @@ async function handleTypeSel(interaction) {
       });
     }
 
-    const owned    = await prisma.userPurchase.findMany({ where: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'pet' } });
+    const owned    = await prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'pet' } });
     const ownedSet = new Set(owned.map(o => o.itemRef));
 
     const options = pets.slice(0, 25).map(p =>
@@ -741,7 +741,7 @@ async function handleItemSel(interaction) {
   if (itemType === 'role') {
     const item = await prisma.shopRole.findUnique({ where: { id: ref } });
     if (!item) return interaction.update({ content: '❌ Cargo não encontrado.', embeds: [], components: [] });
-    const owned    = !!(await prisma.userPurchase.findUnique({ where: { userId_guildId_itemType_itemRef: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'role', itemRef: item.roleId } } }));
+    const owned    = !!(await prisma.userPurchase.findUnique({ where: { userId_itemType_itemRef: { userId: interaction.user.id, itemType: 'role', itemRef: item.roleId } } }));
     const canAfford = eco.balance >= item.price;
 
     const embed = new EmbedBuilder().setColor(SHOP_COLOR).setTitle(`👑 ${item.name}`)
@@ -760,7 +760,7 @@ async function handleItemSel(interaction) {
   if (itemType === 'banner') {
     const b = getBanner(ref);
     if (!b) return interaction.update({ content: '❌ Banner não encontrado.', embeds: [], components: [] });
-    const owned    = !!(await prisma.userPurchase.findUnique({ where: { userId_guildId_itemType_itemRef: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'banner', itemRef: b.key } } }));
+    const owned    = !!(await prisma.userPurchase.findUnique({ where: { userId_itemType_itemRef: { userId: interaction.user.id, itemType: 'banner', itemRef: b.key } } }));
     const canAfford = eco.balance >= b.price;
 
     const embed = new EmbedBuilder().setColor(SHOP_COLOR).setTitle(b.name)
@@ -779,7 +779,7 @@ async function handleItemSel(interaction) {
   if (itemType === 'pet') {
     const pet = await prisma.pet.findUnique({ where: { id: ref } });
     if (!pet) return interaction.update({ content: '❌ Pet não encontrado.', embeds: [], components: [] });
-    const owned     = !!(await prisma.userPurchase.findUnique({ where: { userId_guildId_itemType_itemRef: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'pet', itemRef: pet.id } } }));
+    const owned     = !!(await prisma.userPurchase.findUnique({ where: { userId_itemType_itemRef: { userId: interaction.user.id, itemType: 'pet', itemRef: pet.id } } }));
     const canAfford = eco.balance >= pet.price;
 
     const embed = new EmbedBuilder().setColor(SHOP_COLOR).setTitle(`${pet.emoji} ${pet.name}`)
@@ -857,7 +857,7 @@ async function handleBuyExecute(interaction, client) {
   if (eco.balance < price) return interaction.update({ content: '❌ Saldo insuficiente!', embeds: [], components: [] });
 
   const exists = await prisma.userPurchase.findUnique({
-    where: { userId_guildId_itemType_itemRef: { userId: interaction.user.id, guildId: interaction.guildId, itemType: type, itemRef } },
+    where: { userId_itemType_itemRef: { userId: interaction.user.id, itemType: type, itemRef } },
   });
   if (exists) return interaction.update({ content: '✅ Você já possui este item!', embeds: [], components: [] });
 
@@ -865,7 +865,7 @@ async function handleBuyExecute(interaction, client) {
     where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
     data:  { balance: { decrement: price } },
   });
-  await prisma.userPurchase.create({ data: { userId: interaction.user.id, guildId: interaction.guildId, itemType: type, itemRef } });
+  await prisma.userPurchase.create({ data: { userId: interaction.user.id, itemType: type, itemRef } });
 
   if (type === 'role' && roleId) {
     const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
@@ -890,7 +890,7 @@ async function handleBuyExecute(interaction, client) {
 // ─── 🖼️ Vitrine ───────────────────────────────────────────────────────────────
 
 async function handleVitrine(interaction) {
-  const owned    = await prisma.userPurchase.findMany({ where: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'banner' } });
+  const owned    = await prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } });
   const ownedSet = new Set(owned.map(o => o.itemRef));
 
   const sel = new StringSelectMenuBuilder()
@@ -920,9 +920,9 @@ async function handleVitrineSel(interaction) {
   if (!banner) return interaction.update({ content: '❌ Banner não encontrado.', components: [] });
 
   const [owned, eco, allOwned] = await Promise.all([
-    prisma.userPurchase.findUnique({ where: { userId_guildId_itemType_itemRef: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'banner', itemRef: key } } }),
+    prisma.userPurchase.findUnique({ where: { userId_itemType_itemRef: { userId: interaction.user.id, itemType: 'banner', itemRef: key } } }),
     getEco(interaction.user.id, interaction.guildId),
-    prisma.userPurchase.findMany({ where: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'banner' } }),
+    prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } }),
   ]);
   const ownedSet = new Set(allOwned.map(o => o.itemRef));
   const canAfford = eco.balance >= banner.price;
@@ -971,8 +971,8 @@ async function handleConverter(interaction) {
 async function handleSaldo(interaction) {
   const [eco, purchases, profile] = await Promise.all([
     getEco(interaction.user.id, interaction.guildId),
-    prisma.userPurchase.count({ where: { userId: interaction.user.id, guildId: interaction.guildId } }),
-    prisma.userProfile.findUnique({ where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } } }),
+    prisma.userPurchase.count({ where: { userId: interaction.user.id } }),
+    prisma.userProfile.findUnique({ where: { userId: interaction.user.id } }),
   ]);
 
   const activeBanner = profile?.activeBanner ? getBanner(profile.activeBanner) : null;
@@ -996,7 +996,7 @@ async function handleSaldo(interaction) {
 // ─── 💠 Argola do Perfil ──────────────────────────────────────────────────────
 
 async function handleProfileRingBtn(interaction) {
-  const profile  = await prisma.userProfile.findUnique({ where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } } });
+  const profile  = await prisma.userProfile.findUnique({ where: { userId: interaction.user.id } });
   const current  = profile?.activeRing ?? 'roxo';
 
   const makeBtn = (p) => new ButtonBuilder()
@@ -1034,8 +1034,8 @@ async function handleProfileRingPreset(interaction) {
   if (!preset) return interaction.reply({ content: '❌ Cor inválida.', ephemeral: true });
 
   await prisma.userProfile.upsert({
-    where:  { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
-    create: { userId: interaction.user.id, guildId: interaction.guildId, activeRing: key },
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, activeRing: key },
     update: { activeRing: key },
   });
 
@@ -1081,8 +1081,8 @@ async function handleProfileRingCustomModal(interaction) {
     return interaction.reply({ content: '❌ Cor inválida! Use um hex de 6 dígitos (ex: `FF0000`).',  ephemeral: true });
 
   await prisma.userProfile.upsert({
-    where:  { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
-    create: { userId: interaction.user.id, guildId: interaction.guildId, activeRing: `#${hex}` },
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, activeRing: `#${hex}` },
     update: { activeRing: `#${hex}` },
   });
 
@@ -1094,8 +1094,8 @@ async function handleProfileRingCustomModal(interaction) {
 
 async function handleProfileRingRemove(interaction) {
   await prisma.userProfile.upsert({
-    where:  { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
-    create: { userId: interaction.user.id, guildId: interaction.guildId, activeRing: null },
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, activeRing: null },
     update: { activeRing: null },
   });
   return interaction.reply({ content: '✅ Argola removida. A cor padrão (roxo) será usada.', ephemeral: true });
@@ -1105,8 +1105,8 @@ async function handleProfileRingRemove(interaction) {
 
 async function handleProfilePetBtn(interaction) {
   const [owned, profile] = await Promise.all([
-    prisma.userPurchase.findMany({ where: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'pet' } }),
-    prisma.userProfile.findUnique({ where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } } }),
+    prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'pet' } }),
+    prisma.userProfile.findUnique({ where: { userId: interaction.user.id } }),
   ]);
 
   if (!owned.length)
@@ -1145,8 +1145,8 @@ async function handleProfilePetSel(interaction) {
   const activePet = val === 'none' ? null : val;
 
   await prisma.userProfile.upsert({
-    where:  { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
-    create: { userId: interaction.user.id, guildId: interaction.guildId, activePet },
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, activePet },
     update: { activePet },
   });
 
@@ -1162,8 +1162,8 @@ async function handleProfilePetSel(interaction) {
 
 async function handleProfileBannerBtn(interaction) {
   const [owned, profile] = await Promise.all([
-    prisma.userPurchase.findMany({ where: { userId: interaction.user.id, guildId: interaction.guildId, itemType: 'banner' } }),
-    prisma.userProfile.findUnique({ where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } } }),
+    prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } }),
+    prisma.userProfile.findUnique({ where: { userId: interaction.user.id } }),
   ]);
 
   if (!owned.length) return interaction.reply({ content: '❌ Você não possui nenhum banner!\nUse `/loja painel` → **Vitrine** para comprar.', ephemeral: true });
@@ -1192,8 +1192,8 @@ async function handleProfileBannerSel(interaction) {
   const activeBanner = key === 'none' ? null : key;
 
   await prisma.userProfile.upsert({
-    where:  { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
-    create: { userId: interaction.user.id, guildId: interaction.guildId, activeBanner },
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, activeBanner },
     update: { activeBanner },
   });
 

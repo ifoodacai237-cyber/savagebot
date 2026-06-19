@@ -17,8 +17,8 @@ export default {
 
     const [eco, profile, purchases] = await Promise.all([
       prisma.economy.findUnique({ where: { userId_guildId: { userId: target.id, guildId: interaction.guildId } } }),
-      prisma.userProfile.findUnique({ where: { userId_guildId: { userId: target.id, guildId: interaction.guildId } } }),
-      prisma.userPurchase.count({ where: { userId: target.id, guildId: interaction.guildId } }),
+      prisma.userProfile.findUnique({ where: { userId: target.id } }),
+      prisma.userPurchase.count({ where: { userId: target.id } }),
     ]);
 
     let activePetEmoji = null;
@@ -64,8 +64,8 @@ export default {
 
     const [eco, profile, purchases] = await Promise.all([
       prisma.economy.findUnique({ where: { userId_guildId: { userId: target.id, guildId: message.guildId } } }),
-      prisma.userProfile.findUnique({ where: { userId_guildId: { userId: target.id, guildId: message.guildId } } }),
-      prisma.userPurchase.count({ where: { userId: target.id, guildId: message.guildId } }),
+      prisma.userProfile.findUnique({ where: { userId: target.id } }),
+      prisma.userPurchase.count({ where: { userId: target.id } }),
     ]);
 
     let activePetEmoji = null;

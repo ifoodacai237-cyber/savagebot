@@ -1,33 +1,56 @@
-import { SlashCommandBuilder, AttachmentBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, AttachmentBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import prisma from '../../database/client.js';
 import { errorEmbed } from '../../utils/embed.js';
 import { generateBalanceCard, generateTopCard } from '../../utils/economyCards.js';
 
-// ─── GIFs temáticos por ação ──────────────────────────────────────────────────
 const GIFS = {
   daily: [
     'https://media.giphy.com/media/3ohs4lOkMMmbPoGMSk/giphy.gif',
     'https://media.giphy.com/media/26FPokl39a7lHMpTq/giphy.gif',
     'https://media.giphy.com/media/l46CfHGzXFSMGhXpC/giphy.gif',
+    'https://media.giphy.com/media/kFgzrTt798d2w/giphy.gif',
+    'https://media.giphy.com/media/7JvlHfd7C2GDr7zfZF/giphy.gif',
+    'https://media.giphy.com/media/Vccpm1O9gV1g4/giphy.gif',
+    'https://media.giphy.com/media/MDJ9IbxxvDUQM/giphy.gif',
+    'https://media.giphy.com/media/5z0cCCGooBQUtejM4v/giphy.gif',
+    'https://media.giphy.com/media/iD2HZaTqfhcAo/giphy.gif',
   ],
   work: [
     'https://media.giphy.com/media/LHZyixOnHwDDy/giphy.gif',
     'https://media.giphy.com/media/xT5LMHxhOfscxPfIfm/giphy.gif',
     'https://media.giphy.com/media/3o7TKDLFRkSAkpCyZG/giphy.gif',
+    'https://media.giphy.com/media/VGwTq3G6a39cI/giphy.gif',
+    'https://media.giphy.com/media/3oEjI5VtIhHvK37WYo/giphy.gif',
+    'https://media.giphy.com/media/l3q2K5jinAlChoCLS/giphy.gif',
+    'https://media.giphy.com/media/xT9KVmZwJl7fnigeAg/giphy.gif',
+    'https://media.giphy.com/media/4HnRQfgHm9bXK/giphy.gif',
+    'https://media.giphy.com/media/RkYNmkVuQFaP6/giphy.gif',
   ],
   deposit: [
     'https://media.giphy.com/media/26BRsF5TJuqGCcME0/giphy.gif',
-    'https://media.giphy.com/media/3o7TKDSOvfaCO9b3MlO/giphy.gif',
+    'https://media.giphy.com/media/3o7TKSOvfaCO9b3MlO/giphy.gif',
     'https://media.giphy.com/media/l0MYGb1LuZ3n7dRnO/giphy.gif',
+    'https://media.giphy.com/media/h2OCIFJlSHNACtU7TA/giphy.gif',
+    'https://media.giphy.com/media/9EvzNG9HAVc64/giphy.gif',
+    'https://media.giphy.com/media/xUPJPpHORMLhHvwb9i/giphy.gif',
+    'https://media.giphy.com/media/26FPokl39a7lHMpTq/giphy.gif',
   ],
   sacar: [
     'https://media.giphy.com/media/3ohs4lOkMMmbPoGMSk/giphy.gif',
     'https://media.giphy.com/media/26FPCXdkvDbKBbgOI/giphy.gif',
     'https://media.giphy.com/media/l46CfHGzXFSMGhXpC/giphy.gif',
+    'https://media.giphy.com/media/5z0cCCGooBQUtejM4v/giphy.gif',
+    'https://media.giphy.com/media/l0MYECaWkjSReVQMo/giphy.gif',
+    'https://media.giphy.com/media/MDJ9IbxxvDUQM/giphy.gif',
+    'https://media.giphy.com/media/kFgzrTt798d2w/giphy.gif',
   ],
   pagar: [
     'https://media.giphy.com/media/26FPokl39a7lHMpTq/giphy.gif',
     'https://media.giphy.com/media/d2Z4rTi11c9LRita/giphy.gif',
+    'https://media.giphy.com/media/xUPJPqpB6FiG01Cjh6/giphy.gif',
+    'https://media.giphy.com/media/l0HlHFRbmaZtBRhXG/giphy.gif',
+    'https://media.giphy.com/media/TdfyKrN7HGTIY/giphy.gif',
+    'https://media.giphy.com/media/Vccpm1O9gV1g4/giphy.gif',
   ],
 };
 
@@ -36,7 +59,6 @@ function pickGif(key) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-// ─── Colors ────────────────────────────────────────────────────────────────────
 const COL_OK   = 0x9B4FD6;
 const COL_WARN = 0xF5C518;
 
@@ -46,7 +68,6 @@ function makeEmbed(color, title, description) {
   return new EmbedBuilder().setColor(color).setTitle(title).setDescription(description).setTimestamp();
 }
 
-// ─── Constants ─────────────────────────────────────────────────────────────────
 const DAILY_AMOUNT  = () => Math.floor(Math.random() * 501) + 500;
 const WORK_AMOUNT   = () => Math.floor(Math.random() * 401) + 100;
 const DAILY_CD      = 24 * 60 * 60 * 1000;
@@ -63,9 +84,13 @@ const WORK_MSGS = [
   'Você vendeu fotos de stock',
   'Você fez um freela de edição de vídeo',
   'Você dirigiu para o aplicativo',
+  'Você fez suporte técnico remoto',
+  'Você vendeu doces na escola',
+  'Você fez traduções de texto',
+  'Você editou fotos para um cliente',
+  'Você gravou um podcast patrocinado',
 ];
 
-// ─── DB helpers ────────────────────────────────────────────────────────────────
 async function getEco(userId, guildId) {
   return prisma.economy.upsert({
     where:  { userId_guildId: { userId, guildId } },
@@ -83,14 +108,10 @@ function msToHuman(ms) {
   return `${s}s`;
 }
 
-// ─── Command ──────────────────────────────────────────────────────────────────
-
 export default {
   data: new SlashCommandBuilder()
     .setName('eco')
     .setDescription('Sistema de economia do servidor')
-    .addSubcommand(s => s.setName('saldo').setDescription('🪙 Ver seu saldo ou o de alguém')
-      .addUserOption(o => o.setName('usuario').setDescription('Usuário (padrão: você)')))
     .addSubcommand(s => s.setName('daily').setDescription('💰 Colete sua recompensa diária'))
     .addSubcommand(s => s.setName('trabalho').setDescription('💼 Trabalhe para ganhar coins (1h cooldown)'))
     .addSubcommand(s => s.setName('pagar').setDescription('💸 Transfira coins para alguém')
@@ -107,22 +128,10 @@ export default {
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
 
-    // ── SALDO ──────────────────────────────────────────────────────────────
-    if (sub === 'saldo') {
-      await interaction.deferReply();
-      const target    = interaction.options.getUser('usuario') ?? interaction.user;
-      const member    = await interaction.guild.members.fetch(target.id).catch(() => null);
-      const username  = member?.displayName ?? target.username;
-      const eco       = await getEco(target.id, interaction.guildId);
-      const avatarUrl = target.displayAvatarURL({ extension: 'png', size: 256 });
-      const buf = await generateBalanceCard({ username, avatarUrl, balance: eco.balance, bank: eco.bank });
-      return interaction.editReply({ files: [new AttachmentBuilder(buf, { name: 'saldo.png' })] });
-    }
-
     // ── DAILY ──────────────────────────────────────────────────────────────
     if (sub === 'daily') {
       const eco   = await getEco(interaction.user.id, interaction.guildId);
-      const isAdmin = interaction.memberPermissions?.has('Administrator') ?? false;
+      const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ?? false;
       const now   = Date.now();
       const last  = eco.lastDaily?.getTime() ?? 0;
       const diff  = now - last;
@@ -144,7 +153,7 @@ export default {
     // ── TRABALHO ───────────────────────────────────────────────────────────
     if (sub === 'trabalho') {
       const eco     = await getEco(interaction.user.id, interaction.guildId);
-      const isAdmin = interaction.memberPermissions?.has('Administrator') ?? false;
+      const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ?? false;
       const now     = Date.now();
       const last    = eco.lastWork?.getTime() ?? 0;
       const diff    = now - last;
@@ -196,7 +205,7 @@ export default {
 
       const entries = await Promise.all(rows.map(async (r, i) => {
         const member = await interaction.guild.members.fetch(r.userId).catch(() => null);
-        return { rank: i + 1, username: member?.displayName ?? `User`, total: r.balance + r.bank };
+        return { rank: i + 1, username: member?.displayName ?? 'User', total: r.balance + r.bank };
       }));
 
       const buf = generateTopCard(entries);
