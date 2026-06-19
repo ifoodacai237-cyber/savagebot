@@ -3,6 +3,14 @@ import prisma from '../../database/client.js';
 
 const COIN = '<a:emoji_1:1516993823665033286>';
 
+function getEmojiCdnUrl(emojiStr) {
+  const animated = emojiStr?.match(/<a:(\w+):(\d+)>/);
+  if (animated) return `https://cdn.discordapp.com/emojis/${animated[2]}.gif?size=256&quality=lossless`;
+  const staticE  = emojiStr?.match(/<:(\w+):(\d+)>/);
+  if (staticE)  return `https://cdn.discordapp.com/emojis/${staticE[2]}.png?size=256`;
+  return null;
+}
+
 export default {
   data: new SlashCommandBuilder()
     .setName('criar-pet')
@@ -18,9 +26,6 @@ export default {
       opt.setName('preco').setDescription('Preço em FallenCoins').setRequired(true).setMinValue(1)
     )
     .addStringOption(opt =>
-      opt.setName('imagem').setDescription('URL da foto do pet (PNG/JPG) que aparece grande nas interações').setRequired(false)
-    )
-    .addStringOption(opt =>
       opt.setName('descricao').setDescription('Descrição do pet (opcional)').setRequired(false).setMaxLength(200)
     ),
   name: 'criar-pet',
@@ -30,33 +35,37 @@ export default {
     if (!isAdmin)
       return interaction.reply({ content: '❌ Apenas administradores podem criar pets.', ephemeral: true });
 
-    const nome     = interaction.options.getString('nome');
-    const emoji    = interaction.options.getString('emoji');
-    const preco    = interaction.options.getInteger('preco');
-    const imagem   = interaction.options.getString('imagem') ?? null;
-    const desc     = interaction.options.getString('descricao') ?? null;
+    const nome  = interaction.options.getString('nome');
+    const emoji = interaction.options.getString('emoji');
+    const preco = interaction.options.getInteger('preco');
+    const desc  = interaction.options.getString('descricao') ?? null;
 
     const existing = await prisma.pet.findUnique({ where: { guildId_name: { guildId: interaction.guildId, name: nome } } });
     if (existing)
       return interaction.reply({ content: `❌ Já existe um pet chamado **${nome}** neste servidor!`, ephemeral: true });
 
     const pet = await prisma.pet.create({
-      data: { guildId: interaction.guildId, name: nome, emoji, imageUrl: imagem, description: desc, price: preco },
+      data: { guildId: interaction.guildId, name: nome, emoji, description: desc, price: preco },
     });
+
+    const emojiUrl = getEmojiCdnUrl(emoji);
+    const isCustom = /<a?:\w+:\d+>/.test(emoji);
 
     const embed = new EmbedBuilder()
       .setColor(0x57F287)
       .setTitle('🐾 Pet Criado com Sucesso!')
-      .setDescription(`**${nome}** agora está disponível na loja!`)
+      .setDescription(
+        `**${isCustom ? nome : `${emoji} ${nome}`}** agora está disponível na loja!\n` +
+        (emojiUrl ? '*A imagem do emoji já é usada automaticamente nas interações.*' : '')
+      )
       .addFields(
         { name: '💰 Preço',      value: `**${preco.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
-        { name: '🐾 Emoji',      value: emoji,                                           inline: true },
         { name: '📝 Descrição',  value: desc ?? '—',                                     inline: true },
         { name: '🆔 ID Interno', value: `\`${pet.id}\``,                                 inline: false },
       )
       .setFooter({ text: 'Os membros já podem comprar esse pet em /loja painel' });
 
-    if (imagem) embed.setImage(imagem);
+    if (emojiUrl) embed.setImage(emojiUrl);
 
     return interaction.reply({ embeds: [embed], ephemeral: true });
   },
