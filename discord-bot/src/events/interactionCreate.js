@@ -31,6 +31,7 @@ import {
   COLOR_MAP,
 } from '../utils/containerSessions.js';
 import { handleShopInteraction } from '../utils/shopHandlers.js';
+import { handleAjudaCatSel } from '../commands/general/ajuda.js';
 import { radioSessions, createRadioSession } from '../utils/radioManager.js';
 import { buildControlPanel as buildRadioPanel } from '../commands/general/radio.js';
 import { musicSessions } from '../utils/musicManager.js';
@@ -239,6 +240,11 @@ export default {
             embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ Rádio iniciado em **${voiceChannel.name}**! Painel enviado no canal.`)],
             components: [],
           });
+        }
+
+        // ── AJUDA: Seleção de categoria ─────────────────────────────────────
+        if (interaction.customId === 'ajuda_cat_sel') {
+          return handleAjudaCatSel(interaction);
         }
 
         // ── LOJA / PERFIL / ADMIN: Menus da loja e banner ──────────────────
