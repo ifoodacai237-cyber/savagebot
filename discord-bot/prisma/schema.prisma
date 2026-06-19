@@ -158,6 +158,7 @@ model Pet {
   guildId     String
   name        String
   emoji       String
+  imageUrl    String?
   description String?
   price       Int
   active      Boolean  @default(true)

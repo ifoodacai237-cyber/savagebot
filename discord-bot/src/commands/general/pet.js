@@ -99,6 +99,22 @@ async function resolveActivePet(userId, guildId) {
   return pet;
 }
 
+// Aplica a foto do pet na embed (grande = setImage, thumb = setThumbnail)
+function applyPetImage(embed, pet) {
+  if (pet.imageUrl) embed.setImage(pet.imageUrl);
+  return embed;
+}
+
+// Nome de exibição sem tentar colocar emoji customizado no título
+function petDisplayName(pet) {
+  const isCustomEmoji = /<a?:\w+:\d+>/.test(pet.emoji ?? '');
+  // Emojis unicode funcionam no título; custom emojis não renderizam em títulos no Discord
+  return isCustomEmoji ? pet.name : `${pet.emoji} ${pet.name}`;
+}
+
+const NO_PET_EMBED = new EmbedBuilder().setColor(0xED4245)
+  .setDescription('❌ Você não tem um pet equipado!\nCompre um em `/loja painel` → **Comprar** → **Pets** e equipe em `/perfil` → **Meu Pet**.');
+
 async function handleBrincar(interaction) {
   await interaction.deferReply();
 
@@ -106,14 +122,7 @@ async function handleBrincar(interaction) {
   const guildId = interaction.guildId;
 
   const pet = await resolveActivePet(userId, guildId);
-  if (!pet) {
-    return interaction.editReply({
-      embeds: [
-        new EmbedBuilder().setColor(0xED4245)
-          .setDescription('❌ Você não tem um pet equipado!\nCompre um em `/loja painel` → **Comprar** → **Pets** e equipe em `/perfil` → **Meu Pet**.'),
-      ],
-    });
-  }
+  if (!pet) return interaction.editReply({ embeds: [NO_PET_EMBED] });
 
   const eco  = await getOrCreateEco(userId, guildId);
   const now  = Date.now();
@@ -121,15 +130,12 @@ async function handleBrincar(interaction) {
   const diff = now - last;
 
   if (diff < PLAY_CD) {
-    const remaining = PLAY_CD - diff;
-    return interaction.editReply({
-      embeds: [
-        new EmbedBuilder().setColor(0xFEE75C)
-          .setTitle(`${pet.emoji} ${pet.name} ainda está cansado!`)
-          .setDescription(`Seu pet precisa descansar depois de tanto brincar.\n\n⏳ Próxima brincadeira em **${formatMs(remaining)}**.`)
-          .setFooter({ text: 'Tente alimentar ou acariciar no intervalo!' }),
-      ],
-    });
+    const embed = new EmbedBuilder().setColor(0xFEE75C)
+      .setTitle(`${petDisplayName(pet)} ainda está cansado!`)
+      .setDescription(`Seu pet precisa descansar depois de tanto brincar.\n\n⏳ Próxima brincadeira em **${formatMs(PLAY_CD - diff)}**.`)
+      .setFooter({ text: 'Tente alimentar ou acariciar no intervalo!' });
+    applyPetImage(embed, pet);
+    return interaction.editReply({ embeds: [embed] });
   }
 
   const reward = rand(PLAY_MIN, PLAY_MAX);
@@ -138,25 +144,24 @@ async function handleBrincar(interaction) {
     data:  { balance: { increment: reward }, lastPetPlay: new Date() },
   });
 
-  const acao    = pickRand(BRINCAR_MSGS);
-  const reacao  = pickRand(BRINCAR_REACOES);
+  const acao   = pickRand(BRINCAR_MSGS);
+  const reacao = pickRand(BRINCAR_REACOES);
 
-  return interaction.editReply({
-    embeds: [
-      new EmbedBuilder().setColor(0x57F287)
-        .setTitle(`🎾 Brincadeira com ${pet.emoji} ${pet.name}!`)
-        .setDescription(
-          `${acao} **${pet.emoji} ${pet.name}**, que ${reacao}\n\n` +
-          `Seu pet ficou tão feliz que te deu **+${reward.toLocaleString('pt-BR')} ${COIN}**!`
-        )
-        .addFields(
-          { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
-          { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN}**`, inline: true },
-        )
-        .setFooter({ text: `Próxima brincadeira em ${formatMs(PLAY_CD)}` })
-        .setTimestamp(),
-    ],
-  });
+  const embed = new EmbedBuilder().setColor(0x57F287)
+    .setTitle(`🎾 Brincadeira com ${petDisplayName(pet)}!`)
+    .setDescription(
+      `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
+      `Seu pet ficou tão feliz que te deu **+${reward.toLocaleString('pt-BR')} ${COIN}**!`
+    )
+    .addFields(
+      { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
+      { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN}**`, inline: true },
+    )
+    .setFooter({ text: `Próxima brincadeira em ${formatMs(PLAY_CD)}` })
+    .setTimestamp();
+  applyPetImage(embed, pet);
+
+  return interaction.editReply({ embeds: [embed] });
 }
 
 async function handleAlimentar(interaction) {
@@ -166,14 +171,7 @@ async function handleAlimentar(interaction) {
   const guildId = interaction.guildId;
 
   const pet = await resolveActivePet(userId, guildId);
-  if (!pet) {
-    return interaction.editReply({
-      embeds: [
-        new EmbedBuilder().setColor(0xED4245)
-          .setDescription('❌ Você não tem um pet equipado!\nCompre um em `/loja painel` → **Comprar** → **Pets** e equipe em `/perfil` → **Meu Pet**.'),
-      ],
-    });
-  }
+  if (!pet) return interaction.editReply({ embeds: [NO_PET_EMBED] });
 
   const eco  = await getOrCreateEco(userId, guildId);
   const now  = Date.now();
@@ -181,15 +179,12 @@ async function handleAlimentar(interaction) {
   const diff = now - last;
 
   if (diff < FEED_CD) {
-    const remaining = FEED_CD - diff;
-    return interaction.editReply({
-      embeds: [
-        new EmbedBuilder().setColor(0xFEE75C)
-          .setTitle(`${pet.emoji} ${pet.name} ainda está satisfeito!`)
-          .setDescription(`Seu pet ainda está de barriga cheia!\n\n⏳ Próxima alimentação em **${formatMs(remaining)}**.`)
-          .setFooter({ text: 'Tente brincar ou acariciar no intervalo!' }),
-      ],
-    });
+    const embed = new EmbedBuilder().setColor(0xFEE75C)
+      .setTitle(`${petDisplayName(pet)} ainda está satisfeito!`)
+      .setDescription(`Seu pet ainda está de barriga cheia!\n\n⏳ Próxima alimentação em **${formatMs(FEED_CD - diff)}**.`)
+      .setFooter({ text: 'Tente brincar ou acariciar no intervalo!' });
+    applyPetImage(embed, pet);
+    return interaction.editReply({ embeds: [embed] });
   }
 
   const reward = rand(FEED_MIN, FEED_MAX);
@@ -201,22 +196,21 @@ async function handleAlimentar(interaction) {
   const acao   = pickRand(ALIMENTAR_MSGS);
   const reacao = pickRand(ALIMENTAR_REACOES);
 
-  return interaction.editReply({
-    embeds: [
-      new EmbedBuilder().setColor(0xFEA040)
-        .setTitle(`🍖 Alimentando ${pet.emoji} ${pet.name}!`)
-        .setDescription(
-          `${acao} **${pet.emoji} ${pet.name}**, que ${reacao}\n\n` +
-          `Como agradecimento, você ganhou **+${reward.toLocaleString('pt-BR')} ${COIN}**!`
-        )
-        .addFields(
-          { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
-          { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN}**`, inline: true },
-        )
-        .setFooter({ text: `Próxima alimentação em ${formatMs(FEED_CD)}` })
-        .setTimestamp(),
-    ],
-  });
+  const embed = new EmbedBuilder().setColor(0xFEA040)
+    .setTitle(`🍖 Alimentando ${petDisplayName(pet)}!`)
+    .setDescription(
+      `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
+      `Como agradecimento, você ganhou **+${reward.toLocaleString('pt-BR')} ${COIN}**!`
+    )
+    .addFields(
+      { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
+      { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN}**`, inline: true },
+    )
+    .setFooter({ text: `Próxima alimentação em ${formatMs(FEED_CD)}` })
+    .setTimestamp();
+  applyPetImage(embed, pet);
+
+  return interaction.editReply({ embeds: [embed] });
 }
 
 async function handleAcariciar(interaction) {
@@ -226,14 +220,7 @@ async function handleAcariciar(interaction) {
   const guildId = interaction.guildId;
 
   const pet = await resolveActivePet(userId, guildId);
-  if (!pet) {
-    return interaction.editReply({
-      embeds: [
-        new EmbedBuilder().setColor(0xED4245)
-          .setDescription('❌ Você não tem um pet equipado!\nCompre um em `/loja painel` → **Comprar** → **Pets** e equipe em `/perfil` → **Meu Pet**.'),
-      ],
-    });
-  }
+  if (!pet) return interaction.editReply({ embeds: [NO_PET_EMBED] });
 
   const eco  = await getOrCreateEco(userId, guildId);
   const now  = Date.now();
@@ -241,15 +228,12 @@ async function handleAcariciar(interaction) {
   const diff = now - last;
 
   if (diff < PET_CD) {
-    const remaining = PET_CD - diff;
-    return interaction.editReply({
-      embeds: [
-        new EmbedBuilder().setColor(0xFEE75C)
-          .setTitle(`${pet.emoji} ${pet.name} precisa de um tempo!`)
-          .setDescription(`Seu pet está descansando após o último carinho.\n\n⏳ Próximo carinho em **${formatMs(remaining)}**.`)
-          .setFooter({ text: 'Tente brincar ou alimentar no intervalo!' }),
-      ],
-    });
+    const embed = new EmbedBuilder().setColor(0xFEE75C)
+      .setTitle(`${petDisplayName(pet)} precisa de um tempo!`)
+      .setDescription(`Seu pet está descansando após o último carinho.\n\n⏳ Próximo carinho em **${formatMs(PET_CD - diff)}**.`)
+      .setFooter({ text: 'Tente brincar ou alimentar no intervalo!' });
+    applyPetImage(embed, pet);
+    return interaction.editReply({ embeds: [embed] });
   }
 
   const reward = rand(PET_MIN, PET_MAX);
@@ -261,22 +245,21 @@ async function handleAcariciar(interaction) {
   const acao   = pickRand(ACARICIAR_MSGS);
   const reacao = pickRand(ACARICIAR_REACOES);
 
-  return interaction.editReply({
-    embeds: [
-      new EmbedBuilder().setColor(0xF47FFF)
-        .setTitle(`💜 Carinhoso com ${pet.emoji} ${pet.name}!`)
-        .setDescription(
-          `${acao} **${pet.emoji} ${pet.name}**, que ${reacao}\n\n` +
-          `O carinho valeu **+${reward.toLocaleString('pt-BR')} ${COIN}**!`
-        )
-        .addFields(
-          { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
-          { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN}**`, inline: true },
-        )
-        .setFooter({ text: `Próximo carinho em ${formatMs(PET_CD)}` })
-        .setTimestamp(),
-    ],
-  });
+  const embed = new EmbedBuilder().setColor(0xF47FFF)
+    .setTitle(`💜 Carinhoso com ${petDisplayName(pet)}!`)
+    .setDescription(
+      `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
+      `O carinho valeu **+${reward.toLocaleString('pt-BR')} ${COIN}**!`
+    )
+    .addFields(
+      { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
+      { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN}**`, inline: true },
+    )
+    .setFooter({ text: `Próximo carinho em ${formatMs(PET_CD)}` })
+    .setTimestamp();
+  applyPetImage(embed, pet);
+
+  return interaction.editReply({ embeds: [embed] });
 }
 
 async function handleStatus(interaction) {
@@ -286,14 +269,7 @@ async function handleStatus(interaction) {
   const guildId = interaction.guildId;
 
   const pet = await resolveActivePet(userId, guildId);
-  if (!pet) {
-    return interaction.editReply({
-      embeds: [
-        new EmbedBuilder().setColor(0xED4245)
-          .setDescription('❌ Você não tem um pet equipado!\nCompre um em `/loja painel` → **Comprar** → **Pets** e equipe em `/perfil` → **Meu Pet**.'),
-      ],
-    });
-  }
+  if (!pet) return interaction.editReply({ embeds: [NO_PET_EMBED] });
 
   const eco = await getOrCreateEco(userId, guildId);
   const now = Date.now();
@@ -305,19 +281,18 @@ async function handleStatus(interaction) {
     return `${label}: ⏳ ${formatMs(cd - diff)}`;
   }
 
-  return interaction.editReply({
-    embeds: [
-      new EmbedBuilder().setColor(0x9B4FD6)
-        .setTitle(`${pet.emoji} Status de ${pet.name}`)
-        .setDescription(
-          `Aqui estão os cooldowns das interações com seu pet:\n\n` +
-          `🎾 ${cdLine(eco.lastPetPlay, PLAY_CD, 'Brincar')} (CD: 4h — até **300 ${COIN}**)\n` +
-          `🍖 ${cdLine(eco.lastPetFeed, FEED_CD, 'Alimentar')} (CD: 2h — até **160 ${COIN}**)\n` +
-          `💜 ${cdLine(eco.lastPetPet, PET_CD, 'Acariciar')} (CD: 1h — até **100 ${COIN}**)`
-        )
-        .setFooter({ text: 'Use /pet brincar, /pet alimentar ou /pet acariciar' }),
-    ],
-  });
+  const embed = new EmbedBuilder().setColor(0x9B4FD6)
+    .setTitle(`${petDisplayName(pet)} — Status`)
+    .setDescription(
+      `Cooldowns das interações com seu pet:\n\n` +
+      `🎾 ${cdLine(eco.lastPetPlay, PLAY_CD, 'Brincar')} (CD: 4h — até **300 ${COIN}**)\n` +
+      `🍖 ${cdLine(eco.lastPetFeed, FEED_CD, 'Alimentar')} (CD: 2h — até **160 ${COIN}**)\n` +
+      `💜 ${cdLine(eco.lastPetPet, PET_CD, 'Acariciar')} (CD: 1h — até **100 ${COIN}**)`
+    )
+    .setFooter({ text: 'Use /pet brincar, /pet alimentar ou /pet acariciar' });
+  applyPetImage(embed, pet);
+
+  return interaction.editReply({ embeds: [embed] });
 }
 
 export default {
@@ -350,10 +325,8 @@ export default {
       user:    message.author,
       guildId: message.guildId,
       guild:   message.guild,
-      deferReply: async (opts) => {
-        if (!opts?.ephemeral) await message.channel.sendTyping().catch(() => {});
-      },
-      editReply: async (payload) => message.reply(payload),
+      deferReply: async () => { await message.channel.sendTyping().catch(() => {}); },
+      editReply:  async (payload) => message.reply(payload),
     };
 
     if (sub === 'brincar'   || sub === 'b') return handleBrincar(mockInteraction);
