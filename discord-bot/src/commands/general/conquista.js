@@ -95,4 +95,24 @@ export default {
       });
     }
   },
+
+  async executePrefix(message, args) {
+    const sub = args[0]?.toLowerCase() ?? 'listar';
+
+    if (sub === 'listar') {
+      const customEmojis = await prisma.guildBadgeEmoji.findMany({ where: { guildId: message.guildId } });
+      const emojiMap     = Object.fromEntries(customEmojis.map(r => [r.badgeKey, r.emoji]));
+      const lines = BADGE_DEFS.map(b => `${emojiMap[b.key] ?? b.defaultEmoji} **${b.name}** — ${b.description}`);
+      return message.reply({
+        embeds: [new EmbedBuilder()
+          .setColor(0x9B4FD6)
+          .setTitle('🏅 Conquistas do Servidor')
+          .setDescription(lines.join('\n'))],
+      });
+    }
+
+    return message.reply({
+      embeds: [errorEmbed('Use `/conquista` para gerenciar conquistas (requer permissão de admin).')],
+    });
+  },
 };

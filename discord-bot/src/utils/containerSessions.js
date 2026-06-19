@@ -18,7 +18,7 @@ const sessions = new Map();
 function key(userId, guildId) { return `${guildId}_${userId}`; }
 
 export function createSession(userId, guildId) {
-  const s = { userId, guildId, accentColor: 0x9B4FD6, items: [], previewMessageId: null, previewChannelId: null };
+  const s = { userId, guildId, accentColor: 0x9B4FD6, items: [], bodyText: null, previewMessageId: null, previewChannelId: null };
   sessions.set(key(userId, guildId), s);
   return s;
 }
@@ -36,7 +36,13 @@ export function deleteSession(userId, guildId) {
 export function buildContainerPayload(session) {
   const container = new ContainerBuilder().setAccentColor(session.accentColor);
 
-  if (session.items.length === 0) {
+  // Corpo/texto inicial (estilo webhook)
+  if (session.bodyText) {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(session.bodyText));
+    container.addSeparatorComponents(new SeparatorBuilder());
+  }
+
+  if (session.items.length === 0 && !session.bodyText) {
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent('-# 📦 Container vazio — use os botões abaixo para adicionar itens.')
     );
@@ -80,6 +86,7 @@ export function buildMainControls() {
       new ButtonBuilder().setCustomId('cont_add').setLabel('Adicionar Item').setStyle(ButtonStyle.Primary).setEmoji('➕'),
       new ButtonBuilder().setCustomId('cont_edit_menu').setLabel('Editar Item').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
       new ButtonBuilder().setCustomId('cont_color').setLabel('Selecionar Cor').setStyle(ButtonStyle.Secondary).setEmoji('🎨'),
+      new ButtonBuilder().setCustomId('cont_body').setLabel('Conteúdo').setStyle(ButtonStyle.Secondary).setEmoji('📄'),
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('cont_pub').setLabel('Publicar').setStyle(ButtonStyle.Success).setEmoji('✅'),

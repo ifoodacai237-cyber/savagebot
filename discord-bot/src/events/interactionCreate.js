@@ -959,7 +959,7 @@ export default {
             });
           }
 
-          // Impede o autor original de reagir ao próprio comando (legado)
+          // Impede o autor original de reagir ao próprio comando
           if (from.id === originalFromId) {
             return interaction.reply({
               content: '❌ Você não pode reagir ao seu próprio comando!',
@@ -972,9 +972,35 @@ export default {
           );
           if (!toUser) return interaction.reply({ embeds: [errorEmbed('Usuário não encontrado.')], ephemeral: true });
 
-          await interaction.deferReply();
-          const payload = await buildInteractionEmbed(type, from, toUser);
+          // Usa deferUpdate para editar a mensagem original no lugar (como a Neko)
+          await interaction.deferUpdate();
+          const payload = await buildInteractionEmbed(type, from, toUser, true);
           return interaction.editReply(payload);
+        }
+
+        // ── INTERAÇÕES: Rejeitar ─────────────────────────────────────────
+        if (customId.startsWith('int_rej_')) {
+          const parts       = customId.split('_');
+          const type        = parts[2];
+          const originalToId = parts[3];
+
+          const from = interaction.member ?? interaction.user;
+
+          // Apenas o alvo original pode rejeitar
+          if (from.id !== originalToId) {
+            return interaction.reply({
+              content: '❌ Apenas a pessoa marcada pode rejeitar esta interação!',
+              ephemeral: true,
+            });
+          }
+
+          const fromName = from.displayName ?? from.user?.username ?? 'Alguém';
+          const rejectEmbed = new EmbedBuilder()
+            .setColor(0x555555)
+            .setDescription(`**${fromName}** rejeitou a interação. ✖️`);
+
+          await interaction.deferUpdate();
+          return interaction.editReply({ embeds: [rejectEmbed], components: [] });
         }
 
         // ── TELLONYM: Botão principal → escolha ─────────────────────────
@@ -1109,6 +1135,18 @@ export default {
               content: `**🛠️ Editor de Container**\n🗑️ Item removido! (${session.items.length} item(s) restante(s))`,
               components: buildMainControls(),
             });
+          }
+
+          if (customId === 'cont_body') {
+            const modal = new ModalBuilder().setCustomId('cont_modal_body').setTitle('📄 Conteúdo (corpo do container)');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('body_content').setLabel('Texto que aparece no topo do container')
+                  .setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(2000)
+                  .setPlaceholder('Este texto aparece no topo, como o campo "content" de um webhook...')
+              ),
+            );
+            return interaction.showModal(modal);
           }
 
           if (customId === 'cont_color') {
@@ -1547,6 +1585,16 @@ export default {
           if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/container criar` novamente.', ephemeral: true });
 
           await interaction.deferUpdate().catch(() => {});
+
+          if (interaction.customId === 'cont_modal_body') {
+            const bodyText = interaction.fields.getTextInputValue('body_content')?.trim() ?? '';
+            session.bodyText = bodyText || null;
+            await updateContainerPreview(session, interaction.client);
+            return interaction.editReply({
+              content: `**🛠️ Editor de Container**\n${session.bodyText ? '📄 Conteúdo atualizado!' : '📄 Conteúdo removido.'} Total: **${session.items.length}** item(s).\nContinue editando ou clique em **Publicar**.`,
+              components: buildMainControls(),
+            });
+          }
 
           if (interaction.customId === 'cont_modal_text') {
             const content = interaction.fields.getTextInputValue('text_content');

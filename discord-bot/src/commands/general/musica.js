@@ -155,6 +155,12 @@ export default {
     const msg = await interaction.editReply(panel);
     session.controlMessage = { channelId: msg.channelId, messageId: msg.id };
   },
+
+  async executePrefix(message) {
+    return message.reply({
+      embeds: [new EmbedBuilder().setColor(0x9B4FD6).setDescription('🎵 Use `/musica tocar <link>` para tocar músicas.\nEste comando requer o menu interativo do slash command.')],
+    });
+  },
 };
 
 function errEmbed(msg) {

@@ -47,4 +47,10 @@ export default {
       });
     }
   },
+
+  async executePrefix(message) {
+    return message.reply({
+      embeds: [{ color: 0x9B4FD6, description: '📦 Use `/container criar` para abrir o editor interativo de containers.' }],
+    });
+  },
 };

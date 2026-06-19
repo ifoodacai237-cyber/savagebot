@@ -4,92 +4,100 @@ import { errorEmbed } from '../../utils/embed.js';
 
 export const ACTIONS = {
   kiss: {
-    aliases:   ['k', 'bj', 'beijo', 'beijar'],
-    emoji:     '💋',
-    gif:       'kiss',
-    color:     0xFF6B9D,
-    desc:      '💋 Dá um beijo em alguém',
-    msg:       (a, b) => `**${a}** beija **${b}** 💋`,
-    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'beijo' : 'beijos'}.*`,
-    btnLabel:  'Beijar de volta',
-    retribuir: 'kiss',
+    aliases:      ['k', 'bj', 'beijo', 'beijar'],
+    emoji:        '💋',
+    gif:          'kiss',
+    color:        0xFF6B9D,
+    desc:         '💋 Dá um beijo em alguém',
+    msg:          (a, b) => `**${a}** beija **${b}** 💋`,
+    counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'beijo' : 'beijos'}.*`,
+    btnLabel:     'Beijar de volta',
+    retMsg:       (a, b) => `**${a}** beija **${b}** de volta! 💋`,
+    mutualVerb:   (n) => `se beijaram **${n}** ${n === 1 ? 'vez' : 'vezes'}`,
   },
   hug: {
-    aliases:   ['h', 'abraco', 'abracar'],
-    emoji:     '🤗',
-    gif:       'hug',
-    color:     0xFFB347,
-    desc:      '🤗 Abraça alguém',
-    msg:       (a, b) => `**${a}** abraça **${b}** 🤗`,
-    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'abraço' : 'abraços'}.*`,
-    btnLabel:  'Abraçar de volta',
-    retribuir: 'hug',
+    aliases:      ['h', 'abraco', 'abracar'],
+    emoji:        '🤗',
+    gif:          'hug',
+    color:        0xFFB347,
+    desc:         '🤗 Abraça alguém',
+    msg:          (a, b) => `**${a}** abraça **${b}** 🤗`,
+    counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'abraço' : 'abraços'}.*`,
+    btnLabel:     'Abraçar de volta',
+    retMsg:       (a, b) => `**${a}** abraça **${b}** de volta! 🤗`,
+    mutualVerb:   (n) => `se abraçaram **${n}** ${n === 1 ? 'vez' : 'vezes'}`,
   },
   slap: {
-    aliases:   ['s', 'tapa', 'esbofetear'],
-    emoji:     '👋',
-    gif:       'slap',
-    color:     0xFF4444,
-    desc:      '👋 Dá um tapa em alguém',
-    msg:       (a, b) => `**${a}** esbofeteia **${b}** 👋`,
-    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'tapa' : 'tapas'}.*`,
-    btnLabel:  'Dar tapa de volta',
-    retribuir: 'slap',
+    aliases:      ['s', 'tapa', 'esbofetear'],
+    emoji:        '👋',
+    gif:          'slap',
+    color:        0xFF4444,
+    desc:         '👋 Dá um tapa em alguém',
+    msg:          (a, b) => `**${a}** esbofeteia **${b}** 👋`,
+    counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'tapa' : 'tapas'}.*`,
+    btnLabel:     'Dar tapa de volta',
+    retMsg:       (a, b) => `**${a}** esbofeteia **${b}** de volta! 👋`,
+    mutualVerb:   (n) => `se esbofetearam **${n}** ${n === 1 ? 'vez' : 'vezes'}`,
   },
   punch: {
-    aliases:   ['p', 'soco', 'murro'],
-    emoji:     '👊',
-    gif:       'punch',
-    color:     0xFF6600,
-    desc:      '👊 Dá um soco em alguém',
-    msg:       (a, b) => `**${a}** soca **${b}** 👊`,
-    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'soco' : 'socos'}.*`,
-    btnLabel:  'Dar soco de volta',
-    retribuir: 'punch',
+    aliases:      ['p', 'soco', 'murro'],
+    emoji:        '👊',
+    gif:          'punch',
+    color:        0xFF6600,
+    desc:         '👊 Dá um soco em alguém',
+    msg:          (a, b) => `**${a}** soca **${b}** 👊`,
+    counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'soco' : 'socos'}.*`,
+    btnLabel:     'Dar soco de volta',
+    retMsg:       (a, b) => `**${a}** soca **${b}** de volta! 👊`,
+    mutualVerb:   (n) => `se socaram **${n}** ${n === 1 ? 'vez' : 'vezes'}`,
   },
   poke: {
-    aliases:   ['pk', 'cutucar', 'cutuca'],
-    emoji:     '👉',
-    gif:       'poke',
-    color:     0x7289DA,
-    desc:      '👉 Cutuca alguém',
-    msg:       (a, b) => `**${a}** cutuca **${b}** 👉`,
-    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'cutucada' : 'cutucadas'}.*`,
-    btnLabel:  'Cutucar de volta',
-    retribuir: 'poke',
+    aliases:      ['pk', 'cutucar', 'cutuca'],
+    emoji:        '👉',
+    gif:          'poke',
+    color:        0x7289DA,
+    desc:         '👉 Cutuca alguém',
+    msg:          (a, b) => `**${a}** cutuca **${b}** 👉`,
+    counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'cutucada' : 'cutucadas'}.*`,
+    btnLabel:     'Cutucar de volta',
+    retMsg:       (a, b) => `**${a}** cutuca **${b}** de volta! 👉`,
+    mutualVerb:   (n) => `se cutucaram **${n}** ${n === 1 ? 'vez' : 'vezes'}`,
   },
   bite: {
-    aliases:   ['b', 'morder', 'morde'],
-    emoji:     '😬',
-    gif:       'bite',
-    color:     0xAA0000,
-    desc:      '😬 Morde alguém',
-    msg:       (a, b) => `**${a}** morde **${b}** 😬`,
-    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'mordida' : 'mordidas'}.*`,
-    btnLabel:  'Morder de volta',
-    retribuir: 'bite',
+    aliases:      ['b', 'morder', 'morde'],
+    emoji:        '😬',
+    gif:          'bite',
+    color:        0xAA0000,
+    desc:         '😬 Morde alguém',
+    msg:          (a, b) => `**${a}** morde **${b}** 😬`,
+    counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'mordida' : 'mordidas'}.*`,
+    btnLabel:     'Morder de volta',
+    retMsg:       (a, b) => `**${a}** morde **${b}** de volta! 😬`,
+    mutualVerb:   (n) => `se mordem **${n}** ${n === 1 ? 'vez' : 'vezes'}`,
   },
   pat: {
-    aliases:   ['pa', 'carinho'],
-    emoji:     '🥰',
-    gif:       'pat',
-    color:     0xFF69B4,
-    desc:      '🥰 Faz carinho em alguém',
-    msg:       (a, b) => `**${a}** faz carinho em **${b}** 🥰`,
-    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'carinho' : 'carinhos'}.*`,
-    btnLabel:  'Dar carinho de volta',
-    retribuir: 'pat',
+    aliases:      ['pa', 'carinho'],
+    emoji:        '🥰',
+    gif:          'pat',
+    color:        0xFF69B4,
+    desc:         '🥰 Faz carinho em alguém',
+    msg:          (a, b) => `**${a}** faz carinho em **${b}** 🥰`,
+    counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'carinho' : 'carinhos'}.*`,
+    btnLabel:     'Dar carinho de volta',
+    retMsg:       (a, b) => `**${a}** faz carinho em **${b}** de volta! 🥰`,
+    mutualVerb:   (n) => `se fizeram carinho **${n}** ${n === 1 ? 'vez' : 'vezes'}`,
   },
   push: {
-    aliases:   ['pu', 'empurrar', 'empurra'],
-    emoji:     '😤',
-    gif:       'kick',
-    color:     0x888888,
-    desc:      '😤 Empurra alguém',
-    msg:       (a, b) => `**${a}** empurra **${b}** 😤`,
-    counter:   (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'empurrão' : 'empurrões'}.*`,
-    btnLabel:  'Empurrar de volta',
-    retribuir: 'push',
+    aliases:      ['pu', 'empurrar', 'empurra'],
+    emoji:        '😤',
+    gif:          'kick',
+    color:        0x888888,
+    desc:         '😤 Empurra alguém',
+    msg:          (a, b) => `**${a}** empurra **${b}** 😤`,
+    counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'empurrão' : 'empurrões'}.*`,
+    btnLabel:     'Empurrar de volta',
+    retMsg:       (a, b) => `**${a}** empurra **${b}** de volta! 😤`,
+    mutualVerb:   (n) => `se empurraram **${n}** ${n === 1 ? 'vez' : 'vezes'}`,
   },
 };
 
@@ -116,32 +124,58 @@ async function incrementCount(type, fromId, toId) {
   return row.count;
 }
 
-export async function buildInteractionEmbed(type, fromUser, toUser) {
+async function getMutualCount(type, userAId, userBId) {
+  const rows = await prisma.interaction.findMany({
+    where: {
+      type,
+      OR: [
+        { fromId: userAId, toId: userBId },
+        { fromId: userBId, toId: userAId },
+      ],
+    },
+  });
+  return rows.reduce((sum, r) => sum + r.count, 0);
+}
+
+export async function buildInteractionEmbed(type, fromUser, toUser, isRetribution = false) {
   const action   = ACTIONS[type];
   const fromName = fromUser.displayName ?? fromUser.username ?? 'Alguém';
   const toName   = toUser.displayName   ?? toUser.username   ?? 'Alguém';
+  const fromId   = fromUser.id ?? fromUser.user?.id;
+  const toId     = toUser.id ?? toUser.user?.id;
 
-  const [gifData, count] = await Promise.all([
+  const [gifData, count, mutualCount] = await Promise.all([
     fetchGif(action.gif),
-    incrementCount(type, fromUser.id, toUser.id),
+    incrementCount(type, fromId, toId),
+    isRetribution ? getMutualCount(type, fromId, toId) : Promise.resolve(null),
   ]);
+
+  let description;
+  if (isRetribution) {
+    description = `${action.retMsg(fromName, toName)}\n*${fromName} e ${toName} ${action.mutualVerb(mutualCount)}.*`;
+  } else {
+    description = `${action.msg(fromName, toName)}\n${action.counter(toName, count)}`;
+  }
 
   const embed = new EmbedBuilder()
     .setColor(action.color)
-    .setDescription(`${action.msg(fromName, toName)}\n${action.counter(toName, count)}`);
+    .setDescription(description);
 
   if (gifData.url)   embed.setImage(gifData.url);
   if (gifData.anime) embed.setFooter({ text: `Anime: ${gifData.anime}` });
 
-  const toId   = toUser.id ?? toUser.user?.id;
-  const fromId = fromUser.id ?? fromUser.user?.id;
-
+  // Botões: voltar (só o alvo pode clicar) + Rejeitar
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`int_r_${type}_${fromId}_${toId}`)
-      .setEmoji(ACTIONS[type].emoji)
+      .setEmoji(action.emoji)
       .setLabel(action.btnLabel)
       .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`int_rej_${type}_${toId}`)
+      .setEmoji('✖️')
+      .setLabel('Rejeitar')
+      .setStyle(ButtonStyle.Danger),
   );
 
   return { embeds: [embed], components: [row] };

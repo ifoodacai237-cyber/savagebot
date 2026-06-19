@@ -56,4 +56,10 @@ export default {
       ephemeral: true,
     });
   },
+
+  async executePrefix(message) {
+    return message.reply({
+      embeds: [new EmbedBuilder().setColor(0x9B4FD6).setDescription('🐾 Use `/criar-pet` para adicionar um pet à loja.\nEste comando requer o slash command para configurar todos os campos.')],
+    });
+  },
 };

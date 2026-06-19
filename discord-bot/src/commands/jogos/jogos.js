@@ -246,4 +246,126 @@ export default {
       return interaction.editReply({ files: [new AttachmentBuilder(buf, { name: 'roleta.png' })] });
     }
   },
+
+  async executePrefix(message, args) {
+    const sub     = args[0]?.toLowerCase();
+    const userId  = message.author.id;
+    const guildId = message.guildId;
+
+    const help = () => message.reply({
+      embeds: [errorEmbed('**Uso:** `fallen jogo <subcomando> <aposta> [extra]`\n**Subcomandos:** `coinflip <cara|coroa> <aposta>`, `slots <aposta>`, `dados <aposta>`, `blackjack <aposta>`, `roulette <aposta> <vermelho|preto|verde|0-36>`')],
+    });
+
+    if (!sub) return help();
+
+    const eco = await getEco(userId, guildId).catch(() => null);
+    if (!eco) return message.reply({ embeds: [errorEmbed('Erro ao acessar seu saldo.')] });
+
+    // helper to send
+    const send = opts => message.reply(opts);
+
+    if (sub === 'coinflip' || sub === 'cf') {
+      const lado   = args[1]?.toLowerCase();
+      const betStr = args[2];
+      if (!['cara', 'coroa'].includes(lado))
+        return send({ embeds: [errorEmbed('Escolha `cara` ou `coroa`. Ex: `fallen jogo coinflip cara 500`')] });
+      const bet = parseBet(betStr, eco.balance);
+      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida.')] });
+      if (bet > eco.balance) return send({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.`)] });
+
+      const resultado = Math.random() < 0.5 ? 'cara' : 'coroa';
+      const won       = resultado === lado;
+      await deductBet(userId, guildId, bet);
+      if (won) await addWin(userId, guildId, bet * 2);
+      const newBal = eco.balance - bet + (won ? bet * 2 : 0);
+      const buf = generateCoinflipCard({ side: lado, resultado, won, bet, userBalance: newBal });
+      return send({ files: [new AttachmentBuilder(buf, { name: 'coinflip.png' })] });
+    }
+
+    if (sub === 'slots') {
+      const bet = parseBet(args[1], eco.balance);
+      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `fallen jogo slots 500`')] });
+      if (bet > eco.balance) return send({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.`)] });
+
+      const reelObjs = [weightedRandom(), weightedRandom(), weightedRandom()];
+      const reels    = reelObjs.map(r => r.sym);
+      const won      = reels[0] === reels[1] && reels[1] === reels[2];
+      const mult     = won ? reelObjs[0].mult : 0;
+      const winAmt   = won ? Math.floor(bet * mult) : 0;
+      await deductBet(userId, guildId, bet);
+      if (won) await addWin(userId, guildId, winAmt);
+      const newBal = eco.balance - bet + winAmt;
+      const buf = generateSlotsCard({ reels, won, betAmount: bet, changeAmount: won ? winAmt - bet : bet, userBalance: newBal, multiplier: mult });
+      return send({ files: [new AttachmentBuilder(buf, { name: 'slots.png' })] });
+    }
+
+    if (sub === 'dados') {
+      const bet = parseBet(args[1], eco.balance);
+      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `fallen jogo dados 500`')] });
+      if (bet > eco.balance) return send({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.`)] });
+
+      const playerDie = Math.floor(Math.random() * 6) + 1;
+      const botDie    = Math.floor(Math.random() * 6) + 1;
+      const won       = playerDie > botDie;
+      const tie       = playerDie === botDie;
+      await deductBet(userId, guildId, bet);
+      let payout = 0;
+      if (won)      { payout = bet * 2; await addWin(userId, guildId, payout); }
+      else if (tie) { payout = bet;     await addWin(userId, guildId, payout); }
+      const newBal = eco.balance - bet + payout;
+      const buf = generateDiceCard({ playerDie, botDie, won, tie, bet, payout, userBalance: newBal });
+      return send({ files: [new AttachmentBuilder(buf, { name: 'dados.png' })] });
+    }
+
+    if (sub === 'blackjack' || sub === 'bj') {
+      const bet = parseBet(args[1], eco.balance);
+      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `fallen jogo blackjack 500`')] });
+      if (bet > eco.balance) return send({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.`)] });
+
+      const deck   = shuffle(newDeck());
+      let player   = [deck.pop(), deck.pop()];
+      let dealer   = [deck.pop(), deck.pop()];
+      while (handTotal(player) < 17) player.push(deck.pop());
+      while (handTotal(dealer) < 17) dealer.push(deck.pop());
+      const pTotal = handTotal(player);
+      const dTotal = handTotal(dealer);
+      const bust   = pTotal > 21;
+      const won    = !bust && (dTotal > 21 || pTotal > dTotal);
+      const tie    = !bust && !won && pTotal === dTotal;
+      await deductBet(userId, guildId, bet);
+      let payout = 0;
+      if (won)      { payout = bet * 2; await addWin(userId, guildId, payout); }
+      else if (tie) { payout = bet;     await addWin(userId, guildId, payout); }
+      const newBal = eco.balance - bet + payout;
+      const buf = generateBlackjackCard({ playerCards: player, dealerCards: dealer, pTotal, dTotal, won, tie, bust, bet, payout, userBalance: newBal });
+      return send({ files: [new AttachmentBuilder(buf, { name: 'blackjack.png' })] });
+    }
+
+    if (sub === 'roulette' || sub === 'roleta') {
+      const bet     = parseBet(args[1], eco.balance);
+      const escolha = args[2]?.toLowerCase().trim();
+      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `fallen jogo roulette 500 vermelho`')] });
+      if (!escolha)         return send({ embeds: [errorEmbed('Informe a escolha: `vermelho`, `preto`, `verde` ou número 0-36.')] });
+      if (bet > eco.balance) return send({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.`)] });
+
+      const RED_SET = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+      const spin    = Math.floor(Math.random() * 37);
+      const isRed   = RED_SET.has(spin);
+      const isBlack = !isRed && spin !== 0;
+      const isGreen = spin === 0;
+      let won = false, mult = 0;
+      if (escolha === 'vermelho' && isRed)                          { won = true; mult = 2;  }
+      if (escolha === 'preto'    && isBlack)                        { won = true; mult = 2;  }
+      if (escolha === 'verde'    && isGreen)                        { won = true; mult = 14; }
+      if (!isNaN(parseInt(escolha)) && parseInt(escolha) === spin)  { won = true; mult = 36; }
+      const winAmt = won ? Math.floor(bet * mult) : 0;
+      await deductBet(userId, guildId, bet);
+      if (won) await addWin(userId, guildId, winAmt);
+      const newBal = eco.balance - bet + winAmt;
+      const buf = generateRouletteCard({ spin, escolha, won, bet, winAmt, userBalance: newBal, mult });
+      return send({ files: [new AttachmentBuilder(buf, { name: 'roleta.png' })] });
+    }
+
+    return help();
+  },
 };

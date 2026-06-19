@@ -127,6 +127,12 @@ export default {
       });
     }
   },
+
+  async executePrefix(message) {
+    return message.reply({
+      embeds: [new EmbedBuilder().setColor(0x9B4FD6).setDescription('📻 Use `/radio entrar` para ligar a rádio em um canal de voz.\nEste comando requer o menu interativo do slash command.')],
+    });
+  },
 };
 
 function errEmbed(msg) {
