@@ -2,6 +2,13 @@ import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Atta
 import prisma from '../../database/client.js';
 import { generateProfileCard } from '../../utils/profileCard.js';
 
+async function getGuildBadgeEmojis(guildId) {
+  const overrides = await prisma.guildBadgeEmoji.findMany({ where: { guildId } }).catch(() => []);
+  const map = {};
+  for (const o of overrides) map[o.badgeKey] = o.emoji;
+  return map;
+}
+
 export default {
   data: new SlashCommandBuilder()
     .setName('perfil')
@@ -15,10 +22,11 @@ export default {
     const target = interaction.user;
     const member = await interaction.guild.members.fetch(target.id).catch(() => null);
 
-    const [eco, profile, purchases] = await Promise.all([
+    const [eco, profile, purchases, guildBadgeEmojis] = await Promise.all([
       prisma.economy.findUnique({ where: { userId_guildId: { userId: target.id, guildId: interaction.guildId } } }),
       prisma.userProfile.findUnique({ where: { userId: target.id } }),
       prisma.userPurchase.count({ where: { userId: target.id } }),
+      getGuildBadgeEmojis(interaction.guildId),
     ]);
 
     let activePetEmoji = null;
@@ -34,7 +42,7 @@ export default {
     const activeBanner = profile?.activeBanner ?? null;
     const activeRing   = profile?.activeRing ?? null;
 
-    const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet: activePetEmoji });
+    const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet: activePetEmoji, guildBadgeEmojis });
     const attachment = new AttachmentBuilder(buf, { name: 'perfil.png' });
 
     const row = new ActionRowBuilder().addComponents(
@@ -53,6 +61,11 @@ export default {
         .setLabel('Meu Pet')
         .setEmoji('🐾')
         .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('profile_conquistas_btn')
+        .setLabel('Conquistas')
+        .setEmoji('🏅')
+        .setStyle(ButtonStyle.Primary),
     );
 
     return interaction.editReply({ files: [attachment], components: [row] });
@@ -62,10 +75,11 @@ export default {
     const target = message.author;
     const member = await message.guild.members.fetch(target.id).catch(() => null);
 
-    const [eco, profile, purchases] = await Promise.all([
+    const [eco, profile, purchases, guildBadgeEmojis] = await Promise.all([
       prisma.economy.findUnique({ where: { userId_guildId: { userId: target.id, guildId: message.guildId } } }),
       prisma.userProfile.findUnique({ where: { userId: target.id } }),
       prisma.userPurchase.count({ where: { userId: target.id } }),
+      getGuildBadgeEmojis(message.guildId),
     ]);
 
     let activePetEmoji = null;
@@ -84,6 +98,7 @@ export default {
       activeRing:   profile?.activeRing   ?? null,
       activePet:    activePetEmoji,
       purchases,
+      guildBadgeEmojis,
     });
 
     return message.reply({ files: [new AttachmentBuilder(buf, { name: 'perfil.png' })] });

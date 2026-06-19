@@ -372,6 +372,65 @@ export default {
           }
         }
 
+        // ── PERFIL: Botão de conquistas ──────────────────────────────
+        if (customId === 'profile_conquistas_btn') {
+          const { computeEarnedBadgeKeys, BADGE_DEFS } = await import('../utils/profileCard.js');
+
+          const userId  = interaction.user.id;
+          const guildId = interaction.guildId;
+
+          const [eco, profile, purchases, overrides] = await Promise.all([
+            prisma.economy.findUnique({ where: { userId_guildId: { userId, guildId } } }),
+            prisma.userProfile.findUnique({ where: { userId } }),
+            prisma.userPurchase.count({ where: { userId } }),
+            prisma.guildBadgeEmoji.findMany({ where: { guildId } }).catch(() => []),
+          ]);
+
+          const overrideMap = {};
+          for (const o of overrides) overrideMap[o.badgeKey] = o.emoji;
+
+          const balance    = eco?.balance ?? 0;
+          const bank       = eco?.bank ?? 0;
+          const activePet  = profile?.activePet ?? null;
+          const activeBanner = profile?.activeBanner ?? null;
+          const activeRing   = profile?.activeRing ?? null;
+
+          const earned = new Set(computeEarnedBadgeKeys({ balance, bank, purchases, activePet, activeBanner, activeRing }));
+
+          // Build progress info
+          const total = balance + bank;
+
+          const progressLines = BADGE_DEFS.map(b => {
+            const emoji    = overrideMap[b.key] ?? b.defaultEmoji;
+            const isEarned = earned.has(b.key);
+            const status   = isEarned ? '✅' : '🔒';
+
+            let progress = '';
+            if (!isEarned) {
+              if (b.key === 'vip')          progress = ` — Saldo: ${total.toLocaleString('pt-BR')}/50.000`;
+              else if (b.key === 'rico')    progress = ` — Saldo: ${total.toLocaleString('pt-BR')}/10.000`;
+              else if (b.key === 'poupador')progress = ` — Saldo: ${total.toLocaleString('pt-BR')}/5.000`;
+              else if (b.key === 'colecionador') progress = ` — Itens: ${purchases}/10`;
+              else if (b.key === 'comprador')    progress = ` — Itens: ${purchases}/5`;
+              else if (b.key === 'mascote')   progress = ` — Equipe um pet`;
+              else if (b.key === 'estiloso')  progress = ` — Equipe um banner`;
+              else if (b.key === 'personalizado') progress = ` — Equipe uma argola`;
+            }
+
+            return `${status} ${emoji} **${b.name}**${isEarned ? '' : progress}\n> ${b.description}`;
+          }).join('\n\n');
+
+          const earnedCount = earned.size;
+          const embed = new EmbedBuilder()
+            .setColor(0x9B4FD6)
+            .setTitle(`🏅 Conquistas — ${earnedCount}/${BADGE_DEFS.length} desbloqueadas`)
+            .setDescription(progressLines)
+            .setThumbnail(interaction.user.displayAvatarURL({ extension: 'png', size: 128 }))
+            .setFooter({ text: 'Conquistas desbloqueadas aparecem como emoji no seu perfil' });
+
+          return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
         // ── LOJA / PERFIL: Botões da loja, config e perfil ──────────────
         if (
           customId.startsWith('shop_') ||

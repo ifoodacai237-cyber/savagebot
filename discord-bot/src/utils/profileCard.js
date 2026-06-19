@@ -7,6 +7,19 @@ const W = 900, H = 340;
 const COIN_EMOJI_ID = '1516993823665033286';
 const COIN_URL      = `https://cdn.discordapp.com/emojis/${COIN_EMOJI_ID}.png`;
 
+// ─── Badge definitions (exported for use in conquista command) ────────────────
+
+export const BADGE_DEFS = [
+  { key: 'vip',          defaultEmoji: '💎', name: 'VIP',          description: 'Saldo total ≥ 50.000',    color: 'rgba(88,166,255,0.85)'   },
+  { key: 'rico',         defaultEmoji: '💰', name: 'Rico',         description: 'Saldo total ≥ 10.000',    color: 'rgba(253,224,71,0.85)'   },
+  { key: 'poupador',     defaultEmoji: '🪙', name: 'Poupador',     description: 'Saldo total ≥ 5.000',     color: 'rgba(200,180,60,0.80)'   },
+  { key: 'colecionador', defaultEmoji: '🏆', name: 'Colecionador', description: '10+ itens comprados',     color: 'rgba(157,78,221,0.85)'   },
+  { key: 'comprador',    defaultEmoji: '🛍️', name: 'Comprador',    description: '5+ itens comprados',      color: 'rgba(130,60,200,0.80)'   },
+  { key: 'mascote',      defaultEmoji: '🐾', name: 'Mascote',      description: 'Pet ativo equipado',      color: 'rgba(87,242,135,0.80)'   },
+  { key: 'estiloso',     defaultEmoji: '🎨', name: 'Estiloso',     description: 'Banner equipado',         color: 'rgba(255,107,107,0.80)'  },
+  { key: 'personalizado',defaultEmoji: '💠', name: 'Personalizado',description: 'Argola personalizada',    color: 'rgba(100,200,220,0.80)'  },
+];
+
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -42,25 +55,26 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function computeBadges({ balance, bank, purchases, activePet, activeBanner, activeRing }) {
-  const badges = [];
-  const total  = (balance ?? 0) + (bank ?? 0);
+// Returns array of badge keys that are earned
+export function computeEarnedBadgeKeys({ balance, bank, purchases, activePet, activeBanner, activeRing }) {
+  const keys  = [];
+  const total = (balance ?? 0) + (bank ?? 0);
 
-  if (total >= 50000) badges.push({ label: '💎 VIP',         color: 'rgba(88,166,255,0.85)'  });
-  else if (total >= 10000) badges.push({ label: '💰 Rico',   color: 'rgba(253,224,71,0.85)'  });
-  else if (total >= 5000)  badges.push({ label: '🪙 Poupador', color: 'rgba(200,180,60,0.80)' });
+  if      (total >= 50000) keys.push('vip');
+  else if (total >= 10000) keys.push('rico');
+  else if (total >= 5000)  keys.push('poupador');
 
-  if (purchases >= 10) badges.push({ label: '🏆 Colecionador', color: 'rgba(157,78,221,0.85)' });
-  else if (purchases >= 5) badges.push({ label: '🛍️ Comprador', color: 'rgba(130,60,200,0.80)' });
+  if      (purchases >= 10) keys.push('colecionador');
+  else if (purchases >= 5)  keys.push('comprador');
 
-  if (activePet)                          badges.push({ label: '🐾 Mascote',        color: 'rgba(87,242,135,0.80)'  });
-  if (activeBanner)                       badges.push({ label: '🎨 Estiloso',       color: 'rgba(255,107,107,0.80)' });
-  if (activeRing && activeRing !== 'roxo') badges.push({ label: '💠 Personalizado', color: 'rgba(100,200,220,0.80)' });
+  if (activePet)                          keys.push('mascote');
+  if (activeBanner)                       keys.push('estiloso');
+  if (activeRing && activeRing !== 'roxo') keys.push('personalizado');
 
-  return badges;
+  return keys;
 }
 
-export async function generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet }) {
+export async function generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet, guildBadgeEmojis = {} }) {
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
@@ -223,24 +237,32 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
     }
   }
 
-  // ── Badges (insígnias de conquistas) ────────────────────────────────────────
-  const badges = computeBadges({ balance, bank, purchases, activePet, activeBanner, activeRing });
-  if (badges.length > 0) {
+  // ── Badges — apenas emojis em bolhas ────────────────────────────────────────
+  const earnedKeys = computeEarnedBadgeKeys({ balance, bank, purchases, activePet, activeBanner, activeRing });
+  if (earnedKeys.length > 0) {
     const BADGE_Y = statsY + 76;
     let bx = TX;
+    const BUBBLE_R = 16;
 
-    ctx.font = `12px ${FONT}`;
-    for (const badge of badges.slice(0, 6)) {
-      const tw = ctx.measureText(badge.label).width;
-      const bw2 = tw + 18;
-      if (bx + bw2 > W - 14) break;
+    for (const key of earnedKeys.slice(0, 8)) {
+      if (bx + BUBBLE_R * 2 + 6 > W - 14) break;
 
-      ctx.fillStyle = badge.color;
-      roundRect(ctx, bx, BADGE_Y, bw2, 19, 9); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      ctx.fillText(badge.label, bx + 9, BADGE_Y + 13);
+      const def = BADGE_DEFS.find(b => b.key === key);
+      const emoji = guildBadgeEmojis[key] ?? def?.defaultEmoji ?? '🏅';
 
-      bx += bw2 + 7;
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.beginPath(); ctx.arc(bx + BUBBLE_R, BADGE_Y + BUBBLE_R, BUBBLE_R, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.font = `18px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(emoji, bx + BUBBLE_R, BADGE_Y + BUBBLE_R + 6);
+      ctx.textAlign = 'left';
+
+      bx += BUBBLE_R * 2 + 8;
     }
   }
 

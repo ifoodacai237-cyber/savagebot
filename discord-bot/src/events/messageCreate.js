@@ -65,7 +65,7 @@ export default {
             .setTimestamp();
 
           if (message.content) embed.setDescription(message.content);
-          if (isImage)         embed.setImage(attachment.url);
+          if (isImage)         embed.setImage(attachment.proxyURL || attachment.url);
 
           // Inicializa set de likes em memória
           likesMap.set(postId, new Set());

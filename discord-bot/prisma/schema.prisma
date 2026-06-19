@@ -180,3 +180,12 @@ model UserBadge {
 
   @@unique([userId, badgeKey])
 }
+
+model GuildBadgeEmoji {
+  id       String @id @default(cuid())
+  guildId  String
+  badgeKey String
+  emoji    String
+
+  @@unique([guildId, badgeKey])
+}
