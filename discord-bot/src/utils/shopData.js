@@ -49,7 +49,7 @@ export const BANNERS = [
     name: '🔥 Chamas',
     description: 'Fundo de chamas vibrantes e intensas em tons de laranja e vermelho.',
     price: 2200,
-    imageUrl: 'https://images.unsplash.com/photo-1531140523065-f5059fca6b0c?w=1200&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200&q=80',
     gradient: ['#2a0a00', '#aa3300'],
     emoji: '🔥',
   },
@@ -75,6 +75,28 @@ export const BANNERS = [
 
 export function getBanner(key) {
   return BANNERS.find(b => b.key === key) ?? null;
+}
+
+export async function resolveBanner(key, guildId) {
+  if (!key) return null;
+  const staticB = getBanner(key);
+  if (staticB) return staticB;
+  if (!guildId) return null;
+  try {
+    const { default: prisma } = await import('../database/client.js');
+    const custom = await prisma.customBanner.findFirst({ where: { key, guildId, active: true } });
+    if (!custom) return null;
+    return {
+      key:         custom.key,
+      name:        custom.name,
+      description: custom.description ?? '',
+      price:       custom.price,
+      imageUrl:    custom.imageUrl,
+      gradient:    [custom.gradient1, custom.gradient2],
+      emoji:       custom.emoji,
+      isCustom:    true,
+    };
+  } catch { return null; }
 }
 
 export const RING_PRESETS = [

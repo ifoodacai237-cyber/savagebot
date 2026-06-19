@@ -1,5 +1,5 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { getBanner, getRingColors } from './shopData.js';
+import { resolveBanner, getRingColors } from './shopData.js';
 
 const FONT = '"Noto Sans", "DejaVu Sans", Arial, sans-serif';
 const W = 900, H = 340;
@@ -74,11 +74,11 @@ export function computeEarnedBadgeKeys({ balance, bank, purchases, activePet, ac
   return keys;
 }
 
-export async function generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet, guildBadgeEmojis = {} }) {
+export async function generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet, guildBadgeEmojis = {}, guildId = null }) {
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
-  const banner = activeBanner ? getBanner(activeBanner) : null;
+  const banner = await resolveBanner(activeBanner, guildId);
   const { c1, c2 } = getRingColors(activeRing ?? null);
 
   let coinImg = null;

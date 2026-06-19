@@ -42,7 +42,7 @@ export default {
     const activeBanner = profile?.activeBanner ?? null;
     const activeRing   = profile?.activeRing ?? null;
 
-    const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet: activePetEmoji, guildBadgeEmojis });
+    const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet: activePetEmoji, guildBadgeEmojis, guildId: interaction.guildId });
     const attachment = new AttachmentBuilder(buf, { name: 'perfil.png' });
 
     const row = new ActionRowBuilder().addComponents(
@@ -99,6 +99,7 @@ export default {
       activePet:    activePetEmoji,
       purchases,
       guildBadgeEmojis,
+      guildId: message.guildId,
     });
 
     return message.reply({ files: [new AttachmentBuilder(buf, { name: 'perfil.png' })] });

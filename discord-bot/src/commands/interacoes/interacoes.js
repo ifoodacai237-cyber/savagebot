@@ -137,6 +137,59 @@ async function getMutualCount(type, userAId, userBId) {
   return rows.reduce((sum, r) => sum + r.count, 0);
 }
 
+const COMBO_MSGS = {
+  kiss: [
+    { min: 100, fn: (a, b) => `💖 **${a} e ${b} são inseparáveis! Amor eterno! 👑**` },
+    { min: 50,  fn: (a, b) => `💗 **${a} e ${b} estão completamente apaixonados! 💋**` },
+    { min: 20,  fn: (a, b) => `💘 *${a} e ${b} não conseguem parar de se beijar! 🔥*` },
+    { min: 10,  fn: (a, b) => `💞 *${a} e ${b} estão viciados um no outro!*` },
+    { min: 5,   fn: (a, b) => `💕 *${a} e ${b} estão criando algo especial...*` },
+  ],
+  hug: [
+    { min: 100, fn: (a, b) => `🫂 **${a} e ${b} têm o abraço mais famoso do servidor! 👑**` },
+    { min: 50,  fn: (a, b) => `💛 **${a} e ${b} são melhores amigos para sempre!**` },
+    { min: 20,  fn: (a, b) => `🤗 *${a} e ${b} se abraçam com tudo que têm! 💪*` },
+    { min: 10,  fn: (a, b) => `☀️ *${a} e ${b} se aquecem mutuamente!*` },
+    { min: 5,   fn: (a, b) => `🌟 *${a} e ${b} têm uma amizade especial...*` },
+  ],
+  slap: [
+    { min: 100, fn: (a, b) => `😵 **${a} e ${b} travaram uma guerra épica de tapas! 👑**` },
+    { min: 50,  fn: (a, b) => `🥊 **${a} e ${b} brigam como campeões!**` },
+    { min: 20,  fn: (a, b) => `💢 *${a} e ${b} não conseguem parar de se esbofetear! 😤*` },
+    { min: 10,  fn: (a, b) => `😠 *${a} e ${b} estão numa rivalidade intensa!*` },
+    { min: 5,   fn: (a, b) => `⚡ *${a} e ${b} desenvolveram uma rivalidade...*` },
+  ],
+  punch: [
+    { min: 100, fn: (a, b) => `💥 **${a} e ${b} são os lutadores lendários do servidor! 👑**` },
+    { min: 50,  fn: (a, b) => `🥋 **${a} e ${b} travam batalhas épicas!**` },
+    { min: 20,  fn: (a, b) => `👊 *${a} e ${b} estão numa guerra de socos! 💢*` },
+    { min: 10,  fn: (a, b) => `⚡ *${a} e ${b} não conseguem parar de se bater!*` },
+    { min: 5,   fn: (a, b) => `🔥 *${a} e ${b} estão num duelo acirrado...*` },
+  ],
+  pat: [
+    { min: 100, fn: (a, b) => `🥰 **${a} e ${b} partilham o carinho mais puro do servidor! 👑**` },
+    { min: 50,  fn: (a, b) => `💝 **${a} e ${b} são a dupla mais carinhosa!**` },
+    { min: 20,  fn: (a, b) => `🌸 *${a} e ${b} se cuidam como ninguém! 💖*` },
+    { min: 10,  fn: (a, b) => `🌷 *${a} e ${b} têm uma ligação especial!*` },
+    { min: 5,   fn: (a, b) => `✨ *${a} e ${b} estão se aproximando...*` },
+  ],
+  default: [
+    { min: 100, fn: (a, b) => `👑 **${a} e ${b} têm 100+ interações lendárias!**` },
+    { min: 50,  fn: (a, b) => `🌟 **${a} e ${b} interagem como veteranos!**` },
+    { min: 20,  fn: (a, b) => `🔥 *${a} e ${b} interagem sem parar!*` },
+    { min: 10,  fn: (a, b) => `⚡ *${a} e ${b} estão ficando próximos!*` },
+    { min: 5,   fn: (a, b) => `✨ *${a} e ${b} começam uma tradição...*` },
+  ],
+};
+
+function getComboMsg(type, mutualCount, fromName, toName) {
+  const list = COMBO_MSGS[type] ?? COMBO_MSGS.default;
+  for (const entry of list) {
+    if (mutualCount >= entry.min) return entry.fn(fromName, toName);
+  }
+  return null;
+}
+
 export async function buildInteractionEmbed(type, fromUser, toUser, isRetribution = false) {
   const action   = ACTIONS[type];
   const fromName = fromUser.displayName ?? fromUser.username ?? 'Alguém';
@@ -147,14 +200,20 @@ export async function buildInteractionEmbed(type, fromUser, toUser, isRetributio
   const [gifData, count, mutualCount] = await Promise.all([
     fetchGif(action.gif),
     incrementCount(type, fromId, toId),
-    isRetribution ? getMutualCount(type, fromId, toId) : Promise.resolve(null),
+    getMutualCount(type, fromId, toId),
   ]);
 
   let description;
   if (isRetribution) {
+    const comboMsg = getComboMsg(type, mutualCount, fromName, toName);
     description = `${action.retMsg(fromName, toName)}\n*${fromName} e ${toName} ${action.mutualVerb(mutualCount)}.*`;
+    if (comboMsg) description += `\n\n${comboMsg}`;
   } else {
     description = `${action.msg(fromName, toName)}\n${action.counter(toName, count)}`;
+    if (mutualCount >= 5) {
+      const comboMsg = getComboMsg(type, mutualCount, fromName, toName);
+      if (comboMsg) description += `\n\n${comboMsg}`;
+    }
   }
 
   const embed = new EmbedBuilder()

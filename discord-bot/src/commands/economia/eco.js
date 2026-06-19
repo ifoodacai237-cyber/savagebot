@@ -251,7 +251,9 @@ export default {
 
   async executePrefix(message, args) {
     const sub = args[0]?.toLowerCase() ?? 'saldo';
-    if (sub === 'saldo' || sub === 'bal') {
+
+    // ── SALDO ──────────────────────────────────────────────────────────────
+    if (sub === 'saldo' || sub === 'bal' || sub === 'carteira') {
       const target    = message.mentions.users.first() ?? message.author;
       const eco       = await getEco(target.id, message.guildId);
       const member    = await message.guild.members.fetch(target.id).catch(() => null);
@@ -260,5 +262,136 @@ export default {
       const buf = await generateBalanceCard({ username, avatarUrl, balance: eco.balance, bank: eco.bank });
       return message.reply({ files: [new AttachmentBuilder(buf, { name: 'saldo.png' })] });
     }
+
+    // ── DAILY ──────────────────────────────────────────────────────────────
+    if (sub === 'daily' || sub === 'd' || sub === 'diario') {
+      const eco     = await getEco(message.author.id, message.guildId);
+      const isAdmin = message.member?.permissions?.has(PermissionFlagsBits.Administrator) ?? false;
+      const now     = Date.now();
+      const last    = eco.lastDaily?.getTime() ?? 0;
+      const diff    = now - last;
+      if (!isAdmin && diff < DAILY_CD) {
+        return message.reply({ embeds: [makeEmbed(0xF85149, '⏳ Daily Indisponível', `Volte em **${msToHuman(DAILY_CD - diff)}** para coletar!`)] });
+      }
+      const amount = DAILY_AMOUNT();
+      await prisma.economy.update({
+        where: { userId_guildId: { userId: message.author.id, guildId: message.guildId } },
+        data:  { balance: { increment: amount }, lastDaily: new Date() },
+      });
+      return message.reply({
+        embeds: [makeEmbed(COL_OK, '💰 Daily Coletado!',
+          `Você recebeu **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> ⏰ Volte em **24 horas** para coletar novamente.`)
+          .setThumbnail(message.author.displayAvatarURL())
+          .setImage(pickGif('daily'))],
+      });
+    }
+
+    // ── TRABALHO ───────────────────────────────────────────────────────────
+    if (sub === 'trabalho' || sub === 'trab' || sub === 'work') {
+      const eco     = await getEco(message.author.id, message.guildId);
+      const isAdmin = message.member?.permissions?.has(PermissionFlagsBits.Administrator) ?? false;
+      const now     = Date.now();
+      const last    = eco.lastWork?.getTime() ?? 0;
+      const diff    = now - last;
+      if (!isAdmin && diff < WORK_CD) {
+        return message.reply({ embeds: [makeEmbed(0xF85149, '😴 Você está cansado!', `Descanse mais **${msToHuman(WORK_CD - diff)}** antes de trabalhar novamente.`)] });
+      }
+      const amount = WORK_AMOUNT();
+      const msg    = WORK_MSGS[Math.floor(Math.random() * WORK_MSGS.length)];
+      await prisma.economy.update({
+        where: { userId_guildId: { userId: message.author.id, guildId: message.guildId } },
+        data:  { balance: { increment: amount }, lastWork: new Date() },
+      });
+      return message.reply({
+        embeds: [makeEmbed(COL_WARN, '💼 Trabalho Concluído!',
+          `**${msg}** e ganhou **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> 🕐 Volte em **1 hora** para trabalhar novamente.`)
+          .setThumbnail(message.author.displayAvatarURL())
+          .setImage(pickGif('work'))],
+      });
+    }
+
+    // ── PAGAR ──────────────────────────────────────────────────────────────
+    if (sub === 'pagar' || sub === 'pay' || sub === 'transferir') {
+      const target = message.mentions.users.first();
+      const valor  = parseInt(args[2] ?? args[1]);
+      if (!target) return message.reply({ embeds: [makeEmbed(0xF85149, '❌ Erro', 'Mencione o usuário. Ex: `fallen eco pagar @user 500`')] });
+      if (target.id === message.author.id) return message.reply({ embeds: [makeEmbed(0xF85149, '❌ Erro', 'Você não pode pagar a si mesmo.')] });
+      if (target.bot) return message.reply({ embeds: [makeEmbed(0xF85149, '❌ Erro', 'Não é possível pagar bots.')] });
+      if (isNaN(valor) || valor <= 0) return message.reply({ embeds: [makeEmbed(0xF85149, '❌ Erro', 'Informe o valor. Ex: `fallen eco pagar @user 500`')] });
+      const eco = await getEco(message.author.id, message.guildId);
+      if (eco.balance < valor) return message.reply({ embeds: [makeEmbed(0xF85149, '❌ Saldo Insuficiente', `Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}** na carteira.`)] });
+      await getEco(target.id, message.guildId);
+      await prisma.economy.update({ where: { userId_guildId: { userId: message.author.id, guildId: message.guildId } }, data: { balance: { decrement: valor } } });
+      await prisma.economy.update({ where: { userId_guildId: { userId: target.id,           guildId: message.guildId } }, data: { balance: { increment: valor } } });
+      return message.reply({
+        embeds: [makeEmbed(COL_OK, '💸 Transferência Realizada!',
+          `${message.author} enviou **${valor.toLocaleString('pt-BR')} ${COIN}** para ${target}!`)
+          .setImage(pickGif('pagar'))],
+      });
+    }
+
+    // ── TOP ────────────────────────────────────────────────────────────────
+    if (sub === 'top' || sub === 'ranking' || sub === 'rank') {
+      const rows = await prisma.economy.findMany({
+        where:   { guildId: message.guildId },
+        orderBy: [{ balance: 'desc' }],
+        take:    10,
+      });
+      if (!rows.length) return message.reply({ embeds: [makeEmbed(0xF85149, '❌ Vazio', 'Ninguém tem coins ainda!')] });
+      const entries = await Promise.all(rows.map(async (r, i) => {
+        const member = await message.guild.members.fetch(r.userId).catch(() => null);
+        return { rank: i + 1, username: member?.displayName ?? 'User', total: r.balance + r.bank };
+      }));
+      const buf = generateTopCard(entries);
+      return message.reply({ files: [new AttachmentBuilder(buf, { name: 'top.png' })] });
+    }
+
+    // ── DEPOSITAR ──────────────────────────────────────────────────────────
+    if (sub === 'depositar' || sub === 'dep' || sub === 'deposito') {
+      const eco   = await getEco(message.author.id, message.guildId);
+      const input = (args[1] ?? '').toLowerCase();
+      const valor = input === 'tudo' ? eco.balance : parseInt(input);
+      if (isNaN(valor) || valor <= 0) return message.reply({ embeds: [makeEmbed(0xF85149, '❌ Erro', 'Informe o valor ou "tudo". Ex: `fallen eco dep 1000`')] });
+      if (eco.balance < valor) return message.reply({ embeds: [makeEmbed(0xF85149, '❌ Saldo Insuficiente', `Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}** na carteira.`)] });
+      await prisma.economy.update({
+        where: { userId_guildId: { userId: message.author.id, guildId: message.guildId } },
+        data:  { balance: { decrement: valor }, bank: { increment: valor } },
+      });
+      return message.reply({
+        embeds: [makeEmbed(0x58A6FF, '🏦 Depósito Realizado!',
+          `**${valor.toLocaleString('pt-BR')} ${COIN}** depositados com segurança!\n\n> 🔒 Coins no banco estão protegidos de roubos.`)
+          .setImage(pickGif('deposit'))],
+      });
+    }
+
+    // ── SACAR ──────────────────────────────────────────────────────────────
+    if (sub === 'sacar' || sub === 'saque' || sub === 'withdraw') {
+      const eco   = await getEco(message.author.id, message.guildId);
+      const input = (args[1] ?? '').toLowerCase();
+      const valor = input === 'tudo' ? eco.bank : parseInt(input);
+      if (isNaN(valor) || valor <= 0) return message.reply({ embeds: [makeEmbed(0xF85149, '❌ Erro', 'Informe o valor ou "tudo". Ex: `fallen eco saque 1000`')] });
+      if (eco.bank < valor) return message.reply({ embeds: [makeEmbed(0xF85149, '❌ Banco Insuficiente', `Você tem **${eco.bank.toLocaleString('pt-BR')} ${COIN}** no banco.`)] });
+      await prisma.economy.update({
+        where: { userId_guildId: { userId: message.author.id, guildId: message.guildId } },
+        data:  { bank: { decrement: valor }, balance: { increment: valor } },
+      });
+      return message.reply({
+        embeds: [makeEmbed(COL_OK, '🏧 Saque Realizado!',
+          `**${valor.toLocaleString('pt-BR')} ${COIN}** sacados para sua carteira!\n\n> 🪙 Pronto para apostar nos jogos.`)
+          .setImage(pickGif('sacar'))],
+      });
+    }
+
+    // ── AJUDA ──────────────────────────────────────────────────────────────
+    return message.reply({
+      embeds: [makeEmbed(COL_OK, '💰 Eco — Comandos de Prefixo',
+        `\`fallen eco saldo [@user]\` — ver saldo\n` +
+        `\`fallen eco daily\` — recompensa diária\n` +
+        `\`fallen eco trabalho\` — trabalhar (1h cooldown)\n` +
+        `\`fallen eco pagar @user <valor>\` — transferir coins\n` +
+        `\`fallen eco top\` — ranking do servidor\n` +
+        `\`fallen eco dep <valor|tudo>\` — depositar no banco\n` +
+        `\`fallen eco sacar <valor|tudo>\` — sacar do banco`)],
+    });
   },
 };

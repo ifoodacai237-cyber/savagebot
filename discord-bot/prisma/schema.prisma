@@ -189,3 +189,20 @@ model GuildBadgeEmoji {
 
   @@unique([guildId, badgeKey])
 }
+
+model CustomBanner {
+  id          String   @id @default(cuid())
+  guildId     String
+  key         String
+  name        String
+  description String   @default("")
+  price       Int      @default(1000)
+  imageUrl    String
+  gradient1   String   @default("#1a0533")
+  gradient2   String   @default("#4a1a8a")
+  emoji       String   @default("🖼️")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@unique([guildId, key])
+}

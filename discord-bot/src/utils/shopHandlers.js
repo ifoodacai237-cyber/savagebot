@@ -31,6 +31,29 @@ async function getCfg(guildId) {
   return prisma.guildConfig.upsert({ where: { guildId }, create: { guildId }, update: {} });
 }
 
+async function getAllBannersForGuild(guildId) {
+  const custom = guildId ? await prisma.customBanner.findMany({ where: { guildId, active: true } }) : [];
+  const customMapped = custom.map(c => ({
+    key: c.key, name: c.name, description: c.description || '',
+    price: c.price, imageUrl: c.imageUrl,
+    gradient: [c.gradient1, c.gradient2], emoji: c.emoji, isCustom: true,
+  }));
+  return [...BANNERS, ...customMapped];
+}
+
+async function resolveBannerForGuild(key, guildId) {
+  const staticB = getBanner(key);
+  if (staticB) return staticB;
+  if (!guildId) return null;
+  const custom = await prisma.customBanner.findFirst({ where: { key, guildId, active: true } });
+  if (!custom) return null;
+  return {
+    key: custom.key, name: custom.name, description: custom.description || '',
+    price: custom.price, imageUrl: custom.imageUrl,
+    gradient: [custom.gradient1, custom.gradient2], emoji: custom.emoji, isCustom: true,
+  };
+}
+
 // ─── Painel Admin ─────────────────────────────────────────────────────────────
 
 export function buildLojaAdminPayload(cfg) {
@@ -449,6 +472,7 @@ async function handleGiftTypeSel(interaction) {
   }
 
   if (type === 'banners') {
+    const allBanners = await getAllBannersForGuild(interaction.guildId);
     const gifted = await prisma.userPurchase.findMany({
       where: { userId: targetId, itemType: 'banner' },
     });
@@ -457,7 +481,7 @@ async function handleGiftTypeSel(interaction) {
     const sel = new StringSelectMenuBuilder()
       .setCustomId(`shop_gi:${targetId}`)
       .setPlaceholder('Selecione o banner para presentear')
-      .addOptions(BANNERS.map(b =>
+      .addOptions(allBanners.slice(0, 25).map(b =>
         new StringSelectMenuOptionBuilder()
           .setLabel(b.name)
           .setValue(`banner:${b.key}`)
@@ -469,10 +493,10 @@ async function handleGiftTypeSel(interaction) {
       embeds: [
         new EmbedBuilder().setColor(SHOP_COLOR)
           .setTitle(`🎁 Presentear ${target.displayName}`)
-          .setDescription(BANNERS.map(b =>
+          .setDescription(allBanners.map(b =>
             `${giftedKeys.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} ${COIN}\``
           ).join('\n'))
-          .setImage(BANNERS[0].imageUrl)
+          .setImage(allBanners[0].imageUrl)
           .setThumbnail(target.user.displayAvatarURL({ size: 64 }))
           .addFields({ name: '💰 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true }),
       ],
@@ -677,13 +701,14 @@ async function handleTypeSel(interaction) {
   }
 
   if (type === 'banners') {
+    const allBanners = await getAllBannersForGuild(interaction.guildId);
     const owned    = await prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } });
     const ownedSet = new Set(owned.map(o => o.itemRef));
 
     const sel = new StringSelectMenuBuilder()
       .setCustomId('shop_item_sel')
       .setPlaceholder('Selecione um banner')
-      .addOptions(BANNERS.map(b =>
+      .addOptions(allBanners.slice(0, 25).map(b =>
         new StringSelectMenuOptionBuilder()
           .setLabel(b.name).setValue(`banner:${b.key}`)
           .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(b.key) ? ' ✅' : ''}`)
@@ -693,8 +718,8 @@ async function handleTypeSel(interaction) {
     return interaction.update({
       embeds: [
         new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🖼️ Banners de Perfil')
-          .setDescription(BANNERS.map(b => `${ownedSet.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} ${COIN}\``).join('\n'))
-          .setImage(BANNERS[0].imageUrl)
+          .setDescription(allBanners.map(b => `${ownedSet.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} ${COIN}\``).join('\n'))
+          .setImage(allBanners[0].imageUrl)
           .addFields({ name: '💰 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN}**`, inline: true }),
       ],
       components: [new ActionRowBuilder().addComponents(sel)],
@@ -758,7 +783,7 @@ async function handleItemSel(interaction) {
   }
 
   if (itemType === 'banner') {
-    const b = getBanner(ref);
+    const b = await resolveBannerForGuild(ref, interaction.guildId);
     if (!b) return interaction.update({ content: '❌ Banner não encontrado.', embeds: [], components: [] });
     const owned    = !!(await prisma.userPurchase.findUnique({ where: { userId_itemType_itemRef: { userId: interaction.user.id, itemType: 'banner', itemRef: b.key } } }));
     const canAfford = eco.balance >= b.price;
@@ -849,7 +874,7 @@ async function handleBuyExecute(interaction, client) {
     if (!pet) return interaction.update({ content: '❌ Pet não encontrado.', embeds: [], components: [] });
     name = `${pet.emoji} ${pet.name}`; price = pet.price; itemRef = pet.id;
   } else {
-    const b = getBanner(key);
+    const b = await resolveBannerForGuild(key, interaction.guildId);
     if (!b) return interaction.update({ content: '❌ Banner não encontrado.', embeds: [], components: [] });
     name = b.name; price = b.price; itemRef = b.key;
   }
@@ -890,13 +915,14 @@ async function handleBuyExecute(interaction, client) {
 // ─── 🖼️ Vitrine ───────────────────────────────────────────────────────────────
 
 async function handleVitrine(interaction) {
+  const allBanners = await getAllBannersForGuild(interaction.guildId);
   const owned    = await prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } });
   const ownedSet = new Set(owned.map(o => o.itemRef));
 
   const sel = new StringSelectMenuBuilder()
     .setCustomId('shop_vitrine_sel')
     .setPlaceholder('🖼️ Selecione um banner para ver a prévia')
-    .addOptions(BANNERS.map(b =>
+    .addOptions(allBanners.slice(0, 25).map(b =>
       new StringSelectMenuOptionBuilder().setLabel(b.name).setValue(b.key)
         .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(b.key) ? ' ✅' : ''}`)
         .setEmoji(b.emoji ?? '🖼️')
@@ -905,9 +931,9 @@ async function handleVitrine(interaction) {
   return interaction.reply({
     embeds: [
       new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🖼️ Vitrine de Banners')
-        .setDescription(BANNERS.map(b => `${ownedSet.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} ${COIN}\`\n> ${b.description}`).join('\n\n'))
-        .setImage(BANNERS[0].imageUrl)
-        .setFooter({ text: `${BANNERS.length} banners • ✅ = você possui` }),
+        .setDescription(allBanners.map(b => `${ownedSet.has(b.key) ? '✅' : '▫️'} **${b.name}** — \`${b.price.toLocaleString('pt-BR')} ${COIN}\`\n> ${b.description}`).join('\n\n'))
+        .setImage(allBanners[0].imageUrl)
+        .setFooter({ text: `${allBanners.length} banners • ✅ = você possui` }),
     ],
     components: [new ActionRowBuilder().addComponents(sel)],
     ephemeral: true,
@@ -916,7 +942,10 @@ async function handleVitrine(interaction) {
 
 async function handleVitrineSel(interaction) {
   const key    = interaction.values[0];
-  const banner = getBanner(key);
+  const [banner, allBanners] = await Promise.all([
+    resolveBannerForGuild(key, interaction.guildId),
+    getAllBannersForGuild(interaction.guildId),
+  ]);
   if (!banner) return interaction.update({ content: '❌ Banner não encontrado.', components: [] });
 
   const [owned, eco, allOwned] = await Promise.all([
@@ -929,7 +958,7 @@ async function handleVitrineSel(interaction) {
 
   const sel = new StringSelectMenuBuilder()
     .setCustomId('shop_vitrine_sel').setPlaceholder('Ver outro banner...')
-    .addOptions(BANNERS.map(b =>
+    .addOptions(allBanners.slice(0, 25).map(b =>
       new StringSelectMenuOptionBuilder().setLabel(b.name).setValue(b.key)
         .setDescription(`${b.price.toLocaleString('pt-BR')} ${COIN}${ownedSet.has(b.key) ? ' ✅' : ''}`)
         .setEmoji(b.emoji ?? '🖼️')
@@ -1168,16 +1197,17 @@ async function handleProfileBannerBtn(interaction) {
 
   if (!owned.length) return interaction.reply({ content: '❌ Você não possui nenhum banner!\nUse `/loja painel` → **Vitrine** para comprar.', ephemeral: true });
 
+  const resolvedBanners = await Promise.all(owned.map(p => resolveBannerForGuild(p.itemRef, interaction.guildId)));
+
   const opts = [
     new StringSelectMenuOptionBuilder().setLabel('🚫 Sem banner (padrão)').setValue('none').setDescription('Remover banner').setEmoji('🚫'),
-    ...owned.map(p => {
-      const b = getBanner(p.itemRef);
-      if (!b) return null;
-      return new StringSelectMenuOptionBuilder()
+    ...resolvedBanners
+      .filter(b => b !== null)
+      .map(b => new StringSelectMenuOptionBuilder()
         .setLabel(b.name).setValue(b.key)
         .setDescription(`${profile?.activeBanner === b.key ? '✅ Equipado' : 'Disponível'}`)
-        .setEmoji(b.emoji ?? '🖼️');
-    }).filter(Boolean),
+        .setEmoji(b.emoji ?? '🖼️')
+      ),
   ];
 
   return interaction.reply({
@@ -1197,8 +1227,9 @@ async function handleProfileBannerSel(interaction) {
     update: { activeBanner },
   });
 
+  const bannerName = activeBanner ? (await resolveBannerForGuild(activeBanner, interaction.guildId))?.name ?? activeBanner : null;
   return interaction.update({
-    content: activeBanner ? `✅ Banner **${getBanner(activeBanner)?.name}** equipado! Use \`/perfil\` para ver.` : '✅ Banner removido.',
+    content: bannerName ? `✅ Banner **${bannerName}** equipado! Use \`/perfil\` para ver.` : '✅ Banner removido.',
     components: [],
   });
 }
