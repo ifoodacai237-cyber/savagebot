@@ -1224,7 +1224,7 @@ export default {
               const modal = new ModalBuilder().setCustomId('msg_modal_menu_ph').setTitle('📋 Criar Menu Dropdown');
               modal.addComponents(new ActionRowBuilder().addComponents(
                 new TextInputBuilder().setCustomId('placeholder')
-                  .setLabel('Texto do placeholder (aparece antes de selecionar)')
+                  .setLabel('Texto antes de selecionar')
                   .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(150)
                   .setPlaceholder('Ex: Selecione uma opção...')
               ));
@@ -1249,8 +1249,9 @@ export default {
               ),
               new ActionRowBuilder().addComponents(
                 new TextInputBuilder().setCustomId('opt_label')
-                  .setLabel('Nome da opção').setStyle(TextInputStyle.Short)
-                  .setRequired(true).setMaxLength(80).setPlaceholder('Ex: Entrar na Family')
+                  .setLabel('Nome da opção (vazio = usa nome do cargo)')
+                  .setStyle(TextInputStyle.Short)
+                  .setRequired(false).setMaxLength(80).setPlaceholder('Deixe vazio para usar o nome do cargo')
               ),
               new ActionRowBuilder().addComponents(
                 new TextInputBuilder().setCustomId('opt_desc')
@@ -1314,12 +1315,13 @@ export default {
             modal.addComponents(
               new ActionRowBuilder().addComponents(
                 new TextInputBuilder().setCustomId('btn_label')
-                  .setLabel('Rótulo do botão').setStyle(TextInputStyle.Short)
-                  .setRequired(true).setMaxLength(80).setPlaceholder('Ex: Entrar na Family')
+                  .setLabel('Rótulo (vazio = usa nome do cargo)')
+                  .setStyle(TextInputStyle.Short)
+                  .setRequired(false).setMaxLength(80).setPlaceholder('Deixe vazio para usar o nome do cargo')
               ),
               new ActionRowBuilder().addComponents(
                 new TextInputBuilder().setCustomId('btn_role_id')
-                  .setLabel('ID do cargo (clique direito → Copiar ID)').setStyle(TextInputStyle.Short)
+                  .setLabel('ID do cargo').setStyle(TextInputStyle.Short)
                   .setRequired(true).setMaxLength(20).setPlaceholder('Ex: 123456789012345678')
               ),
             );
@@ -1987,16 +1989,19 @@ export default {
 
           if (mid === 'msg_modal_menu_opt') {
             const emoji   = interaction.fields.getTextInputValue('opt_emoji').trim();
-            const label   = interaction.fields.getTextInputValue('opt_label').trim();
+            const rawLabel = interaction.fields.getTextInputValue('opt_label').trim();
             const desc    = interaction.fields.getTextInputValue('opt_desc').trim();
             const rawRole = interaction.fields.getTextInputValue('opt_role_id').trim().replace(/\D/g, '');
             const reply   = interaction.fields.getTextInputValue('opt_reply').trim();
+            const hasRole = /^\d{15,20}$/.test(rawRole);
+            const autoRoleName = hasRole ? (interaction.guild.roles.cache.get(rawRole)?.name ?? rawRole) : null;
+            const label = rawLabel || autoRoleName;
 
             if (label && session.selectMenu) {
               const opt = { label };
               if (emoji) opt.emoji = emoji;
               if (desc)  opt.description = desc;
-              if (/^\d{15,20}$/.test(rawRole)) opt.roleId = rawRole;
+              if (hasRole) opt.roleId = rawRole;
               if (reply) opt.replyText = reply;
               session.selectMenu.options.push(opt);
             }
@@ -2020,9 +2025,11 @@ export default {
           }
 
           if (mid === 'msg_modal_btn_role') {
-            const label  = interaction.fields.getTextInputValue('btn_label').trim();
-            const roleId = interaction.fields.getTextInputValue('btn_role_id').trim().replace(/\D/g, '');
-            if (label && /^\d{15,20}$/.test(roleId)) {
+            const rawLabel = interaction.fields.getTextInputValue('btn_label').trim();
+            const roleId   = interaction.fields.getTextInputValue('btn_role_id').trim().replace(/\D/g, '');
+            if (/^\d{15,20}$/.test(roleId)) {
+              const autoName = interaction.guild.roles.cache.get(roleId)?.name ?? roleId;
+              const label = rawLabel || autoName;
               session.msgButtons.push({ type: 'role', label, roleId });
             }
           }
