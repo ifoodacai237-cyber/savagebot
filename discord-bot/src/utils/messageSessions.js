@@ -38,7 +38,7 @@ export function deleteMsgSession(userId, guildId) {
 // criando separação visual igual a mensagens de webhook empilhadas.
 
 function buildSection(blocks, color, headerText) {
-  let desc = headerText ? `**${headerText}**\n` : '';
+  let desc = headerText ? `${headerText}\n\n` : '';
 
   for (const block of blocks) {
     if (block.type === 'roles') {
@@ -99,7 +99,7 @@ export function buildMsgMainControls(blockCount) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('msg_add_role').setLabel('Adicionar Cargo').setStyle(ButtonStyle.Primary).setEmoji('👤'),
       new ButtonBuilder().setCustomId('msg_add_text').setLabel('Adicionar Texto').setStyle(ButtonStyle.Primary).setEmoji('📝'),
-      new ButtonBuilder().setCustomId('msg_add_sep').setLabel('Separador').setStyle(ButtonStyle.Secondary).setEmoji('➖'),
+      new ButtonBuilder().setCustomId('msg_add_sep').setLabel('Texto 2').setStyle(ButtonStyle.Secondary).setEmoji('➕'),
       new ButtonBuilder().setCustomId('msg_color').setLabel('Cor da Borda').setStyle(ButtonStyle.Secondary).setEmoji('🎨'),
     ),
     new ActionRowBuilder().addComponents(
@@ -155,7 +155,7 @@ export function buildRoleSelector() {
 }
 
 export const MSG_COLOR_MAP = {
-  none:   0x2b2d31,   // cor do fundo do Discord — barra "invisível"
+  none:   0x313338,   // cor do canal Discord dark — barra "invisível"
   purple: 0x9B4FD6,
   blue:   0x5865F2,
   cyan:   0x00B0F4,

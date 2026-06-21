@@ -1122,16 +1122,16 @@ export default {
 
           if (customId === 'msg_add_sep') {
             if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
-            const modal = new ModalBuilder().setCustomId('msg_modal_sep').setTitle('➖ Adicionar Separador');
+            const modal = new ModalBuilder().setCustomId('msg_modal_sep').setTitle('➕ Texto 2 (nova seção)');
             modal.addComponents(
               new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                   .setCustomId('sep_content')
-                  .setLabel('Texto do separador')
-                  .setStyle(TextInputStyle.Short)
+                  .setLabel('Conteúdo (suporta **negrito**, *itálico*)')
+                  .setStyle(TextInputStyle.Paragraph)
                   .setRequired(true)
-                  .setMaxLength(200)
-                  .setPlaceholder('— ☆ 🌸 Título da Seção 〇〇')
+                  .setMaxLength(2000)
+                  .setPlaceholder('↳ Texto da nova seção...')
               )
             );
             return interaction.showModal(modal);
