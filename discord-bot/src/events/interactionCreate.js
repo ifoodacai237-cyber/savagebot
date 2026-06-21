@@ -36,6 +36,15 @@ import { radioSessions, createRadioSession } from '../utils/radioManager.js';
 import { buildControlPanel as buildRadioPanel } from '../commands/general/radio.js';
 import { musicSessions } from '../utils/musicManager.js';
 import { buildMusicPanel } from '../commands/general/musica.js';
+import {
+  getMsgSession,
+  deleteMsgSession,
+  buildMsgPayload,
+  buildMsgMainControls,
+  buildMsgColorPicker,
+  buildRoleSelector,
+  MSG_COLOR_MAP,
+} from '../utils/messageSessions.js';
 
 // ─── Container preview updater ────────────────────────────────────────────────
 
@@ -120,6 +129,30 @@ export default {
         const cmd = client.commands.get(interaction.commandName);
         if (!cmd) return;
         return cmd.execute(interaction, client);
+      }
+
+      // ── ROLE SELECT MENUS ──────────────────────────────────────────────────
+      if (interaction.isRoleSelectMenu()) {
+        // ── MONTAR-MENSAGEM: Cargo selecionado ───────────────────────────
+        if (interaction.customId === 'msg_role_sel') {
+          const session = getMsgSession(interaction.user.id, interaction.guildId);
+          if (!session) return interaction.update({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', components: [] });
+
+          const roleIds = interaction.values;
+          session.blocks.push({ type: 'roles', roleIds });
+
+          const ch = interaction.guild.channels.cache.get(session.previewChannelId);
+          if (ch) {
+            const msg = await ch.messages.fetch(session.previewMessageId).catch(() => null);
+            if (msg) await msg.edit(buildMsgPayload(session)).catch(() => {});
+          }
+
+          return interaction.update({
+            content: `**💬 Montador de Mensagem**\n✅ ${roleIds.length} cargo(s) adicionado(s)! Total: **${session.blocks.length}** bloco(s).`,
+            components: buildMsgMainControls(session.blocks.length),
+          });
+        }
+        return;
       }
 
       // ── CHANNEL SELECT MENUS ───────────────────────────────────────────────
@@ -1050,6 +1083,125 @@ export default {
           return interaction.showModal(modal);
         }
 
+        // ── MONTAR-MENSAGEM: Buttons ──────────────────────────────────────
+        if (customId.startsWith('msg_')) {
+          const session = getMsgSession(interaction.user.id, interaction.guildId);
+
+          if (customId === 'msg_back') {
+            if (!session) return interaction.update({ content: '❌ Sessão expirada.', components: [] });
+            return interaction.update({
+              content: `**💬 Montador de Mensagem**\nTotal: **${session.blocks.length}** bloco(s). Continue editando ou publique.`,
+              components: buildMsgMainControls(session.blocks.length),
+            });
+          }
+
+          if (customId === 'msg_add_role') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
+            return interaction.update({
+              content: '**💬 Montador de Mensagem**\n👤 Selecione os cargos que deseja adicionar:',
+              components: buildRoleSelector(),
+            });
+          }
+
+          if (customId === 'msg_add_text') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
+            const modal = new ModalBuilder().setCustomId('msg_modal_text').setTitle('📝 Adicionar Texto');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('text_content')
+                  .setLabel('Conteúdo (suporta **negrito**, *itálico*)')
+                  .setStyle(TextInputStyle.Paragraph)
+                  .setRequired(true)
+                  .setMaxLength(2000)
+                  .setPlaceholder('↳ Descrição do cargo...')
+              )
+            );
+            return interaction.showModal(modal);
+          }
+
+          if (customId === 'msg_add_sep') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
+            const modal = new ModalBuilder().setCustomId('msg_modal_sep').setTitle('➖ Adicionar Separador');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('sep_content')
+                  .setLabel('Texto do separador')
+                  .setStyle(TextInputStyle.Short)
+                  .setRequired(true)
+                  .setMaxLength(200)
+                  .setPlaceholder('— ☆ 🌸 Título da Seção 〇〇')
+              )
+            );
+            return interaction.showModal(modal);
+          }
+
+          if (customId === 'msg_color') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
+            return interaction.update({
+              content: '**💬 Montador de Mensagem**\n🎨 Escolha a cor da borda lateral:',
+              components: buildMsgColorPicker(),
+            });
+          }
+
+          if (customId.startsWith('msg_color_')) {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
+            const colorKey = customId.replace('msg_color_', '');
+            if (MSG_COLOR_MAP[colorKey] !== undefined) {
+              session.accentColor = MSG_COLOR_MAP[colorKey];
+              const ch = interaction.guild.channels.cache.get(session.previewChannelId);
+              if (ch) {
+                const msg = await ch.messages.fetch(session.previewMessageId).catch(() => null);
+                if (msg) await msg.edit(buildMsgPayload(session)).catch(() => {});
+              }
+            }
+            return interaction.update({
+              content: `**💬 Montador de Mensagem**\n🎨 Cor atualizada! Total: **${session.blocks.length}** bloco(s).`,
+              components: buildMsgMainControls(session.blocks.length),
+            });
+          }
+
+          if (customId === 'msg_remove_last') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
+            if (session.blocks.length > 0) {
+              session.blocks.pop();
+              const ch = interaction.guild.channels.cache.get(session.previewChannelId);
+              if (ch) {
+                const msg = await ch.messages.fetch(session.previewMessageId).catch(() => null);
+                if (msg) await msg.edit(buildMsgPayload(session)).catch(() => {});
+              }
+            }
+            return interaction.update({
+              content: `**💬 Montador de Mensagem**\n🗑️ Último bloco removido! Total: **${session.blocks.length}** bloco(s).`,
+              components: buildMsgMainControls(session.blocks.length),
+            });
+          }
+
+          if (customId === 'msg_publish') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
+            if (session.blocks.length === 0) return interaction.reply({ content: '❌ Adicione pelo menos um bloco antes de publicar.', ephemeral: true });
+            deleteMsgSession(interaction.user.id, interaction.guildId);
+            return interaction.update({
+              content: '✅ **Mensagem publicada com sucesso!** A sessão foi encerrada.',
+              components: [],
+            });
+          }
+
+          if (customId === 'msg_cancel') {
+            const sess = getMsgSession(interaction.user.id, interaction.guildId);
+            if (sess) {
+              try {
+                const ch  = interaction.guild.channels.cache.get(sess.previewChannelId);
+                const msg = ch ? await ch.messages.fetch(sess.previewMessageId).catch(() => null) : null;
+                if (msg) await msg.delete().catch(() => {});
+              } catch {}
+              deleteMsgSession(interaction.user.id, interaction.guildId);
+            }
+            return interaction.update({ content: '❌ **Montagem cancelada.** A pré-visualização foi removida.', components: [] });
+          }
+        }
+
         // ── CONTAINER: Buttons ────────────────────────────────────────────
         if (customId.startsWith('cont_')) {
           const session = getSession(interaction.user.id, interaction.guildId);
@@ -1585,6 +1737,35 @@ export default {
           const to  = interaction.fields.getTextInputValue('tell_to');
           await sendTellonymMsg(interaction, msg, to);
           return;
+        }
+
+        // ── MONTAR-MENSAGEM: Modals ───────────────────────────────────────
+        if (interaction.customId === 'msg_modal_text' || interaction.customId === 'msg_modal_sep') {
+          const session = getMsgSession(interaction.user.id, interaction.guildId);
+          if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
+
+          await interaction.deferUpdate().catch(() => {});
+
+          if (interaction.customId === 'msg_modal_text') {
+            const content = interaction.fields.getTextInputValue('text_content').trim();
+            if (content) session.blocks.push({ type: 'text', content });
+          }
+
+          if (interaction.customId === 'msg_modal_sep') {
+            const content = interaction.fields.getTextInputValue('sep_content').trim();
+            if (content) session.blocks.push({ type: 'separator', content });
+          }
+
+          const ch = interaction.guild.channels.cache.get(session.previewChannelId);
+          if (ch) {
+            const msg = await ch.messages.fetch(session.previewMessageId).catch(() => null);
+            if (msg) await msg.edit(buildMsgPayload(session)).catch(() => {});
+          }
+
+          return interaction.editReply({
+            content: `**💬 Montador de Mensagem**\n✅ Bloco adicionado! Total: **${session.blocks.length}** bloco(s). Continue editando ou clique em **Publicar**.`,
+            components: buildMsgMainControls(session.blocks.length),
+          });
         }
 
         // ── CONTAINER: Modals ─────────────────────────────────────────────
