@@ -44,6 +44,7 @@ import {
   buildMsgColorPicker,
   buildRoleSelector,
   MSG_COLOR_MAP,
+  msgTotalCount,
 } from '../utils/messageSessions.js';
 
 // ─── Container preview updater ────────────────────────────────────────────────
@@ -148,8 +149,8 @@ export default {
           }
 
           return interaction.update({
-            content: `**💬 Montador de Mensagem**\n✅ ${roleIds.length} cargo(s) adicionado(s)! Total: **${session.blocks.length}** bloco(s).`,
-            components: buildMsgMainControls(session.blocks.length),
+            content: `**💬 Montador de Mensagem**\n✅ ${roleIds.length} cargo(s) adicionado(s)! Total: **${msgTotalCount(session)}** item(s).`,
+            components: buildMsgMainControls(session),
           });
         }
         return;
@@ -1087,11 +1088,20 @@ export default {
         if (customId.startsWith('msg_')) {
           const session = getMsgSession(interaction.user.id, interaction.guildId);
 
+          // helper para atualizar preview e painel de uma vez
+          async function msgRefreshPreview() {
+            const ch = interaction.guild.channels.cache.get(session.previewChannelId);
+            if (ch) {
+              const m = await ch.messages.fetch(session.previewMessageId).catch(() => null);
+              if (m) await m.edit(buildMsgPayload(session)).catch(() => {});
+            }
+          }
+
           if (customId === 'msg_back') {
             if (!session) return interaction.update({ content: '❌ Sessão expirada.', components: [] });
             return interaction.update({
-              content: `**💬 Montador de Mensagem**\nTotal: **${session.blocks.length}** bloco(s). Continue editando ou publique.`,
-              components: buildMsgMainControls(session.blocks.length),
+              content: `**💬 Montador de Mensagem**\nTotal: **${msgTotalCount(session)}** item(s). Continue editando ou publique.`,
+              components: buildMsgMainControls(session),
             });
           }
 
@@ -1104,41 +1114,29 @@ export default {
           }
 
           if (customId === 'msg_add_text') {
-            if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
             const modal = new ModalBuilder().setCustomId('msg_modal_text').setTitle('📝 Adicionar Texto');
-            modal.addComponents(
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                  .setCustomId('text_content')
-                  .setLabel('Conteúdo (suporta **negrito**, *itálico*)')
-                  .setStyle(TextInputStyle.Paragraph)
-                  .setRequired(true)
-                  .setMaxLength(2000)
-                  .setPlaceholder('↳ Descrição do cargo...')
-              )
-            );
+            modal.addComponents(new ActionRowBuilder().addComponents(
+              new TextInputBuilder().setCustomId('text_content')
+                .setLabel('Conteúdo (suporta **negrito**, *itálico*)').setStyle(TextInputStyle.Paragraph)
+                .setRequired(true).setMaxLength(2000).setPlaceholder('↳ Descrição do cargo...')
+            ));
             return interaction.showModal(modal);
           }
 
           if (customId === 'msg_add_sep') {
-            if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
             const modal = new ModalBuilder().setCustomId('msg_modal_sep').setTitle('➕ Texto 2 (nova seção)');
-            modal.addComponents(
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                  .setCustomId('sep_content')
-                  .setLabel('Conteúdo (suporta **negrito**, *itálico*)')
-                  .setStyle(TextInputStyle.Paragraph)
-                  .setRequired(true)
-                  .setMaxLength(2000)
-                  .setPlaceholder('↳ Texto da nova seção...')
-              )
-            );
+            modal.addComponents(new ActionRowBuilder().addComponents(
+              new TextInputBuilder().setCustomId('sep_content')
+                .setLabel('Conteúdo (suporta **negrito**, *itálico*)').setStyle(TextInputStyle.Paragraph)
+                .setRequired(true).setMaxLength(2000).setPlaceholder('↳ Texto da nova seção...')
+            ));
             return interaction.showModal(modal);
           }
 
           if (customId === 'msg_color') {
-            if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
             return interaction.update({
               content: '**💬 Montador de Mensagem**\n🎨 Escolha a cor da borda lateral:',
               components: buildMsgColorPicker(),
@@ -1146,41 +1144,110 @@ export default {
           }
 
           if (customId.startsWith('msg_color_')) {
-            if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
             const colorKey = customId.replace('msg_color_', '');
-            if (MSG_COLOR_MAP[colorKey] !== undefined) {
+            if (Object.prototype.hasOwnProperty.call(MSG_COLOR_MAP, colorKey)) {
               session.accentColor = MSG_COLOR_MAP[colorKey];
-              const ch = interaction.guild.channels.cache.get(session.previewChannelId);
-              if (ch) {
-                const msg = await ch.messages.fetch(session.previewMessageId).catch(() => null);
-                if (msg) await msg.edit(buildMsgPayload(session)).catch(() => {});
-              }
+              await msgRefreshPreview();
             }
             return interaction.update({
-              content: `**💬 Montador de Mensagem**\n🎨 Cor atualizada! Total: **${session.blocks.length}** bloco(s).`,
-              components: buildMsgMainControls(session.blocks.length),
+              content: `**💬 Montador de Mensagem**\n🎨 Cor atualizada! Total: **${msgTotalCount(session)}** item(s).`,
+              components: buildMsgMainControls(session),
             });
           }
 
+          // ── Banner ────────────────────────────────────────────────────────
+          if (customId === 'msg_banner') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            const modal = new ModalBuilder().setCustomId('msg_modal_banner').setTitle('🖼️ Banner (imagem grande)');
+            modal.addComponents(new ActionRowBuilder().addComponents(
+              new TextInputBuilder().setCustomId('banner_url')
+                .setLabel('URL da imagem').setStyle(TextInputStyle.Short)
+                .setRequired(false).setMaxLength(500).setPlaceholder('https://i.imgur.com/exemplo.png (vazio = remover)')
+            ));
+            return interaction.showModal(modal);
+          }
+
+          // ── Miniatura ────────────────────────────────────────────────────
+          if (customId === 'msg_thumb') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            const modal = new ModalBuilder().setCustomId('msg_modal_thumb').setTitle('🔷 Miniatura (canto superior)');
+            modal.addComponents(new ActionRowBuilder().addComponents(
+              new TextInputBuilder().setCustomId('thumb_url')
+                .setLabel('URL da imagem').setStyle(TextInputStyle.Short)
+                .setRequired(false).setMaxLength(500).setPlaceholder('https://i.imgur.com/exemplo.png (vazio = remover)')
+            ));
+            return interaction.showModal(modal);
+          }
+
+          // ── Botão Cargo ───────────────────────────────────────────────────
+          if (customId === 'msg_btn_role') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            if (session.msgButtons.length >= 5) return interaction.reply({ content: '❌ Máximo de 5 botões por mensagem.', ephemeral: true });
+            const modal = new ModalBuilder().setCustomId('msg_modal_btn_role').setTitle('🔘 Botão de Cargo');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('btn_label')
+                  .setLabel('Rótulo do botão').setStyle(TextInputStyle.Short)
+                  .setRequired(true).setMaxLength(80).setPlaceholder('Ex: Entrar na Family')
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('btn_role_id')
+                  .setLabel('ID do cargo (clique direito → Copiar ID)').setStyle(TextInputStyle.Short)
+                  .setRequired(true).setMaxLength(20).setPlaceholder('Ex: 123456789012345678')
+              ),
+            );
+            return interaction.showModal(modal);
+          }
+
+          // ── Botão Link ────────────────────────────────────────────────────
+          if (customId === 'msg_btn_link') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            if (session.msgButtons.length >= 5) return interaction.reply({ content: '❌ Máximo de 5 botões por mensagem.', ephemeral: true });
+            const modal = new ModalBuilder().setCustomId('msg_modal_btn_link').setTitle('🔗 Botão de Link');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('btn_label')
+                  .setLabel('Rótulo do botão').setStyle(TextInputStyle.Short)
+                  .setRequired(true).setMaxLength(80).setPlaceholder('Ex: Acesse nosso site')
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('btn_url')
+                  .setLabel('URL de destino').setStyle(TextInputStyle.Short)
+                  .setRequired(true).setMaxLength(500).setPlaceholder('https://...')
+              ),
+            );
+            return interaction.showModal(modal);
+          }
+
+          // ── Remover Último ────────────────────────────────────────────────
           if (customId === 'msg_remove_last') {
-            if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            let removedLabel = 'item';
             if (session.blocks.length > 0) {
               session.blocks.pop();
-              const ch = interaction.guild.channels.cache.get(session.previewChannelId);
-              if (ch) {
-                const msg = await ch.messages.fetch(session.previewMessageId).catch(() => null);
-                if (msg) await msg.edit(buildMsgPayload(session)).catch(() => {});
-              }
+              removedLabel = 'bloco';
+            } else if (session.msgButtons.length > 0) {
+              session.msgButtons.pop();
+              removedLabel = 'botão';
+            } else if (session.banner) {
+              session.banner = null;
+              removedLabel = 'banner';
+            } else if (session.thumbnail) {
+              session.thumbnail = null;
+              removedLabel = 'miniatura';
             }
+            await msgRefreshPreview();
             return interaction.update({
-              content: `**💬 Montador de Mensagem**\n🗑️ Último bloco removido! Total: **${session.blocks.length}** bloco(s).`,
-              components: buildMsgMainControls(session.blocks.length),
+              content: `**💬 Montador de Mensagem**\n🗑️ Último ${removedLabel} removido! Total: **${msgTotalCount(session)}** item(s).`,
+              components: buildMsgMainControls(session),
             });
           }
 
+          // ── Publicar ──────────────────────────────────────────────────────
           if (customId === 'msg_publish') {
-            if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
-            if (session.blocks.length === 0) return interaction.reply({ content: '❌ Adicione pelo menos um bloco antes de publicar.', ephemeral: true });
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            if (msgTotalCount(session) === 0) return interaction.reply({ content: '❌ Adicione pelo menos um item antes de publicar.', ephemeral: true });
             deleteMsgSession(interaction.user.id, interaction.guildId);
             return interaction.update({
               content: '✅ **Mensagem publicada com sucesso!** A sessão foi encerrada.',
@@ -1188,17 +1255,36 @@ export default {
             });
           }
 
+          // ── Cancelar ──────────────────────────────────────────────────────
           if (customId === 'msg_cancel') {
             const sess = getMsgSession(interaction.user.id, interaction.guildId);
             if (sess) {
               try {
                 const ch  = interaction.guild.channels.cache.get(sess.previewChannelId);
-                const msg = ch ? await ch.messages.fetch(sess.previewMessageId).catch(() => null) : null;
-                if (msg) await msg.delete().catch(() => {});
+                const m   = ch ? await ch.messages.fetch(sess.previewMessageId).catch(() => null) : null;
+                if (m) await m.delete().catch(() => {});
               } catch {}
               deleteMsgSession(interaction.user.id, interaction.guildId);
             }
             return interaction.update({ content: '❌ **Montagem cancelada.** A pré-visualização foi removida.', components: [] });
+          }
+
+          // ── Botão de Cargo publicado (toggle role) ────────────────────────
+          if (customId.startsWith('msg_rb_')) {
+            const roleId = customId.replace('msg_rb_', '');
+            const member = interaction.member;
+            if (!member) return interaction.reply({ content: '❌ Não foi possível identificar seu perfil.', ephemeral: true });
+            try {
+              if (member.roles.cache.has(roleId)) {
+                await member.roles.remove(roleId);
+                return interaction.reply({ content: `✅ Cargo <@&${roleId}> removido.`, ephemeral: true });
+              } else {
+                await member.roles.add(roleId);
+                return interaction.reply({ content: `✅ Cargo <@&${roleId}> concedido!`, ephemeral: true });
+              }
+            } catch {
+              return interaction.reply({ content: '❌ Sem permissão para gerenciar esse cargo.', ephemeral: true });
+            }
           }
         }
 
@@ -1740,31 +1826,59 @@ export default {
         }
 
         // ── MONTAR-MENSAGEM: Modals ───────────────────────────────────────
-        if (interaction.customId === 'msg_modal_text' || interaction.customId === 'msg_modal_sep') {
+        if (interaction.customId.startsWith('msg_modal_')) {
           const session = getMsgSession(interaction.user.id, interaction.guildId);
           if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', ephemeral: true });
 
           await interaction.deferUpdate().catch(() => {});
 
-          if (interaction.customId === 'msg_modal_text') {
+          const mid = interaction.customId;
+
+          if (mid === 'msg_modal_text') {
             const content = interaction.fields.getTextInputValue('text_content').trim();
             if (content) session.blocks.push({ type: 'text', content });
           }
 
-          if (interaction.customId === 'msg_modal_sep') {
+          if (mid === 'msg_modal_sep') {
             const content = interaction.fields.getTextInputValue('sep_content').trim();
             if (content) session.blocks.push({ type: 'separator', content });
           }
 
+          if (mid === 'msg_modal_banner') {
+            const url = interaction.fields.getTextInputValue('banner_url').trim();
+            session.banner = url.startsWith('http') ? url : null;
+          }
+
+          if (mid === 'msg_modal_thumb') {
+            const url = interaction.fields.getTextInputValue('thumb_url').trim();
+            session.thumbnail = url.startsWith('http') ? url : null;
+          }
+
+          if (mid === 'msg_modal_btn_role') {
+            const label  = interaction.fields.getTextInputValue('btn_label').trim();
+            const roleId = interaction.fields.getTextInputValue('btn_role_id').trim().replace(/\D/g, '');
+            if (label && /^\d{15,20}$/.test(roleId)) {
+              session.msgButtons.push({ type: 'role', label, roleId });
+            }
+          }
+
+          if (mid === 'msg_modal_btn_link') {
+            const label = interaction.fields.getTextInputValue('btn_label').trim();
+            const url   = interaction.fields.getTextInputValue('btn_url').trim();
+            if (label && url.startsWith('http')) {
+              session.msgButtons.push({ type: 'link', label, url });
+            }
+          }
+
           const ch = interaction.guild.channels.cache.get(session.previewChannelId);
           if (ch) {
-            const msg = await ch.messages.fetch(session.previewMessageId).catch(() => null);
-            if (msg) await msg.edit(buildMsgPayload(session)).catch(() => {});
+            const pm = await ch.messages.fetch(session.previewMessageId).catch(() => null);
+            if (pm) await pm.edit(buildMsgPayload(session)).catch(() => {});
           }
 
           return interaction.editReply({
-            content: `**💬 Montador de Mensagem**\n✅ Bloco adicionado! Total: **${session.blocks.length}** bloco(s). Continue editando ou clique em **Publicar**.`,
-            components: buildMsgMainControls(session.blocks.length),
+            content: `**💬 Montador de Mensagem**\n✅ Item adicionado! Total: **${msgTotalCount(session)}** item(s). Continue editando ou clique em **Publicar**.`,
+            components: buildMsgMainControls(session),
           });
         }
 
