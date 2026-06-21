@@ -4,8 +4,6 @@ import {
   ButtonBuilder,
   ButtonStyle,
   RoleSelectMenuBuilder,
-  StringSelectMenuBuilder,
-  StringSelectMenuOptionBuilder,
 } from 'discord.js';
 
 // ─── Session store ─────────────────────────────────────────────────────────────
@@ -18,7 +16,7 @@ export function createMsgSession(userId, guildId) {
   const s = {
     userId,
     guildId,
-    accentColor: 0x4f545c,
+    accentColor: 0x5865F2,   // blurple visível por padrão
     blocks: [],
     previewMessageId: null,
     previewChannelId: null,
@@ -35,12 +33,14 @@ export function deleteMsgSession(userId, guildId) {
   sessions.delete(key(userId, guildId));
 }
 
-// ─── Build embed preview ───────────────────────────────────────────────────────
+// ─── Build embeds ──────────────────────────────────────────────────────────────
+// Cada bloco "separator" INICIA um novo embed na mesma mensagem,
+// criando separação visual igual a mensagens de webhook empilhadas.
 
-export function buildMsgEmbed(session) {
-  let desc = '';
+function buildSection(blocks, color, headerText) {
+  let desc = headerText ? `**${headerText}**\n` : '';
 
-  for (const block of session.blocks) {
+  for (const block of blocks) {
     if (block.type === 'roles') {
       for (const roleId of block.roleIds) {
         desc += `• <@&${roleId}>\n`;
@@ -48,20 +48,48 @@ export function buildMsgEmbed(session) {
       desc += '\n';
     } else if (block.type === 'text') {
       desc += `${block.content}\n\n`;
-    } else if (block.type === 'separator') {
-      desc += `${block.content}\n\n`;
     }
   }
 
-  const finalDesc = desc.trim() || '-# 💬 Mensagem vazia — use os botões abaixo para adicionar blocos.';
-
   return new EmbedBuilder()
-    .setColor(session.accentColor)
-    .setDescription(finalDesc);
+    .setColor(color)
+    .setDescription(desc.trim() || '\u200b');
 }
 
 export function buildMsgPayload(session) {
-  return { embeds: [buildMsgEmbed(session)] };
+  if (session.blocks.length === 0) {
+    return {
+      embeds: [
+        new EmbedBuilder()
+          .setColor(session.accentColor)
+          .setDescription('-# 💬 Mensagem vazia — use os botões abaixo para adicionar blocos.'),
+      ],
+    };
+  }
+
+  // Divide os blocos em seções: cada "separator" inicia uma nova seção
+  const sections = [];
+  let currentHeader = null;
+  let currentBlocks = [];
+
+  for (const block of session.blocks) {
+    if (block.type === 'separator') {
+      sections.push({ header: currentHeader, blocks: currentBlocks });
+      currentHeader = block.content;
+      currentBlocks = [];
+    } else {
+      currentBlocks.push(block);
+    }
+  }
+  sections.push({ header: currentHeader, blocks: currentBlocks });
+
+  // Filtra seções vazias e cria um embed por seção (Discord permite até 10)
+  const embeds = sections
+    .filter(s => s.header !== null || s.blocks.length > 0)
+    .slice(0, 10)
+    .map(s => buildSection(s.blocks, session.accentColor, s.header));
+
+  return { embeds };
 }
 
 // ─── Control rows ──────────────────────────────────────────────────────────────
@@ -84,14 +112,14 @@ export function buildMsgMainControls(blockCount) {
 
 export function buildMsgColorPicker() {
   const COLORS = [
-    { label: '⚫ Sem cor',   id: 'none',   hex: 0x4f545c },
-    { label: '🟣 Roxo',     id: 'purple', hex: 0x9B4FD6 },
-    { label: '🔵 Azul',     id: 'blue',   hex: 0x5865F2 },
-    { label: '🩵 Ciano',    id: 'cyan',   hex: 0x00B0F4 },
-    { label: '🟢 Verde',    id: 'green',  hex: 0x57F287 },
-    { label: '🟡 Amarelo',  id: 'yellow', hex: 0xFEE75C },
-    { label: '🔴 Vermelho', id: 'red',    hex: 0xED4245 },
-    { label: '🟠 Laranja',  id: 'orange', hex: 0xE67E22 },
+    { label: '⚫ Ocultar',   id: 'none',   },
+    { label: '🟣 Roxo',      id: 'purple', },
+    { label: '🔵 Azul',      id: 'blue',   },
+    { label: '🩵 Ciano',     id: 'cyan',   },
+    { label: '🟢 Verde',     id: 'green',  },
+    { label: '🟡 Amarelo',   id: 'yellow', },
+    { label: '🔴 Vermelho',  id: 'red',    },
+    { label: '🟠 Laranja',   id: 'orange', },
   ];
 
   return [
@@ -127,7 +155,7 @@ export function buildRoleSelector() {
 }
 
 export const MSG_COLOR_MAP = {
-  none:   0x4f545c,
+  none:   0x2b2d31,   // cor do fundo do Discord — barra "invisível"
   purple: 0x9B4FD6,
   blue:   0x5865F2,
   cyan:   0x00B0F4,
