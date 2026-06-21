@@ -41,10 +41,12 @@ import {
   deleteMsgSession,
   buildMsgPayload,
   buildMsgMainControls,
+  buildMsgMenuEditor,
   buildMsgColorPicker,
   buildRoleSelector,
   MSG_COLOR_MAP,
   msgTotalCount,
+  publishedMenus,
 } from '../utils/messageSessions.js';
 
 // ─── Container preview updater ────────────────────────────────────────────────
@@ -154,6 +156,40 @@ export default {
           });
         }
         return;
+      }
+
+      // ── STRING SELECT MENUS ────────────────────────────────────────────────
+      if (interaction.isStringSelectMenu()) {
+        // ── MONTAR-MENSAGEM: Menu publicado ──────────────────────────────
+        if (interaction.customId === 'msg_ms') {
+          const value = interaction.values[0];
+
+          if (value.startsWith('r:')) {
+            const roleId = value.slice(2);
+            const member = interaction.member;
+            try {
+              if (member.roles.cache.has(roleId)) {
+                await member.roles.remove(roleId);
+                return interaction.reply({ content: `✅ Cargo <@&${roleId}> removido.`, ephemeral: true });
+              } else {
+                await member.roles.add(roleId);
+                return interaction.reply({ content: `✅ Cargo <@&${roleId}> concedido!`, ephemeral: true });
+              }
+            } catch {
+              return interaction.reply({ content: '❌ Sem permissão para gerenciar esse cargo.', ephemeral: true });
+            }
+          }
+
+          if (value.startsWith('t:')) {
+            const idx    = parseInt(value.slice(2), 10);
+            const config = publishedMenus.get(interaction.message.id);
+            const opt    = config?.options?.[idx];
+            const reply  = opt?.replyText || `✅ **${opt?.label ?? 'Opção'}** selecionada!`;
+            return interaction.reply({ content: reply, ephemeral: true });
+          }
+
+          return interaction.reply({ content: '✅ Opção selecionada!', ephemeral: true });
+        }
       }
 
       // ── CHANNEL SELECT MENUS ───────────────────────────────────────────────
@@ -1180,6 +1216,96 @@ export default {
             return interaction.showModal(modal);
           }
 
+          // ── Menu (gaveta) ─────────────────────────────────────────────────
+          if (customId === 'msg_menu') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            if (!session.selectMenu) {
+              // Primeira vez: pede placeholder via modal
+              const modal = new ModalBuilder().setCustomId('msg_modal_menu_ph').setTitle('📋 Criar Menu Dropdown');
+              modal.addComponents(new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('placeholder')
+                  .setLabel('Texto do placeholder (aparece antes de selecionar)')
+                  .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(150)
+                  .setPlaceholder('Ex: Selecione uma opção...')
+              ));
+              return interaction.showModal(modal);
+            }
+            // Menu já existe: abre editor
+            const opts = session.selectMenu.options;
+            return interaction.update({
+              content: `**📋 Editor de Menu**\nPlaceholder: *"${session.selectMenu.placeholder}"*\n**${opts.length}** opção(ões) configurada(s).\nUse os botões para adicionar mais ou salvar.`,
+              components: buildMsgMenuEditor(session),
+            });
+          }
+
+          if (customId === 'msg_menu_add_opt') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            const modal = new ModalBuilder().setCustomId('msg_modal_menu_opt').setTitle('➕ Adicionar Opção ao Menu');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('opt_emoji')
+                  .setLabel('Emoji (ex: 🎮 ou deixe vazio)').setStyle(TextInputStyle.Short)
+                  .setRequired(false).setMaxLength(10).setPlaceholder('🎮')
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('opt_label')
+                  .setLabel('Nome da opção').setStyle(TextInputStyle.Short)
+                  .setRequired(true).setMaxLength(80).setPlaceholder('Ex: Entrar na Family')
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('opt_desc')
+                  .setLabel('Descrição (opcional, aparece abaixo do nome)')
+                  .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100)
+                  .setPlaceholder('Ex: Cargo exclusivo para membros...')
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('opt_role_id')
+                  .setLabel('ID do cargo a conceder (opcional)')
+                  .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(20)
+                  .setPlaceholder('Ex: 123456789012345678 — vazio = só mensagem')
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('opt_reply')
+                  .setLabel('Mensagem privada ao selecionar (opcional)')
+                  .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(200)
+                  .setPlaceholder('Ex: Você recebeu o cargo! Bem-vindo.')
+              ),
+            );
+            return interaction.showModal(modal);
+          }
+
+          if (customId === 'msg_menu_rm_opt') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            if (session.selectMenu?.options?.length > 0) {
+              session.selectMenu.options.pop();
+              await msgRefreshPreview();
+            }
+            const opts = session.selectMenu?.options ?? [];
+            return interaction.update({
+              content: `**📋 Editor de Menu**\n🗑️ Última opção removida. **${opts.length}** opção(ões) restante(s).`,
+              components: buildMsgMenuEditor(session),
+            });
+          }
+
+          if (customId === 'msg_menu_save') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            await msgRefreshPreview();
+            return interaction.update({
+              content: `**💬 Montador de Mensagem**\n✅ Menu salvo com **${session.selectMenu?.options?.length ?? 0}** opção(ões)! Total: **${msgTotalCount(session)}** item(s).`,
+              components: buildMsgMainControls(session),
+            });
+          }
+
+          if (customId === 'msg_menu_clear') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            session.selectMenu = null;
+            await msgRefreshPreview();
+            return interaction.update({
+              content: `**💬 Montador de Mensagem**\n🔄 Menu removido! Total: **${msgTotalCount(session)}** item(s).`,
+              components: buildMsgMainControls(session),
+            });
+          }
+
           // ── Botão Cargo ───────────────────────────────────────────────────
           if (customId === 'msg_btn_role') {
             if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
@@ -1248,6 +1374,10 @@ export default {
           if (customId === 'msg_publish') {
             if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
             if (msgTotalCount(session) === 0) return interaction.reply({ content: '❌ Adicione pelo menos um item antes de publicar.', ephemeral: true });
+            // Salva config do menu publicado (persiste interações após publicar)
+            if (session.selectMenu?.options?.length > 0) {
+              publishedMenus.set(session.previewMessageId, session.selectMenu);
+            }
             deleteMsgSession(interaction.user.id, interaction.guildId);
             return interaction.update({
               content: '✅ **Mensagem publicada com sucesso!** A sessão foi encerrada.',
@@ -1842,6 +1972,41 @@ export default {
           if (mid === 'msg_modal_sep') {
             const content = interaction.fields.getTextInputValue('sep_content').trim();
             if (content) session.blocks.push({ type: 'separator', content });
+          }
+
+          if (mid === 'msg_modal_menu_ph') {
+            const placeholder = interaction.fields.getTextInputValue('placeholder').trim();
+            session.selectMenu = { placeholder, options: [] };
+            const ch0 = interaction.guild.channels.cache.get(session.previewChannelId);
+            if (ch0) { const pm0 = await ch0.messages.fetch(session.previewMessageId).catch(() => null); if (pm0) await pm0.edit(buildMsgPayload(session)).catch(() => {}); }
+            return interaction.editReply({
+              content: `**📋 Editor de Menu**\nPlaceholder: *"${placeholder}"*\nAgora adicione as opções usando o botão abaixo.`,
+              components: buildMsgMenuEditor(session),
+            });
+          }
+
+          if (mid === 'msg_modal_menu_opt') {
+            const emoji   = interaction.fields.getTextInputValue('opt_emoji').trim();
+            const label   = interaction.fields.getTextInputValue('opt_label').trim();
+            const desc    = interaction.fields.getTextInputValue('opt_desc').trim();
+            const rawRole = interaction.fields.getTextInputValue('opt_role_id').trim().replace(/\D/g, '');
+            const reply   = interaction.fields.getTextInputValue('opt_reply').trim();
+
+            if (label && session.selectMenu) {
+              const opt = { label };
+              if (emoji) opt.emoji = emoji;
+              if (desc)  opt.description = desc;
+              if (/^\d{15,20}$/.test(rawRole)) opt.roleId = rawRole;
+              if (reply) opt.replyText = reply;
+              session.selectMenu.options.push(opt);
+            }
+            const ch1 = interaction.guild.channels.cache.get(session.previewChannelId);
+            if (ch1) { const pm1 = await ch1.messages.fetch(session.previewMessageId).catch(() => null); if (pm1) await pm1.edit(buildMsgPayload(session)).catch(() => {}); }
+            const opts = session.selectMenu?.options ?? [];
+            return interaction.editReply({
+              content: `**📋 Editor de Menu**\n✅ Opção adicionada! Total: **${opts.length}** opção(ões). Adicione mais ou clique em **Salvar Menu**.`,
+              components: buildMsgMenuEditor(session),
+            });
           }
 
           if (mid === 'msg_modal_banner') {

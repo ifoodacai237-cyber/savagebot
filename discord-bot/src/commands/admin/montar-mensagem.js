@@ -1,7 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import {
   createMsgSession,
-  getMsgSession,
   buildMsgPayload,
   buildMsgMainControls,
 } from '../../utils/messageSessions.js';
@@ -19,15 +18,14 @@ export default {
     }
 
     const session = createMsgSession(interaction.user.id, interaction.guildId);
-    session.previewChannelId = interaction.channelId;
 
     const previewMsg = await interaction.channel.send(buildMsgPayload(session));
     session.previewMessageId = previewMsg.id;
-    session.previewChannelId = previewMsg.channelId;
+    session.previewChannelId  = previewMsg.channelId;
 
     return interaction.reply({
       content: '**💬 Montador de Mensagem**\nUse os botões abaixo para construir sua mensagem. Clique em **Publicar** quando terminar.',
-      components: buildMsgMainControls(0),
+      components: buildMsgMainControls(session),
       ephemeral: true,
     });
   },
