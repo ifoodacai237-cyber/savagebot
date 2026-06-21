@@ -51,20 +51,17 @@ function buildSection(blocks, color, headerText) {
     }
   }
 
-  return new EmbedBuilder()
-    .setColor(color)
-    .setDescription(desc.trim() || '\u200b');
+  const embed = new EmbedBuilder().setDescription(desc.trim() || '\u200b');
+  if (color !== null) embed.setColor(color);
+  return embed;
 }
 
 export function buildMsgPayload(session) {
   if (session.blocks.length === 0) {
-    return {
-      embeds: [
-        new EmbedBuilder()
-          .setColor(session.accentColor)
-          .setDescription('-# 💬 Mensagem vazia — use os botões abaixo para adicionar blocos.'),
-      ],
-    };
+    const emptyEmbed = new EmbedBuilder()
+      .setDescription('-# 💬 Mensagem vazia — use os botões abaixo para adicionar blocos.');
+    if (session.accentColor !== null) emptyEmbed.setColor(session.accentColor);
+    return { embeds: [emptyEmbed] };
   }
 
   // Divide os blocos em seções: cada "separator" inicia uma nova seção
@@ -155,7 +152,7 @@ export function buildRoleSelector() {
 }
 
 export const MSG_COLOR_MAP = {
-  none:   0x313338,   // cor do canal Discord dark — barra "invisível"
+  none:   null,       // sem cor = sem barra lateral
   purple: 0x9B4FD6,
   blue:   0x5865F2,
   cyan:   0x00B0F4,
