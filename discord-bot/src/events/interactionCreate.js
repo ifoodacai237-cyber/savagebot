@@ -631,8 +631,18 @@ export default {
           const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
 
           const existing = await prisma.ticket.findFirst({ where: { userId: interaction.user.id, guildId: guild.id, status: 'open' } });
-          if (existing)
-            return interaction.editReply({ embeds: [errorEmbed(`Você já tem um ticket aberto: <#${existing.channelId}>`)] });
+          if (existing) {
+            const existingChannel = guild.channels.cache.get(existing.channelId)
+              ?? await guild.channels.fetch(existing.channelId).catch(() => null);
+            if (!existingChannel) {
+              await prisma.ticket.updateMany({
+                where: { userId: interaction.user.id, guildId: guild.id, status: 'open' },
+                data:  { status: 'closed' },
+              });
+            } else {
+              return interaction.editReply({ embeds: [errorEmbed(`Você já tem um ticket aberto: <#${existing.channelId}>`)] });
+            }
+          }
 
           const ticketCount  = await prisma.ticket.count({ where: { guildId: guild.id } });
           const ticketNumber = ticketCount + 1;
