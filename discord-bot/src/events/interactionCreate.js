@@ -687,7 +687,13 @@ export default {
           const memberAvatar = interaction.member?.displayAvatarURL({ size: 128, extension: 'png' }) ?? interaction.user.displayAvatarURL({ size: 128, extension: 'png' });
           const memberName   = interaction.member?.displayName ?? interaction.user.username;
 
+          const pingLine = config?.ticketPingRole
+            ? `<@${interaction.user.id}> <@&${config.ticketPingRole}>`
+            : `<@${interaction.user.id}>`;
+
           const ticketContainer = new ContainerBuilder()
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(pingLine))
+            .addSeparatorComponents(new SeparatorBuilder())
             .addSectionComponents(
               new SectionBuilder()
                 .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Ticket - ${memberName}**`))
@@ -703,12 +709,8 @@ export default {
             new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
           );
 
-          const pingContent = config?.ticketPingRole
-            ? `<@${interaction.user.id}>, <@&${config.ticketPingRole}>`
-            : `<@${interaction.user.id}>`;
-
           try {
-            await channel.send({ content: pingContent, components: [ticketContainer, ticketButtons], flags: MessageFlags.IsComponentsV2 });
+            await channel.send({ components: [ticketContainer, ticketButtons], flags: MessageFlags.IsComponentsV2 });
           } catch (err) {
             console.error('[TICKET SEND ERROR]', err?.message ?? err);
             await channel.delete().catch(() => {});
