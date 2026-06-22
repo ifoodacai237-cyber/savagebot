@@ -684,7 +684,7 @@ export default {
             data: { channelId: channel.id, userId: interaction.user.id, guildId: guild.id },
           });
 
-          const memberAvatar = interaction.member?.displayAvatarURL({ size: 128 }) ?? interaction.user.displayAvatarURL({ size: 128 });
+          const memberAvatar = interaction.member?.displayAvatarURL({ size: 128, extension: 'png' }) ?? interaction.user.displayAvatarURL({ size: 128, extension: 'png' });
           const memberName   = interaction.member?.displayName ?? interaction.user.username;
 
           const ticketContainer = new ContainerBuilder()
@@ -696,19 +696,25 @@ export default {
             .addSeparatorComponents(new SeparatorBuilder())
             .addTextDisplayComponents(new TextDisplayBuilder().setContent('**Assumido por:** Ninguém'))
             .addSeparatorComponents(new SeparatorBuilder())
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'))
-            .addActionRowComponents(
-              new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`ticket_assume_${channel.id}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
-              ),
-            );
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'));
+
+          const ticketButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`ticket_assume_${channel.id}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
+          );
 
           const pingContent = config?.ticketPingRole
             ? `<@${interaction.user.id}>, <@&${config.ticketPingRole}>`
             : `<@${interaction.user.id}>`;
 
-          await channel.send({ content: pingContent, components: [ticketContainer], flags: MessageFlags.IsComponentsV2 });
+          try {
+            await channel.send({ content: pingContent, components: [ticketContainer, ticketButtons], flags: MessageFlags.IsComponentsV2 });
+          } catch (err) {
+            console.error('[TICKET SEND ERROR]', err?.message ?? err);
+            await channel.delete().catch(() => {});
+            await prisma.ticket.deleteMany({ where: { channelId: channel.id } }).catch(() => {});
+            return interaction.editReply({ embeds: [errorEmbed('Não foi possível criar o ticket. Tente novamente.')] });
+          }
           return interaction.editReply({ embeds: [successEmbed('Ticket Criado', `Seu ticket foi aberto em ${channel}.`)] });
         }
 
@@ -743,15 +749,14 @@ export default {
             .addSeparatorComponents(new SeparatorBuilder())
             .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Assumido por:** <@${interaction.user.id}>`))
             .addSeparatorComponents(new SeparatorBuilder())
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'))
-            .addActionRowComponents(
-              new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`ticket_assume_${channelId}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success).setDisabled(true),
-                new ButtonBuilder().setCustomId(`ticket_close_${channelId}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
-              ),
-            );
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'));
 
-          await interaction.message.edit({ components: [updatedContainer], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
+          const assumedButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`ticket_assume_${channelId}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success).setDisabled(true),
+            new ButtonBuilder().setCustomId(`ticket_close_${channelId}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
+          );
+
+          await interaction.message.edit({ components: [updatedContainer, assumedButtons], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
           return interaction.reply({ content: `✅ <@${interaction.user.id}> assumiu este ticket!`, ephemeral: false });
         }
 
