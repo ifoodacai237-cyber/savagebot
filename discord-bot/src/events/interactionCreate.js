@@ -12,6 +12,10 @@ import {
   TextInputBuilder,
   TextInputStyle,
   EmbedBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  MessageFlags,
 } from 'discord.js';
 import prisma from '../database/client.js';
 import { generateTranscript } from '../utils/transcript.js';
@@ -19,7 +23,7 @@ import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, Colors } from '.
 import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoes.js';
 import { generateTellonymCard } from '../utils/cardGenerator.js';
 import { likesMap } from '../utils/instaState.js';
-import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, DEFAULT_TICKET_TEXT, DEFAULT_TELLONYM_TEXT, DEFAULT_WELCOME_TITLE, DEFAULT_WELCOME_TEXT, DEFAULT_QUESTIONS } from '../utils/configPanels.js';
+import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT, DEFAULT_WELCOME_TITLE, DEFAULT_WELCOME_TEXT, DEFAULT_QUESTIONS } from '../utils/configPanels.js';
 import {
   getSession,
   deleteSession,
@@ -89,12 +93,20 @@ async function resolveImageUrl(rawUrl, client) {
   }
 }
 
-// ─── Helper: monta botão "Abrir Ticket" com label/emoji configuráveis ─────────
+// ─── Helper: monta botão "Abrir Ticket" com label/emoji/style configuráveis ───
+
+const BTN_STYLE_MAP = {
+  Primary:   ButtonStyle.Primary,
+  Secondary: ButtonStyle.Secondary,
+  Success:   ButtonStyle.Success,
+  Danger:    ButtonStyle.Danger,
+};
 
 function buildTicketOpenButton(cfg) {
   const label    = cfg?.ticketBtnLabel || 'Abrir Ticket';
   const emojiRaw = (cfg?.ticketBtnEmoji || '🎫').trim();
-  const btn = new ButtonBuilder().setCustomId('ticket_open').setLabel(label).setStyle(ButtonStyle.Primary);
+  const style    = BTN_STYLE_MAP[cfg?.ticketBtnStyle] ?? ButtonStyle.Primary;
+  const btn = new ButtonBuilder().setCustomId('ticket_open').setLabel(label).setStyle(style);
   const match = emojiRaw.match(/^<(a?):([^:>\s]+):(\d+)>$/);
   if (match) btn.setEmoji({ animated: match[1] === 'a', name: match[2], id: match[3] });
   else if (emojiRaw) btn.setEmoji(emojiRaw);
@@ -697,17 +709,27 @@ export default {
 
           if (field === 'enviar') {
             await interaction.deferReply({ flags: 64 });
-            const cfg = await getCfg(interaction.guildId);
-            const embed = buildConfigEmbed({
-              color:       cfg.ticketColor,
-              banner:      cfg.ticketBanner,
-              thumbnail:   cfg.ticketThumb,
-              footer:      cfg.ticketFooter,
-              title:       cfg.ticketTitle,
-              description: cfg.ticketText ?? DEFAULT_TICKET_TEXT,
-            });
-            const row = new ActionRowBuilder().addComponents(buildTicketOpenButton(cfg));
-            await interaction.channel.send({ embeds: [embed], components: [row] });
+            const cfg   = await getCfg(interaction.guildId);
+            const desc  = cfg.ticketText ?? DEFAULT_TICKET_TEXT;
+            const color = cfg.ticketColor ? (parseInt(cfg.ticketColor, 16) || 0x5865F2) : 0x5865F2;
+            const row   = new ActionRowBuilder().addComponents(buildTicketOpenButton(cfg));
+
+            if (cfg.ticketUseSeparator) {
+              const container = new ContainerBuilder().setAccentColor(color);
+              if (cfg.ticketTitle) {
+                container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**${cfg.ticketTitle}**`));
+              }
+              container.addSeparatorComponents(new SeparatorBuilder());
+              container.addTextDisplayComponents(new TextDisplayBuilder().setContent(desc));
+              await interaction.channel.send({ components: [container, row], flags: MessageFlags.IsComponentsV2 });
+            } else {
+              const embed = buildConfigEmbed({
+                color: cfg.ticketColor, banner: cfg.ticketBanner,
+                thumbnail: cfg.ticketThumb, footer: cfg.ticketFooter,
+                title: cfg.ticketTitle, description: desc,
+              });
+              await interaction.channel.send({ embeds: [embed], components: [row] });
+            }
             return interaction.editReply({ embeds: [successEmbed('Painel Enviado', `O painel de tickets foi enviado em ${interaction.channel}.`)] });
           }
 
@@ -841,8 +863,48 @@ export default {
                   .setPlaceholder('🎫 ou <:emoji:123456789> ou <a:emoji:123456789>')
                   .setValue(cfg.ticketBtnEmoji ?? '').setRequired(false).setMaxLength(100)
               ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('btn_style').setLabel('Cor do botão: primary | secondary | success | danger')
+                  .setStyle(TextInputStyle.Short)
+                  .setPlaceholder('primary (azul) | secondary (cinza) | success (verde) | danger (vermelho)')
+                  .setValue(cfg.ticketBtnStyle ? cfg.ticketBtnStyle.toLowerCase() : 'primary').setRequired(false).setMaxLength(20)
+              ),
             );
             return interaction.showModal(modal);
+          }
+
+          // ── Texto de abertura do ticket ───────────────────────────────
+          if (field === 'abertura') {
+            const cfg = await getCfg(interaction.guildId);
+            const modal = new ModalBuilder()
+              .setCustomId('tcfg_modal_abertura')
+              .setTitle('💬 Texto de Abertura do Ticket');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('value')
+                  .setLabel('Texto exibido no canal quando o ticket abre')
+                  .setStyle(TextInputStyle.Paragraph)
+                  .setPlaceholder('Aguarde um instante, em breve um membro da equipe irá lhe atender.')
+                  .setValue(cfg.ticketOpenText ?? '').setRequired(false).setMaxLength(500)
+              ),
+            );
+            return interaction.showModal(modal);
+          }
+
+          // ── Toggle separador ──────────────────────────────────────────
+          if (field === 'separador') {
+            const cfg    = await getCfg(interaction.guildId);
+            const newVal = !(cfg.ticketUseSeparator ?? false);
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, ticketUseSeparator: newVal },
+              update: { ticketUseSeparator: newVal },
+            });
+            const updated = await getCfg(interaction.guildId);
+            const payload = buildTicketConfigPayload(updated);
+            return interaction.update({ ...payload, content: null });
           }
 
           const def = TICKET_MODAL_FIELDS[field];
@@ -1588,7 +1650,7 @@ export default {
             data: { channelId: channel.id, userId: interaction.user.id, guildId: guild.id, reason: a1, answer1: a1, answer2: a2, answer3: a3 },
           });
 
-          const configText = config?.ticketText ?? 'Aguarde um instante, em breve um membro da equipe irá lhe atender.';
+          const configText = config?.ticketOpenText ?? DEFAULT_TICKET_OPEN_TEXT;
           const avatarURL  = interaction.user.displayAvatarURL({ size: 128 });
 
           const embed = new EmbedBuilder()
@@ -1677,17 +1739,37 @@ export default {
         if (interaction.customId === 'tcfg_modal_botao') {
           const rawLabel = interaction.fields.getTextInputValue('btn_label').trim();
           const rawEmoji = interaction.fields.getTextInputValue('btn_emoji').trim();
+          const rawStyle = interaction.fields.getTextInputValue('btn_style').trim().toLowerCase();
+
+          const STYLE_NORMALIZE = { primary: 'Primary', secondary: 'Secondary', success: 'Success', danger: 'Danger', azul: 'Primary', cinza: 'Secondary', verde: 'Success', vermelho: 'Danger' };
           const label = rawLabel || null;
           const emoji = rawEmoji || null;
+          const style = STYLE_NORMALIZE[rawStyle] ?? null;
+
           await prisma.guildConfig.upsert({
             where:  { guildId: interaction.guildId },
-            create: { guildId: interaction.guildId, ticketBtnLabel: label, ticketBtnEmoji: emoji },
-            update: { ticketBtnLabel: label, ticketBtnEmoji: emoji },
+            create: { guildId: interaction.guildId, ticketBtnLabel: label, ticketBtnEmoji: emoji, ticketBtnStyle: style },
+            update: { ticketBtnLabel: label, ticketBtnEmoji: emoji, ticketBtnStyle: style },
           });
           const cfg     = await getCfg(interaction.guildId);
           const payload = buildTicketConfigPayload(cfg);
           await interaction.message?.edit(payload).catch(() => {});
           return interaction.reply({ content: '✅ Botão do ticket atualizado!', ephemeral: true });
+        }
+
+        // ── CONFIG: Ticket — salvar texto de abertura ────────────────────────
+        if (interaction.customId === 'tcfg_modal_abertura') {
+          const raw   = interaction.fields.getTextInputValue('value').trim();
+          const value = raw || null;
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, ticketOpenText: value },
+            update: { ticketOpenText: value },
+          });
+          const cfg     = await getCfg(interaction.guildId);
+          const payload = buildTicketConfigPayload(cfg);
+          await interaction.message?.edit(payload).catch(() => {});
+          return interaction.reply({ content: '✅ Texto de abertura atualizado!', ephemeral: true });
         }
 
         if (interaction.customId === 'tcfg_modal_perguntas') {

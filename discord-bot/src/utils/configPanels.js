@@ -3,7 +3,8 @@ import { buildConfigEmbed, Colors } from './embed.js';
 
 // ─── Botões de Config ─────────────────────────────────────────────────────────
 
-export function ticketConfigButtons() {
+export function ticketConfigButtons(cfg = {}) {
+  const sepEnabled = cfg.ticketUseSeparator ?? false;
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('tcfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_titulo').setLabel('Título').setEmoji('📝').setStyle(ButtonStyle.Secondary),
@@ -14,10 +15,12 @@ export function ticketConfigButtons() {
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('tcfg_rodape').setLabel('Rodapé').setEmoji('👇').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_texto').setLabel('Texto').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('tcfg_abertura').setLabel('Txt Abertura').setEmoji('💬').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('tcfg_separador').setLabel('Separador').setEmoji('➖').setStyle(sepEnabled ? ButtonStyle.Success : ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_categoria').setLabel('Categoria').setEmoji('📂').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('tcfg_enviar').setLabel('Enviar Painel').setEmoji('🚀').setStyle(ButtonStyle.Success),
   );
   const row3 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('tcfg_enviar').setLabel('Enviar Painel').setEmoji('🚀').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId('tcfg_perguntas').setLabel('Perguntas').setEmoji('❓').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('tcfg_ping').setLabel('Ping Equipe').setEmoji('🔔').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('tcfg_salvar').setLabel('Salvar Preset').setEmoji('💾').setStyle(ButtonStyle.Secondary),
@@ -73,7 +76,8 @@ export function welcomeConfigButtons(enabled = true) {
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 
-export const DEFAULT_TICKET_TEXT   = '> Clique no botão abaixo para abrir um ticket de suporte.\n> Nossa equipe irá te atender em breve.';
+export const DEFAULT_TICKET_TEXT     = '> Clique no botão abaixo para abrir um ticket de suporte.\n> Nossa equipe irá te atender em breve.';
+export const DEFAULT_TICKET_OPEN_TEXT = 'Aguarde um instante, em breve um membro da equipe irá lhe atender.';
 export const DEFAULT_TELLONYM_TEXT = '> Clique no botão abaixo para enviar uma mensagem.\n> Você poderá escolher entre **anônimo** ou **marcar alguém**.';
 export const DEFAULT_WELCOME_TITLE = '👋 Bem-vindo(a) ao {server}!';
 export const DEFAULT_WELCOME_TEXT  = '> Seja bem-vindo(a), {user}!\n> Esperamos que você tenha uma ótima experiência aqui.\n> Você é o membro nº **{count}**!';
@@ -86,13 +90,19 @@ export const DEFAULT_QUESTIONS = [
 
 // ─── Payload builders ─────────────────────────────────────────────────────────
 
+const BTN_STYLE_LABELS = { Primary: '🔵 Azul (Primary)', Secondary: '⚫ Cinza (Secondary)', Success: '🟢 Verde (Success)', Danger: '🔴 Vermelho (Danger)' };
+
 export function buildTicketConfigPayload(cfg) {
   const color = cfg.ticketColor ? (parseInt(cfg.ticketColor, 16) || Colors.PRIMARY) : Colors.PRIMARY;
   const texto = cfg.ticketText ?? DEFAULT_TICKET_TEXT;
+  const openText = cfg.ticketOpenText ?? DEFAULT_TICKET_OPEN_TEXT;
 
   const q1 = cfg.ticketQuestion1 || DEFAULT_QUESTIONS[0];
   const q2 = cfg.ticketQuestion2 || DEFAULT_QUESTIONS[1];
   const q3 = cfg.ticketQuestion3 || DEFAULT_QUESTIONS[2];
+
+  const btnStyleLabel = BTN_STYLE_LABELS[cfg.ticketBtnStyle] ?? '🔵 Azul (Primary)';
+  const sepStatus = cfg.ticketUseSeparator ? '✅ Ativado' : '❌ Desativado';
 
   const configEmbed = new EmbedBuilder()
     .setColor(color)
@@ -106,11 +116,13 @@ export function buildTicketConfigPayload(cfg) {
       { name: '📷 Thumbnail',  value: cfg.ticketThumb    ? '✅ definido' : '*(não definido)*',                  inline: true },
       { name: '📂 Categoria',  value: cfg.ticketCategory ? `<#${cfg.ticketCategory}>` : '*(não definido)*',    inline: true },
       { name: '🔔 Ping Equipe',value: cfg.ticketPingRole ? `<@&${cfg.ticketPingRole}>` : '*(desativado)*',     inline: true },
-      { name: '🔘 Botão',      value: `\`${cfg.ticketBtnLabel || 'Abrir Ticket'}\` ${cfg.ticketBtnEmoji || '🎫'}`,                       inline: true },
+      { name: '🔘 Botão',      value: `\`${cfg.ticketBtnLabel || 'Abrir Ticket'}\` ${cfg.ticketBtnEmoji || '🎫'} — ${btnStyleLabel}`, inline: true },
+      { name: '➖ Separador',   value: sepStatus,                                                                inline: true },
       { name: '❓ Pergunta 1', value: q1.length > 60 ? q1.slice(0, 57) + '...' : q1,                           inline: false },
       { name: '❓ Pergunta 2', value: q2.length > 60 ? q2.slice(0, 57) + '...' : q2,                           inline: false },
       { name: '❓ Pergunta 3', value: q3.length > 60 ? q3.slice(0, 57) + '...' : q3,                           inline: false },
-      { name: '✏️ Texto',      value: texto.length > 100 ? texto.slice(0, 97) + '...' : texto,                  inline: false },
+      { name: '✏️ Texto (Painel)', value: texto.length > 100 ? texto.slice(0, 97) + '...' : texto,             inline: false },
+      { name: '💬 Texto (Abertura)', value: openText.length > 100 ? openText.slice(0, 97) + '...' : openText,  inline: false },
     );
 
   const previewEmbed = buildConfigEmbed({
@@ -119,7 +131,7 @@ export function buildTicketConfigPayload(cfg) {
     title: cfg.ticketTitle, description: texto,
   }).setAuthor({ name: '👁️ Preview — como o painel vai aparecer' });
 
-  return { embeds: [configEmbed, previewEmbed], components: ticketConfigButtons() };
+  return { embeds: [configEmbed, previewEmbed], components: ticketConfigButtons(cfg) };
 }
 
 export function buildTellonymConfigPayload(cfg) {

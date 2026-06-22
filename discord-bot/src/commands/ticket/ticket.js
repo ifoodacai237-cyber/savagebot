@@ -5,32 +5,61 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  MessageFlags,
 } from 'discord.js';
 import prisma from '../../database/client.js';
 import { buildConfigEmbed, errorEmbed, successEmbed } from '../../utils/embed.js';
 import { buildTicketConfigPayload, DEFAULT_TICKET_TEXT } from '../../utils/configPanels.js';
 
+const BTN_STYLE_MAP = {
+  Primary:   ButtonStyle.Primary,
+  Secondary: ButtonStyle.Secondary,
+  Success:   ButtonStyle.Success,
+  Danger:    ButtonStyle.Danger,
+};
+
 async function getOrCreate(guildId) {
   return prisma.guildConfig.upsert({ where: { guildId }, create: { guildId }, update: {} });
 }
 
+function buildOpenButton(cfg) {
+  const label    = cfg.ticketBtnLabel || 'Abrir Ticket';
+  const emojiRaw = (cfg.ticketBtnEmoji || '🎫').trim();
+  const style    = BTN_STYLE_MAP[cfg.ticketBtnStyle] ?? ButtonStyle.Primary;
+  const btn = new ButtonBuilder().setCustomId('ticket_open').setLabel(label).setStyle(style);
+  const match = emojiRaw.match(/^<(a?):([^:>\s]+):(\d+)>$/);
+  if (match) btn.setEmoji({ animated: match[1] === 'a', name: match[2], id: match[3] });
+  else if (emojiRaw) btn.setEmoji(emojiRaw);
+  return btn;
+}
+
 async function sendPanel(target, guildId) {
-  const cfg   = await getOrCreate(guildId);
+  const cfg  = await getOrCreate(guildId);
+  const desc = cfg.ticketText ?? DEFAULT_TICKET_TEXT;
+  const row  = new ActionRowBuilder().addComponents(buildOpenButton(cfg));
+  const color = cfg.ticketColor ? (parseInt(cfg.ticketColor, 16) || 0x5865F2) : 0x5865F2;
+
+  if (cfg.ticketUseSeparator) {
+    const container = new ContainerBuilder().setAccentColor(color);
+    if (cfg.ticketTitle) {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**${cfg.ticketTitle}**`));
+    }
+    container.addSeparatorComponents(new SeparatorBuilder());
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(desc));
+    return target.send({ components: [container, row], flags: MessageFlags.IsComponentsV2 });
+  }
+
   const embed = buildConfigEmbed({
     color:       cfg.ticketColor,
     banner:      cfg.ticketBanner,
     thumbnail:   cfg.ticketThumb,
     footer:      cfg.ticketFooter,
     title:       cfg.ticketTitle,
-    description: cfg.ticketText ?? DEFAULT_TICKET_TEXT,
+    description: desc,
   });
-  const btnLabel    = cfg.ticketBtnLabel || 'Abrir Ticket';
-  const btnEmojiRaw = (cfg.ticketBtnEmoji || '🎫').trim();
-  const openBtn = new ButtonBuilder().setCustomId('ticket_open').setLabel(btnLabel).setStyle(ButtonStyle.Primary);
-  const emojiMatch = btnEmojiRaw.match(/^<(a?):([^:>\s]+):(\d+)>$/);
-  if (emojiMatch) openBtn.setEmoji({ animated: emojiMatch[1] === 'a', name: emojiMatch[2], id: emojiMatch[3] });
-  else if (btnEmojiRaw) openBtn.setEmoji(btnEmojiRaw);
-  const row = new ActionRowBuilder().addComponents(openBtn);
   return target.send({ embeds: [embed], components: [row] });
 }
 
