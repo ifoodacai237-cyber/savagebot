@@ -12,12 +12,6 @@ import {
   TextInputBuilder,
   TextInputStyle,
   EmbedBuilder,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  SeparatorBuilder,
-  SectionBuilder,
-  ThumbnailBuilder,
-  MessageFlags,
 } from 'discord.js';
 import prisma from '../database/client.js';
 import { generateTranscript } from '../utils/transcript.js';
@@ -25,7 +19,7 @@ import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, Colors } from '.
 import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoes.js';
 import { generateTellonymCard } from '../utils/cardGenerator.js';
 import { likesMap } from '../utils/instaState.js';
-import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT, DEFAULT_WELCOME_TITLE, DEFAULT_WELCOME_TEXT, DEFAULT_QUESTIONS } from '../utils/configPanels.js';
+import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT, DEFAULT_WELCOME_TITLE, DEFAULT_WELCOME_TEXT } from '../utils/configPanels.js';
 import {
   getSession,
   deleteSession,
@@ -632,36 +626,52 @@ export default {
 
         // ── TICKET: Abrir modal ──────────────────────────────────────────
         if (customId === 'ticket_open') {
-          const tcfg = await prisma.guildConfig.findUnique({ where: { guildId: interaction.guildId } });
-          const q1   = tcfg?.ticketQuestion1 || DEFAULT_QUESTIONS[0];
-          const q2   = tcfg?.ticketQuestion2 || DEFAULT_QUESTIONS[1];
-          const q3   = tcfg?.ticketQuestion3 || DEFAULT_QUESTIONS[2];
+          await interaction.deferReply({ ephemeral: true });
+          const guild  = interaction.guild;
+          const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
 
-          const modal = new ModalBuilder().setCustomId('ticket_modal').setTitle('📋 Abertura de Ticket');
-          modal.addComponents(
-            new ActionRowBuilder().addComponents(
-              new TextInputBuilder()
-                .setCustomId('ticket_q1')
-                .setLabel(q1.length > 45 ? q1.slice(0, 42) + '...' : q1)
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true).setMinLength(2).setMaxLength(200)
-            ),
-            new ActionRowBuilder().addComponents(
-              new TextInputBuilder()
-                .setCustomId('ticket_q2')
-                .setLabel(q2.length > 45 ? q2.slice(0, 42) + '...' : q2)
-                .setStyle(TextInputStyle.Paragraph)
-                .setRequired(true).setMinLength(10).setMaxLength(500)
-            ),
-            new ActionRowBuilder().addComponents(
-              new TextInputBuilder()
-                .setCustomId('ticket_q3')
-                .setLabel(q3.length > 45 ? q3.slice(0, 42) + '...' : q3)
-                .setStyle(TextInputStyle.Short)
-                .setRequired(false).setMaxLength(200)
-            ),
+          const existing = await prisma.ticket.findFirst({ where: { userId: interaction.user.id, guildId: guild.id, status: 'open' } });
+          if (existing)
+            return interaction.editReply({ embeds: [errorEmbed(`Você já tem um ticket aberto: <#${existing.channelId}>`)] });
+
+          const ticketCount  = await prisma.ticket.count({ where: { guildId: guild.id } });
+          const ticketNumber = ticketCount + 1;
+
+          const channel = await guild.channels.create({
+            name: `📌・${interaction.user.username}・N°${ticketNumber}`,
+            type: ChannelType.GuildText,
+            topic: `Iniciada por ${interaction.user.displayName ?? interaction.user.username}`,
+            parent: config?.ticketCategory ?? null,
+            permissionOverwrites: [
+              { id: guild.roles.everyone, deny:  [PermissionFlagsBits.ViewChannel] },
+              { id: interaction.user.id,  allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+              { id: client.user.id,       allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.AttachFiles] },
+            ],
+          });
+
+          await prisma.ticket.create({
+            data: { channelId: channel.id, userId: interaction.user.id, guildId: guild.id },
+          });
+
+          const configText   = config?.ticketOpenText || DEFAULT_TICKET_OPEN_TEXT;
+          const memberAvatar = interaction.member?.displayAvatarURL({ size: 128 }) ?? interaction.user.displayAvatarURL({ size: 128 });
+
+          const ticketEmbed = new EmbedBuilder()
+            .setTitle(`Ticket - ${interaction.user.username}`)
+            .setDescription(`**Assumido por:** Ninguém\n${configText}`)
+            .setThumbnail(memberAvatar);
+
+          const ticketRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`ticket_assume_${channel.id}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
           );
-          return interaction.showModal(modal);
+
+          const pingContent = config?.ticketPingRole
+            ? `<@${interaction.user.id}> <@&${config.ticketPingRole}>`
+            : `<@${interaction.user.id}>`;
+
+          await channel.send({ content: pingContent, embeds: [ticketEmbed], components: [ticketRow] });
+          return interaction.editReply({ embeds: [successEmbed('Ticket Criado', `Seu ticket foi aberto em ${channel}.`)] });
         }
 
         // ── TICKET: Fechar ───────────────────────────────────────────────
@@ -683,35 +693,13 @@ export default {
 
           const msg = interaction.message;
           if (msg.embeds.length > 0) {
-            // Formato legado (embed)
             const oldEmbed = msg.embeds[0];
             const newDesc  = (oldEmbed.description ?? '').replace(/\*\*Assumido por:\*\* .+/, `**Assumido por:** <@${interaction.user.id}>`);
-            await msg.edit({ embeds: [EmbedBuilder.from(oldEmbed).setDescription(newDesc)] }).catch(() => {});
-          } else {
-            // Formato ContainerBuilder (ComponentsV2)
-            try {
-              const cJson     = msg.components[0].toJSON();
-              const secJson   = cJson.components[0];
-              const thumbUrl  = secJson.accessory?.media?.url ?? '';
-              const titleText = secJson.components[0]?.content ?? '';
-              const oldText   = cJson.components[2]?.content ?? '';
-              const newText   = oldText.replace(/\*\*Assumido por:\*\* .+/, `**Assumido por:** <@${interaction.user.id}>`);
-
-              const newContainer = new ContainerBuilder()
-                .addSectionComponents(
-                  new SectionBuilder()
-                    .addTextDisplayComponents(new TextDisplayBuilder().setContent(titleText))
-                    .setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbUrl))
-                )
-                .addSeparatorComponents(new SeparatorBuilder())
-                .addTextDisplayComponents(new TextDisplayBuilder().setContent(newText));
-
-              const newRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`ticket_assume_${channelId}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success).setDisabled(true),
-                new ButtonBuilder().setCustomId(`ticket_close_${channelId}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
-              );
-              await msg.edit({ components: [newContainer, newRow], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
-            } catch {}
+            const newRow   = new ActionRowBuilder().addComponents(
+              new ButtonBuilder().setCustomId(`ticket_assume_${channelId}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success).setDisabled(true),
+              new ButtonBuilder().setCustomId(`ticket_close_${channelId}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
+            );
+            await msg.edit({ embeds: [EmbedBuilder.from(oldEmbed).setDescription(newDesc)], components: [newRow] }).catch(() => {});
           }
           return interaction.reply({ content: `✅ <@${interaction.user.id}> assumiu este ticket!`, ephemeral: false });
         }
@@ -804,38 +792,6 @@ export default {
               embeds: [],
               components: [new ActionRowBuilder().addComponents(select), new ActionRowBuilder().addComponents(cancelBtn)],
             });
-          }
-
-          // ── Perguntas do ticket ─────────────────────────────────────
-          if (field === 'perguntas') {
-            const cfg = await getCfg(interaction.guildId);
-            const modal = new ModalBuilder()
-              .setCustomId('tcfg_modal_perguntas')
-              .setTitle('❓ Perguntas do Ticket');
-            modal.addComponents(
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                  .setCustomId('q1').setLabel('Pergunta 1')
-                  .setStyle(TextInputStyle.Short)
-                  .setPlaceholder(DEFAULT_QUESTIONS[0])
-                  .setValue(cfg.ticketQuestion1 ?? '').setRequired(false).setMaxLength(45)
-              ),
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                  .setCustomId('q2').setLabel('Pergunta 2')
-                  .setStyle(TextInputStyle.Short)
-                  .setPlaceholder(DEFAULT_QUESTIONS[1])
-                  .setValue(cfg.ticketQuestion2 ?? '').setRequired(false).setMaxLength(45)
-              ),
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                  .setCustomId('q3').setLabel('Pergunta 3')
-                  .setStyle(TextInputStyle.Short)
-                  .setPlaceholder(DEFAULT_QUESTIONS[2])
-                  .setValue(cfg.ticketQuestion3 ?? '').setRequired(false).setMaxLength(45)
-              ),
-            );
-            return interaction.showModal(modal);
           }
 
           // ── Ping de cargo ────────────────────────────────────────────
@@ -1629,64 +1585,7 @@ export default {
 
         // ── TICKET: Criar canal ──────────────────────────────────────────
         if (interaction.customId === 'ticket_modal') {
-          await interaction.deferReply({ ephemeral: true });
-          const a1     = interaction.fields.getTextInputValue('ticket_q1');
-          const a2     = interaction.fields.getTextInputValue('ticket_q2');
-          const a3     = interaction.fields.getTextInputValue('ticket_q3').trim() || null;
-          const guild  = interaction.guild;
-          const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
-          const color  = parseInt(config?.ticketColor ?? '5865F2', 16);
-
-          const q1 = config?.ticketQuestion1 || DEFAULT_QUESTIONS[0];
-          const q2 = config?.ticketQuestion2 || DEFAULT_QUESTIONS[1];
-          const q3 = config?.ticketQuestion3 || DEFAULT_QUESTIONS[2];
-
-          const existing = await prisma.ticket.findFirst({ where: { userId: interaction.user.id, guildId: guild.id, status: 'open' } });
-          if (existing)
-            return interaction.editReply({ embeds: [errorEmbed(`Você já tem um ticket aberto: <#${existing.channelId}>`)] });
-
-          const ticketCount = await prisma.ticket.count({ where: { guildId: guild.id } });
-          const ticketNumber = ticketCount + 1;
-
-          const channel = await guild.channels.create({
-            name: `📌・${interaction.user.username}・N°${ticketNumber}`,
-            type: ChannelType.GuildText,
-            topic: `Iniciada por ${interaction.user.displayName ?? interaction.user.username}`,
-            parent: config?.ticketCategory ?? null,
-            permissionOverwrites: [
-              { id: guild.roles.everyone,  deny:  [PermissionFlagsBits.ViewChannel] },
-              { id: interaction.user.id,   allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-              { id: client.user.id,        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.AttachFiles] },
-            ],
-          });
-
-          await prisma.ticket.create({
-            data: { channelId: channel.id, userId: interaction.user.id, guildId: guild.id, reason: a1, answer1: a1, answer2: a2, answer3: a3 },
-          });
-
-          const configText    = config?.ticketOpenText || DEFAULT_TICKET_OPEN_TEXT;
-          const memberAvatar  = interaction.member?.displayAvatarURL({ size: 128 }) ?? interaction.user.displayAvatarURL({ size: 128 });
-
-          const container = new ContainerBuilder()
-            .addSectionComponents(
-              new SectionBuilder()
-                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Ticket - ${interaction.user.username}**`))
-                .setThumbnailAccessory(new ThumbnailBuilder().setURL(memberAvatar))
-            )
-            .addSeparatorComponents(new SeparatorBuilder())
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Assumido por:** Ninguém\n${configText}`));
-
-          const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`ticket_assume_${channel.id}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
-          );
-
-          const pingContent = config?.ticketPingRole
-            ? `<@${interaction.user.id}> <@&${config.ticketPingRole}>`
-            : `<@${interaction.user.id}>`;
-
-          await channel.send({ content: pingContent, components: [container, row], flags: MessageFlags.IsComponentsV2 });
-          return interaction.editReply({ embeds: [successEmbed('Ticket Criado', `Seu ticket foi aberto em ${channel}.`)] });
+          return interaction.reply({ embeds: [errorEmbed('Este modal não é mais utilizado.')], ephemeral: true });
         }
 
         // ── PRESET: Salvar preset de Ticket ─────────────────────────────
@@ -1784,21 +1683,6 @@ export default {
           const payload = buildTicketConfigPayload(cfg);
           await interaction.message?.edit(payload).catch(() => {});
           return interaction.reply({ content: '✅ Texto de abertura atualizado!', ephemeral: true });
-        }
-
-        if (interaction.customId === 'tcfg_modal_perguntas') {
-          const q1 = interaction.fields.getTextInputValue('q1').trim() || null;
-          const q2 = interaction.fields.getTextInputValue('q2').trim() || null;
-          const q3 = interaction.fields.getTextInputValue('q3').trim() || null;
-          await prisma.guildConfig.upsert({
-            where:  { guildId: interaction.guildId },
-            create: { guildId: interaction.guildId, ticketQuestion1: q1, ticketQuestion2: q2, ticketQuestion3: q3 },
-            update: { ticketQuestion1: q1, ticketQuestion2: q2, ticketQuestion3: q3 },
-          });
-          const cfg     = await getCfg(interaction.guildId);
-          const payload = buildTicketConfigPayload(cfg);
-          await interaction.message?.edit(payload).catch(() => {});
-          return interaction.reply({ content: '✅ Perguntas do ticket atualizadas!', ephemeral: true });
         }
 
         // ── CONFIG: Ticket — salvar ping de cargo ────────────────────────

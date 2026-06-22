@@ -21,7 +21,6 @@ export function ticketConfigButtons(cfg = {}) {
   );
   const row3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('tcfg_enviar').setLabel('Enviar Painel').setEmoji('🚀').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('tcfg_perguntas').setLabel('Perguntas').setEmoji('❓').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('tcfg_ping').setLabel('Ping Equipe').setEmoji('🔔').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('tcfg_salvar').setLabel('Salvar Preset').setEmoji('💾').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_carregar').setLabel('Carregar Preset').setEmoji('📂').setStyle(ButtonStyle.Secondary),
@@ -97,10 +96,6 @@ export function buildTicketConfigPayload(cfg) {
   const texto   = cfg.ticketText    || DEFAULT_TICKET_TEXT;
   const openText = cfg.ticketOpenText || DEFAULT_TICKET_OPEN_TEXT;
 
-  const q1 = cfg.ticketQuestion1 || DEFAULT_QUESTIONS[0];
-  const q2 = cfg.ticketQuestion2 || DEFAULT_QUESTIONS[1];
-  const q3 = cfg.ticketQuestion3 || DEFAULT_QUESTIONS[2];
-
   const btnStyleLabel = BTN_STYLE_LABELS[cfg.ticketBtnStyle] ?? '🔵 Azul (Primary)';
   const sepStatus = cfg.ticketUseSeparator ? '✅ Ativado' : '❌ Desativado';
 
@@ -118,9 +113,6 @@ export function buildTicketConfigPayload(cfg) {
       { name: '🔔 Ping Equipe',value: cfg.ticketPingRole ? `<@&${cfg.ticketPingRole}>` : '*(desativado)*',     inline: true },
       { name: '🔘 Botão',      value: `\`${cfg.ticketBtnLabel || 'Abrir Ticket'}\` ${cfg.ticketBtnEmoji || '🎫'} — ${btnStyleLabel}`, inline: true },
       { name: '➖ Separador',   value: sepStatus,                                                                inline: true },
-      { name: '❓ Pergunta 1', value: q1.length > 60 ? q1.slice(0, 57) + '...' : q1,                           inline: false },
-      { name: '❓ Pergunta 2', value: q2.length > 60 ? q2.slice(0, 57) + '...' : q2,                           inline: false },
-      { name: '❓ Pergunta 3', value: q3.length > 60 ? q3.slice(0, 57) + '...' : q3,                           inline: false },
       { name: '✏️ Texto (Painel)', value: texto.length > 100 ? texto.slice(0, 97) + '...' : texto,             inline: false },
       { name: '💬 Texto (Abertura)', value: openText.length > 100 ? openText.slice(0, 97) + '...' : openText,  inline: false },
     );
