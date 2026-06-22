@@ -718,6 +718,62 @@ export default {
           return interaction.reply({ content: `✅ <@${interaction.user.id}> assumiu este ticket!`, ephemeral: false });
         }
 
+        // ── CASAR: Aceitar / Recusar ─────────────────────────────────────
+        if (customId.startsWith('casar_accept_') || customId.startsWith('casar_reject_')) {
+          const parts      = customId.split('_');
+          const action     = parts[1];
+          const proposerId = parts[2];
+          const targetId   = parts[3];
+
+          if (interaction.user.id !== targetId)
+            return interaction.reply({ content: '❌ Apenas a pessoa marcada pode responder a este pedido.', ephemeral: true });
+
+          const proposerName = (await interaction.guild.members.fetch(proposerId).catch(() => null))?.displayName
+            ?? (await interaction.client.users.fetch(proposerId).catch(() => null))?.username
+            ?? 'Desconhecido';
+          const targetName = interaction.member?.displayName ?? interaction.user.username;
+
+          if (action === 'reject') {
+            const rejectEmbed = new EmbedBuilder()
+              .setColor(0xFF4444)
+              .setTitle('💔 Pedido Recusado')
+              .setDescription(`**${targetName}** recusou o pedido de **${proposerName}**. 😢`);
+            await interaction.message.edit({ embeds: [rejectEmbed], components: [] }).catch(() => {});
+            return interaction.reply({ content: `💔 Que pena, **${proposerName}**...`, ephemeral: false });
+          }
+
+          const [proposerProfile, targetProfile] = await Promise.all([
+            prisma.userProfile.findUnique({ where: { userId: proposerId } }),
+            prisma.userProfile.findUnique({ where: { userId: targetId } }),
+          ]);
+
+          if (proposerProfile?.marriedTo || targetProfile?.marriedTo) {
+            await interaction.message.edit({ components: [] }).catch(() => {});
+            return interaction.reply({ embeds: [errorEmbed('Um dos usuários já está casado com outra pessoa!')], ephemeral: true });
+          }
+
+          await Promise.all([
+            prisma.userProfile.upsert({
+              where:  { userId: proposerId },
+              update: { marriedTo: targetId, marriedToName: targetName },
+              create: { userId: proposerId, marriedTo: targetId, marriedToName: targetName },
+            }),
+            prisma.userProfile.upsert({
+              where:  { userId: targetId },
+              update: { marriedTo: proposerId, marriedToName: proposerName },
+              create: { userId: targetId, marriedTo: proposerId, marriedToName: proposerName },
+            }),
+          ]);
+
+          const acceptEmbed = new EmbedBuilder()
+            .setColor(0xFF6B9D)
+            .setTitle('💍 Casamento Confirmado!')
+            .setDescription(`**${proposerName}** e **${targetName}** agora são casados! 🎊💕\n\nVeja o perfil de cada um com \`/perfil\`.`);
+
+          await interaction.message.edit({ embeds: [acceptEmbed], components: [] }).catch(() => {});
+          return interaction.reply({ content: `🎉 Parabéns, <@${proposerId}> e <@${targetId}>!`, ephemeral: false });
+        }
+
         // ── TICKET: Transcript ───────────────────────────────────────────
         if (customId.startsWith('ticket_transcript_')) {
           await interaction.deferReply({ ephemeral: true });

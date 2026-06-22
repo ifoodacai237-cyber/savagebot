@@ -29,7 +29,7 @@ model Ticket {
   channelId String   @unique
   userId    String
   guildId   String
-  reason    String
+  reason    String?
   answer1   String?
   answer2   String?
   answer3   String?
@@ -151,13 +151,15 @@ model UserPurchase {
 }
 
 model UserProfile {
-  id           String  @id @default(cuid())
-  userId       String  @unique
-  guildId      String?
-  activeBanner String?
-  activeRing   String?
-  activePet    String?
-  bio          String?
+  id            String  @id @default(cuid())
+  userId        String  @unique
+  guildId       String?
+  activeBanner  String?
+  activeRing    String?
+  activePet     String?
+  bio           String?
+  marriedTo     String?
+  marriedToName String?
 }
 
 model Pet {

@@ -74,7 +74,7 @@ export function computeEarnedBadgeKeys({ balance, bank, purchases, activePet, ac
   return keys;
 }
 
-export async function generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet, guildBadgeEmojis = {}, guildId = null }) {
+export async function generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet, guildBadgeEmojis = {}, guildId = null, marriedToName = null }) {
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
@@ -200,8 +200,15 @@ export async function generateProfileCard({ username, avatarUrl, balance, bank, 
   ctx.fillStyle = '#FFFFFF';
   ctx.fillText(bannerLabel, TX + 11, AV_CY + 4);
 
+  // ── Marriage line ────────────────────────────────────────────────────────────
+  if (marriedToName) {
+    ctx.font      = `13px ${FONT}`;
+    ctx.fillStyle = 'rgba(255,182,193,0.95)';
+    ctx.fillText(`\u2665 Casado(a) com ${marriedToName}`, TX, AV_CY + 22);
+  }
+
   // ── Stats row ───────────────────────────────────────────────────────────────
-  const statsY = AV_CY + 34;
+  const statsY = AV_CY + (marriedToName ? 42 : 34);
 
   const statsData = [
     { symbol: '◈', label: 'Carteira', value: `${fmt(balance)}`, hasCoin: true  },
