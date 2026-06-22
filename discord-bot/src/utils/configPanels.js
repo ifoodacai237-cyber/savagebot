@@ -94,8 +94,8 @@ const BTN_STYLE_LABELS = { Primary: '🔵 Azul (Primary)', Secondary: '⚫ Cinza
 
 export function buildTicketConfigPayload(cfg) {
   const color = cfg.ticketColor ? (parseInt(cfg.ticketColor, 16) || Colors.PRIMARY) : Colors.PRIMARY;
-  const texto = cfg.ticketText ?? DEFAULT_TICKET_TEXT;
-  const openText = cfg.ticketOpenText ?? DEFAULT_TICKET_OPEN_TEXT;
+  const texto   = cfg.ticketText    || DEFAULT_TICKET_TEXT;
+  const openText = cfg.ticketOpenText || DEFAULT_TICKET_OPEN_TEXT;
 
   const q1 = cfg.ticketQuestion1 || DEFAULT_QUESTIONS[0];
   const q2 = cfg.ticketQuestion2 || DEFAULT_QUESTIONS[1];

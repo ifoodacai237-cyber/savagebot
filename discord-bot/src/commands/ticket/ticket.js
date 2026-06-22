@@ -40,17 +40,6 @@ async function sendPanel(target, guildId) {
   const cfg  = await getOrCreate(guildId);
   const desc = cfg.ticketText ?? DEFAULT_TICKET_TEXT;
   const row  = new ActionRowBuilder().addComponents(buildOpenButton(cfg));
-  const color = cfg.ticketColor ? (parseInt(cfg.ticketColor, 16) || 0x5865F2) : 0x5865F2;
-
-  if (cfg.ticketUseSeparator) {
-    const container = new ContainerBuilder().setAccentColor(color);
-    if (cfg.ticketTitle) {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**${cfg.ticketTitle}**`));
-    }
-    container.addSeparatorComponents(new SeparatorBuilder());
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(desc));
-    return target.send({ components: [container, row], flags: MessageFlags.IsComponentsV2 });
-  }
 
   const embed = buildConfigEmbed({
     color:       cfg.ticketColor,

@@ -709,27 +709,16 @@ export default {
 
           if (field === 'enviar') {
             await interaction.deferReply({ flags: 64 });
-            const cfg   = await getCfg(interaction.guildId);
-            const desc  = cfg.ticketText ?? DEFAULT_TICKET_TEXT;
-            const color = cfg.ticketColor ? (parseInt(cfg.ticketColor, 16) || 0x5865F2) : 0x5865F2;
-            const row   = new ActionRowBuilder().addComponents(buildTicketOpenButton(cfg));
-
-            if (cfg.ticketUseSeparator) {
-              const container = new ContainerBuilder().setAccentColor(color);
-              if (cfg.ticketTitle) {
-                container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**${cfg.ticketTitle}**`));
-              }
-              container.addSeparatorComponents(new SeparatorBuilder());
-              container.addTextDisplayComponents(new TextDisplayBuilder().setContent(desc));
-              await interaction.channel.send({ components: [container, row], flags: MessageFlags.IsComponentsV2 });
-            } else {
-              const embed = buildConfigEmbed({
-                color: cfg.ticketColor, banner: cfg.ticketBanner,
-                thumbnail: cfg.ticketThumb, footer: cfg.ticketFooter,
-                title: cfg.ticketTitle, description: desc,
-              });
-              await interaction.channel.send({ embeds: [embed], components: [row] });
-            }
+            const cfg  = await getCfg(interaction.guildId);
+            const row  = new ActionRowBuilder().addComponents(buildTicketOpenButton(cfg));
+            const base = cfg.ticketText ?? DEFAULT_TICKET_TEXT;
+            const desc = cfg.ticketUseSeparator ? `──────────────────────────────────\n\n${base}` : base;
+            const embed = buildConfigEmbed({
+              color: cfg.ticketColor, banner: cfg.ticketBanner,
+              thumbnail: cfg.ticketThumb, footer: cfg.ticketFooter,
+              title: cfg.ticketTitle, description: desc,
+            });
+            await interaction.channel.send({ embeds: [embed], components: [row] });
             return interaction.editReply({ embeds: [successEmbed('Painel Enviado', `O painel de tickets foi enviado em ${interaction.channel}.`)] });
           }
 
@@ -1656,7 +1645,7 @@ export default {
           const embed = new EmbedBuilder()
             .setColor(color)
             .setTitle(`Ticket - ${interaction.user.username}`)
-            .setDescription(`${configText}\n\n**Assumido por:** Ninguém`)
+            .setDescription(`**Assumido por:** Ninguém\n\n${configText}`)
             .setThumbnail(config?.ticketThumb ?? avatarURL);
 
           if (config?.ticketBanner) embed.setImage(config.ticketBanner);
