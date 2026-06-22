@@ -12,6 +12,12 @@ import {
   TextInputBuilder,
   TextInputStyle,
   EmbedBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SectionBuilder,
+  ThumbnailBuilder,
+  MessageFlags,
 } from 'discord.js';
 import prisma from '../database/client.js';
 import { generateTranscript } from '../utils/transcript.js';
@@ -679,23 +685,30 @@ export default {
           });
 
           const memberAvatar = interaction.member?.displayAvatarURL({ size: 128 }) ?? interaction.user.displayAvatarURL({ size: 128 });
+          const memberName   = interaction.member?.displayName ?? interaction.user.username;
 
-          const ticketEmbed = new EmbedBuilder()
-            .setColor(0x2b2d31)
-            .setTitle(`Ticket - ${interaction.user.username}`)
-            .setDescription(`**Assumido por:** Ninguém\n──────────────────────────────────\nAguarde um instante, em breve um promotor irá lhe atender.`)
-            .setThumbnail(memberAvatar);
-
-          const ticketRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`ticket_assume_${channel.id}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
-          );
+          const ticketContainer = new ContainerBuilder()
+            .addSectionComponents(
+              new SectionBuilder()
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Ticket - ${memberName}**`))
+                .setThumbnailAccessory(new ThumbnailBuilder().setURL(memberAvatar)),
+            )
+            .addSeparatorComponents(new SeparatorBuilder())
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent('**Assumido por:** Ninguém'))
+            .addSeparatorComponents(new SeparatorBuilder())
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'))
+            .addActionRowComponents(
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`ticket_assume_${channel.id}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
+              ),
+            );
 
           const pingContent = config?.ticketPingRole
             ? `<@${interaction.user.id}>, <@&${config.ticketPingRole}>`
             : `<@${interaction.user.id}>`;
 
-          await channel.send({ content: pingContent, embeds: [ticketEmbed], components: [ticketRow] });
+          await channel.send({ content: pingContent, components: [ticketContainer], flags: MessageFlags.IsComponentsV2 });
           return interaction.editReply({ embeds: [successEmbed('Ticket Criado', `Seu ticket foi aberto em ${channel}.`)] });
         }
 
@@ -716,16 +729,29 @@ export default {
             return interaction.reply({ content: `❌ Ticket já assumido por <@${ticket.claimedBy}>.`, ephemeral: true });
           await prisma.ticket.update({ where: { channelId }, data: { claimedBy: interaction.user.id } }).catch(() => {});
 
-          const msg = interaction.message;
-          if (msg.embeds.length > 0) {
-            const oldEmbed = msg.embeds[0];
-            const newDesc  = (oldEmbed.description ?? '').replace(/\*\*Assumido por:\*\* .+/, `**Assumido por:** <@${interaction.user.id}>`);
-            const newRow   = new ActionRowBuilder().addComponents(
-              new ButtonBuilder().setCustomId(`ticket_assume_${channelId}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success).setDisabled(true),
-              new ButtonBuilder().setCustomId(`ticket_close_${channelId}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
+          const originalMember = await interaction.guild.members.fetch(ticket.userId).catch(() => null);
+          const originalUser   = originalMember?.user ?? await client.users.fetch(ticket.userId).catch(() => null);
+          const originalName   = originalMember?.displayName ?? originalUser?.username ?? 'Usuário';
+          const originalAvatar = originalMember?.displayAvatarURL({ size: 128 }) ?? originalUser?.displayAvatarURL({ size: 128 }) ?? '';
+
+          const updatedContainer = new ContainerBuilder()
+            .addSectionComponents(
+              new SectionBuilder()
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Ticket - ${originalName}**`))
+                .setThumbnailAccessory(new ThumbnailBuilder().setURL(originalAvatar)),
+            )
+            .addSeparatorComponents(new SeparatorBuilder())
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Assumido por:** <@${interaction.user.id}>`))
+            .addSeparatorComponents(new SeparatorBuilder())
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'))
+            .addActionRowComponents(
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`ticket_assume_${channelId}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success).setDisabled(true),
+                new ButtonBuilder().setCustomId(`ticket_close_${channelId}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
+              ),
             );
-            await msg.edit({ embeds: [EmbedBuilder.from(oldEmbed).setDescription(newDesc)], components: [newRow] }).catch(() => {});
-          }
+
+          await interaction.message.edit({ components: [updatedContainer], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
           return interaction.reply({ content: `✅ <@${interaction.user.id}> assumiu este ticket!`, ephemeral: false });
         }
 
