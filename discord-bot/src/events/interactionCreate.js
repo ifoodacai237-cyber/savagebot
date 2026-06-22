@@ -854,9 +854,9 @@ export default {
               ),
               new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
-                  .setCustomId('btn_style').setLabel('Cor do botão: primary | secondary | success | danger')
+                  .setCustomId('btn_style').setLabel('Cor: primary | secondary | success | danger')
                   .setStyle(TextInputStyle.Short)
-                  .setPlaceholder('primary (azul) | secondary (cinza) | success (verde) | danger (vermelho)')
+                  .setPlaceholder('primary=azul | success=verde | danger=vermelho')
                   .setValue(cfg.ticketBtnStyle ? cfg.ticketBtnStyle.toLowerCase() : 'primary').setRequired(false).setMaxLength(20)
               ),
             );
@@ -1645,7 +1645,7 @@ export default {
           const embed = new EmbedBuilder()
             .setColor(color)
             .setTitle(`Ticket - ${interaction.user.username}`)
-            .setDescription(`**Assumido por:** Ninguém\n\n${configText}`)
+            .setDescription(`**Assumido por:** Ninguém\n${configText}`)
             .setThumbnail(config?.ticketThumb ?? avatarURL);
 
           if (config?.ticketBanner) embed.setImage(config.ticketBanner);
