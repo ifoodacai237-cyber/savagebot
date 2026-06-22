@@ -681,8 +681,9 @@ export default {
           const memberAvatar = interaction.member?.displayAvatarURL({ size: 128 }) ?? interaction.user.displayAvatarURL({ size: 128 });
 
           const ticketEmbed = new EmbedBuilder()
+            .setColor(0x2b2d31)
             .setTitle(`Ticket - ${interaction.user.username}`)
-            .setDescription(`**Assumido por:** Ninguém\nAguarde um instante, em breve um promotor irá lhe atender.`)
+            .setDescription(`**Assumido por:** Ninguém\n──────────────────────────────────\nAguarde um instante, em breve um promotor irá lhe atender.`)
             .setThumbnail(memberAvatar);
 
           const ticketRow = new ActionRowBuilder().addComponents(
