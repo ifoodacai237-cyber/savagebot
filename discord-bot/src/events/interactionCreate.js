@@ -41,7 +41,7 @@ import {
   deleteMsgSession,
   buildMsgPayload,
   buildMsgMainControls,
-  buildMsgMenuEditor,
+  buildCargoRoleSelector,
   buildMsgColorPicker,
   buildRoleSelector,
   MSG_COLOR_MAP,
@@ -136,7 +136,7 @@ export default {
 
       // ── ROLE SELECT MENUS ──────────────────────────────────────────────────
       if (interaction.isRoleSelectMenu()) {
-        // ── MONTAR-MENSAGEM: Cargo selecionado ───────────────────────────
+        // ── MONTAR-MENSAGEM: Cargo no embed ──────────────────────────────
         if (interaction.customId === 'msg_role_sel') {
           const session = getMsgSession(interaction.user.id, interaction.guildId);
           if (!session) return interaction.update({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', components: [] });
@@ -155,6 +155,31 @@ export default {
             components: buildMsgMainControls(session),
           });
         }
+
+        // ── MONTAR-MENSAGEM: Criar menu dropdown com cargos ──────────────
+        if (interaction.customId === 'msg_cargo_sel') {
+          const session = getMsgSession(interaction.user.id, interaction.guildId);
+          if (!session) return interaction.update({ content: '❌ Sessão expirada. Use `/montar-mensagem` novamente.', components: [] });
+
+          const roles = [...interaction.roles.values()];
+          session.selectMenu = {
+            placeholder: 'Seleciona os cargos',
+            options: roles.map(role => ({ label: role.name, roleId: role.id })),
+          };
+
+          const ch = interaction.guild.channels.cache.get(session.previewChannelId);
+          if (ch) {
+            const msg = await ch.messages.fetch(session.previewMessageId).catch(() => null);
+            if (msg) await msg.edit(buildMsgPayload(session)).catch(() => {});
+          }
+
+          const mentions = roles.map(r => `<@&${r.id}>`).join(', ');
+          return interaction.update({
+            content: `**💬 Montador de Mensagem**\n✅ Menu criado com ${roles.length} cargo(s): ${mentions}\nTotal: **${msgTotalCount(session)}** item(s).`,
+            components: buildMsgMainControls(session),
+          });
+        }
+
         return;
       }
 
@@ -622,14 +647,23 @@ export default {
           return;
         }
 
-        // ── TICKET: Reivindicar ──────────────────────────────────────────
-        if (customId.startsWith('ticket_claim_')) {
-          const channelId = customId.replace('ticket_claim_', '');
+        // ── TICKET: Assumir ──────────────────────────────────────────────
+        if (customId.startsWith('ticket_assume_')) {
+          const channelId = customId.replace('ticket_assume_', '');
           const ticket    = await prisma.ticket.findUnique({ where: { channelId } });
           if (ticket?.claimedBy)
-            return interaction.reply({ embeds: [errorEmbed(`Já reivindicado por <@${ticket.claimedBy}>.`)], ephemeral: true });
+            return interaction.reply({ content: `❌ Ticket já assumido por <@${ticket.claimedBy}>.`, ephemeral: true });
           await prisma.ticket.update({ where: { channelId }, data: { claimedBy: interaction.user.id } }).catch(() => {});
-          return interaction.reply({ embeds: [successEmbed('Reivindicado', `<@${interaction.user.id}> está atendendo este ticket.`)] });
+          // Edita o embed original para mostrar quem assumiu
+          const oldEmbed = interaction.message.embeds[0];
+          if (oldEmbed) {
+            const { EmbedBuilder } = await import('discord.js');
+            const updated = EmbedBuilder.from(oldEmbed).setFields(
+              { name: 'Assumido por', value: `<@${interaction.user.id}>`, inline: false }
+            );
+            await interaction.message.edit({ embeds: [updated] }).catch(() => {});
+          }
+          return interaction.reply({ content: `✅ <@${interaction.user.id}> assumiu este ticket!`, ephemeral: false });
         }
 
         // ── TICKET: Transcript ───────────────────────────────────────────
@@ -1216,136 +1250,13 @@ export default {
             return interaction.showModal(modal);
           }
 
-          // ── Menu (gaveta) ─────────────────────────────────────────────────
-          if (customId === 'msg_menu') {
+          // ── Adicionar Cargos (menu dropdown automático) ───────────────────
+          if (customId === 'msg_add_cargos') {
             if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
-            if (!session.selectMenu) {
-              // Primeira vez: pede placeholder via modal
-              const modal = new ModalBuilder().setCustomId('msg_modal_menu_ph').setTitle('📋 Criar Menu Dropdown');
-              modal.addComponents(new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('placeholder')
-                  .setLabel('Texto antes de selecionar')
-                  .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(150)
-                  .setPlaceholder('Ex: Selecione uma opção...')
-              ));
-              return interaction.showModal(modal);
-            }
-            // Menu já existe: abre editor
-            const opts = session.selectMenu.options;
             return interaction.update({
-              content: `**📋 Editor de Menu**\nPlaceholder: *"${session.selectMenu.placeholder}"*\n**${opts.length}** opção(ões) configurada(s).\nUse os botões para adicionar mais ou salvar.`,
-              components: buildMsgMenuEditor(session),
+              content: '**💬 Montador de Mensagem**\n➕ Selecione os cargos que vão aparecer no menu dropdown:',
+              components: buildCargoRoleSelector(),
             });
-          }
-
-          if (customId === 'msg_menu_add_opt') {
-            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
-            const modal = new ModalBuilder().setCustomId('msg_modal_menu_opt').setTitle('➕ Adicionar Opção ao Menu');
-            modal.addComponents(
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('opt_emoji')
-                  .setLabel('Emoji (ex: 🎮 ou deixe vazio)').setStyle(TextInputStyle.Short)
-                  .setRequired(false).setMaxLength(10).setPlaceholder('🎮')
-              ),
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('opt_label')
-                  .setLabel('Nome da opção (vazio = usa nome do cargo)')
-                  .setStyle(TextInputStyle.Short)
-                  .setRequired(false).setMaxLength(80).setPlaceholder('Deixe vazio para usar o nome do cargo')
-              ),
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('opt_desc')
-                  .setLabel('Descrição (opcional, aparece abaixo do nome)')
-                  .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100)
-                  .setPlaceholder('Ex: Cargo exclusivo para membros...')
-              ),
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('opt_role_id')
-                  .setLabel('ID do cargo a conceder (opcional)')
-                  .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(20)
-                  .setPlaceholder('Ex: 123456789012345678 — vazio = só mensagem')
-              ),
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('opt_reply')
-                  .setLabel('Mensagem privada ao selecionar (opcional)')
-                  .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(200)
-                  .setPlaceholder('Ex: Você recebeu o cargo! Bem-vindo.')
-              ),
-            );
-            return interaction.showModal(modal);
-          }
-
-          if (customId === 'msg_menu_rm_opt') {
-            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
-            if (session.selectMenu?.options?.length > 0) {
-              session.selectMenu.options.pop();
-              await msgRefreshPreview();
-            }
-            const opts = session.selectMenu?.options ?? [];
-            return interaction.update({
-              content: `**📋 Editor de Menu**\n🗑️ Última opção removida. **${opts.length}** opção(ões) restante(s).`,
-              components: buildMsgMenuEditor(session),
-            });
-          }
-
-          if (customId === 'msg_menu_save') {
-            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
-            await msgRefreshPreview();
-            return interaction.update({
-              content: `**💬 Montador de Mensagem**\n✅ Menu salvo com **${session.selectMenu?.options?.length ?? 0}** opção(ões)! Total: **${msgTotalCount(session)}** item(s).`,
-              components: buildMsgMainControls(session),
-            });
-          }
-
-          if (customId === 'msg_menu_clear') {
-            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
-            session.selectMenu = null;
-            await msgRefreshPreview();
-            return interaction.update({
-              content: `**💬 Montador de Mensagem**\n🔄 Menu removido! Total: **${msgTotalCount(session)}** item(s).`,
-              components: buildMsgMainControls(session),
-            });
-          }
-
-          // ── Botão Cargo ───────────────────────────────────────────────────
-          if (customId === 'msg_btn_role') {
-            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
-            if (session.msgButtons.length >= 5) return interaction.reply({ content: '❌ Máximo de 5 botões por mensagem.', ephemeral: true });
-            const modal = new ModalBuilder().setCustomId('msg_modal_btn_role').setTitle('🔘 Botão de Cargo');
-            modal.addComponents(
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('btn_label')
-                  .setLabel('Rótulo (vazio = usa nome do cargo)')
-                  .setStyle(TextInputStyle.Short)
-                  .setRequired(false).setMaxLength(80).setPlaceholder('Deixe vazio para usar o nome do cargo')
-              ),
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('btn_role_id')
-                  .setLabel('ID do cargo').setStyle(TextInputStyle.Short)
-                  .setRequired(true).setMaxLength(20).setPlaceholder('Ex: 123456789012345678')
-              ),
-            );
-            return interaction.showModal(modal);
-          }
-
-          // ── Botão Link ────────────────────────────────────────────────────
-          if (customId === 'msg_btn_link') {
-            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
-            if (session.msgButtons.length >= 5) return interaction.reply({ content: '❌ Máximo de 5 botões por mensagem.', ephemeral: true });
-            const modal = new ModalBuilder().setCustomId('msg_modal_btn_link').setTitle('🔗 Botão de Link');
-            modal.addComponents(
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('btn_label')
-                  .setLabel('Rótulo do botão').setStyle(TextInputStyle.Short)
-                  .setRequired(true).setMaxLength(80).setPlaceholder('Ex: Acesse nosso site')
-              ),
-              new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('btn_url')
-                  .setLabel('URL de destino').setStyle(TextInputStyle.Short)
-                  .setRequired(true).setMaxLength(500).setPlaceholder('https://...')
-              ),
-            );
-            return interaction.showModal(modal);
           }
 
           // ── Remover Último ────────────────────────────────────────────────
@@ -1622,9 +1533,13 @@ export default {
           if (existing)
             return interaction.editReply({ embeds: [errorEmbed(`Você já tem um ticket aberto: <#${existing.channelId}>`)] });
 
+          const ticketCount = await prisma.ticket.count({ where: { guildId: guild.id } });
+          const ticketNumber = ticketCount + 1;
+
           const channel = await guild.channels.create({
-            name: `ticket-${interaction.user.username}`,
+            name: `📌・${interaction.user.username}・N°${ticketNumber}`,
             type: ChannelType.GuildText,
+            topic: `Iniciada por ${interaction.user.displayName ?? interaction.user.username}`,
             parent: config?.ticketCategory ?? null,
             permissionOverwrites: [
               { id: guild.roles.everyone,  deny:  [PermissionFlagsBits.ViewChannel] },
@@ -1637,24 +1552,21 @@ export default {
             data: { channelId: channel.id, userId: interaction.user.id, guildId: guild.id, reason: a1, answer1: a1, answer2: a2, answer3: a3 },
           });
 
-          const answersText = [
-            `**${q1}**\n> ${a1}`,
-            `**${q2}**\n> ${a2}`,
-            a3 ? `**${q3}**\n> ${a3}` : null,
-          ].filter(Boolean).join('\n\n');
+          const configText = config?.ticketText ?? 'Aguarde um instante, em breve um membro da equipe irá lhe atender.';
+          const avatarURL  = interaction.user.displayAvatarURL({ size: 128 });
 
           const embed = baseEmbed(color)
-            .setTitle(config?.ticketTitle ?? '📋 Ticket de Suporte')
-            .setDescription(`**Usuário:** <@${interaction.user.id}>\n\n${answersText}`)
-            .setFooter({ text: config?.ticketFooter ?? 'Fallen Bot · Suporte' });
+            .setTitle(`Ticket - ${interaction.user.username}`)
+            .setDescription(configText)
+            .addFields({ name: 'Assumido por', value: 'Ninguém', inline: false })
+            .setThumbnail(config?.ticketThumb ?? avatarURL);
 
           if (config?.ticketBanner) embed.setImage(config.ticketBanner);
-          if (config?.ticketThumb)  embed.setThumbnail(config.ticketThumb);
+          if (config?.ticketFooter) embed.setFooter({ text: config.ticketFooter });
 
           const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setEmoji('🔒').setStyle(ButtonStyle.Danger),
-            new ButtonBuilder().setCustomId(`ticket_claim_${channel.id}`).setLabel('Reivindicar').setEmoji('🙋').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`ticket_transcript_${channel.id}`).setLabel('Transcript').setEmoji('📄').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId(`ticket_assume_${channel.id}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
           );
 
           const pingContent = config?.ticketPingRole
@@ -1976,44 +1888,6 @@ export default {
             if (content) session.blocks.push({ type: 'separator', content });
           }
 
-          if (mid === 'msg_modal_menu_ph') {
-            const placeholder = interaction.fields.getTextInputValue('placeholder').trim();
-            session.selectMenu = { placeholder, options: [] };
-            const ch0 = interaction.guild.channels.cache.get(session.previewChannelId);
-            if (ch0) { const pm0 = await ch0.messages.fetch(session.previewMessageId).catch(() => null); if (pm0) await pm0.edit(buildMsgPayload(session)).catch(() => {}); }
-            return interaction.editReply({
-              content: `**📋 Editor de Menu**\nPlaceholder: *"${placeholder}"*\nAgora adicione as opções usando o botão abaixo.`,
-              components: buildMsgMenuEditor(session),
-            });
-          }
-
-          if (mid === 'msg_modal_menu_opt') {
-            const emoji   = interaction.fields.getTextInputValue('opt_emoji').trim();
-            const rawLabel = interaction.fields.getTextInputValue('opt_label').trim();
-            const desc    = interaction.fields.getTextInputValue('opt_desc').trim();
-            const rawRole = interaction.fields.getTextInputValue('opt_role_id').trim().replace(/\D/g, '');
-            const reply   = interaction.fields.getTextInputValue('opt_reply').trim();
-            const hasRole = /^\d{15,20}$/.test(rawRole);
-            const autoRoleName = hasRole ? (interaction.guild.roles.cache.get(rawRole)?.name ?? rawRole) : null;
-            const label = rawLabel || autoRoleName;
-
-            if (label && session.selectMenu) {
-              const opt = { label };
-              if (emoji) opt.emoji = emoji;
-              if (desc)  opt.description = desc;
-              if (hasRole) opt.roleId = rawRole;
-              if (reply) opt.replyText = reply;
-              session.selectMenu.options.push(opt);
-            }
-            const ch1 = interaction.guild.channels.cache.get(session.previewChannelId);
-            if (ch1) { const pm1 = await ch1.messages.fetch(session.previewMessageId).catch(() => null); if (pm1) await pm1.edit(buildMsgPayload(session)).catch(() => {}); }
-            const opts = session.selectMenu?.options ?? [];
-            return interaction.editReply({
-              content: `**📋 Editor de Menu**\n✅ Opção adicionada! Total: **${opts.length}** opção(ões). Adicione mais ou clique em **Salvar Menu**.`,
-              components: buildMsgMenuEditor(session),
-            });
-          }
-
           if (mid === 'msg_modal_banner') {
             const url = interaction.fields.getTextInputValue('banner_url').trim();
             session.banner = url.startsWith('http') ? url : null;
@@ -2022,24 +1896,6 @@ export default {
           if (mid === 'msg_modal_thumb') {
             const url = interaction.fields.getTextInputValue('thumb_url').trim();
             session.thumbnail = url.startsWith('http') ? url : null;
-          }
-
-          if (mid === 'msg_modal_btn_role') {
-            const rawLabel = interaction.fields.getTextInputValue('btn_label').trim();
-            const roleId   = interaction.fields.getTextInputValue('btn_role_id').trim().replace(/\D/g, '');
-            if (/^\d{15,20}$/.test(roleId)) {
-              const autoName = interaction.guild.roles.cache.get(roleId)?.name ?? roleId;
-              const label = rawLabel || autoName;
-              session.msgButtons.push({ type: 'role', label, roleId });
-            }
-          }
-
-          if (mid === 'msg_modal_btn_link') {
-            const label = interaction.fields.getTextInputValue('btn_label').trim();
-            const url   = interaction.fields.getTextInputValue('btn_url').trim();
-            if (label && url.startsWith('http')) {
-              session.msgButtons.push({ type: 'link', label, url });
-            }
           }
 
           const ch = interaction.guild.channels.cache.get(session.previewChannelId);

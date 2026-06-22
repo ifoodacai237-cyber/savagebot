@@ -160,18 +160,31 @@ export function buildMsgMainControls(session) {
       new ButtonBuilder().setCustomId('msg_add_text').setLabel('Texto').setStyle(ButtonStyle.Primary).setEmoji('📝'),
       new ButtonBuilder().setCustomId('msg_add_sep').setLabel('Texto 2').setStyle(ButtonStyle.Secondary).setEmoji('➕'),
       new ButtonBuilder().setCustomId('msg_color').setLabel('Cor').setStyle(ButtonStyle.Secondary).setEmoji('🎨'),
-      new ButtonBuilder().setCustomId('msg_menu').setLabel('Menu').setStyle(ButtonStyle.Secondary).setEmoji('📋'),
+      new ButtonBuilder().setCustomId('msg_add_cargos').setLabel('Adicionar Cargos').setStyle(ButtonStyle.Secondary).setEmoji('➕'),
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('msg_banner').setLabel('Banner').setStyle(ButtonStyle.Secondary).setEmoji('🖼️'),
       new ButtonBuilder().setCustomId('msg_thumb').setLabel('Miniatura').setStyle(ButtonStyle.Secondary).setEmoji('🔷'),
-      new ButtonBuilder().setCustomId('msg_btn_role').setLabel('Botão Cargo').setStyle(ButtonStyle.Secondary).setEmoji('🔘'),
-      new ButtonBuilder().setCustomId('msg_btn_link').setLabel('Botão Link').setStyle(ButtonStyle.Secondary).setEmoji('🔗'),
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('msg_remove_last').setLabel('Remover Último').setStyle(ButtonStyle.Danger).setEmoji('🗑️').setDisabled(total === 0),
       new ButtonBuilder().setCustomId('msg_publish').setLabel('Publicar').setStyle(ButtonStyle.Success).setEmoji('✅').setDisabled(total === 0),
       new ButtonBuilder().setCustomId('msg_cancel').setLabel('Cancelar').setStyle(ButtonStyle.Danger).setEmoji('❌'),
+    ),
+  ];
+}
+
+export function buildCargoRoleSelector() {
+  return [
+    new ActionRowBuilder().addComponents(
+      new RoleSelectMenuBuilder()
+        .setCustomId('msg_cargo_sel')
+        .setPlaceholder('Selecione os cargos para o menu dropdown...')
+        .setMinValues(1)
+        .setMaxValues(25)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('msg_back').setLabel('Voltar').setStyle(ButtonStyle.Danger).setEmoji('↩️'),
     ),
   ];
 }
