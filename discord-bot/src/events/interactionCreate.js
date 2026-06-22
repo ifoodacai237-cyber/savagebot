@@ -657,10 +657,11 @@ export default {
           // Edita o embed original para mostrar quem assumiu
           const oldEmbed = interaction.message.embeds[0];
           if (oldEmbed) {
-            const { EmbedBuilder } = await import('discord.js');
-            const updated = EmbedBuilder.from(oldEmbed).setFields(
-              { name: 'Assumido por', value: `<@${interaction.user.id}>`, inline: false }
+            const newDesc = (oldEmbed.description ?? '').replace(
+              /\*\*Assumido por:\*\* .+/,
+              `**Assumido por:** <@${interaction.user.id}>`
             );
+            const updated = EmbedBuilder.from(oldEmbed).setDescription(newDesc);
             await interaction.message.edit({ embeds: [updated] }).catch(() => {});
           }
           return interaction.reply({ content: `✅ <@${interaction.user.id}> assumiu este ticket!`, ephemeral: false });
@@ -1555,10 +1556,10 @@ export default {
           const configText = config?.ticketText ?? 'Aguarde um instante, em breve um membro da equipe irá lhe atender.';
           const avatarURL  = interaction.user.displayAvatarURL({ size: 128 });
 
-          const embed = baseEmbed(color)
+          const embed = new EmbedBuilder()
+            .setColor(color)
             .setTitle(`Ticket - ${interaction.user.username}`)
-            .setDescription(configText)
-            .addFields({ name: 'Assumido por', value: 'Ninguém', inline: false })
+            .setDescription(`${configText}\n\n**Assumido por:** Ninguém`)
             .setThumbnail(config?.ticketThumb ?? avatarURL);
 
           if (config?.ticketBanner) embed.setImage(config.ticketBanner);
