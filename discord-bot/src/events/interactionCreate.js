@@ -691,26 +691,25 @@ export default {
             ? `<@${interaction.user.id}> <@&${config.ticketPingRole}>`
             : `<@${interaction.user.id}>`;
 
+          const pingDisplay = new TextDisplayBuilder().setContent(pingLine);
+
           const ticketContainer = new ContainerBuilder()
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent(pingLine))
-            .addSeparatorComponents(new SeparatorBuilder())
             .addSectionComponents(
               new SectionBuilder()
                 .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Ticket - ${memberName}**`))
                 .setThumbnailAccessory(new ThumbnailBuilder().setURL(memberAvatar)),
             )
-            .addSeparatorComponents(new SeparatorBuilder())
             .addTextDisplayComponents(new TextDisplayBuilder().setContent('**Assumido por:** Ninguém'))
-            .addSeparatorComponents(new SeparatorBuilder())
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'));
-
-          const ticketButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`ticket_assume_${channel.id}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
-          );
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'))
+            .addActionRowComponents(
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`ticket_assume_${channel.id}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
+              ),
+            );
 
           try {
-            await channel.send({ components: [ticketContainer, ticketButtons], flags: MessageFlags.IsComponentsV2 });
+            await channel.send({ components: [pingDisplay, ticketContainer], flags: MessageFlags.IsComponentsV2 });
           } catch (err) {
             console.error('[TICKET SEND ERROR]', err?.message ?? err);
             await channel.delete().catch(() => {});
@@ -748,17 +747,16 @@ export default {
                 .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Ticket - ${originalName}**`))
                 .setThumbnailAccessory(new ThumbnailBuilder().setURL(originalAvatar)),
             )
-            .addSeparatorComponents(new SeparatorBuilder())
             .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Assumido por:** <@${interaction.user.id}>`))
-            .addSeparatorComponents(new SeparatorBuilder())
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'));
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'))
+            .addActionRowComponents(
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`ticket_assume_${channelId}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success).setDisabled(true),
+                new ButtonBuilder().setCustomId(`ticket_close_${channelId}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
+              ),
+            );
 
-          const assumedButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`ticket_assume_${channelId}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success).setDisabled(true),
-            new ButtonBuilder().setCustomId(`ticket_close_${channelId}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
-          );
-
-          await interaction.message.edit({ components: [updatedContainer, assumedButtons], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
+          await interaction.message.edit({ components: [updatedContainer], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
           return interaction.reply({ content: `✅ <@${interaction.user.id}> assumiu este ticket!`, ephemeral: false });
         }
 
