@@ -637,28 +637,42 @@ export default {
           const ticketCount  = await prisma.ticket.count({ where: { guildId: guild.id } });
           const ticketNumber = ticketCount + 1;
 
+          const permissionOverwrites = [
+            { id: guild.roles.everyone, deny:  [PermissionFlagsBits.ViewChannel] },
+            { id: interaction.user.id,  allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+            { id: client.user.id,       allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.AttachFiles] },
+          ];
+
+          if (config?.ticketPingRole) {
+            permissionOverwrites.push({
+              id: config.ticketPingRole,
+              allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+            });
+          }
+
+          let category = null;
+          if (config?.ticketCategory) {
+            const cat = guild.channels.cache.get(config.ticketCategory);
+            if (cat && cat.type === ChannelType.GuildCategory) category = config.ticketCategory;
+          }
+
           const channel = await guild.channels.create({
             name: `📌・${interaction.user.username}・N°${ticketNumber}`,
             type: ChannelType.GuildText,
             topic: `Iniciada por ${interaction.user.displayName ?? interaction.user.username}`,
-            parent: config?.ticketCategory ?? null,
-            permissionOverwrites: [
-              { id: guild.roles.everyone, deny:  [PermissionFlagsBits.ViewChannel] },
-              { id: interaction.user.id,  allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-              { id: client.user.id,       allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.AttachFiles] },
-            ],
+            parent: category,
+            permissionOverwrites,
           });
 
           await prisma.ticket.create({
             data: { channelId: channel.id, userId: interaction.user.id, guildId: guild.id },
           });
 
-          const configText   = config?.ticketOpenText || DEFAULT_TICKET_OPEN_TEXT;
           const memberAvatar = interaction.member?.displayAvatarURL({ size: 128 }) ?? interaction.user.displayAvatarURL({ size: 128 });
 
           const ticketEmbed = new EmbedBuilder()
             .setTitle(`Ticket - ${interaction.user.username}`)
-            .setDescription(`**Assumido por:** Ninguém\n${configText}`)
+            .setDescription(`**Assumido por:** Ninguém\nAguarde um instante, em breve um promotor irá lhe atender.`)
             .setThumbnail(memberAvatar);
 
           const ticketRow = new ActionRowBuilder().addComponents(
@@ -667,7 +681,7 @@ export default {
           );
 
           const pingContent = config?.ticketPingRole
-            ? `<@${interaction.user.id}> <@&${config.ticketPingRole}>`
+            ? `<@${interaction.user.id}>, <@&${config.ticketPingRole}>`
             : `<@${interaction.user.id}>`;
 
           await channel.send({ content: pingContent, embeds: [ticketEmbed], components: [ticketRow] });
