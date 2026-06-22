@@ -9,6 +9,7 @@ export function ticketConfigButtons() {
     new ButtonBuilder().setCustomId('tcfg_titulo').setLabel('Título').setEmoji('📝').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_banner').setLabel('Banner').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_thumb').setLabel('Thumbnail').setEmoji('📷').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('tcfg_botao').setLabel('Botão').setEmoji('🔘').setStyle(ButtonStyle.Secondary),
   );
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('tcfg_rodape').setLabel('Rodapé').setEmoji('👇').setStyle(ButtonStyle.Secondary),
@@ -105,6 +106,7 @@ export function buildTicketConfigPayload(cfg) {
       { name: '📷 Thumbnail',  value: cfg.ticketThumb    ? '✅ definido' : '*(não definido)*',                  inline: true },
       { name: '📂 Categoria',  value: cfg.ticketCategory ? `<#${cfg.ticketCategory}>` : '*(não definido)*',    inline: true },
       { name: '🔔 Ping Equipe',value: cfg.ticketPingRole ? `<@&${cfg.ticketPingRole}>` : '*(desativado)*',     inline: true },
+      { name: '🔘 Botão',      value: `\`${cfg.ticketBtnLabel || 'Abrir Ticket'}\` ${cfg.ticketBtnEmoji || '🎫'}`,                       inline: true },
       { name: '❓ Pergunta 1', value: q1.length > 60 ? q1.slice(0, 57) + '...' : q1,                           inline: false },
       { name: '❓ Pergunta 2', value: q2.length > 60 ? q2.slice(0, 57) + '...' : q2,                           inline: false },
       { name: '❓ Pergunta 3', value: q3.length > 60 ? q3.slice(0, 57) + '...' : q3,                           inline: false },

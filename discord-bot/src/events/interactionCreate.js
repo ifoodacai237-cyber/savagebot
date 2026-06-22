@@ -89,6 +89,18 @@ async function resolveImageUrl(rawUrl, client) {
   }
 }
 
+// ─── Helper: monta botão "Abrir Ticket" com label/emoji configuráveis ─────────
+
+function buildTicketOpenButton(cfg) {
+  const label    = cfg?.ticketBtnLabel || 'Abrir Ticket';
+  const emojiRaw = (cfg?.ticketBtnEmoji || '🎫').trim();
+  const btn = new ButtonBuilder().setCustomId('ticket_open').setLabel(label).setStyle(ButtonStyle.Primary);
+  const match = emojiRaw.match(/^<(a?):([^:>\s]+):(\d+)>$/);
+  if (match) btn.setEmoji({ animated: match[1] === 'a', name: match[2], id: match[3] });
+  else if (emojiRaw) btn.setEmoji(emojiRaw);
+  return btn;
+}
+
 // ─── Mapeamento dos campos de modal ───────────────────────────────────────────
 
 const TICKET_MODAL_FIELDS = {
@@ -694,9 +706,7 @@ export default {
               title:       cfg.ticketTitle,
               description: cfg.ticketText ?? DEFAULT_TICKET_TEXT,
             });
-            const row = new ActionRowBuilder().addComponents(
-              new ButtonBuilder().setCustomId('ticket_open').setLabel('Abrir Ticket').setEmoji('🎫').setStyle(ButtonStyle.Primary),
-            );
+            const row = new ActionRowBuilder().addComponents(buildTicketOpenButton(cfg));
             await interaction.channel.send({ embeds: [embed], components: [row] });
             return interaction.editReply({ embeds: [successEmbed('Painel Enviado', `O painel de tickets foi enviado em ${interaction.channel}.`)] });
           }
@@ -805,6 +815,31 @@ export default {
                   .setStyle(TextInputStyle.Short)
                   .setPlaceholder('ex: 123456789012345678 (deixe vazio para desativar)')
                   .setValue(cfg.ticketPingRole ?? '').setRequired(false).setMaxLength(20)
+              ),
+            );
+            return interaction.showModal(modal);
+          }
+
+          // ── Botão do ticket ──────────────────────────────────────────
+          if (field === 'botao') {
+            const cfg = await getCfg(interaction.guildId);
+            const modal = new ModalBuilder()
+              .setCustomId('tcfg_modal_botao')
+              .setTitle('🔘 Botão — Abrir Ticket');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('btn_label').setLabel('Texto do botão')
+                  .setStyle(TextInputStyle.Short)
+                  .setPlaceholder('Abrir Ticket')
+                  .setValue(cfg.ticketBtnLabel ?? '').setRequired(false).setMaxLength(80)
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('btn_emoji').setLabel('Emoji do botão (unicode ou <:nome:id>)')
+                  .setStyle(TextInputStyle.Short)
+                  .setPlaceholder('🎫 ou <:emoji:123456789> ou <a:emoji:123456789>')
+                  .setValue(cfg.ticketBtnEmoji ?? '').setRequired(false).setMaxLength(100)
               ),
             );
             return interaction.showModal(modal);
@@ -1638,7 +1673,23 @@ export default {
           return interaction.reply({ content: `✅ Preset **${name}** salvo com sucesso!`, ephemeral: true });
         }
 
-        // ── CONFIG: Ticket — salvar perguntas ───────────────────────────
+        // ── CONFIG: Ticket — salvar botão ───────────────────────────────────
+        if (interaction.customId === 'tcfg_modal_botao') {
+          const rawLabel = interaction.fields.getTextInputValue('btn_label').trim();
+          const rawEmoji = interaction.fields.getTextInputValue('btn_emoji').trim();
+          const label = rawLabel || null;
+          const emoji = rawEmoji || null;
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, ticketBtnLabel: label, ticketBtnEmoji: emoji },
+            update: { ticketBtnLabel: label, ticketBtnEmoji: emoji },
+          });
+          const cfg     = await getCfg(interaction.guildId);
+          const payload = buildTicketConfigPayload(cfg);
+          await interaction.message?.edit(payload).catch(() => {});
+          return interaction.reply({ content: '✅ Botão do ticket atualizado!', ephemeral: true });
+        }
+
         if (interaction.customId === 'tcfg_modal_perguntas') {
           const q1 = interaction.fields.getTextInputValue('q1').trim() || null;
           const q2 = interaction.fields.getTextInputValue('q2').trim() || null;

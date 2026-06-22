@@ -24,9 +24,13 @@ async function sendPanel(target, guildId) {
     title:       cfg.ticketTitle,
     description: cfg.ticketText ?? DEFAULT_TICKET_TEXT,
   });
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_open').setLabel('Abrir Ticket').setEmoji('🎫').setStyle(ButtonStyle.Primary),
-  );
+  const btnLabel    = cfg.ticketBtnLabel || 'Abrir Ticket';
+  const btnEmojiRaw = (cfg.ticketBtnEmoji || '🎫').trim();
+  const openBtn = new ButtonBuilder().setCustomId('ticket_open').setLabel(btnLabel).setStyle(ButtonStyle.Primary);
+  const emojiMatch = btnEmojiRaw.match(/^<(a?):([^:>\s]+):(\d+)>$/);
+  if (emojiMatch) openBtn.setEmoji({ animated: emojiMatch[1] === 'a', name: emojiMatch[2], id: emojiMatch[3] });
+  else if (btnEmojiRaw) openBtn.setEmoji(btnEmojiRaw);
+  const row = new ActionRowBuilder().addComponents(openBtn);
   return target.send({ embeds: [embed], components: [row] });
 }
 

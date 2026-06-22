@@ -375,6 +375,8 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'shop_comprar')                   return handleComprar(interaction);
     if (id === 'shop_vitrine')                   return handleVitrine(interaction);
     if (id === 'shop_converter')                 return handleConverter(interaction);
+    if (id === 'shop_conv_msgs')                 return handleConvMsgs(interaction);
+    if (id === 'shop_conv_call')                 return handleConvCall(interaction);
     if (id === 'shop_saldo')                     return handleSaldo(interaction);
     if (id === 'shop_gift')                      return handleGift(interaction);
     if (id === 'shop_cancel')                    return interaction.update({ content: '❌ Compra cancelada.', embeds: [], components: [] });
@@ -1070,14 +1072,111 @@ async function handleVitrineSel(interaction) {
 
 // ─── 🔄 Converter ─────────────────────────────────────────────────────────────
 
+const MSG_PER_CONV  = 1000;
+const MSG_REWARD    = 500;
+const MINS_PER_CONV = 60;
+const CALL_REWARD   = 500;
+
 async function handleConverter(interaction) {
+  const [eco, cfg] = await Promise.all([
+    getEco(interaction.user.id, interaction.guildId),
+    getCfg(interaction.guildId),
+  ]);
+
+  const msgConversions  = Math.floor(eco.messageCount / MSG_PER_CONV);
+  const callConversions = Math.floor(eco.callMinutes  / MINS_PER_CONV);
+
+  const convText = cfg?.lojaConversao ??
+    `> \`1.000 msgs\` → **500 ${COIN}**\n> \`1h em call\` → **500 ${COIN}**`;
+
+  const statsText =
+    `> 💬 **${eco.messageCount.toLocaleString('pt-BR')}** mensagens acumuladas\n` +
+    `> 🎙️ **${eco.callMinutes.toLocaleString('pt-BR')}** minuto(s) em call`;
+
+  const embed = new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🔄 Conversor')
+    .addFields(
+      { name: '📊 Conversão',        value: convText },
+      { name: '📈 Suas Estatísticas', value: statsText },
+      { name: '💼 Seu Saldo',         value: `> 💰 **${eco.balance.toLocaleString('pt-BR')} ${COIN}** na carteira\n> 🏦 **${eco.bank.toLocaleString('pt-BR')} ${COIN}** no banco` },
+    );
+
+  const msgBtn = new ButtonBuilder()
+    .setCustomId('shop_conv_msgs')
+    .setLabel(msgConversions > 0 ? `Converter Mensagens (+${(msgConversions * MSG_REWARD).toLocaleString('pt-BR')} moedas)` : 'Converter Mensagens')
+    .setEmoji('💬')
+    .setStyle(msgConversions > 0 ? ButtonStyle.Success : ButtonStyle.Secondary)
+    .setDisabled(msgConversions === 0);
+
+  const callBtn = new ButtonBuilder()
+    .setCustomId('shop_conv_call')
+    .setLabel(callConversions > 0 ? `Converter Call (+${(callConversions * CALL_REWARD).toLocaleString('pt-BR')} moedas)` : 'Converter Call')
+    .setEmoji('🎙️')
+    .setStyle(callConversions > 0 ? ButtonStyle.Success : ButtonStyle.Secondary)
+    .setDisabled(callConversions === 0);
+
+  return interaction.reply({
+    embeds: [embed],
+    components: [new ActionRowBuilder().addComponents(msgBtn, callBtn)],
+    ephemeral: true,
+  });
+}
+
+async function handleConvMsgs(interaction) {
   const eco = await getEco(interaction.user.id, interaction.guildId);
+  const conversions = Math.floor(eco.messageCount / MSG_PER_CONV);
+
+  if (conversions === 0) {
+    return interaction.reply({
+      content: `❌ Mensagens insuficientes. Você tem **${eco.messageCount.toLocaleString('pt-BR')}** mensagens e precisa de pelo menos **${MSG_PER_CONV.toLocaleString('pt-BR')}**.`,
+      ephemeral: true,
+    });
+  }
+
+  const coinsEarned = conversions * MSG_REWARD;
+  const msgsUsed    = conversions * MSG_PER_CONV;
+
+  await prisma.economy.update({
+    where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
+    data:  { balance: { increment: coinsEarned }, messageCount: { decrement: msgsUsed } },
+  });
+
   return interaction.reply({
     embeds: [
-      new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🔄 Conversor')
-        .addFields(
-          { name: '📊 Conversão', value: `> \`1.000 msgs\` → **500 ${COIN}**\n> \`1h em call\` → **500 ${COIN}**` },
-          { name: '💼 Seu Saldo', value: `> 💰 **${eco.balance.toLocaleString('pt-BR')} ${COIN}** na carteira\n> 🏦 **${eco.bank.toLocaleString('pt-BR')} ${COIN}** no banco` },
+      new EmbedBuilder().setColor(0x57F287).setTitle('✅ Conversão Realizada!')
+        .setDescription(
+          `> 💬 **${msgsUsed.toLocaleString('pt-BR')} mensagens** convertidas\n` +
+          `> ${COIN} Você ganhou **${coinsEarned.toLocaleString('pt-BR')}** moedas!`
+        ),
+    ],
+    ephemeral: true,
+  });
+}
+
+async function handleConvCall(interaction) {
+  const eco = await getEco(interaction.user.id, interaction.guildId);
+  const conversions = Math.floor(eco.callMinutes / MINS_PER_CONV);
+
+  if (conversions === 0) {
+    return interaction.reply({
+      content: `❌ Tempo em call insuficiente. Você tem **${eco.callMinutes} min** acumulados e precisa de pelo menos **60 min** (1 hora).`,
+      ephemeral: true,
+    });
+  }
+
+  const coinsEarned = conversions * CALL_REWARD;
+  const minsUsed    = conversions * MINS_PER_CONV;
+
+  await prisma.economy.update({
+    where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
+    data:  { balance: { increment: coinsEarned }, callMinutes: { decrement: minsUsed } },
+  });
+
+  return interaction.reply({
+    embeds: [
+      new EmbedBuilder().setColor(0x57F287).setTitle('✅ Conversão Realizada!')
+        .setDescription(
+          `> 🎙️ **${minsUsed} minuto(s)** em call convertidos\n` +
+          `> ${COIN} Você ganhou **${coinsEarned.toLocaleString('pt-BR')}** moedas!`
         ),
     ],
     ephemeral: true,

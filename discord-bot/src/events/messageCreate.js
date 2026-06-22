@@ -41,6 +41,15 @@ export default {
   async execute(message, client) {
     if (message.author.bot) return;
 
+    // ── ECONOMIA: Contador de mensagens ─────────────────────────────────────
+    if (message.guildId) {
+      prisma.economy.upsert({
+        where:  { userId_guildId: { userId: message.author.id, guildId: message.guildId } },
+        create: { userId: message.author.id, guildId: message.guildId, messageCount: 1 },
+        update: { messageCount: { increment: 1 } },
+      }).catch(() => {});
+    }
+
     // ── INSTAGRAM AUTO-POST ──────────────────────────────────────────────────
     if (message.guildId) {
       const cfg = await getGuildCfg(message.guildId);
