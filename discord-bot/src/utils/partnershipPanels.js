@@ -14,8 +14,16 @@ import {
 } from 'discord.js';
 
 export function partnerConfigButtons(cfg = {}) {
-  const dmActive     = cfg.partnerNotifyDm     ?? false;
+  const enabled      = cfg.partnerEnabled     ?? false;
+  const dmActive     = cfg.partnerNotifyDm    ?? false;
   const removeActive = cfg.partnerRemoveOnLeave ?? false;
+
+  const row0 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pcfg_toggle_enabled')
+      .setLabel(enabled ? '✅  Sistema ATIVADO — clique para desativar' : '❌  Sistema DESATIVADO — clique para ativar')
+      .setStyle(enabled ? ButtonStyle.Success : ButtonStyle.Danger),
+  );
 
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('pcfg_canal').setLabel('Canal').setEmoji('💌').setStyle(ButtonStyle.Primary),
@@ -34,16 +42,18 @@ export function partnerConfigButtons(cfg = {}) {
   const row3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('pcfg_toggle_remove').setLabel('Remover ao Sair').setEmoji('🚪').setStyle(removeActive ? ButtonStyle.Success : ButtonStyle.Secondary),
   );
-  return [row1, row2, row3];
+  return [row0, row1, row2, row3];
 }
 
 export function buildPartnerConfigPayload(cfg = {}) {
-  const color = cfg.partnerColor ? (parseInt(cfg.partnerColor, 16) || 0xA020F0) : 0xA020F0;
+  const enabled = cfg.partnerEnabled ?? false;
+  const color   = cfg.partnerColor ? (parseInt(cfg.partnerColor, 16) || 0xA020F0) : 0xA020F0;
 
   const embed = new EmbedBuilder()
-    .setColor(color)
+    .setColor(enabled ? color : 0x555555)
     .setTitle('🤝 Sistema de Parcerias')
     .addFields(
+      { name: '🔘 Status', value: enabled ? '🟢 **Ativado**' : '🔴 **Desativado**', inline: false },
       { name: '💛 Obrigatório informar:', value: '\u200b', inline: false },
       { name: '💌 Canal de parcerias',   value: cfg.partnerChannel          ? `<#${cfg.partnerChannel}>`          : 'Nenhum',      inline: true },
       { name: '👑 Cargo responsável',    value: cfg.partnerResponsibleRole  ? `<@&${cfg.partnerResponsibleRole}>` : 'Nenhum',      inline: true },

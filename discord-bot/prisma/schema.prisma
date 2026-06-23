@@ -97,6 +97,7 @@ model GuildConfig {
   welcomeRoles     String?
   welcomeChannels  String?
 
+  partnerEnabled         Boolean @default(false)
   partnerChannel         String?
   partnerResponsibleRole String?
   partnerPingRole        String?

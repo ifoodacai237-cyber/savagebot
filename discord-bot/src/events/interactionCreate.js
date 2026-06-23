@@ -1381,6 +1381,21 @@ export default {
             return interaction.showModal(modal);
           }
 
+          if (field === 'toggle_enabled') {
+            const cfg = await getCfg(interaction.guildId);
+            const next = !cfg.partnerEnabled;
+            if (next && !cfg.partnerChannel) {
+              return interaction.reply({ content: '❌ Configure o **Canal de parcerias** antes de ativar o sistema.', ephemeral: true });
+            }
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, partnerEnabled: next },
+              update: { partnerEnabled: next },
+            });
+            const updated = await getCfg(interaction.guildId);
+            return interaction.update(buildPartnerConfigPayload(updated));
+          }
+
           if (field === 'toggle_dm') {
             const cfg = await getCfg(interaction.guildId);
             await prisma.guildConfig.upsert({

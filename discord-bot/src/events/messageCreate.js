@@ -56,22 +56,33 @@ export default {
       const cfg = await getGuildCfg(message.guildId);
 
       // ── PARCERIAS AUTO-DETECT ──────────────────────────────────────────────
-      if (cfg?.partnerChannel && message.channelId === cfg.partnerChannel) {
+      if (cfg?.partnerEnabled && cfg?.partnerChannel && message.channelId === cfg.partnerChannel) {
         const hasRole = cfg.partnerResponsibleRole
           ? message.member?.roles.cache.has(cfg.partnerResponsibleRole)
           : true;
 
         if (hasRole) {
           const inviteMatch = message.content.match(/discord(?:\.gg|app\.com\/invite|\.com\/invite)\/([a-zA-Z0-9-]+)/i);
-          if (inviteMatch) {
+
+          if (!inviteMatch) {
+            const warn = await message.reply({ content: '⚠️ Nenhum link de convite detectado. Inclua um link `discord.gg/...` na mensagem.' }).catch(() => null);
+            if (warn) setTimeout(() => warn.delete().catch(() => {}), 8_000);
+          } else {
             const inviteCode = inviteMatch[1];
 
             let invite = null;
-            try { invite = await message.client.fetchInvite(inviteCode); } catch {}
+            let fetchError = null;
+            try { invite = await message.client.fetchInvite(inviteCode); } catch (e) { fetchError = e; }
 
-            if (invite && invite.guild?.id !== message.guildId) {
-              const partnerServerId = invite.guild?.id   || 'unknown';
-              const partnerName     = invite.guild?.name || 'Desconhecido';
+            if (!invite || !invite.guild) {
+              const warn = await message.reply({ content: `⚠️ Não consegui buscar o convite \`${inviteCode}\`. Verifique se ele é válido e não expirou.` }).catch(() => null);
+              if (warn) setTimeout(() => warn.delete().catch(() => {}), 10_000);
+            } else if (invite.guild.id === message.guildId) {
+              const warn = await message.reply({ content: '⚠️ O convite enviado é do próprio servidor. Envie o convite do **servidor parceiro**.' }).catch(() => null);
+              if (warn) setTimeout(() => warn.delete().catch(() => {}), 8_000);
+            } else {
+              const partnerServerId = invite.guild.id   || 'unknown';
+              const partnerName     = invite.guild.name || 'Desconhecido';
 
               let representativeId = null;
               const repMatch = message.content.match(/(?:rep(?:resentante)?)\s*:\s*<@!?(\d+)>/i);
