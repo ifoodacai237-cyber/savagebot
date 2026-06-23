@@ -1690,12 +1690,12 @@ export default {
       // ── MODALS ─────────────────────────────────────────────────────────────
       if (interaction.isModalSubmit()) {
 
-        // ── LOJA: Config, gift, admin e argola custom ──────────────────
+        // ── LOJA: Config, gift, admin e perfil (argola, fundo) ─────────
         if (
           interaction.customId.startsWith('loja_cfg_modal_') ||
           interaction.customId === 'shop_gift_modal' ||
           interaction.customId.startsWith('loja_admin_modal_') ||
-          interaction.customId === 'profile_ring_custom_modal'
+          interaction.customId.startsWith('profile_')
         ) {
           return handleShopInteraction(interaction, client);
         }
