@@ -144,9 +144,163 @@ function drawFooterStats(ctx, W, H, line1, line2) {
   }
 }
 
+// ─── Short number formatter ───────────────────────────────────────────────────
+
+function fmtShort(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1) + 'M';
+  if (n >= 1_000)     return (n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1) + 'K';
+  return fmt(n);
+}
+
+// ─── Card back (for active blackjack) ────────────────────────────────────────
+
+function drawCardBack(ctx, x, y, scale = 1) {
+  const cw = Math.round(70 * scale), ch = Math.round(98 * scale), cr = Math.round(10 * scale);
+  ctx.shadowColor = 'rgba(100,50,180,0.4)'; ctx.shadowBlur = 12; ctx.shadowOffsetY = 5;
+  const g = ctx.createLinearGradient(x, y, x + cw, y + ch);
+  g.addColorStop(0, '#5B2EA0'); g.addColorStop(1, '#3A1A6A');
+  ctx.fillStyle = g;
+  roundRect(ctx, x, y, cw, ch, cr); ctx.fill();
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = 'rgba(200,150,255,0.6)'; ctx.lineWidth = 1.5;
+  roundRect(ctx, x + 5, y + 5, cw - 10, ch - 10, cr - 2); ctx.stroke();
+  for (let dy = 14; dy < ch - 8; dy += 12) {
+    for (let dx = 10; dx < cw - 4; dx += 12) {
+      ctx.beginPath(); ctx.arc(x + dx, y + dy, 2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(200,150,255,0.2)'; ctx.fill();
+    }
+  }
+}
+
+// ─── Gem / Bomb icons for Mines ──────────────────────────────────────────────
+
+function drawGem(ctx, cx, cy, r) {
+  const g = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+  g.addColorStop(0, '#A5F3FC'); g.addColorStop(0.45, '#22D3EE'); g.addColorStop(1, '#0891B2');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - r);
+  ctx.lineTo(cx + r * 0.5, cy - r * 0.25);
+  ctx.lineTo(cx + r * 0.85, cy + r * 0.1);
+  ctx.lineTo(cx, cy + r);
+  ctx.lineTo(cx - r * 0.85, cy + r * 0.1);
+  ctx.lineTo(cx - r * 0.5, cy - r * 0.25);
+  ctx.closePath(); ctx.fill();
+  // Top facet highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - r);
+  ctx.lineTo(cx + r * 0.5, cy - r * 0.25);
+  ctx.lineTo(cx, cy - r * 0.1);
+  ctx.lineTo(cx - r * 0.5, cy - r * 0.25);
+  ctx.closePath(); ctx.fill();
+  // Shine dot
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.beginPath(); ctx.arc(cx + r * 0.22, cy - r * 0.5, r * 0.13, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawBomb(ctx, cx, cy, r) {
+  // Fuse
+  ctx.strokeStyle = '#A0522D'; ctx.lineWidth = r * 0.14; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx + r * 0.38, cy - r * 0.55);
+  ctx.quadraticCurveTo(cx + r * 0.75, cy - r * 1.0, cx + r * 0.5, cy - r * 1.2);
+  ctx.stroke();
+  // Fuse tip glow
+  ctx.fillStyle = '#FCD34D';
+  ctx.beginPath(); ctx.arc(cx + r * 0.5, cy - r * 1.2, r * 0.14, 0, Math.PI * 2); ctx.fill();
+  // Body shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath(); ctx.arc(cx + 3, cy + r * 0.12 + 3, r * 0.72, 0, Math.PI * 2); ctx.fill();
+  // Body
+  const bg = ctx.createRadialGradient(cx - r * 0.2, cy - r * 0.15, r * 0.05, cx, cy + r * 0.1, r * 0.72);
+  bg.addColorStop(0, '#4A3020'); bg.addColorStop(1, '#150800');
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.arc(cx, cy + r * 0.1, r * 0.72, 0, Math.PI * 2); ctx.fill();
+  // Shine
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.beginPath(); ctx.arc(cx - r * 0.22, cy - r * 0.08, r * 0.2, 0, Math.PI * 2); ctx.fill();
+}
+
+// ─── Mines result card ────────────────────────────────────────────────────────
+
+export function generateMinesCard({ grid, revealed, bombs, bet, payout, memberName, status }) {
+  const GRID = 4, CELL = 88, GAP = 8;
+  const GW  = GRID * CELL + (GRID - 1) * GAP;
+  const PAD = 24;
+  const W   = GW + PAD * 2;
+  const H   = 64 + GW + PAD * 2 + 56;
+  const canvas = createCanvas(W, H);
+  const ctx    = canvas.getContext('2d');
+
+  // Outer background
+  const outerG = ctx.createLinearGradient(0, 0, W, H);
+  outerG.addColorStop(0, '#14532D'); outerG.addColorStop(1, '#166534');
+  ctx.fillStyle = outerG;
+  roundRect(ctx, 0, 0, W, H, 22); ctx.fill();
+
+  // Subtle polka dots
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  for (let dx = 20; dx < W; dx += 36) for (let dy = 20; dy < H; dy += 36) {
+    ctx.beginPath(); ctx.arc(dx, dy, 3, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Header
+  const headerText = status === 'lost' ? '💥  FIM DE JOGO!' : '✅  FIM DE JOGO!';
+  ctx.fillStyle = 'rgba(0,0,0,0.30)';
+  roundRect(ctx, PAD, 12, GW, 48, 12); ctx.fill();
+  ctx.fillStyle = '#FFFFFF'; ctx.font = `bold 20px ${FONT}`; ctx.textAlign = 'center';
+  ctx.fillText(headerText, W / 2, 43);
+
+  // Grid background
+  const gridY = 12 + 48 + 10;
+  const gridG = ctx.createLinearGradient(PAD - 6, gridY - 6, PAD + GW + 6, gridY + GW + 6);
+  gridG.addColorStop(0, '#15803D'); gridG.addColorStop(1, '#166534');
+  ctx.fillStyle = gridG;
+  roundRect(ctx, PAD - 6, gridY - 6, GW + 12, GW + 12, 16); ctx.fill();
+
+  // Draw cells
+  for (let row = 0; row < GRID; row++) {
+    for (let col = 0; col < GRID; col++) {
+      const idx  = row * GRID + col;
+      const cx   = PAD + col * (CELL + GAP);
+      const cy   = gridY + row * (CELL + GAP);
+      const rev  = revealed[idx];
+      const bomb = grid[idx];
+
+      const cellG = ctx.createLinearGradient(cx, cy, cx + CELL, cy + CELL);
+      if (rev && bomb)       { cellG.addColorStop(0, '#B45309'); cellG.addColorStop(1, '#78350F'); }
+      else if (rev)          { cellG.addColorStop(0, '#86EFAC'); cellG.addColorStop(1, '#4ADE80'); }
+      else                   { cellG.addColorStop(0, '#22C55E'); cellG.addColorStop(1, '#16A34A'); }
+      ctx.fillStyle = cellG;
+      roundRect(ctx, cx, cy, CELL, CELL, 12); ctx.fill();
+
+      // Cell shine
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      roundRect(ctx, cx + 3, cy + 3, CELL - 6, 18, 6); ctx.fill();
+
+      const iconX = cx + CELL / 2, iconY = cy + CELL / 2;
+      if (rev && bomb) drawBomb(ctx, iconX, iconY, 24);
+      else if (rev)    drawGem(ctx, iconX, iconY, 24);
+    }
+  }
+
+  // Footer
+  const footerY = gridY + GW + 12 + 6;
+  ctx.fillStyle = 'rgba(0,0,0,0.30)';
+  roundRect(ctx, PAD, footerY, GW, 42, 12); ctx.fill();
+  ctx.fillStyle = '#FFFFFF'; ctx.font = `bold 13px ${FONT}`; ctx.textAlign = 'center';
+  const gainLine = status === 'lost' ? '0' : fmtShort(payout);
+  ctx.fillText(`🤑 Aposta: ${fmtShort(bet)}  •  💸 Ganhos: ${gainLine}  •  ${memberName}`, W / 2, footerY + 16);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = `11px ${FONT}`;
+  ctx.fillText(`💣 Minas: ${bombs}`, W / 2, footerY + 33);
+
+  return canvas.toBuffer('image/png');
+}
+
 // ─── Blackjack card ───────────────────────────────────────────────────────────
 
-export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal, won, tie, bust, bet, payout, userBalance }) {
+export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal, won, tie, bust, bet, payout, userBalance, hideDealer = false }) {
   const W = 920, H = 510;
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
@@ -198,17 +352,24 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
   }
 
   const dZoneY = oy - ry + 18;
-  drawScorePill(ox, dZoneY, `DEALER  •  ${dTotal}`);
-  const dCount = dealerCards.length;
+  drawScorePill(ox, dZoneY, `DEALER  •  ${hideDealer ? '?' : dTotal}`);
+  const dCount = hideDealer ? 2 : dealerCards.length;
   const dGap   = Math.min(78, (rx * 1.4) / dCount);
   const dStart = ox - ((dCount - 1) * dGap) / 2 - 35;
-  dealerCards.forEach((c, i) => drawCard(ctx, dStart + i * dGap, dZoneY + 34, c.rank, c.suit));
+  if (hideDealer) {
+    drawCard(ctx, dStart, dZoneY + 34, dealerCards[0].rank, dealerCards[0].suit);
+    drawCardBack(ctx, dStart + dGap, dZoneY + 34);
+  } else {
+    dealerCards.forEach((c, i) => drawCard(ctx, dStart + i * dGap, dZoneY + 34, c.rank, c.suit));
+  }
 
-  // Center result
-  if (won) drawResultBanner(ctx, W, oy - 32, '✨  VITÓRIA!', '#1E8A4A', '#15B85A', '#FFFFFF');
-  else if (tie) drawResultBanner(ctx, W, oy - 32, '🤝  EMPATE', '#2A5AA0', '#3A7AE0', '#FFFFFF');
-  else if (bust) drawResultBanner(ctx, W, oy - 32, '💥  BUST!', '#A02828', '#D03030', '#FFFFFF');
-  else drawResultBanner(ctx, W, oy - 32, '❌  DERROTA', '#8A2020', '#B83030', '#FFFFFF');
+  // Center result (only when game is finished)
+  if (!hideDealer) {
+    if (won) drawResultBanner(ctx, W, oy - 32, '✨  VITÓRIA!', '#1E8A4A', '#15B85A', '#FFFFFF');
+    else if (tie) drawResultBanner(ctx, W, oy - 32, '🤝  EMPATE', '#2A5AA0', '#3A7AE0', '#FFFFFF');
+    else if (bust) drawResultBanner(ctx, W, oy - 32, '💥  BUST!', '#A02828', '#D03030', '#FFFFFF');
+    else drawResultBanner(ctx, W, oy - 32, '❌  DERROTA', '#8A2020', '#B83030', '#FFFFFF');
+  }
 
   const pZoneY = oy + 34;
   const bustLabel = bust ? ` 💥` : '';
@@ -218,13 +379,16 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
   const pStart = ox - ((pCount - 1) * pGap) / 2 - 35;
   playerCards.forEach((c, i) => drawCard(ctx, pStart + i * pGap, pZoneY + 34, c.rank, c.suit));
 
-  const sign   = won ? '+' : tie ? '±' : '-';
-  const change = tie ? 0 : won ? payout - bet : bet;
-  const color  = won ? '#88FFB0' : tie ? '#A0C8FF' : '#FFB0B0';
-  drawFooterStats(ctx, W, H,
-    `${sign}${fmt(change)} 💰  •  Saldo: ${fmt(userBalance)} 💰`,
-    `Aposta: ${fmt(bet)} 💰`
-  );
+  if (hideDealer) {
+    drawFooterStats(ctx, W, H, `Aposta: ${fmt(bet)} 💰  •  Possível ganho: ${fmt(bet * 2)} 💰`);
+  } else {
+    const sign   = won ? '+' : tie ? '±' : '-';
+    const change = tie ? 0 : won ? payout - bet : bet;
+    drawFooterStats(ctx, W, H,
+      `${sign}${fmt(change)} 💰  •  Saldo: ${fmt(userBalance)} 💰`,
+      `Aposta: ${fmt(bet)} 💰`
+    );
+  }
 
   return canvas.toBuffer('image/png');
 }

@@ -3,8 +3,10 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  AttachmentBuilder,
 } from 'discord.js';
 import prisma from '../database/client.js';
+import { generateBlackjackCard, generateMinesCard } from './economyCards.js';
 
 const COIN = '<a:emoji_1:1516993823665033286>';
 
@@ -47,6 +49,53 @@ function memberInfo(interaction) {
       ?? interaction.author?.displayAvatarURL({ size: 64 })
       ?? null,
   };
+}
+
+// ─── Image attachment helpers ─────────────────────────────────────────────────
+
+function bjAttachment(state, hideDealer = false) {
+  try {
+    const pTotal = handTotal(state.player);
+    const dTotal = handTotal(state.dealer);
+    const payout = state.won ? state.bet * 2 : state.tie ? state.bet : 0;
+    const buf = generateBlackjackCard({
+      playerCards: state.player,
+      dealerCards: state.dealer,
+      pTotal,
+      dTotal,
+      won:  state.won,
+      tie:  state.tie,
+      bust: state.bust,
+      bet:  state.bet,
+      payout,
+      userBalance: 0,
+      hideDealer,
+    });
+    return new AttachmentBuilder(buf, { name: 'blackjack.png' });
+  } catch { return null; }
+}
+
+function minesAttachment(state, memberName) {
+  try {
+    const mult   = calcMult(state.gems, state.bombs);
+    const payout = Math.floor(state.bet * mult);
+    const buf = generateMinesCard({
+      grid:       state.grid,
+      revealed:   state.revealed,
+      bombs:      state.bombs,
+      bet:        state.bet,
+      payout,
+      memberName,
+      status:     state.status,
+    });
+    return new AttachmentBuilder(buf, { name: 'mines.png' });
+  } catch { return null; }
+}
+
+function withFiles(payload, ...attachments) {
+  const files = attachments.filter(Boolean);
+  if (files.length === 0) return payload;
+  return { ...payload, files, attachments: [] };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -97,6 +146,7 @@ function buildBJEmbed(state, name, avatar) {
   const embed = new EmbedBuilder()
     .setColor(color)
     .setAuthor({ name: `Blackjack | ${name}`, iconURL: avatar })
+    .setImage('attachment://blackjack.png')
     .setDescription(
       `> 🤑 **Aposta:** ${fmtNum(state.bet)} ${COIN}\n` +
       `> 💸 **Possível ganho:** ${fmtNum(state.bet * 2)} ${COIN}`,
@@ -160,7 +210,11 @@ async function finalizeBJ(state, interaction, name, avatar) {
   if (payout > 0) await addWin(state.userId, state.guildId, payout);
   blackjackGames.delete(state.userId);
 
-  return interaction.update({ embeds: [buildBJEmbed(state, name, avatar)], components: [] });
+  const file = bjAttachment(state, false);
+  return interaction.update(withFiles(
+    { embeds: [buildBJEmbed(state, name, avatar)], components: [] },
+    file,
+  ));
 }
 
 export async function startBlackjack(ctx, bet, sendFn) {
@@ -194,7 +248,8 @@ export async function startBlackjack(ctx, bet, sendFn) {
     const payout = won ? Math.floor(bet * 2.5) : bet;
     await addWin(userId, guildId, payout);
     blackjackGames.delete(userId);
-    return sendFn({ embeds: [buildBJEmbed(state, name, avatar)], components: [] });
+    const file = bjAttachment(state, false);
+    return sendFn(withFiles({ embeds: [buildBJEmbed(state, name, avatar)], components: [] }, file));
   }
 
   // Auto-timeout 2 min
@@ -206,7 +261,11 @@ export async function startBlackjack(ctx, bet, sendFn) {
     }
   }, 120_000);
 
-  return sendFn({ embeds: [buildBJEmbed(state, name, avatar)], components: buildBJComponents(state) });
+  const file = bjAttachment(state, true);
+  return sendFn(withFiles(
+    { embeds: [buildBJEmbed(state, name, avatar)], components: buildBJComponents(state) },
+    file,
+  ));
 }
 
 export async function handleBJHit(interaction, targetId) {
@@ -224,11 +283,19 @@ export async function handleBJHit(interaction, targetId) {
     state.status = 'done';
     state.bust = true;
     blackjackGames.delete(targetId);
-    return interaction.update({ embeds: [buildBJEmbed(state, name, avatar)], components: [] });
+    const file = bjAttachment(state, false);
+    return interaction.update(withFiles(
+      { embeds: [buildBJEmbed(state, name, avatar)], components: [] },
+      file,
+    ));
   }
   if (total === 21) return finalizeBJ(state, interaction, name, avatar);
 
-  return interaction.update({ embeds: [buildBJEmbed(state, name, avatar)], components: buildBJComponents(state) });
+  const file = bjAttachment(state, true);
+  return interaction.update(withFiles(
+    { embeds: [buildBJEmbed(state, name, avatar)], components: buildBJComponents(state) },
+    file,
+  ));
 }
 
 export async function handleBJStand(interaction, targetId) {
@@ -257,7 +324,7 @@ function calcMult(gems, bombs) {
   return Math.round(m * 0.97 * 100) / 100;
 }
 
-function buildMinesEmbed(state, name, avatar) {
+function buildMinesEmbed(state, name, avatar, isEndImage = false) {
   const mult   = calcMult(state.gems, state.bombs);
   const payout = Math.floor(state.bet * mult);
 
@@ -273,7 +340,7 @@ function buildMinesEmbed(state, name, avatar) {
     ? `> 💸 **Ganhos:** 0 ${COIN}`
     : `> 💸 **Ganhos:** ${fmtNum(payout)} ${COIN}`;
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(color)
     .setAuthor({ name: `${title} | ${name}`, iconURL: avatar })
     .setDescription(
@@ -281,6 +348,10 @@ function buildMinesEmbed(state, name, avatar) {
       (state.status === 'playing' ? `> 💣 **Minas:** ${state.bombs} | 💎 **Reveladas:** ${state.gems}` : ''),
     )
     .setFooter({ text: `Apostador: ${name}` });
+
+  if (isEndImage) embed.setImage('attachment://mines.png');
+
+  return embed;
 }
 
 function buildMinesComponents(state) {
@@ -395,26 +466,32 @@ export async function handleMinesCell(interaction, idx, targetId) {
   state.revealed[idx] = true;
 
   if (state.grid[idx]) {
-    // Bomba
+    // Bomba — revela tudo e gera imagem PNG
     state.revealed = state.revealed.map(() => true);
     state.status = 'lost';
     minesGames.delete(targetId);
-    return interaction.update({
-      embeds: [buildMinesEmbed(state, name, avatar)],
-      components: buildMinesComponents(state),
-    });
+    const file = minesAttachment(state, name);
+    return interaction.update(withFiles(
+      { embeds: [buildMinesEmbed(state, name, avatar, true)], components: buildMinesComponents(state) },
+      file,
+    ));
   }
 
   state.gems++;
   const totalSafe = GRID * GRID - state.bombs;
 
   if (state.gems >= totalSafe) {
-    // Revelou tudo
+    // Revelou tudo — auto win
     const payout = Math.floor(state.bet * calcMult(state.gems, state.bombs));
     state.status   = 'cashed';
     state.revealed = state.revealed.map(() => true);
     minesGames.delete(targetId);
     await addWin(targetId, state.guildId, payout);
+    const file = minesAttachment(state, name);
+    return interaction.update(withFiles(
+      { embeds: [buildMinesEmbed(state, name, avatar, true)], components: buildMinesComponents(state) },
+      file,
+    ));
   }
 
   return interaction.update({
@@ -439,8 +516,9 @@ export async function handleMinesCashout(interaction, targetId) {
   minesGames.delete(targetId);
   await addWin(targetId, state.guildId, payout);
 
-  return interaction.update({
-    embeds: [buildMinesEmbed(state, name, avatar)],
-    components: buildMinesComponents(state),
-  });
+  const file = minesAttachment(state, name);
+  return interaction.update(withFiles(
+    { embeds: [buildMinesEmbed(state, name, avatar, true)], components: buildMinesComponents(state) },
+    file,
+  ));
 }
