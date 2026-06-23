@@ -70,15 +70,6 @@ export default {
     if (!/^https?:\/\/.+/.test(imagem))
       return interaction.editReply({ content: '❌ URL da imagem inválida. Use um link direto (http/https).' });
 
-    if (imagem.includes('cdn.discordapp.com/attachments'))
-      return interaction.editReply({
-        content: '❌ URLs do Discord expiram em poucos dias e causam banners roxos/quebrados.\n\n' +
-          '✅ Use um serviço de hospedagem permanente:\n' +
-          '> • **Imgur**: https://imgur.com/upload\n' +
-          '> • **imgbb**: https://imgbb.com/\n' +
-          '> • **Catbox**: https://catbox.moe/',
-      });
-
     // ── Modo atualização: chave fornecida ──────────────────────────────────────
     if (chaveExistente) {
       const existing = await prisma.customBanner.findFirst({
