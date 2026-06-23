@@ -2,12 +2,12 @@ import { SlashCommandBuilder, AttachmentBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
 import { errorEmbed } from '../../utils/embed.js';
 import {
-  generateBlackjackCard,
   generateCoinflipCard,
   generateDiceCard,
   generateSlotsCard,
   generateRouletteCard,
 } from '../../utils/economyCards.js';
+import { startBlackjack, startMines } from '../../utils/gameHandlers.js';
 
 // ─── Slot symbols ─────────────────────────────────────────────────────────────
 const SLOT_SYMBOLS = [
@@ -99,6 +99,10 @@ export default {
     .addSubcommand(s => s.setName('blackjack')
       .setDescription('🃏 Blackjack — chegue mais perto de 21 sem estourar')
       .addStringOption(o => o.setName('aposta').setDescription('Valor (ex: 500 ou "tudo")').setRequired(true)))
+    .addSubcommand(s => s.setName('mines')
+      .setDescription('💣 Mines — revele gemas sem explodir!')
+      .addStringOption(o => o.setName('aposta').setDescription('Valor (ex: 500 ou "tudo")').setRequired(true))
+      .addIntegerOption(o => o.setName('bombas').setDescription('Número de bombas (padrão: 3)').setMinValue(1).setMaxValue(13)))
     .addSubcommand(s => s.setName('roulette')
       .setDescription('🎡 Roleta — aposte em cor ou número')
       .addStringOption(o => o.setName('aposta').setDescription('Valor (ex: 500 ou "tudo")').setRequired(true))
@@ -182,40 +186,15 @@ export default {
     if (sub === 'blackjack') {
       const bet = parseBet(interaction.options.getString('aposta'), eco.balance);
       if (!bet || bet <= 0) return interaction.editReply({ embeds: [errorEmbed('Aposta inválida.')] });
-      if (bet > eco.balance) return interaction.editReply({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.`)] });
+      return startBlackjack(interaction, bet, opts => interaction.editReply(opts));
+    }
 
-      const deck   = shuffle(newDeck());
-      let player   = [deck.pop(), deck.pop()];
-      let dealer   = [deck.pop(), deck.pop()];
-
-      while (handTotal(player) < 17) player.push(deck.pop());
-      while (handTotal(dealer) < 17) dealer.push(deck.pop());
-
-      const pTotal = handTotal(player);
-      const dTotal = handTotal(dealer);
-      const bust   = pTotal > 21;
-      const won    = !bust && (dTotal > 21 || pTotal > dTotal);
-      const tie    = !bust && !won && pTotal === dTotal;
-
-      await deductBet(interaction.user.id, interaction.guildId, bet);
-      let payout = 0;
-      if (won)      { payout = bet * 2; await addWin(interaction.user.id, interaction.guildId, payout); }
-      else if (tie) { payout = bet;     await addWin(interaction.user.id, interaction.guildId, payout); }
-
-      const newBal = eco.balance - bet + payout;
-      const buf = generateBlackjackCard({
-        playerCards: player,
-        dealerCards: dealer,
-        pTotal,
-        dTotal,
-        won,
-        tie,
-        bust,
-        bet,
-        payout,
-        userBalance: newBal,
-      });
-      return interaction.editReply({ files: [new AttachmentBuilder(buf, { name: 'blackjack.png' })] });
+    // ── MINES ────────────────────────────────────────────────────────────────
+    if (sub === 'mines') {
+      const bet   = parseBet(interaction.options.getString('aposta'), eco.balance);
+      const bombs = interaction.options.getInteger('bombas') ?? 3;
+      if (!bet || bet <= 0) return interaction.editReply({ embeds: [errorEmbed('Aposta inválida.')] });
+      return startMines(interaction, bet, bombs, opts => interaction.editReply(opts));
     }
 
     // ── ROULETTE ────────────────────────────────────────────────────────────
@@ -320,25 +299,17 @@ export default {
     if (sub === 'blackjack' || sub === 'bj') {
       const bet = parseBet(args[1], eco.balance);
       if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `fallen jogo blackjack 500`')] });
-      if (bet > eco.balance) return send({ embeds: [errorEmbed(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}**.`)] });
+      // Attach author info so memberInfo() works with a Message object
+      message.user   = message.author;
+      message.member = message.member;
+      return startBlackjack(message, bet, opts => message.reply(opts));
+    }
 
-      const deck   = shuffle(newDeck());
-      let player   = [deck.pop(), deck.pop()];
-      let dealer   = [deck.pop(), deck.pop()];
-      while (handTotal(player) < 17) player.push(deck.pop());
-      while (handTotal(dealer) < 17) dealer.push(deck.pop());
-      const pTotal = handTotal(player);
-      const dTotal = handTotal(dealer);
-      const bust   = pTotal > 21;
-      const won    = !bust && (dTotal > 21 || pTotal > dTotal);
-      const tie    = !bust && !won && pTotal === dTotal;
-      await deductBet(userId, guildId, bet);
-      let payout = 0;
-      if (won)      { payout = bet * 2; await addWin(userId, guildId, payout); }
-      else if (tie) { payout = bet;     await addWin(userId, guildId, payout); }
-      const newBal = eco.balance - bet + payout;
-      const buf = generateBlackjackCard({ playerCards: player, dealerCards: dealer, pTotal, dTotal, won, tie, bust, bet, payout, userBalance: newBal });
-      return send({ files: [new AttachmentBuilder(buf, { name: 'blackjack.png' })] });
+    if (sub === 'mines' || sub === 'm') {
+      const bet   = parseBet(args[1], eco.balance);
+      const bombs = parseInt(args[2]) || 3;
+      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `fallen jogo mines 500 3`')] });
+      return startMines(message, bet, bombs, opts => message.reply(opts));
     }
 
     if (sub === 'roulette' || sub === 'roleta') {

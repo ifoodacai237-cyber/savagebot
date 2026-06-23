@@ -37,6 +37,7 @@ import {
   COLOR_MAP,
 } from '../utils/containerSessions.js';
 import { handleShopInteraction } from '../utils/shopHandlers.js';
+import { handleBJHit, handleBJStand, handleMinesCell, handleMinesCashout } from '../utils/gameHandlers.js';
 import { handleAjudaCatSel } from '../commands/general/ajuda.js';
 import { radioSessions, createRadioSession } from '../utils/radioManager.js';
 import { buildControlPanel as buildRadioPanel } from '../commands/general/radio.js';
@@ -446,6 +447,18 @@ export default {
       // ── BUTTONS ────────────────────────────────────────────────────────────
       if (interaction.isButton()) {
         const { customId } = interaction;
+
+        // ── JOGOS: Blackjack / Mines ─────────────────────────────────────
+        if (customId.startsWith('bj_hit_'))
+          return handleBJHit(interaction, customId.replace('bj_hit_', ''));
+        if (customId.startsWith('bj_stand_'))
+          return handleBJStand(interaction, customId.replace('bj_stand_', ''));
+        if (customId.startsWith('mines_cell_')) {
+          const parts = customId.split('_');
+          return handleMinesCell(interaction, parseInt(parts[2]), parts[3]);
+        }
+        if (customId.startsWith('mines_cashout_'))
+          return handleMinesCashout(interaction, customId.replace('mines_cashout_', ''));
 
         // ── RÁDIO: Controles do painel (admin only) ─────────────────────
         if (customId === 'radio_toggle' || customId === 'radio_stop') {
