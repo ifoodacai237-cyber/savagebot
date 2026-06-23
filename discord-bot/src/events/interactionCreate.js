@@ -696,10 +696,11 @@ export default {
           const ticketContainer = new ContainerBuilder()
             .addSectionComponents(
               new SectionBuilder()
-                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Ticket - ${memberName}**`))
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`# Ticket - ${memberName}`))
                 .setThumbnailAccessory(new ThumbnailBuilder().setURL(memberAvatar)),
             )
             .addTextDisplayComponents(new TextDisplayBuilder().setContent('**Assumido por:** Ninguém'))
+            .addSeparatorComponents(new SeparatorBuilder())
             .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'))
             .addActionRowComponents(
               new ActionRowBuilder().addComponents(
@@ -744,10 +745,11 @@ export default {
           const updatedContainer = new ContainerBuilder()
             .addSectionComponents(
               new SectionBuilder()
-                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Ticket - ${originalName}**`))
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`# Ticket - ${originalName}`))
                 .setThumbnailAccessory(new ThumbnailBuilder().setURL(originalAvatar)),
             )
             .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Assumido por:** <@${interaction.user.id}>`))
+            .addSeparatorComponents(new SeparatorBuilder())
             .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'))
             .addActionRowComponents(
               new ActionRowBuilder().addComponents(

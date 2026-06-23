@@ -79,6 +79,11 @@ model GuildConfig {
   lojaColor      String?
   lojaConversao  String?
   lojaUseDivider Boolean @default(false)
+  shopEmojiComprar   String?
+  shopEmojiVitrine   String?
+  shopEmojiConverter String?
+  shopEmojiSaldo     String?
+  shopEmojiGift      String?
 
   welcomeEnabled   Boolean @default(true)
   welcomeChannel   String?

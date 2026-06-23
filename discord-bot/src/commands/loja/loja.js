@@ -17,6 +17,13 @@ const DEFAULT_TEXT  =
   `Aqui você pode comprar tudo com as suas **${COIN}**!`;
 const DIVIDER = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
 
+function parseEmoji(str) {
+  if (!str) return null;
+  const match = str.match(/^<(a?):(\w+):(\d+)>$/);
+  if (match) return { animated: !!match[1], name: match[2], id: match[3] };
+  return str;
+}
+
 export function buildShopMain(guild, cfg = {}) {
   const color    = cfg.lojaColor  ? parseInt(cfg.lojaColor, 16) : DEFAULT_COLOR;
   const title    = cfg.lojaTitle  ?? `🛒 Loja do ${guild.name}`;
@@ -42,12 +49,18 @@ export function buildShopMain(guild, cfg = {}) {
     embed.addFields({ name: DIVIDER, value: '*Clique em um botão abaixo para começar.*' });
   }
 
+  const eComprar   = parseEmoji(cfg.shopEmojiComprar)   ?? '🛒';
+  const eVitrine   = parseEmoji(cfg.shopEmojiVitrine)   ?? '🖼️';
+  const eConverter = parseEmoji(cfg.shopEmojiConverter) ?? '🔄';
+  const eSaldo     = parseEmoji(cfg.shopEmojiSaldo)     ?? '💰';
+  const eGift      = parseEmoji(cfg.shopEmojiGift)      ?? '🎁';
+
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('shop_comprar').setLabel('Comprar').setEmoji('🛒').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('shop_vitrine').setLabel('Vitrine').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('shop_converter').setLabel('Converter').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('shop_saldo').setLabel('Meu Saldo').setEmoji('💰').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('shop_gift').setLabel('Presentear').setEmoji('🎁').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('shop_comprar').setLabel('Comprar').setEmoji(eComprar).setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('shop_vitrine').setLabel('Vitrine').setEmoji(eVitrine).setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('shop_converter').setLabel('Converter').setEmoji(eConverter).setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('shop_saldo').setLabel('Meu Saldo').setEmoji(eSaldo).setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('shop_gift').setLabel('Presentear').setEmoji(eGift).setStyle(ButtonStyle.Secondary),
   );
 
   return { embeds: [embed], components: [row] };

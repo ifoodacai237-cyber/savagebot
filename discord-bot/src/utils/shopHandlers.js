@@ -243,6 +243,11 @@ const LOJA_CFG_FIELDS = {
   conversao: { label: 'Texto conversão',  db: 'lojaConversao', max: 400,  paragraph: true  },
 };
 
+function fmtEmoji(val) {
+  if (!val) return '*padrão*';
+  return `\`${val}\``;
+}
+
 export function buildLojaConfigPayload(cfg) {
   const color    = cfg.lojaColor ? parseInt(cfg.lojaColor, 16) : SHOP_COLOR;
   const divOn    = cfg.lojaUseDivider ?? false;
@@ -259,6 +264,16 @@ export function buildLojaConfigPayload(cfg) {
       { name: '➖ Divisória',  value: divOn ? '✅ Ativada' : '❌ Desativada',                                               inline: true },
       { name: '🔄 Conversão', value: cfg.lojaConversao ? cfg.lojaConversao.slice(0, 100) + (cfg.lojaConversao.length > 100 ? '…' : '') : '*padrão*' },
       { name: '📝 Texto',     value: cfg.lojaText      ? cfg.lojaText.slice(0, 100)      + (cfg.lojaText.length      > 100 ? '…' : '') : '*padrão*' },
+      {
+        name: '😀 Emojis dos Botões',
+        value: [
+          `🛒 Comprar: ${fmtEmoji(cfg.shopEmojiComprar)}`,
+          `🖼️ Vitrine: ${fmtEmoji(cfg.shopEmojiVitrine)}`,
+          `🔄 Converter: ${fmtEmoji(cfg.shopEmojiConverter)}`,
+          `💰 Saldo: ${fmtEmoji(cfg.shopEmojiSaldo)}`,
+          `🎁 Presentear: ${fmtEmoji(cfg.shopEmojiGift)}`,
+        ].join('\n'),
+      },
     )
     .setFooter({ text: 'Fallen Bot · Personalizar Loja' });
 
@@ -276,6 +291,7 @@ export function buildLojaConfigPayload(cfg) {
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('loja_cfg_conversao').setLabel('Conversão').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('loja_cfg_divider').setLabel(divOn ? 'Divisória: ON' : 'Divisória: OFF').setEmoji('➖').setStyle(divOn ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('loja_cfg_emojis').setLabel('Emojis dos Botões').setEmoji('😀').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('loja_cfg_reset').setLabel('Resetar Tudo').setEmoji('♻️').setStyle(ButtonStyle.Danger),
   );
 
@@ -301,10 +317,48 @@ async function handleLojaCfgBtn(interaction) {
     await prisma.guildConfig.upsert({
       where:  { guildId: interaction.guildId },
       create: { guildId: interaction.guildId },
-      update: { lojaTitle: null, lojaText: null, lojaBanner: null, lojaThumb: null, lojaColor: null, lojaConversao: null, lojaUseDivider: false },
+      update: {
+        lojaTitle: null, lojaText: null, lojaBanner: null, lojaThumb: null,
+        lojaColor: null, lojaConversao: null, lojaUseDivider: false,
+        shopEmojiComprar: null, shopEmojiVitrine: null, shopEmojiConverter: null,
+        shopEmojiSaldo: null, shopEmojiGift: null,
+      },
     });
     const cfg = await getCfg(interaction.guildId);
     return interaction.update(buildLojaConfigPayload(cfg));
+  }
+
+  if (field === 'emojis') {
+    const cfg = await getCfg(interaction.guildId);
+    const modal = new ModalBuilder().setCustomId('loja_cfg_modal_emojis').setTitle('😀 Emojis dos Botões da Loja');
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('emoji_comprar').setLabel('Comprar (ex: 🛒 ou <:nome:id>)')
+          .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100)
+          .setPlaceholder('🛒').setValue(cfg.shopEmojiComprar ?? ''),
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('emoji_vitrine').setLabel('Vitrine (ex: 🖼️ ou <:nome:id>)')
+          .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100)
+          .setPlaceholder('🖼️').setValue(cfg.shopEmojiVitrine ?? ''),
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('emoji_converter').setLabel('Converter (ex: 🔄 ou <:nome:id>)')
+          .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100)
+          .setPlaceholder('🔄').setValue(cfg.shopEmojiConverter ?? ''),
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('emoji_saldo').setLabel('Meu Saldo (ex: 💰 ou <:nome:id>)')
+          .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100)
+          .setPlaceholder('💰').setValue(cfg.shopEmojiSaldo ?? ''),
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('emoji_gift').setLabel('Presentear (ex: 🎁 ou <:nome:id>)')
+          .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100)
+          .setPlaceholder('🎁').setValue(cfg.shopEmojiGift ?? ''),
+      ),
+    );
+    return interaction.showModal(modal);
   }
 
   if (field === 'divider') {
@@ -345,7 +399,25 @@ async function handleLojaConfigModal(interaction) {
   await interaction.deferReply({ ephemeral: true });
 
   const field = interaction.customId.replace('loja_cfg_modal_', '');
-  const def   = LOJA_CFG_FIELDS[field];
+
+  if (field === 'emojis') {
+    const comprar   = interaction.fields.getTextInputValue('emoji_comprar').trim()   || null;
+    const vitrine   = interaction.fields.getTextInputValue('emoji_vitrine').trim()   || null;
+    const converter = interaction.fields.getTextInputValue('emoji_converter').trim() || null;
+    const saldo     = interaction.fields.getTextInputValue('emoji_saldo').trim()     || null;
+    const gift      = interaction.fields.getTextInputValue('emoji_gift').trim()       || null;
+
+    await prisma.guildConfig.upsert({
+      where:  { guildId: interaction.guildId },
+      create: { guildId: interaction.guildId, shopEmojiComprar: comprar, shopEmojiVitrine: vitrine, shopEmojiConverter: converter, shopEmojiSaldo: saldo, shopEmojiGift: gift },
+      update: { shopEmojiComprar: comprar, shopEmojiVitrine: vitrine, shopEmojiConverter: converter, shopEmojiSaldo: saldo, shopEmojiGift: gift },
+    });
+
+    const cfg = await getCfg(interaction.guildId);
+    return interaction.editReply({ content: '✅ **Emojis dos botões** atualizados!', ...buildLojaConfigPayload(cfg) });
+  }
+
+  const def = LOJA_CFG_FIELDS[field];
   if (!def) return interaction.editReply({ content: '❌ Campo inválido.' });
 
   let value = interaction.fields.getTextInputValue('value').trim() || null;
