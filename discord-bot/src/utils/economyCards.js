@@ -33,50 +33,52 @@ function drawSparkle(ctx, x, y, size, color) {
   ctx.restore();
 }
 
-// ─── Playing card (cute pastel style) ────────────────────────────────────────
+// ─── Playing card (clean realistic style matching reference) ─────────────────
 
 function drawCard(ctx, x, y, rank, suit, scale = 1) {
-  const cw = Math.round(70 * scale), ch = Math.round(98 * scale), cr = Math.round(10 * scale);
+  const cw = Math.round(78 * scale), ch = Math.round(108 * scale), cr = Math.round(10 * scale);
   const isRed = suit === '♥' || suit === '♦';
-  const col   = isRed ? '#E84393' : '#5A4AE3';
+  const col   = isRed ? '#CC2222' : '#111111';
 
-  ctx.shadowColor   = 'rgba(180,120,200,0.35)';
-  ctx.shadowBlur    = 12;
-  ctx.shadowOffsetY = 5;
+  // Drop shadow
+  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 10;
+  ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 4;
 
-  const cardGrad = ctx.createLinearGradient(x, y, x, y + ch);
-  cardGrad.addColorStop(0, '#FFFEF8');
-  cardGrad.addColorStop(1, '#F7F0FF');
-  ctx.fillStyle = cardGrad;
-  roundRect(ctx, x, y, cw, ch, cr);
-  ctx.fill();
+  // White card body
+  ctx.fillStyle = '#FFFFFF';
+  roundRect(ctx, x, y, cw, ch, cr); ctx.fill();
 
-  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
 
-  ctx.strokeStyle = isRed ? 'rgba(232,67,147,0.4)' : 'rgba(90,74,227,0.4)';
-  ctx.lineWidth = 1.5;
+  // Border
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1;
   roundRect(ctx, x, y, cw, ch, cr); ctx.stroke();
 
+  const fs = Math.round(15 * scale);
   ctx.fillStyle = col;
-  ctx.font = `bold ${Math.round(13 * scale)}px ${FONT}`;
-  ctx.textAlign = 'left';
-  ctx.fillText(rank, x + Math.round(5 * scale), y + Math.round(16 * scale));
+
+  // Top-left rank
+  ctx.font = `bold ${fs}px ${FONT}`; ctx.textAlign = 'left';
+  ctx.fillText(rank, x + Math.round(7 * scale), y + Math.round(20 * scale));
+  // Top-left suit (smaller)
   ctx.font = `${Math.round(12 * scale)}px ${FONT}`;
-  ctx.fillText(suit, x + Math.round(5 * scale), y + Math.round(29 * scale));
+  ctx.fillText(suit, x + Math.round(7 * scale), y + Math.round(34 * scale));
 
-  ctx.font = `${Math.round(30 * scale)}px ${FONT}`;
+  // Center large suit
+  ctx.font = `${Math.round(40 * scale)}px ${FONT}`;
   ctx.textAlign = 'center';
-  ctx.fillText(suit, x + cw / 2, y + ch / 2 + Math.round(10 * scale));
+  ctx.fillText(suit, x + cw / 2, y + ch / 2 + Math.round(14 * scale));
 
+  // Bottom-right (rotated)
   ctx.save();
   ctx.translate(x + cw, y + ch);
   ctx.rotate(Math.PI);
   ctx.fillStyle = col;
-  ctx.font = `bold ${Math.round(13 * scale)}px ${FONT}`;
-  ctx.textAlign = 'left';
-  ctx.fillText(rank, Math.round(5 * scale), Math.round(16 * scale));
+  ctx.font = `bold ${fs}px ${FONT}`; ctx.textAlign = 'left';
+  ctx.fillText(rank, Math.round(7 * scale), Math.round(20 * scale));
   ctx.font = `${Math.round(12 * scale)}px ${FONT}`;
-  ctx.fillText(suit, Math.round(5 * scale), Math.round(29 * scale));
+  ctx.fillText(suit, Math.round(7 * scale), Math.round(34 * scale));
   ctx.restore();
 }
 
