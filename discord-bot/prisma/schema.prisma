@@ -166,6 +166,8 @@ model UserProfile {
   bio             String?
   marriedTo       String?
   marriedToName   String?
+  cardBg1         String?
+  cardBg2         String?
 }
 
 model Pet {

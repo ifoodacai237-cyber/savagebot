@@ -121,7 +121,7 @@ async function drawStatIcon(ctx, x, y, size, emojiOrImg, coinImg) {
 export async function generateProfileCard({
   username, avatarUrl, balance, bank, activeBanner, purchases,
   activeRing, ringBorderColor = null, activePet, guildBadgeEmojis = {}, guildId = null,
-  marriedToName = null, bio = null,
+  marriedToName = null, bio = null, cardBg1 = null, cardBg2 = null,
 }) {
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
@@ -131,8 +131,17 @@ export async function generateProfileCard({
   let coinImg = null;
   try { coinImg = await loadUrl(COIN_URL); } catch {}
 
-  // ── Card background: white ────────────────────────────────────────────────────
-  ctx.fillStyle = '#ffffff';
+  // ── Card background ───────────────────────────────────────────────────────────
+  if (cardBg1 && cardBg2) {
+    const g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, cardBg1);
+    g.addColorStop(1, cardBg2);
+    ctx.fillStyle = g;
+  } else if (cardBg1) {
+    ctx.fillStyle = cardBg1;
+  } else {
+    ctx.fillStyle = '#ffffff';
+  }
   ctx.fillRect(0, 0, W, H);
 
   // ── Banner area ───────────────────────────────────────────────────────────────

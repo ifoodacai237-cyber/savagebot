@@ -42,7 +42,7 @@ export default {
     const activeBanner = profile?.activeBanner ?? null;
     const activeRing   = profile?.activeRing ?? null;
 
-    const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, ringBorderColor: profile?.ringBorderColor ?? null, activePet: activePetEmoji, guildBadgeEmojis, guildId: interaction.guildId, marriedToName: profile?.marriedToName ?? null, bio: profile?.bio ?? null });
+    const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, ringBorderColor: profile?.ringBorderColor ?? null, activePet: activePetEmoji, guildBadgeEmojis, guildId: interaction.guildId, marriedToName: profile?.marriedToName ?? null, bio: profile?.bio ?? null, cardBg1: profile?.cardBg1 ?? null, cardBg2: profile?.cardBg2 ?? null });
     const attachment = new AttachmentBuilder(buf, { name: 'perfil.png' });
 
     const row = new ActionRowBuilder().addComponents(
@@ -55,6 +55,11 @@ export default {
         .setCustomId('profile_ring_btn')
         .setLabel('Mudar Argola')
         .setEmoji('💠')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('profile_bg_btn')
+        .setLabel('Fundo')
+        .setEmoji('🎨')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('profile_pet_btn')
@@ -100,6 +105,8 @@ export default {
       activePet:       activePetEmoji,
       marriedToName:   profile?.marriedToName ?? null,
       bio:             profile?.bio           ?? null,
+      cardBg1:         profile?.cardBg1       ?? null,
+      cardBg2:         profile?.cardBg2       ?? null,
       purchases,
       guildBadgeEmojis,
       guildId: message.guildId,

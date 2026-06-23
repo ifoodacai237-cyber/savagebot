@@ -462,6 +462,10 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'profile_ring_border_reset')      return handleProfileRingBorderReset(interaction);
     if (id === 'profile_ring_remove')            return handleProfileRingRemove(interaction);
     if (id.startsWith('profile_ring_preset:'))   return handleProfileRingPreset(interaction);
+    if (id === 'profile_bg_btn')                 return handleProfileBgBtn(interaction);
+    if (id === 'profile_bg_solid')               return handleProfileBgSolid(interaction);
+    if (id === 'profile_bg_gradient')            return handleProfileBgGradient(interaction);
+    if (id === 'profile_bg_reset')               return handleProfileBgReset(interaction);
     if (id === 'profile_pet_btn')                return handleProfilePetBtn(interaction);
     if (id.startsWith('loja_cfg_'))              return handleLojaCfgBtn(interaction);
     if (id === 'loja_admin_cargos')              return handleLojaAdminCargos(interaction);
@@ -489,6 +493,8 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'loja_admin_modal_add_cargo')     return handleLojaAdminAddCargoModal(interaction);
     if (id === 'profile_ring_custom_modal')      return handleProfileRingCustomModal(interaction);
     if (id === 'profile_ring_border_modal')      return handleProfileRingBorderModal(interaction);
+    if (id === 'profile_bg_solid_modal')         return handleProfileBgSolidModal(interaction);
+    if (id === 'profile_bg_gradient_modal')      return handleProfileBgGradientModal(interaction);
   }
 }
 
@@ -1548,5 +1554,129 @@ async function handleProfileBannerSel(interaction) {
   return interaction.update({
     content: bannerName ? `✅ Banner **${bannerName}** equipado! Use \`/perfil\` para ver.` : '✅ Banner removido.',
     components: [],
+  });
+}
+
+// ─── 🎨 Fundo do Card ─────────────────────────────────────────────────────────
+
+function bgDescription(cardBg1, cardBg2) {
+  if (cardBg1 && cardBg2) return `🌈 Gradiente: \`${cardBg1}\` → \`${cardBg2}\``;
+  if (cardBg1)             return `🟦 Cor sólida: \`${cardBg1}\``;
+  return '⬜ Branco (padrão)';
+}
+
+async function handleProfileBgBtn(interaction) {
+  const profile = await prisma.userProfile.findUnique({ where: { userId: interaction.user.id } });
+  const bg1 = profile?.cardBg1 ?? null;
+  const bg2 = profile?.cardBg2 ?? null;
+
+  return interaction.reply({
+    embeds: [
+      new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🎨 Fundo do Card')
+        .setDescription(
+          `Personalize o fundo do seu card de perfil.\n\n` +
+          `**Fundo atual:** ${bgDescription(bg1, bg2)}\n\n` +
+          `Escolha uma opção abaixo:`
+        )
+        .setFooter({ text: 'Use /perfil para ver o resultado' }),
+    ],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('profile_bg_solid').setLabel('Cor Sólida').setEmoji('🟦').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('profile_bg_gradient').setLabel('Gradiente').setEmoji('🌈').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('profile_bg_reset').setLabel('Resetar (Branco)').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
+      ),
+    ],
+    ephemeral: true,
+  });
+}
+
+async function handleProfileBgSolid(interaction) {
+  const modal = new ModalBuilder().setCustomId('profile_bg_solid_modal').setTitle('🟦 Cor Sólida do Fundo');
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder().setCustomId('hex')
+        .setLabel('Cor em Hex (ex: F0E6FF para roxo claro)')
+        .setStyle(TextInputStyle.Short).setRequired(true)
+        .setMinLength(6).setMaxLength(7).setPlaceholder('F0E6FF')
+    )
+  );
+  return interaction.showModal(modal);
+}
+
+async function handleProfileBgGradient(interaction) {
+  const modal = new ModalBuilder().setCustomId('profile_bg_gradient_modal').setTitle('🌈 Gradiente do Fundo');
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder().setCustomId('hex1')
+        .setLabel('Cor inicial (ex: 1a0533)')
+        .setStyle(TextInputStyle.Short).setRequired(true)
+        .setMinLength(6).setMaxLength(7).setPlaceholder('1a0533')
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder().setCustomId('hex2')
+        .setLabel('Cor final (ex: 4a1a8a)')
+        .setStyle(TextInputStyle.Short).setRequired(true)
+        .setMinLength(6).setMaxLength(7).setPlaceholder('4a1a8a')
+    )
+  );
+  return interaction.showModal(modal);
+}
+
+async function handleProfileBgReset(interaction) {
+  await prisma.userProfile.upsert({
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, cardBg1: null, cardBg2: null },
+    update: { cardBg1: null, cardBg2: null },
+  });
+  return interaction.update({
+    embeds: [
+      new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🎨 Fundo do Card')
+        .setDescription('✅ Fundo resetado para **branco** (padrão).\nUse `/perfil` para ver.')
+        .setFooter({ text: 'Use /perfil para ver o resultado' }),
+    ],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('profile_bg_solid').setLabel('Cor Sólida').setEmoji('🟦').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('profile_bg_gradient').setLabel('Gradiente').setEmoji('🌈').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('profile_bg_reset').setLabel('Resetar (Branco)').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
+      ),
+    ],
+  });
+}
+
+async function handleProfileBgSolidModal(interaction) {
+  let hex = interaction.fields.getTextInputValue('hex').trim().replace(/^#/, '').toUpperCase();
+  if (!/^[0-9A-F]{6}$/.test(hex))
+    return interaction.reply({ content: '❌ Cor inválida! Use um hex de 6 dígitos (ex: `F0E6FF`).', ephemeral: true });
+
+  await prisma.userProfile.upsert({
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, cardBg1: `#${hex}`, cardBg2: null },
+    update: { cardBg1: `#${hex}`, cardBg2: null },
+  });
+
+  return interaction.reply({
+    content: `✅ Fundo alterado para cor sólida \`#${hex}\`! Use \`/perfil\` para ver.`,
+    ephemeral: true,
+  });
+}
+
+async function handleProfileBgGradientModal(interaction) {
+  let hex1 = interaction.fields.getTextInputValue('hex1').trim().replace(/^#/, '').toUpperCase();
+  let hex2 = interaction.fields.getTextInputValue('hex2').trim().replace(/^#/, '').toUpperCase();
+
+  if (!/^[0-9A-F]{6}$/.test(hex1) || !/^[0-9A-F]{6}$/.test(hex2))
+    return interaction.reply({ content: '❌ Uma das cores é inválida! Use hex de 6 dígitos (ex: `1a0533`).', ephemeral: true });
+
+  await prisma.userProfile.upsert({
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, cardBg1: `#${hex1}`, cardBg2: `#${hex2}` },
+    update: { cardBg1: `#${hex1}`, cardBg2: `#${hex2}` },
+  });
+
+  return interaction.reply({
+    content: `✅ Fundo alterado para gradiente \`#${hex1}\` → \`#${hex2}\`! Use \`/perfil\` para ver.`,
+    ephemeral: true,
   });
 }
