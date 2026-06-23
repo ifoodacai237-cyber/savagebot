@@ -1,5 +1,120 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SectionBuilder,
+  ThumbnailBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
+  MessageFlags,
+} from 'discord.js';
 import { buildConfigEmbed, Colors } from './embed.js';
+
+// ─── Botão de abrir ticket ────────────────────────────────────────────────────
+
+const BTN_STYLE_MAP = {
+  Primary:   ButtonStyle.Primary,
+  Secondary: ButtonStyle.Secondary,
+  Success:   ButtonStyle.Success,
+  Danger:    ButtonStyle.Danger,
+};
+
+export function buildTicketOpenButton(cfg) {
+  const label    = cfg.ticketBtnLabel || 'Abrir Ticket';
+  const emojiRaw = (cfg.ticketBtnEmoji || '🎫').trim();
+  const style    = BTN_STYLE_MAP[cfg.ticketBtnStyle] ?? ButtonStyle.Primary;
+  const btn = new ButtonBuilder().setCustomId('ticket_open').setLabel(label).setStyle(style);
+  const match = emojiRaw.match(/^<(a?):([^:>\s]+):(\d+)>$/);
+  if (match) btn.setEmoji({ animated: match[1] === 'a', name: match[2], id: match[3] });
+  else if (emojiRaw) btn.setEmoji(emojiRaw);
+  return btn;
+}
+
+// ─── Painel público V2 (sem barra lateral quando sem cor) ─────────────────────
+
+export function buildTicketPanelV2(cfg) {
+  const container = new ContainerBuilder();
+
+  // Só define accentColor se o admin configurou uma cor — sem cor = sem barra lateral
+  if (cfg.ticketColor) {
+    const parsed = parseInt(cfg.ticketColor, 16);
+    if (!isNaN(parsed)) container.setAccentColor(parsed);
+  }
+
+  const base = cfg.ticketText ?? DEFAULT_TICKET_TEXT;
+  const body = cfg.ticketUseSeparator
+    ? `──────────────────────────────────\n\n${base}`
+    : base;
+
+  const titleLine = cfg.ticketTitle ? `## ${cfg.ticketTitle}\n\n` : '';
+  const fullText  = `${titleLine}${body}`;
+
+  if (cfg.ticketBanner) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(cfg.ticketBanner)),
+    );
+  }
+
+  if (cfg.ticketThumb) {
+    const section = new SectionBuilder()
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText))
+      .setThumbnailAccessory(new ThumbnailBuilder().setURL(cfg.ticketThumb));
+    container.addSectionComponents(section);
+  } else {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText));
+  }
+
+  if (cfg.ticketFooter) {
+    container.addSeparatorComponents(new SeparatorBuilder());
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${cfg.ticketFooter}`));
+  }
+
+  const row = new ActionRowBuilder().addComponents(buildTicketOpenButton(cfg));
+  return { components: [container, row], flags: MessageFlags.IsComponentsV2 };
+}
+
+export function buildTellonymPanelV2(cfg) {
+  const container = new ContainerBuilder();
+
+  // Só define accentColor se o admin configurou uma cor — sem cor = sem barra lateral
+  if (cfg.tellonymColor) {
+    const parsed = parseInt(cfg.tellonymColor, 16);
+    if (!isNaN(parsed)) container.setAccentColor(parsed);
+  }
+
+  const body      = cfg.tellonymText ?? DEFAULT_TELLONYM_TEXT;
+  const titleLine = cfg.tellonymTitle ? `## ${cfg.tellonymTitle}\n\n` : '';
+  const fullText  = `${titleLine}${body}`;
+
+  if (cfg.tellonymBanner) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(cfg.tellonymBanner)),
+    );
+  }
+
+  if (cfg.tellonymThumb) {
+    const section = new SectionBuilder()
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText))
+      .setThumbnailAccessory(new ThumbnailBuilder().setURL(cfg.tellonymThumb));
+    container.addSectionComponents(section);
+  } else {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText));
+  }
+
+  if (cfg.tellonymFooter) {
+    container.addSeparatorComponents(new SeparatorBuilder());
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${cfg.tellonymFooter}`));
+  }
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('tellonym_send').setLabel('Enviar Mensagem').setEmoji('💌').setStyle(ButtonStyle.Secondary),
+  );
+  return { components: [container, row], flags: MessageFlags.IsComponentsV2 };
+}
 
 // ─── Botões de Config ─────────────────────────────────────────────────────────
 
@@ -78,11 +193,11 @@ export function welcomeConfigButtons(enabled = true) {
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 
-export const DEFAULT_TICKET_TEXT     = '> Clique no botão abaixo para abrir um ticket de suporte.\n> Nossa equipe irá te atender em breve.';
+export const DEFAULT_TICKET_TEXT      = '> Clique no botão abaixo para abrir um ticket de suporte.\n> Nossa equipe irá te atender em breve.';
 export const DEFAULT_TICKET_OPEN_TEXT = 'Aguarde um instante, em breve um membro da equipe irá lhe atender.';
-export const DEFAULT_TELLONYM_TEXT = '> Clique no botão abaixo para enviar uma mensagem.\n> Você poderá escolher entre **anônimo** ou **marcar alguém**.';
-export const DEFAULT_WELCOME_TITLE = '👋 Bem-vindo(a) ao {server}!';
-export const DEFAULT_WELCOME_TEXT  = '> Seja bem-vindo(a), {user}!\n> Esperamos que você tenha uma ótima experiência aqui.\n> Você é o membro nº **{count}**!';
+export const DEFAULT_TELLONYM_TEXT    = '> Clique no botão abaixo para enviar uma mensagem.\n> Você poderá escolher entre **anônimo** ou **marcar alguém**.';
+export const DEFAULT_WELCOME_TITLE    = '👋 Bem-vindo(a) ao {server}!';
+export const DEFAULT_WELCOME_TEXT     = '> Seja bem-vindo(a), {user}!\n> Esperamos que você tenha uma ótima experiência aqui.\n> Você é o membro nº **{count}**!';
 
 export const DEFAULT_QUESTIONS = [
   'Qual é o assunto do ticket?',
@@ -90,41 +205,47 @@ export const DEFAULT_QUESTIONS = [
   'Há alguma informação adicional relevante?',
 ];
 
-// ─── Payload builders ─────────────────────────────────────────────────────────
+// ─── Payload builders (painel de configuração admin) ─────────────────────────
 
-const BTN_STYLE_LABELS = { Primary: '🔵 Azul (Primary)', Secondary: '⚫ Cinza (Secondary)', Success: '🟢 Verde (Success)', Danger: '🔴 Vermelho (Danger)' };
+const BTN_STYLE_LABELS = {
+  Primary:   '🔵 Azul (Primary)',
+  Secondary: '⚫ Cinza (Secondary)',
+  Success:   '🟢 Verde (Success)',
+  Danger:    '🔴 Vermelho (Danger)',
+};
 
 export function buildTicketConfigPayload(cfg) {
   const color = cfg.ticketColor ? (parseInt(cfg.ticketColor, 16) || Colors.PRIMARY) : Colors.PRIMARY;
-  const texto   = cfg.ticketText    || DEFAULT_TICKET_TEXT;
+  const texto    = cfg.ticketText    || DEFAULT_TICKET_TEXT;
   const openText = cfg.ticketOpenText || DEFAULT_TICKET_OPEN_TEXT;
 
   const btnStyleLabel = BTN_STYLE_LABELS[cfg.ticketBtnStyle] ?? '🔵 Azul (Primary)';
-  const sepStatus = cfg.ticketUseSeparator ? '✅ Ativado' : '❌ Desativado';
+  const sepStatus     = cfg.ticketUseSeparator ? '✅ Ativado' : '❌ Desativado';
+  const semLateral    = !cfg.ticketColor;
 
   const configEmbed = new EmbedBuilder()
     .setColor(color)
     .setTitle('🎫 Configuração — Tickets')
     .setDescription('Edite cada campo pelos botões abaixo. O preview atualiza a cada alteração.')
     .addFields(
-      { name: '🎨 Cor',        value: cfg.ticketColor    ? `\`#${cfg.ticketColor}\`` : '*(sem lateral)*',          inline: true },
-      { name: '📝 Título',     value: cfg.ticketTitle    || '*(não definido)*',                                  inline: true },
-      { name: '👇 Rodapé',     value: cfg.ticketFooter   || '*(não definido)*',                                  inline: true },
-      { name: '🖼️ Banner',    value: cfg.ticketBanner   ? '✅ definido' : '*(não definido)*',                  inline: true },
-      { name: '📷 Thumbnail',  value: cfg.ticketThumb    ? '✅ definido' : '*(não definido)*',                  inline: true },
-      { name: '📂 Categoria',  value: cfg.ticketCategory ? `<#${cfg.ticketCategory}>` : '*(não definido)*',    inline: true },
-      { name: '🔔 Ping Equipe',value: cfg.ticketPingRole ? `<@&${cfg.ticketPingRole}>` : '*(desativado)*',     inline: true },
-      { name: '🔘 Botão',      value: `\`${cfg.ticketBtnLabel || 'Abrir Ticket'}\` ${cfg.ticketBtnEmoji || '🎫'} — ${btnStyleLabel}`, inline: true },
-      { name: '➖ Separador',   value: sepStatus,                                                                inline: true },
-      { name: '✏️ Texto (Painel)', value: texto.length > 100 ? texto.slice(0, 97) + '...' : texto,             inline: false },
-      { name: '💬 Texto (Abertura)', value: openText.length > 100 ? openText.slice(0, 97) + '...' : openText,  inline: false },
+      { name: '🎨 Cor',          value: cfg.ticketColor  ? `\`#${cfg.ticketColor}\`` : '*(sem lateral)*', inline: true },
+      { name: '📝 Título',       value: cfg.ticketTitle  || '*(não definido)*',                           inline: true },
+      { name: '👇 Rodapé',       value: cfg.ticketFooter || '*(não definido)*',                           inline: true },
+      { name: '🖼️ Banner',      value: cfg.ticketBanner ? '✅ definido' : '*(não definido)*',            inline: true },
+      { name: '📷 Thumbnail',    value: cfg.ticketThumb  ? '✅ definido' : '*(não definido)*',            inline: true },
+      { name: '📂 Categoria',    value: cfg.ticketCategory ? `<#${cfg.ticketCategory}>` : '*(não definido)*', inline: true },
+      { name: '🔔 Ping Equipe',  value: cfg.ticketPingRole ? `<@&${cfg.ticketPingRole}>` : '*(desativado)*', inline: true },
+      { name: '🔘 Botão',        value: `\`${cfg.ticketBtnLabel || 'Abrir Ticket'}\` ${cfg.ticketBtnEmoji || '🎫'} — ${btnStyleLabel}`, inline: true },
+      { name: '➖ Separador',     value: sepStatus,                                                        inline: true },
+      { name: '✏️ Texto (Painel)',    value: texto.length > 100   ? texto.slice(0, 97) + '...'   : texto,   inline: false },
+      { name: '💬 Texto (Abertura)', value: openText.length > 100 ? openText.slice(0, 97) + '...' : openText, inline: false },
     );
 
   const previewEmbed = buildConfigEmbed({
-    color: cfg.ticketColor, banner: cfg.ticketBanner,
-    thumbnail: cfg.ticketThumb, footer: cfg.ticketFooter,
-    title: cfg.ticketTitle, description: texto,
-  }).setAuthor({ name: '👁️ Preview — como o painel vai aparecer' });
+    color: semLateral ? null : cfg.ticketColor,
+    banner: cfg.ticketBanner, thumbnail: cfg.ticketThumb,
+    footer: cfg.ticketFooter, title: cfg.ticketTitle, description: texto,
+  }).setAuthor({ name: semLateral ? '👁️ Preview — sem barra lateral' : '👁️ Preview — como o painel vai aparecer' });
 
   return { embeds: [configEmbed, previewEmbed], components: ticketConfigButtons(cfg) };
 }
@@ -132,35 +253,36 @@ export function buildTicketConfigPayload(cfg) {
 export function buildTellonymConfigPayload(cfg) {
   const color = cfg.tellonymColor ? (parseInt(cfg.tellonymColor, 16) || Colors.TELLONYM) : Colors.TELLONYM;
   const texto = cfg.tellonymText ?? DEFAULT_TELLONYM_TEXT;
+  const semLateral = !cfg.tellonymColor;
 
   const configEmbed = new EmbedBuilder()
     .setColor(color)
     .setTitle('💌 Configuração — Tellonym')
     .setDescription('Edite cada campo pelos botões abaixo. O preview atualiza a cada alteração.')
     .addFields(
-      { name: '🎨 Cor',       value: cfg.tellonymColor   ? `\`#${cfg.tellonymColor}\`` : '*(sem lateral)*',        inline: true },
-      { name: '📝 Título',    value: cfg.tellonymTitle    || '*(não definido)*',                                 inline: true },
-      { name: '👇 Rodapé',    value: cfg.tellonymFooter   || '*(não definido)*',                                 inline: true },
-      { name: '🖼️ Banner',   value: cfg.tellonymBanner   ? '✅ definido' : '*(não definido)*',                 inline: true },
-      { name: '📷 Thumbnail', value: cfg.tellonymThumb    ? '✅ definido' : '*(não definido)*',                 inline: true },
-      { name: '📣 Canal',     value: cfg.tellonymChannel  ? `<#${cfg.tellonymChannel}>` : '*(não definido)*',  inline: true },
-      { name: '✏️ Texto',     value: texto.length > 100   ? texto.slice(0, 97) + '...' : texto,                 inline: false },
+      { name: '🎨 Cor',       value: cfg.tellonymColor  ? `\`#${cfg.tellonymColor}\`` : '*(sem lateral)*', inline: true },
+      { name: '📝 Título',    value: cfg.tellonymTitle   || '*(não definido)*',                             inline: true },
+      { name: '👇 Rodapé',    value: cfg.tellonymFooter  || '*(não definido)*',                             inline: true },
+      { name: '🖼️ Banner',   value: cfg.tellonymBanner  ? '✅ definido' : '*(não definido)*',              inline: true },
+      { name: '📷 Thumbnail', value: cfg.tellonymThumb   ? '✅ definido' : '*(não definido)*',              inline: true },
+      { name: '📣 Canal',     value: cfg.tellonymChannel ? `<#${cfg.tellonymChannel}>` : '*(não definido)*', inline: true },
+      { name: '✏️ Texto',     value: texto.length > 100  ? texto.slice(0, 97) + '...' : texto,              inline: false },
     );
 
   const previewEmbed = buildConfigEmbed({
-    color: cfg.tellonymColor, banner: cfg.tellonymBanner,
-    thumbnail: cfg.tellonymThumb, footer: cfg.tellonymFooter,
-    title: cfg.tellonymTitle, description: texto,
-  }).setAuthor({ name: '👁️ Preview — como o painel vai aparecer' });
+    color: semLateral ? null : cfg.tellonymColor,
+    banner: cfg.tellonymBanner, thumbnail: cfg.tellonymThumb,
+    footer: cfg.tellonymFooter, title: cfg.tellonymTitle, description: texto,
+  }).setAuthor({ name: semLateral ? '👁️ Preview — sem barra lateral' : '👁️ Preview — como o painel vai aparecer' });
 
   return { embeds: [configEmbed, previewEmbed], components: tellonymConfigButtons() };
 }
 
 export function buildWelcomeConfigPayload(cfg) {
-  const color    = cfg.welcomeColor ? (parseInt(cfg.welcomeColor, 16) || 0x5865F2) : 0x5865F2;
-  const titulo   = cfg.welcomeTitle ?? DEFAULT_WELCOME_TITLE;
-  const texto    = cfg.welcomeText  ?? DEFAULT_WELCOME_TEXT;
-  const enabled  = cfg.welcomeEnabled ?? true;
+  const color   = cfg.welcomeColor ? (parseInt(cfg.welcomeColor, 16) || 0x5865F2) : 0x5865F2;
+  const titulo  = cfg.welcomeTitle ?? DEFAULT_WELCOME_TITLE;
+  const texto   = cfg.welcomeText  ?? DEFAULT_WELCOME_TEXT;
+  const enabled = cfg.welcomeEnabled ?? true;
 
   const rolesStr = cfg.welcomeRoles
     ? cfg.welcomeRoles.split(',').filter(Boolean).map(id => `<@&${id.trim()}>`).join(' ') || '*(nenhum)*'
@@ -178,34 +300,34 @@ export function buildWelcomeConfigPayload(cfg) {
       '`{user}` `{username}` `{server}` `{count}`',
     )
     .addFields(
-      { name: '🎨 Cor',          value: cfg.welcomeColor   ? `\`#${cfg.welcomeColor}\`` : '*(sem lateral)*',         inline: true },
-      { name: '📝 Título',       value: titulo.length > 50 ? titulo.slice(0, 47) + '...' : titulo,               inline: true },
-      { name: '👇 Rodapé',       value: cfg.welcomeFooter  || '*(não definido)*',                                inline: true },
-      { name: '🖼️ Banner',      value: cfg.welcomeBanner  ? '✅ definido' : '*(avatar do usuário)*',           inline: true },
-      { name: '📷 Thumbnail',    value: cfg.welcomeThumb   ? '✅ definido' : '*(avatar do usuário)*',           inline: true },
-      { name: '📣 Canal',        value: cfg.welcomeChannel ? `<#${cfg.welcomeChannel}>` : '*(não definido)*',   inline: true },
-      { name: '🔔 Cargos',       value: rolesStr,                                                                 inline: true },
-      { name: '🔗 Canais',       value: chansStr,                                                                 inline: true },
-      { name: '✏️ Texto',        value: texto.length > 120 ? texto.slice(0, 117) + '...' : texto,               inline: false },
+      { name: '🎨 Cor',       value: cfg.welcomeColor  ? `\`#${cfg.welcomeColor}\`` : '*(sem lateral)*', inline: true },
+      { name: '📝 Título',    value: titulo.length > 50 ? titulo.slice(0, 47) + '...' : titulo,          inline: true },
+      { name: '👇 Rodapé',    value: cfg.welcomeFooter  || '*(não definido)*',                            inline: true },
+      { name: '🖼️ Banner',   value: cfg.welcomeBanner  ? '✅ definido' : '*(avatar do usuário)*',       inline: true },
+      { name: '📷 Thumbnail', value: cfg.welcomeThumb   ? '✅ definido' : '*(avatar do usuário)*',       inline: true },
+      { name: '📣 Canal',     value: cfg.welcomeChannel ? `<#${cfg.welcomeChannel}>` : '*(não definido)*', inline: true },
+      { name: '🔔 Cargos',    value: rolesStr,                                                            inline: true },
+      { name: '🔗 Canais',    value: chansStr,                                                            inline: true },
+      { name: '✏️ Texto',     value: texto.length > 120  ? texto.slice(0, 117) + '...' : texto,          inline: false },
     );
 
-  const previewDesc = texto
+  const previewDesc  = texto
     .replace(/\{user\}/g,     '`@NovoMembro`')
     .replace(/\{username\}/g, 'NovoMembro')
     .replace(/\{server\}/g,   cfg.guildName ?? 'Servidor')
     .replace(/\{count\}/g,    '1.234');
 
   const previewTitle = titulo
-    .replace(/\{server\}/g, cfg.guildName ?? 'Servidor')
+    .replace(/\{server\}/g,   cfg.guildName ?? 'Servidor')
     .replace(/\{username\}/g, 'NovoMembro')
-    .replace(/\{count\}/g,   '1.234');
+    .replace(/\{count\}/g,    '1.234');
 
   const previewEmbed = new EmbedBuilder()
     .setColor(color)
     .setTitle(previewTitle)
     .setDescription(previewDesc)
     .setTimestamp()
-    .setAuthor({ name: '👁️ Preview — como a mensagem vai aparecer' });
+    .setAuthor({ name: !cfg.welcomeColor ? '👁️ Preview — sem barra lateral' : '👁️ Preview — como a mensagem vai aparecer' });
 
   if (cfg.welcomeBanner) previewEmbed.setImage(cfg.welcomeBanner);
   if (cfg.welcomeThumb)  previewEmbed.setThumbnail(cfg.welcomeThumb);

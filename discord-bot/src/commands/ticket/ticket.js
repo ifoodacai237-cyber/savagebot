@@ -1,55 +1,21 @@
 import {
   SlashCommandBuilder,
   PermissionFlagsBits,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  SeparatorBuilder,
-  MessageFlags,
 } from 'discord.js';
 import prisma from '../../database/client.js';
-import { buildConfigEmbed, errorEmbed, successEmbed } from '../../utils/embed.js';
-import { buildTicketConfigPayload, DEFAULT_TICKET_TEXT } from '../../utils/configPanels.js';
-
-const BTN_STYLE_MAP = {
-  Primary:   ButtonStyle.Primary,
-  Secondary: ButtonStyle.Secondary,
-  Success:   ButtonStyle.Success,
-  Danger:    ButtonStyle.Danger,
-};
+import { errorEmbed, successEmbed } from '../../utils/embed.js';
+import {
+  buildTicketConfigPayload,
+  buildTicketPanelV2,
+} from '../../utils/configPanels.js';
 
 async function getOrCreate(guildId) {
   return prisma.guildConfig.upsert({ where: { guildId }, create: { guildId }, update: {} });
 }
 
-function buildOpenButton(cfg) {
-  const label    = cfg.ticketBtnLabel || 'Abrir Ticket';
-  const emojiRaw = (cfg.ticketBtnEmoji || '🎫').trim();
-  const style    = BTN_STYLE_MAP[cfg.ticketBtnStyle] ?? ButtonStyle.Primary;
-  const btn = new ButtonBuilder().setCustomId('ticket_open').setLabel(label).setStyle(style);
-  const match = emojiRaw.match(/^<(a?):([^:>\s]+):(\d+)>$/);
-  if (match) btn.setEmoji({ animated: match[1] === 'a', name: match[2], id: match[3] });
-  else if (emojiRaw) btn.setEmoji(emojiRaw);
-  return btn;
-}
-
 async function sendPanel(target, guildId) {
-  const cfg  = await getOrCreate(guildId);
-  const desc = cfg.ticketText ?? DEFAULT_TICKET_TEXT;
-  const row  = new ActionRowBuilder().addComponents(buildOpenButton(cfg));
-
-  const embed = buildConfigEmbed({
-    color:       cfg.ticketColor,
-    banner:      cfg.ticketBanner,
-    thumbnail:   cfg.ticketThumb,
-    footer:      cfg.ticketFooter,
-    title:       cfg.ticketTitle,
-    description: desc,
-  });
-  return target.send({ embeds: [embed], components: [row] });
+  const cfg = await getOrCreate(guildId);
+  return target.send(buildTicketPanelV2(cfg));
 }
 
 export async function sendTicketConfigPanel(interaction) {

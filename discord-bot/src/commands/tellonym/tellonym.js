@@ -1,32 +1,21 @@
 import {
   SlashCommandBuilder,
   PermissionFlagsBits,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
 } from 'discord.js';
 import prisma from '../../database/client.js';
-import { buildConfigEmbed, errorEmbed, successEmbed } from '../../utils/embed.js';
-import { buildTellonymConfigPayload, DEFAULT_TELLONYM_TEXT } from '../../utils/configPanels.js';
+import { errorEmbed, successEmbed } from '../../utils/embed.js';
+import {
+  buildTellonymConfigPayload,
+  buildTellonymPanelV2,
+} from '../../utils/configPanels.js';
 
 async function getOrCreate(guildId) {
   return prisma.guildConfig.upsert({ where: { guildId }, create: { guildId }, update: {} });
 }
 
 async function sendPanel(channel, guildId) {
-  const cfg   = await getOrCreate(guildId);
-  const embed = buildConfigEmbed({
-    color:       cfg.tellonymColor,
-    banner:      cfg.tellonymBanner,
-    thumbnail:   cfg.tellonymThumb,
-    footer:      cfg.tellonymFooter,
-    title:       cfg.tellonymTitle,
-    description: cfg.tellonymText ?? DEFAULT_TELLONYM_TEXT,
-  });
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('tellonym_send').setLabel('Enviar Mensagem').setEmoji('💌').setStyle(ButtonStyle.Secondary),
-  );
-  return channel.send({ embeds: [embed], components: [row] });
+  const cfg = await getOrCreate(guildId);
+  return channel.send(buildTellonymPanelV2(cfg));
 }
 
 export async function sendTellonymConfigPanel(interaction) {

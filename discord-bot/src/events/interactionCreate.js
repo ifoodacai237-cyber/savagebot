@@ -25,7 +25,7 @@ import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, Colors } from '.
 import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoes.js';
 import { generateTellonymCard } from '../utils/cardGenerator.js';
 import { likesMap } from '../utils/instaState.js';
-import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT, DEFAULT_WELCOME_TITLE, DEFAULT_WELCOME_TEXT } from '../utils/configPanels.js';
+import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, buildTicketPanelV2, buildTellonymPanelV2, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT, DEFAULT_WELCOME_TITLE, DEFAULT_WELCOME_TEXT } from '../utils/configPanels.js';
 import {
   getSession,
   deleteSession,
@@ -849,16 +849,8 @@ export default {
 
           if (field === 'enviar') {
             await interaction.deferReply({ flags: 64 });
-            const cfg  = await getCfg(interaction.guildId);
-            const row  = new ActionRowBuilder().addComponents(buildTicketOpenButton(cfg));
-            const base = cfg.ticketText ?? DEFAULT_TICKET_TEXT;
-            const desc = cfg.ticketUseSeparator ? `──────────────────────────────────\n\n${base}` : base;
-            const embed = buildConfigEmbed({
-              color: cfg.ticketColor, banner: cfg.ticketBanner,
-              thumbnail: cfg.ticketThumb, footer: cfg.ticketFooter,
-              title: cfg.ticketTitle, description: desc,
-            });
-            await interaction.channel.send({ embeds: [embed], components: [row] });
+            const cfg = await getCfg(interaction.guildId);
+            await interaction.channel.send(buildTicketPanelV2(cfg));
             return interaction.editReply({ embeds: [successEmbed('Painel Enviado', `O painel de tickets foi enviado em ${interaction.channel}.`)] });
           }
 
@@ -1043,18 +1035,7 @@ export default {
           if (field === 'enviar') {
             await interaction.deferReply({ flags: 64 });
             const cfg = await getCfg(interaction.guildId);
-            const embed = buildConfigEmbed({
-              color:       cfg.tellonymColor,
-              banner:      cfg.tellonymBanner,
-              thumbnail:   cfg.tellonymThumb,
-              footer:      cfg.tellonymFooter,
-              title:       cfg.tellonymTitle,
-              description: cfg.tellonymText ?? DEFAULT_TELLONYM_TEXT,
-            });
-            const row = new ActionRowBuilder().addComponents(
-              new ButtonBuilder().setCustomId('tellonym_send').setLabel('Enviar Mensagem').setEmoji('💌').setStyle(ButtonStyle.Secondary),
-            );
-            await interaction.channel.send({ embeds: [embed], components: [row] });
+            await interaction.channel.send(buildTellonymPanelV2(cfg));
             return interaction.editReply({ embeds: [successEmbed('Painel Enviado', `O painel Tellonym foi enviado em ${interaction.channel}.`)] });
           }
 
