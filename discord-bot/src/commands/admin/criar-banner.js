@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 const COIN = '<a:emoji_1:1516993823665033286>';
 
 const __dirname   = path.dirname(fileURLToPath(import.meta.url));
-const BANNERS_DIR = path.resolve(__dirname, '../../../../../artifacts/api-server/public/banners');
+const BANNERS_DIR = path.resolve(__dirname, '../../../../artifacts/api-server/public/banners');
 
 function getBaseUrl() {
   const domains = process.env.REPLIT_DOMAINS?.split(',');
