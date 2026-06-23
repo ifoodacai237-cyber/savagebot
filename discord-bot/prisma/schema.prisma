@@ -156,15 +156,16 @@ model UserPurchase {
 }
 
 model UserProfile {
-  id            String  @id @default(cuid())
-  userId        String  @unique
-  guildId       String?
-  activeBanner  String?
-  activeRing    String?
-  activePet     String?
-  bio           String?
-  marriedTo     String?
-  marriedToName String?
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  guildId         String?
+  activeBanner    String?
+  activeRing      String?
+  ringBorderColor String?
+  activePet       String?
+  bio             String?
+  marriedTo       String?
+  marriedToName   String?
 }
 
 model Pet {

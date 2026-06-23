@@ -56,11 +56,17 @@ function fmtCompact(n) {
   return String(n);
 }
 
-async function loadUrl(url) {
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const buf  = Buffer.from(await resp.arrayBuffer());
-  return loadImage(buf);
+async function loadUrl(url, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { signal: controller.signal });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const buf = Buffer.from(await resp.arrayBuffer());
+    return loadImage(buf);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function parseCustomEmoji(emoji) {
@@ -114,7 +120,7 @@ async function drawStatIcon(ctx, x, y, size, emojiOrImg, coinImg) {
 
 export async function generateProfileCard({
   username, avatarUrl, balance, bank, activeBanner, purchases,
-  activeRing, activePet, guildBadgeEmojis = {}, guildId = null,
+  activeRing, ringBorderColor = null, activePet, guildBadgeEmojis = {}, guildId = null,
   marriedToName = null, bio = null,
 }) {
   const canvas = createCanvas(W, H);
@@ -161,15 +167,20 @@ export async function generateProfileCard({
   // ── Avatar ────────────────────────────────────────────────────────────────────
   const AV_CX = 730, AV_CY = BANNER_H, AV_R = 90;
 
-  // White outer ring (blends with card bg)
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 11, 0, Math.PI * 2); ctx.fill();
+  // Outer border ring (configurable, default white)
+  const outerBorderColor = ringBorderColor ?? '#ffffff';
+  ctx.fillStyle = outerBorderColor;
+  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 13, 0, Math.PI * 2); ctx.fill();
 
-  // Colored argola
+  // Colored argola with glow effect
   const ringGrad = ctx.createLinearGradient(AV_CX - AV_R, AV_CY - AV_R, AV_CX + AV_R, AV_CY + AV_R);
   ringGrad.addColorStop(0, c1); ringGrad.addColorStop(1, c2);
-  ctx.strokeStyle = ringGrad; ctx.lineWidth = 5;
+  ctx.save();
+  ctx.shadowColor = c1;
+  ctx.shadowBlur  = 12;
+  ctx.strokeStyle = ringGrad; ctx.lineWidth = 9;
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 7, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
 
   // Avatar image
   ctx.save();

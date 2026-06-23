@@ -42,7 +42,7 @@ export default {
     const activeBanner = profile?.activeBanner ?? null;
     const activeRing   = profile?.activeRing ?? null;
 
-    const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, activePet: activePetEmoji, guildBadgeEmojis, guildId: interaction.guildId, marriedToName: profile?.marriedToName ?? null, bio: profile?.bio ?? null });
+    const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, ringBorderColor: profile?.ringBorderColor ?? null, activePet: activePetEmoji, guildBadgeEmojis, guildId: interaction.guildId, marriedToName: profile?.marriedToName ?? null, bio: profile?.bio ?? null });
     const attachment = new AttachmentBuilder(buf, { name: 'perfil.png' });
 
     const row = new ActionRowBuilder().addComponents(
@@ -92,13 +92,14 @@ export default {
     const avatarUrl = target.displayAvatarURL({ extension: 'png', size: 256 });
     const buf = await generateProfileCard({
       username, avatarUrl,
-      balance:  eco?.balance ?? 0,
-      bank:     eco?.bank    ?? 0,
-      activeBanner:  profile?.activeBanner  ?? null,
-      activeRing:    profile?.activeRing    ?? null,
-      activePet:     activePetEmoji,
-      marriedToName: profile?.marriedToName ?? null,
-      bio:           profile?.bio           ?? null,
+      balance:         eco?.balance          ?? 0,
+      bank:            eco?.bank             ?? 0,
+      activeBanner:    profile?.activeBanner  ?? null,
+      activeRing:      profile?.activeRing    ?? null,
+      ringBorderColor: profile?.ringBorderColor ?? null,
+      activePet:       activePetEmoji,
+      marriedToName:   profile?.marriedToName ?? null,
+      bio:             profile?.bio           ?? null,
       purchases,
       guildBadgeEmojis,
       guildId: message.guildId,

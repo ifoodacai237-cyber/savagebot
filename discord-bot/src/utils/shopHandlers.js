@@ -458,6 +458,8 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'profile_banner_btn')             return handleProfileBannerBtn(interaction);
     if (id === 'profile_ring_btn')               return handleProfileRingBtn(interaction);
     if (id === 'profile_ring_custom')            return handleProfileRingCustom(interaction);
+    if (id === 'profile_ring_border_custom')     return handleProfileRingBorderCustom(interaction);
+    if (id === 'profile_ring_border_reset')      return handleProfileRingBorderReset(interaction);
     if (id === 'profile_ring_remove')            return handleProfileRingRemove(interaction);
     if (id.startsWith('profile_ring_preset:'))   return handleProfileRingPreset(interaction);
     if (id === 'profile_pet_btn')                return handleProfilePetBtn(interaction);
@@ -486,6 +488,7 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'shop_gift_modal')                return handleGiftModal(interaction, client);
     if (id === 'loja_admin_modal_add_cargo')     return handleLojaAdminAddCargoModal(interaction);
     if (id === 'profile_ring_custom_modal')      return handleProfileRingCustomModal(interaction);
+    if (id === 'profile_ring_border_modal')      return handleProfileRingBorderModal(interaction);
   }
 }
 
@@ -1286,35 +1289,46 @@ async function handleSaldo(interaction) {
 
 // ─── 💠 Argola do Perfil ──────────────────────────────────────────────────────
 
-async function handleProfileRingBtn(interaction) {
-  const profile  = await prisma.userProfile.findUnique({ where: { userId: interaction.user.id } });
-  const current  = profile?.activeRing ?? 'roxo';
-
+function buildRingRows(current) {
   const makeBtn = (p) => new ButtonBuilder()
     .setCustomId(`profile_ring_preset:${p.key}`)
     .setLabel(`${p.emoji} ${p.label}`)
     .setStyle(current === p.key ? ButtonStyle.Primary : ButtonStyle.Secondary);
 
-  const rows = [
+  return [
     new ActionRowBuilder().addComponents(RING_PRESETS.slice(0, 5).map(makeBtn)),
     new ActionRowBuilder().addComponents(RING_PRESETS.slice(5).map(makeBtn)),
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('profile_ring_custom').setLabel('🎨 Cor Personalizada (Hex)').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('profile_ring_custom').setLabel('🎨 Cor da Argola (Hex)').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('profile_ring_border_custom').setLabel('🔲 Cor do Contorno').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('profile_ring_border_reset').setLabel('↩️ Resetar Contorno').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('profile_ring_remove').setLabel('🚫 Remover Argola').setStyle(ButtonStyle.Danger),
     ),
   ];
+}
+
+async function handleProfileRingBtn(interaction) {
+  const profile  = await prisma.userProfile.findUnique({ where: { userId: interaction.user.id } });
+  const current  = profile?.activeRing ?? 'roxo';
+  const border   = profile?.ringBorderColor ?? null;
 
   const presetInfo = getRing(current);
+  const ringLabel  = presetInfo
+    ? `${presetInfo.emoji} ${presetInfo.label}`
+    : (current?.startsWith('#') ? `Personalizada \`${current}\`` : '🟣 Roxo (padrão)');
+  const borderLabel = border ? `\`${border}\`` : '⬜ Branco (padrão)';
+
   return interaction.reply({
     embeds: [
-      new EmbedBuilder().setColor(SHOP_COLOR).setTitle('💠 Cor da Argola do Perfil')
+      new EmbedBuilder().setColor(SHOP_COLOR).setTitle('💠 Argola do Perfil')
         .setDescription(
-          `Escolha a cor da argola ao redor do seu avatar no card de perfil.\n\n` +
-          `**Atual:** ${presetInfo ? `${presetInfo.emoji} ${presetInfo.label}` : (current?.startsWith('#') ? `Personalizada \`${current}\`` : '🟣 Roxo (padrão)')}`
+          `Personalize a argola ao redor do seu avatar.\n\n` +
+          `**🎨 Argola:** ${ringLabel}\n` +
+          `**🔲 Contorno:** ${borderLabel}`
         )
         .setFooter({ text: 'Use /perfil para ver o resultado' }),
     ],
-    components: rows,
+    components: buildRingRows(current),
     ephemeral: true,
   });
 }
@@ -1330,32 +1344,25 @@ async function handleProfileRingPreset(interaction) {
     update: { activeRing: key },
   });
 
-  const makeBtn = (p) => new ButtonBuilder()
-    .setCustomId(`profile_ring_preset:${p.key}`)
-    .setLabel(`${p.emoji} ${p.label}`)
-    .setStyle(p.key === key ? ButtonStyle.Primary : ButtonStyle.Secondary);
-
-  const rows = [
-    new ActionRowBuilder().addComponents(RING_PRESETS.slice(0, 5).map(makeBtn)),
-    new ActionRowBuilder().addComponents(RING_PRESETS.slice(5).map(makeBtn)),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('profile_ring_custom').setLabel('🎨 Cor Personalizada (Hex)').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('profile_ring_remove').setLabel('🚫 Remover Argola').setStyle(ButtonStyle.Danger),
-    ),
-  ];
+  const profile = await prisma.userProfile.findUnique({ where: { userId: interaction.user.id } });
+  const border  = profile?.ringBorderColor ?? null;
 
   return interaction.update({
     embeds: [
-      new EmbedBuilder().setColor(SHOP_COLOR).setTitle('💠 Cor da Argola do Perfil')
-        .setDescription(`✅ Argola alterada para **${preset.emoji} ${preset.label}**!\nUse \`/perfil\` para ver o resultado.`)
+      new EmbedBuilder().setColor(SHOP_COLOR).setTitle('💠 Argola do Perfil')
+        .setDescription(
+          `✅ Argola alterada para **${preset.emoji} ${preset.label}**!\n\n` +
+          `**🔲 Contorno:** ${border ? `\`${border}\`` : '⬜ Branco (padrão)'}\n` +
+          `Use \`/perfil\` para ver o resultado.`
+        )
         .setFooter({ text: 'Use /perfil para ver o resultado' }),
     ],
-    components: rows,
+    components: buildRingRows(key),
   });
 }
 
 async function handleProfileRingCustom(interaction) {
-  const modal = new ModalBuilder().setCustomId('profile_ring_custom_modal').setTitle('🎨 Cor Personalizada da Argola');
+  const modal = new ModalBuilder().setCustomId('profile_ring_custom_modal').setTitle('🎨 Cor da Argola (Hex)');
   modal.addComponents(
     new ActionRowBuilder().addComponents(
       new TextInputBuilder().setCustomId('hex').setLabel('Cor em Hex (ex: FF0000 para vermelho)')
@@ -1364,6 +1371,44 @@ async function handleProfileRingCustom(interaction) {
     )
   );
   return interaction.showModal(modal);
+}
+
+async function handleProfileRingBorderCustom(interaction) {
+  const modal = new ModalBuilder().setCustomId('profile_ring_border_modal').setTitle('🔲 Cor do Contorno da Argola');
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder().setCustomId('hex').setLabel('Cor em Hex (ex: FFFFFF para branco)')
+        .setStyle(TextInputStyle.Short).setRequired(true).setMinLength(6).setMaxLength(7)
+        .setPlaceholder('FFFFFF')
+    )
+  );
+  return interaction.showModal(modal);
+}
+
+async function handleProfileRingBorderModal(interaction) {
+  let hex = interaction.fields.getTextInputValue('hex').trim().replace(/^#/, '').toUpperCase();
+  if (!/^[0-9A-F]{6}$/.test(hex))
+    return interaction.reply({ content: '❌ Cor inválida! Use um hex de 6 dígitos (ex: `FFFFFF`).', ephemeral: true });
+
+  await prisma.userProfile.upsert({
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, ringBorderColor: `#${hex}` },
+    update: { ringBorderColor: `#${hex}` },
+  });
+
+  return interaction.reply({
+    content: `✅ Cor do contorno alterada para \`#${hex}\`! Use \`/perfil\` para ver.`,
+    ephemeral: true,
+  });
+}
+
+async function handleProfileRingBorderReset(interaction) {
+  await prisma.userProfile.upsert({
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, ringBorderColor: null },
+    update: { ringBorderColor: null },
+  });
+  return interaction.reply({ content: '✅ Contorno resetado para branco (padrão). Use `/perfil` para ver.', ephemeral: true });
 }
 
 async function handleProfileRingCustomModal(interaction) {
