@@ -933,7 +933,7 @@ export default {
               new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                   .setCustomId('role_id')
-                  .setLabel('IDs dos cargos (um por linha ou separados por vírgula)')
+                  .setLabel('IDs dos cargos (separados por vírgula)')
                   .setStyle(TextInputStyle.Paragraph)
                   .setPlaceholder('123456789012345678\n987654321098765432\n(deixe vazio para desativar)')
                   .setValue(cfg.ticketPingRole ? cfg.ticketPingRole.split(',').join('\n') : '')
@@ -954,7 +954,7 @@ export default {
               new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                   .setCustomId('user_id')
-                  .setLabel('IDs dos usuários (um por linha ou separados por vírgula)')
+                  .setLabel('IDs dos usuários (separados por vírgula)')
                   .setStyle(TextInputStyle.Paragraph)
                   .setPlaceholder('123456789012345678\n987654321098765432\n(deixe vazio para desativar)')
                   .setValue(cfg.ticketPingUser ? cfg.ticketPingUser.split(',').join('\n') : '')
