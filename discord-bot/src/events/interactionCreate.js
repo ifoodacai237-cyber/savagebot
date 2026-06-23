@@ -673,10 +673,13 @@ export default {
           ];
 
           if (config?.ticketPingRole) {
-            permissionOverwrites.push({
-              id: config.ticketPingRole,
-              allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-            });
+            const pingRoleIds = config.ticketPingRole.split(',').map(s => s.trim()).filter(Boolean);
+            for (const rId of pingRoleIds) {
+              permissionOverwrites.push({
+                id: rId,
+                allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+              });
+            }
           }
 
           let category = null;
@@ -700,8 +703,11 @@ export default {
           const memberAvatar = interaction.member?.displayAvatarURL({ size: 128, extension: 'png' }) ?? interaction.user.displayAvatarURL({ size: 128, extension: 'png' });
           const memberName   = interaction.member?.displayName ?? interaction.user.username;
 
-          const pingLine = config?.ticketPingRole
-            ? `<@${interaction.user.id}> <@&${config.ticketPingRole}>`
+          const pingRoleMentions = config?.ticketPingRole
+            ? config.ticketPingRole.split(',').map(s => `<@&${s.trim()}>`).filter(Boolean).join(' ')
+            : '';
+          const pingLine = pingRoleMentions
+            ? `<@${interaction.user.id}> ${pingRoleMentions}`
             : `<@${interaction.user.id}>`;
 
           const pingDisplay = new TextDisplayBuilder().setContent(pingLine);
@@ -922,10 +928,13 @@ export default {
             modal.addComponents(
               new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
-                  .setCustomId('role_id').setLabel('ID do cargo para pingar (ou deixe vazio)')
-                  .setStyle(TextInputStyle.Short)
-                  .setPlaceholder('ex: 123456789012345678 (deixe vazio para desativar)')
-                  .setValue(cfg.ticketPingRole ?? '').setRequired(false).setMaxLength(20)
+                  .setCustomId('role_id')
+                  .setLabel('IDs dos cargos (um por linha ou separados por vírgula)')
+                  .setStyle(TextInputStyle.Paragraph)
+                  .setPlaceholder('123456789012345678\n987654321098765432\n(deixe vazio para desativar)')
+                  .setValue(cfg.ticketPingRole ? cfg.ticketPingRole.split(',').join('\n') : '')
+                  .setRequired(false)
+                  .setMaxLength(400)
               ),
             );
             return interaction.showModal(modal);
@@ -1829,25 +1838,41 @@ export default {
           return interaction.reply({ content: '✅ Texto de abertura atualizado!', ephemeral: true });
         }
 
-        // ── CONFIG: Ticket — salvar ping de cargo ────────────────────────
+        // ── CONFIG: Ticket — salvar ping de cargo(s) ─────────────────────
         if (interaction.customId === 'tcfg_modal_ping') {
-          const rawId = interaction.fields.getTextInputValue('role_id').trim();
-          const roleId = rawId || null;
-          if (roleId && !/^\d{15,20}$/.test(roleId)) {
-            return interaction.reply({ content: '❌ ID inválido. Cole somente o ID numérico do cargo.', ephemeral: true });
+          const raw = interaction.fields.getTextInputValue('role_id').trim();
+          if (!raw) {
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, ticketPingRole: null },
+              update: { ticketPingRole: null },
+            });
+            const cfg     = await getCfg(interaction.guildId);
+            const payload = buildTicketConfigPayload(cfg);
+            await interaction.message?.edit(payload).catch(() => {});
+            return interaction.reply({ content: '✅ Ping de cargo desativado.', ephemeral: true });
           }
+
+          const ids = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+          const invalid = ids.filter(id => !/^\d{15,20}$/.test(id));
+          if (invalid.length) {
+            return interaction.reply({
+              content: `❌ ID(s) inválido(s): \`${invalid.join(', ')}\`\nCole apenas IDs numéricos de cargo, um por linha.`,
+              ephemeral: true,
+            });
+          }
+
+          const stored = ids.join(',');
           await prisma.guildConfig.upsert({
             where:  { guildId: interaction.guildId },
-            create: { guildId: interaction.guildId, ticketPingRole: roleId },
-            update: { ticketPingRole: roleId },
+            create: { guildId: interaction.guildId, ticketPingRole: stored },
+            update: { ticketPingRole: stored },
           });
           const cfg     = await getCfg(interaction.guildId);
           const payload = buildTicketConfigPayload(cfg);
           await interaction.message?.edit(payload).catch(() => {});
-          const msg = roleId
-            ? `✅ O cargo <@&${roleId}> será pingado ao abrir um ticket.`
-            : '✅ Ping de cargo desativado.';
-          return interaction.reply({ content: msg, ephemeral: true });
+          const mentions = ids.map(id => `<@&${id}>`).join(', ');
+          return interaction.reply({ content: `✅ ${ids.length} cargo(s) serão pingados: ${mentions}`, ephemeral: true });
         }
 
         // ── CONFIG: Ticket — salvar campo modal ─────────────────────────

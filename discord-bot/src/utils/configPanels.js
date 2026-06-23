@@ -234,7 +234,7 @@ export function buildTicketConfigPayload(cfg) {
       { name: '🖼️ Banner',      value: cfg.ticketBanner ? '✅ definido' : '*(não definido)*',            inline: true },
       { name: '📷 Thumbnail',    value: cfg.ticketThumb  ? '✅ definido' : '*(não definido)*',            inline: true },
       { name: '📂 Categoria',    value: cfg.ticketCategory ? `<#${cfg.ticketCategory}>` : '*(não definido)*', inline: true },
-      { name: '🔔 Ping Equipe',  value: cfg.ticketPingRole ? `<@&${cfg.ticketPingRole}>` : '*(desativado)*', inline: true },
+      { name: '🔔 Ping Equipe',  value: cfg.ticketPingRole ? cfg.ticketPingRole.split(',').map(id => `<@&${id.trim()}>`).join(' ') : '*(desativado)*', inline: true },
       { name: '🔘 Botão',        value: `\`${cfg.ticketBtnLabel || 'Abrir Ticket'}\` ${cfg.ticketBtnEmoji || '🎫'} — ${btnStyleLabel}`, inline: true },
       { name: '➖ Separador',     value: sepStatus,                                                        inline: true },
       { name: '✏️ Texto (Painel)',    value: texto.length > 100   ? texto.slice(0, 97) + '...'   : texto,   inline: false },
