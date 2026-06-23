@@ -137,8 +137,10 @@ export default {
                 messageUrl: message.url,
               });
 
-              const pingContent = cfg.partnerPingRole ? `<@&${cfg.partnerPingRole}>` : undefined;
-              await message.channel.send({ content: pingContent, ...post });
+              if (cfg.partnerPingRole) {
+                await message.channel.send({ content: `<@&${cfg.partnerPingRole}>` }).catch(() => {});
+              }
+              await message.channel.send(post);
 
               if (cfg.partnerNotifyDm && representativeId) {
                 const accentColor = cfg.partnerColor ? (parseInt(cfg.partnerColor, 16) || 0xA020F0) : 0xA020F0;
