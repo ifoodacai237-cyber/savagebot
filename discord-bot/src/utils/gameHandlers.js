@@ -5,8 +5,14 @@ import {
   ButtonStyle,
   AttachmentBuilder,
 } from 'discord.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join, dirname } from 'node:path';
 import prisma from '../database/client.js';
-import { generateBlackjackCard, generateMinesCard } from './economyCards.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const BJ_IMG    = readFileSync(join(__dirname, '../assets/blackjack.png'));
+const MINES_IMG = readFileSync(join(__dirname, '../assets/mines.png'));
 
 const COIN = '<a:emoji_1:1516993823665033286>';
 
@@ -53,43 +59,12 @@ function memberInfo(interaction) {
 
 // ─── Image attachment helpers ─────────────────────────────────────────────────
 
-function bjAttachment(state, hideDealer = false) {
-  try {
-    const pTotal = handTotal(state.player);
-    const dTotal = handTotal(state.dealer);
-    const payout = state.won ? state.bet * 2 : state.tie ? state.bet : 0;
-    const buf = generateBlackjackCard({
-      playerCards: state.player,
-      dealerCards: state.dealer,
-      pTotal,
-      dTotal,
-      won:  state.won,
-      tie:  state.tie,
-      bust: state.bust,
-      bet:  state.bet,
-      payout,
-      userBalance: 0,
-      hideDealer,
-    });
-    return new AttachmentBuilder(buf, { name: 'blackjack.png' });
-  } catch { return null; }
+function bjAttachment() {
+  return new AttachmentBuilder(BJ_IMG, { name: 'blackjack.png' });
 }
 
-function minesAttachment(state, memberName) {
-  try {
-    const mult   = calcMult(state.gems, state.bombs);
-    const payout = Math.floor(state.bet * mult);
-    const buf = generateMinesCard({
-      grid:       state.grid,
-      revealed:   state.revealed,
-      bombs:      state.bombs,
-      bet:        state.bet,
-      payout,
-      memberName,
-      status:     state.status,
-    });
-    return new AttachmentBuilder(buf, { name: 'mines.png' });
-  } catch { return null; }
+function minesAttachment() {
+  return new AttachmentBuilder(MINES_IMG, { name: 'mines.png' });
 }
 
 function withFiles(payload, ...attachments) {
@@ -210,7 +185,7 @@ async function finalizeBJ(state, interaction, name, avatar) {
   if (payout > 0) await addWin(state.userId, state.guildId, payout);
   blackjackGames.delete(state.userId);
 
-  const file = bjAttachment(state, false);
+  const file = bjAttachment();
   return interaction.update(withFiles(
     { embeds: [buildBJEmbed(state, name, avatar)], components: [] },
     file,
@@ -248,7 +223,7 @@ export async function startBlackjack(ctx, bet, sendFn) {
     const payout = won ? Math.floor(bet * 2.5) : bet;
     await addWin(userId, guildId, payout);
     blackjackGames.delete(userId);
-    const file = bjAttachment(state, false);
+    const file = bjAttachment();
     return sendFn(withFiles({ embeds: [buildBJEmbed(state, name, avatar)], components: [] }, file));
   }
 
@@ -261,7 +236,7 @@ export async function startBlackjack(ctx, bet, sendFn) {
     }
   }, 120_000);
 
-  const file = bjAttachment(state, true);
+  const file = bjAttachment();
   return sendFn(withFiles(
     { embeds: [buildBJEmbed(state, name, avatar)], components: buildBJComponents(state) },
     file,
@@ -283,7 +258,7 @@ export async function handleBJHit(interaction, targetId) {
     state.status = 'done';
     state.bust = true;
     blackjackGames.delete(targetId);
-    const file = bjAttachment(state, false);
+    const file = bjAttachment();
     return interaction.update(withFiles(
       { embeds: [buildBJEmbed(state, name, avatar)], components: [] },
       file,
@@ -291,7 +266,7 @@ export async function handleBJHit(interaction, targetId) {
   }
   if (total === 21) return finalizeBJ(state, interaction, name, avatar);
 
-  const file = bjAttachment(state, true);
+  const file = bjAttachment();
   return interaction.update(withFiles(
     { embeds: [buildBJEmbed(state, name, avatar)], components: buildBJComponents(state) },
     file,
@@ -470,7 +445,7 @@ export async function handleMinesCell(interaction, idx, targetId) {
     state.revealed = state.revealed.map(() => true);
     state.status = 'lost';
     minesGames.delete(targetId);
-    const file = minesAttachment(state, name);
+    const file = minesAttachment();
     return interaction.update(withFiles(
       { embeds: [buildMinesEmbed(state, name, avatar, true)], components: buildMinesComponents(state) },
       file,
@@ -487,7 +462,7 @@ export async function handleMinesCell(interaction, idx, targetId) {
     state.revealed = state.revealed.map(() => true);
     minesGames.delete(targetId);
     await addWin(targetId, state.guildId, payout);
-    const file = minesAttachment(state, name);
+    const file = minesAttachment();
     return interaction.update(withFiles(
       { embeds: [buildMinesEmbed(state, name, avatar, true)], components: buildMinesComponents(state) },
       file,
@@ -516,7 +491,7 @@ export async function handleMinesCashout(interaction, targetId) {
   minesGames.delete(targetId);
   await addWin(targetId, state.guildId, payout);
 
-  const file = minesAttachment(state, name);
+  const file = minesAttachment();
   return interaction.update(withFiles(
     { embeds: [buildMinesEmbed(state, name, avatar, true)], components: buildMinesComponents(state) },
     file,
