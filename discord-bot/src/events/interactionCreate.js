@@ -706,8 +706,12 @@ export default {
           const pingRoleMentions = config?.ticketPingRole
             ? config.ticketPingRole.split(',').map(s => `<@&${s.trim()}>`).filter(Boolean).join(' ')
             : '';
-          const pingLine = pingRoleMentions
-            ? `<@${interaction.user.id}> ${pingRoleMentions}`
+          const pingUserMentions = config?.ticketPingUser
+            ? config.ticketPingUser.split(',').map(s => `<@${s.trim()}>`).filter(Boolean).join(' ')
+            : '';
+          const extraPings = [pingRoleMentions, pingUserMentions].filter(Boolean).join(' ');
+          const pingLine = extraPings
+            ? `<@${interaction.user.id}> ${extraPings}`
             : `<@${interaction.user.id}>`;
 
           const pingDisplay = new TextDisplayBuilder().setContent(pingLine);
@@ -923,7 +927,7 @@ export default {
           if (field === 'ping') {
             const modal = new ModalBuilder()
               .setCustomId('tcfg_modal_ping')
-              .setTitle('🔔 Ping da Equipe');
+              .setTitle('🔔 Ping da Equipe — Cargos');
             const cfg = await getCfg(interaction.guildId);
             modal.addComponents(
               new ActionRowBuilder().addComponents(
@@ -933,6 +937,27 @@ export default {
                   .setStyle(TextInputStyle.Paragraph)
                   .setPlaceholder('123456789012345678\n987654321098765432\n(deixe vazio para desativar)')
                   .setValue(cfg.ticketPingRole ? cfg.ticketPingRole.split(',').join('\n') : '')
+                  .setRequired(false)
+                  .setMaxLength(400)
+              ),
+            );
+            return interaction.showModal(modal);
+          }
+
+          // ── Ping de usuário ──────────────────────────────────────────
+          if (field === 'ping_user') {
+            const modal = new ModalBuilder()
+              .setCustomId('tcfg_modal_ping_user')
+              .setTitle('👤 Ping da Equipe — Usuários');
+            const cfg = await getCfg(interaction.guildId);
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('user_id')
+                  .setLabel('IDs dos usuários (um por linha ou separados por vírgula)')
+                  .setStyle(TextInputStyle.Paragraph)
+                  .setPlaceholder('123456789012345678\n987654321098765432\n(deixe vazio para desativar)')
+                  .setValue(cfg.ticketPingUser ? cfg.ticketPingUser.split(',').join('\n') : '')
                   .setRequired(false)
                   .setMaxLength(400)
               ),
@@ -1873,6 +1898,43 @@ export default {
           await interaction.message?.edit(payload).catch(() => {});
           const mentions = ids.map(id => `<@&${id}>`).join(', ');
           return interaction.reply({ content: `✅ ${ids.length} cargo(s) serão pingados: ${mentions}`, ephemeral: true });
+        }
+
+        // ── CONFIG: Ticket — salvar ping de usuários ─────────────────────────
+        if (interaction.customId === 'tcfg_modal_ping_user') {
+          const raw = interaction.fields.getTextInputValue('user_id').trim();
+          if (!raw) {
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, ticketPingUser: null },
+              update: { ticketPingUser: null },
+            });
+            const cfg     = await getCfg(interaction.guildId);
+            const payload = buildTicketConfigPayload(cfg);
+            await interaction.message?.edit(payload).catch(() => {});
+            return interaction.reply({ content: '✅ Ping de usuários desativado.', ephemeral: true });
+          }
+
+          const ids = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+          const invalid = ids.filter(id => !/^\d{15,20}$/.test(id));
+          if (invalid.length) {
+            return interaction.reply({
+              content: `❌ ID(s) inválido(s): \`${invalid.join(', ')}\`\nCole apenas IDs numéricos de usuário, um por linha.`,
+              ephemeral: true,
+            });
+          }
+
+          const stored = ids.join(',');
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, ticketPingUser: stored },
+            update: { ticketPingUser: stored },
+          });
+          const cfg     = await getCfg(interaction.guildId);
+          const payload = buildTicketConfigPayload(cfg);
+          await interaction.message?.edit(payload).catch(() => {});
+          const mentions = ids.map(id => `<@${id}>`).join(', ');
+          return interaction.reply({ content: `✅ ${ids.length} usuário(s) serão marcados: ${mentions}`, ephemeral: true });
         }
 
         // ── CONFIG: Ticket — salvar campo modal ─────────────────────────

@@ -51,6 +51,7 @@ model GuildConfig {
   ticketTitle     String?
   ticketText      String?
   ticketPingRole  String?
+  ticketPingUser  String?
   ticketBtnLabel      String?
   ticketBtnEmoji      String?
   ticketBtnStyle      String?

@@ -137,11 +137,14 @@ export function ticketConfigButtons(cfg = {}) {
   const row3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('tcfg_categoria').setLabel('Categoria').setEmoji('📂').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('tcfg_enviar').setLabel('Enviar Painel').setEmoji('🚀').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('tcfg_ping').setLabel('Ping Equipe').setEmoji('🔔').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('tcfg_ping').setLabel('Ping Cargos').setEmoji('🔔').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('tcfg_ping_user').setLabel('Ping Usuários').setEmoji('👤').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('tcfg_salvar').setLabel('Salvar Preset').setEmoji('💾').setStyle(ButtonStyle.Secondary),
+  );
+  const row4 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('tcfg_carregar').setLabel('Carregar Preset').setEmoji('📂').setStyle(ButtonStyle.Secondary),
   );
-  return [row1, row2, row3];
+  return [row1, row2, row3, row4];
 }
 
 export function tellonymConfigButtons() {
@@ -234,7 +237,8 @@ export function buildTicketConfigPayload(cfg) {
       { name: '🖼️ Banner',      value: cfg.ticketBanner ? '✅ definido' : '*(não definido)*',            inline: true },
       { name: '📷 Thumbnail',    value: cfg.ticketThumb  ? '✅ definido' : '*(não definido)*',            inline: true },
       { name: '📂 Categoria',    value: cfg.ticketCategory ? `<#${cfg.ticketCategory}>` : '*(não definido)*', inline: true },
-      { name: '🔔 Ping Equipe',  value: cfg.ticketPingRole ? cfg.ticketPingRole.split(',').map(id => `<@&${id.trim()}>`).join(' ') : '*(desativado)*', inline: true },
+      { name: '🔔 Ping Cargos',   value: cfg.ticketPingRole ? cfg.ticketPingRole.split(',').map(id => `<@&${id.trim()}>`).join(' ') : '*(desativado)*', inline: true },
+      { name: '👤 Ping Usuários', value: cfg.ticketPingUser ? cfg.ticketPingUser.split(',').map(id => `<@${id.trim()}>`).join(' ') : '*(desativado)*', inline: true },
       { name: '🔘 Botão',        value: `\`${cfg.ticketBtnLabel || 'Abrir Ticket'}\` ${cfg.ticketBtnEmoji || '🎫'} — ${btnStyleLabel}`, inline: true },
       { name: '➖ Separador',     value: sepStatus,                                                        inline: true },
       { name: '✏️ Texto (Painel)',    value: texto.length > 100   ? texto.slice(0, 97) + '...'   : texto,   inline: false },
