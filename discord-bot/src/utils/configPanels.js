@@ -7,19 +7,20 @@ export function ticketConfigButtons(cfg = {}) {
   const sepEnabled = cfg.ticketUseSeparator ?? false;
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('tcfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('tcfg_sem_cor').setLabel('Sem Lateral').setEmoji('◻️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_titulo').setLabel('Título').setEmoji('📝').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_banner').setLabel('Banner').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_thumb').setLabel('Thumbnail').setEmoji('📷').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('tcfg_botao').setLabel('Botão').setEmoji('🔘').setStyle(ButtonStyle.Secondary),
   );
   const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('tcfg_botao').setLabel('Botão').setEmoji('🔘').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_rodape').setLabel('Rodapé').setEmoji('👇').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_texto').setLabel('Texto').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_abertura').setLabel('Txt Abertura').setEmoji('💬').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_separador').setLabel('Separador').setEmoji('➖').setStyle(sepEnabled ? ButtonStyle.Success : ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('tcfg_categoria').setLabel('Categoria').setEmoji('📂').setStyle(ButtonStyle.Primary),
   );
   const row3 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('tcfg_categoria').setLabel('Categoria').setEmoji('📂').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('tcfg_enviar').setLabel('Enviar Painel').setEmoji('🚀').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId('tcfg_ping').setLabel('Ping Equipe').setEmoji('🔔').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('tcfg_salvar').setLabel('Salvar Preset').setEmoji('💾').setStyle(ButtonStyle.Secondary),
@@ -31,6 +32,7 @@ export function ticketConfigButtons(cfg = {}) {
 export function tellonymConfigButtons() {
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('tncfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('tncfg_sem_cor').setLabel('Sem Lateral').setEmoji('◻️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tncfg_titulo').setLabel('Título').setEmoji('📝').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tncfg_banner').setLabel('Banner').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tncfg_thumb').setLabel('Thumbnail').setEmoji('📷').setStyle(ButtonStyle.Secondary),
@@ -51,6 +53,7 @@ export function tellonymConfigButtons() {
 export function welcomeConfigButtons(enabled = true) {
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('wcfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('wcfg_sem_cor').setLabel('Sem Lateral').setEmoji('◻️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_titulo').setLabel('Título').setEmoji('📝').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_banner').setLabel('Banner').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_thumb').setLabel('Thumbnail').setEmoji('📷').setStyle(ButtonStyle.Secondary),
@@ -104,7 +107,7 @@ export function buildTicketConfigPayload(cfg) {
     .setTitle('🎫 Configuração — Tickets')
     .setDescription('Edite cada campo pelos botões abaixo. O preview atualiza a cada alteração.')
     .addFields(
-      { name: '🎨 Cor',        value: cfg.ticketColor    ? `\`#${cfg.ticketColor}\`` : '*(sem cor)*',          inline: true },
+      { name: '🎨 Cor',        value: cfg.ticketColor    ? `\`#${cfg.ticketColor}\`` : '*(sem lateral)*',          inline: true },
       { name: '📝 Título',     value: cfg.ticketTitle    || '*(não definido)*',                                  inline: true },
       { name: '👇 Rodapé',     value: cfg.ticketFooter   || '*(não definido)*',                                  inline: true },
       { name: '🖼️ Banner',    value: cfg.ticketBanner   ? '✅ definido' : '*(não definido)*',                  inline: true },
@@ -135,7 +138,7 @@ export function buildTellonymConfigPayload(cfg) {
     .setTitle('💌 Configuração — Tellonym')
     .setDescription('Edite cada campo pelos botões abaixo. O preview atualiza a cada alteração.')
     .addFields(
-      { name: '🎨 Cor',       value: cfg.tellonymColor   ? `\`#${cfg.tellonymColor}\`` : '*(sem cor)*',        inline: true },
+      { name: '🎨 Cor',       value: cfg.tellonymColor   ? `\`#${cfg.tellonymColor}\`` : '*(sem lateral)*',        inline: true },
       { name: '📝 Título',    value: cfg.tellonymTitle    || '*(não definido)*',                                 inline: true },
       { name: '👇 Rodapé',    value: cfg.tellonymFooter   || '*(não definido)*',                                 inline: true },
       { name: '🖼️ Banner',   value: cfg.tellonymBanner   ? '✅ definido' : '*(não definido)*',                 inline: true },
@@ -175,7 +178,7 @@ export function buildWelcomeConfigPayload(cfg) {
       '`{user}` `{username}` `{server}` `{count}`',
     )
     .addFields(
-      { name: '🎨 Cor',          value: cfg.welcomeColor   ? `\`#${cfg.welcomeColor}\`` : '*(padrão)*',         inline: true },
+      { name: '🎨 Cor',          value: cfg.welcomeColor   ? `\`#${cfg.welcomeColor}\`` : '*(sem lateral)*',         inline: true },
       { name: '📝 Título',       value: titulo.length > 50 ? titulo.slice(0, 47) + '...' : titulo,               inline: true },
       { name: '👇 Rodapé',       value: cfg.welcomeFooter  || '*(não definido)*',                                inline: true },
       { name: '🖼️ Banner',      value: cfg.welcomeBanner  ? '✅ definido' : '*(avatar do usuário)*',           inline: true },

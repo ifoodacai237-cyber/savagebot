@@ -1,9 +1,12 @@
 import {
-  EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   AttachmentBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  MessageFlags,
 } from 'discord.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -57,7 +60,7 @@ function memberInfo(interaction) {
   };
 }
 
-// ─── Image attachment helpers ─────────────────────────────────────────────────
+// ─── Static image attachments ─────────────────────────────────────────────────
 
 function bjAttachment() {
   return new AttachmentBuilder(BJ_IMG, { name: 'blackjack.png' });
@@ -67,10 +70,16 @@ function minesAttachment() {
   return new AttachmentBuilder(MINES_IMG, { name: 'mines.png' });
 }
 
+// ─── V2 payload helpers ───────────────────────────────────────────────────────
+
 function withFiles(payload, ...attachments) {
   const files = attachments.filter(Boolean);
   if (files.length === 0) return payload;
   return { ...payload, files, attachments: [] };
+}
+
+function v2Payload(container, ...extras) {
+  return { components: [container, ...extras], flags: MessageFlags.IsComponentsV2 };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -102,53 +111,48 @@ function handTotal(cards) {
 function fmtCard(c) { return `\`${c.rank}${c.suit}\``; }
 function fmtHand(cards) { return cards.map(fmtCard).join(' '); }
 
-function buildBJEmbed(state, name, avatar) {
-  const pTotal     = handTotal(state.player);
-  const isPlaying  = state.status === 'playing';
+function buildBJContainer(state, hideDealer = false) {
+  const pTotal = handTotal(state.player);
+  const dTotal = handTotal(state.dealer);
+  const isPlaying = state.status === 'playing';
 
-  const dealerShow = isPlaying
+  const dealerShow = hideDealer
     ? [state.dealer[0], { rank: '?', suit: '' }]
     : state.dealer;
-  const dealerVal  = isPlaying
-    ? `${cardValue(state.dealer[0].rank)} + ?`
-    : `${handTotal(state.dealer)}`;
+  const dealerVal = hideDealer ? '?' : String(dTotal);
+  const dealerLine = dealerShow.map(c => c.rank === '?' ? '`🂠`' : fmtCard(c)).join(' ');
 
-  const color = state.status === 'playing' ? 0x8B5CF6
-    : state.won ? 0x22C55E
-    : state.tie ? 0xF59E0B
-    : 0xEF4444;
-
-  const embed = new EmbedBuilder()
-    .setColor(color)
-    .setAuthor({ name: `Blackjack | ${name}`, iconURL: avatar })
-    .setImage('attachment://blackjack.png')
-    .setDescription(
-      `> 🤑 **Aposta:** ${fmtNum(state.bet)} ${COIN}\n` +
-      `> 💸 **Possível ganho:** ${fmtNum(state.bet * 2)} ${COIN}`,
-    )
-    .addFields(
-      {
-        name:  `Mão do Dealer — Valor: ${dealerVal}`,
-        value: dealerShow.map(c => c.rank === '?' ? '`🂠`' : fmtCard(c)).join(' '),
-      },
-      {
-        name:  `Sua Mão — Valor: ${pTotal}`,
-        value: fmtHand(state.player),
-      },
-    )
-    .setFooter({ text: `Apostador: ${name}` });
-
+  let resultLine = '';
   if (!isPlaying) {
-    const payout = state.won ? state.bet * 2 : state.tie ? state.bet : 0;
-    let line = '';
-    if (state.bust)     line = `❌ **Estourou!** Você perdeu **${fmtNum(state.bet)} ${COIN}**`;
-    else if (state.won) line = `✅ **Ganhou!** +**${fmtNum(payout)} ${COIN}**`;
-    else if (state.tie) line = `🔁 **Empate!** Aposta devolvida`;
-    else                line = `❌ **Dealer ganhou** com ${handTotal(state.dealer)}`;
-    embed.addFields({ name: '\u200b', value: line });
+    if (state.bust)     resultLine = `\n💥 **Estourou!** Você perdeu **${fmtNum(state.bet)} ${COIN}**`;
+    else if (state.won) resultLine = `\n✅ **Ganhou!** +**${fmtNum(state.bet * 2)} ${COIN}**`;
+    else if (state.tie) resultLine = `\n🔁 **Empate!** Aposta devolvida`;
+    else                resultLine = `\n❌ **Dealer ganhou** com ${dTotal}`;
   }
 
-  return embed;
+  const accentColor = isPlaying
+    ? 0x5865F2
+    : state.won || state.tie ? 0x57F287 : 0xED4245;
+
+  const footerLine = isPlaying
+    ? `💰 Aposta: **${fmtNum(state.bet)} ${COIN}** — Possível ganho: **${fmtNum(state.bet * 2)} ${COIN}**`
+    : '';
+
+  const text = [
+    `## 🃏 BLACKJACK`,
+    ``,
+    `**Mão do Dealer** — Valor: ${dealerVal}`,
+    dealerLine,
+    ``,
+    `**Sua Mão** — Valor: ${pTotal}${state.bust ? ' 💥' : ''}`,
+    fmtHand(state.player),
+    resultLine,
+    footerLine ? `\n-# ${footerLine}` : '',
+  ].filter(l => l !== undefined).join('\n');
+
+  const container = new ContainerBuilder().setAccentColor(accentColor);
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+  return container;
 }
 
 function buildBJComponents(state) {
@@ -185,11 +189,9 @@ async function finalizeBJ(state, interaction, name, avatar) {
   if (payout > 0) await addWin(state.userId, state.guildId, payout);
   blackjackGames.delete(state.userId);
 
+  const container = buildBJContainer(state);
   const file = bjAttachment();
-  return interaction.update(withFiles(
-    { embeds: [buildBJEmbed(state, name, avatar)], components: [] },
-    file,
-  ));
+  return interaction.update(withFiles(v2Payload(container), file));
 }
 
 export async function startBlackjack(ctx, bet, sendFn) {
@@ -223,8 +225,9 @@ export async function startBlackjack(ctx, bet, sendFn) {
     const payout = won ? Math.floor(bet * 2.5) : bet;
     await addWin(userId, guildId, payout);
     blackjackGames.delete(userId);
+    const container = buildBJContainer(state);
     const file = bjAttachment();
-    return sendFn(withFiles({ embeds: [buildBJEmbed(state, name, avatar)], components: [] }, file));
+    return sendFn(withFiles(v2Payload(container), file));
   }
 
   // Auto-timeout 2 min
@@ -236,11 +239,9 @@ export async function startBlackjack(ctx, bet, sendFn) {
     }
   }, 120_000);
 
+  const container = buildBJContainer(state, true);
   const file = bjAttachment();
-  return sendFn(withFiles(
-    { embeds: [buildBJEmbed(state, name, avatar)], components: buildBJComponents(state) },
-    file,
-  ));
+  return sendFn(withFiles(v2Payload(container, ...buildBJComponents(state)), file));
 }
 
 export async function handleBJHit(interaction, targetId) {
@@ -258,19 +259,15 @@ export async function handleBJHit(interaction, targetId) {
     state.status = 'done';
     state.bust = true;
     blackjackGames.delete(targetId);
+    const container = buildBJContainer(state);
     const file = bjAttachment();
-    return interaction.update(withFiles(
-      { embeds: [buildBJEmbed(state, name, avatar)], components: [] },
-      file,
-    ));
+    return interaction.update(withFiles(v2Payload(container), file));
   }
   if (total === 21) return finalizeBJ(state, interaction, name, avatar);
 
+  const container = buildBJContainer(state, true);
   const file = bjAttachment();
-  return interaction.update(withFiles(
-    { embeds: [buildBJEmbed(state, name, avatar)], components: buildBJComponents(state) },
-    file,
-  ));
+  return interaction.update(withFiles(v2Payload(container, ...buildBJComponents(state)), file));
 }
 
 export async function handleBJStand(interaction, targetId) {
@@ -299,34 +296,29 @@ function calcMult(gems, bombs) {
   return Math.round(m * 0.97 * 100) / 100;
 }
 
-function buildMinesEmbed(state, name, avatar, isEndImage = false) {
+function buildMinesContainer(state) {
   const mult   = calcMult(state.gems, state.bombs);
   const payout = Math.floor(state.bet * mult);
 
-  const color = state.status === 'lost'   ? 0xEF4444
-    : state.status === 'cashed'           ? 0x22C55E
-    : 0x22C55E;
+  const accentColor = state.status === 'lost' ? 0xEF4444 : 0x22C55E;
 
-  const title = state.status === 'lost'   ? '❌ Fim de jogo!'
-    : state.status === 'cashed'           ? '✅ Fim de jogo!'
-    : '💎 Mines';
+  const titleLine = state.status === 'lost'   ? '## ❌ Fim de jogo!'
+    : state.status === 'cashed'               ? '## ✅ Fim de jogo!'
+    : '## 💎 Mines';
 
   const gainLine = state.status === 'lost'
     ? `> 💸 **Ganhos:** 0 ${COIN}`
     : `> 💸 **Ganhos:** ${fmtNum(payout)} ${COIN}`;
 
-  const embed = new EmbedBuilder()
-    .setColor(color)
-    .setAuthor({ name: `${title} | ${name}`, iconURL: avatar })
-    .setDescription(
-      `> 🤑 **Aposta:** ${fmtNum(state.bet)} ${COIN}\n${gainLine}\n` +
-      (state.status === 'playing' ? `> 💣 **Minas:** ${state.bombs} | 💎 **Reveladas:** ${state.gems}` : ''),
-    )
-    .setFooter({ text: `Apostador: ${name}` });
+  const statusLine = state.status === 'playing'
+    ? `\n> 💣 **Minas:** ${state.bombs} | 💎 **Reveladas:** ${state.gems}`
+    : '';
 
-  if (isEndImage) embed.setImage('attachment://mines.png');
+  const text = `${titleLine}\n\n> 🤑 **Aposta:** ${fmtNum(state.bet)} ${COIN}\n${gainLine}${statusLine}`;
 
-  return embed;
+  const container = new ContainerBuilder().setAccentColor(accentColor);
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+  return container;
 }
 
 function buildMinesComponents(state) {
@@ -389,7 +381,6 @@ function buildMinesComponents(state) {
 export async function startMines(ctx, bet, bombs, sendFn) {
   const userId  = ctx.user?.id ?? ctx.author?.id;
   const guildId = ctx.guildId;
-  const { name, avatar } = memberInfo(ctx);
   const total = GRID * GRID;
 
   if (minesGames.has(userId))
@@ -427,7 +418,8 @@ export async function startMines(ctx, bet, bombs, sendFn) {
     }
   }, 300_000);
 
-  return sendFn({ embeds: [buildMinesEmbed(state, name, avatar)], components: buildMinesComponents(state) });
+  const container = buildMinesContainer(state);
+  return sendFn(v2Payload(container, ...buildMinesComponents(state)));
 }
 
 export async function handleMinesCell(interaction, idx, targetId) {
@@ -437,17 +429,16 @@ export async function handleMinesCell(interaction, idx, targetId) {
   const state = minesGames.get(targetId);
   if (!state || state.status !== 'playing') return interaction.update({ components: [] });
 
-  const { name, avatar } = memberInfo(interaction);
   state.revealed[idx] = true;
 
   if (state.grid[idx]) {
-    // Bomba — revela tudo e gera imagem PNG
     state.revealed = state.revealed.map(() => true);
     state.status = 'lost';
     minesGames.delete(targetId);
+    const container = buildMinesContainer(state);
     const file = minesAttachment();
     return interaction.update(withFiles(
-      { embeds: [buildMinesEmbed(state, name, avatar, true)], components: buildMinesComponents(state) },
+      v2Payload(container, ...buildMinesComponents(state)),
       file,
     ));
   }
@@ -456,23 +447,21 @@ export async function handleMinesCell(interaction, idx, targetId) {
   const totalSafe = GRID * GRID - state.bombs;
 
   if (state.gems >= totalSafe) {
-    // Revelou tudo — auto win
     const payout = Math.floor(state.bet * calcMult(state.gems, state.bombs));
     state.status   = 'cashed';
     state.revealed = state.revealed.map(() => true);
     minesGames.delete(targetId);
     await addWin(targetId, state.guildId, payout);
+    const container = buildMinesContainer(state);
     const file = minesAttachment();
     return interaction.update(withFiles(
-      { embeds: [buildMinesEmbed(state, name, avatar, true)], components: buildMinesComponents(state) },
+      v2Payload(container, ...buildMinesComponents(state)),
       file,
     ));
   }
 
-  return interaction.update({
-    embeds: [buildMinesEmbed(state, name, avatar)],
-    components: buildMinesComponents(state),
-  });
+  const container = buildMinesContainer(state);
+  return interaction.update(v2Payload(container, ...buildMinesComponents(state)));
 }
 
 export async function handleMinesCashout(interaction, targetId) {
@@ -484,16 +473,16 @@ export async function handleMinesCashout(interaction, targetId) {
   if (state.gems === 0)
     return interaction.reply({ content: '❌ Revele pelo menos uma gema antes de sacar.', ephemeral: true });
 
-  const { name, avatar } = memberInfo(interaction);
   const payout = Math.floor(state.bet * calcMult(state.gems, state.bombs));
   state.status   = 'cashed';
   state.revealed = state.revealed.map(() => true);
   minesGames.delete(targetId);
   await addWin(targetId, state.guildId, payout);
 
+  const container = buildMinesContainer(state);
   const file = minesAttachment();
   return interaction.update(withFiles(
-    { embeds: [buildMinesEmbed(state, name, avatar, true)], components: buildMinesComponents(state) },
+    v2Payload(container, ...buildMinesComponents(state)),
     file,
   ));
 }

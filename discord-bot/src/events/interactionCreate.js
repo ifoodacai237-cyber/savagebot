@@ -990,6 +990,18 @@ export default {
             return interaction.showModal(modal);
           }
 
+          // ── Sem lateral (limpa cor) ────────────────────────────────────
+          if (field === 'sem_cor') {
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, ticketColor: null },
+              update: { ticketColor: null },
+            });
+            const cfg     = await getCfg(interaction.guildId);
+            const payload = buildTicketConfigPayload(cfg);
+            return interaction.update({ ...payload, content: null });
+          }
+
           // ── Toggle separador ──────────────────────────────────────────
           if (field === 'separador') {
             const cfg    = await getCfg(interaction.guildId);
@@ -1092,6 +1104,18 @@ export default {
             return interaction.update({ ...payload, content: null });
           }
 
+          // ── Sem lateral (limpa cor) ────────────────────────────────────
+          if (field === 'sem_cor') {
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, tellonymColor: null },
+              update: { tellonymColor: null },
+            });
+            const cfg     = await getCfg(interaction.guildId);
+            const payload = buildTellonymConfigPayload(cfg);
+            return interaction.update({ ...payload, content: null });
+          }
+
           if (field === 'canal') {
             const select = new ChannelSelectMenuBuilder()
               .setCustomId('chansel_tn')
@@ -1163,6 +1187,18 @@ export default {
           }
 
           if (field === 'cancelar') {
+            const cfg     = await getCfg(interaction.guildId);
+            const payload = buildWelcomeConfigPayload(cfg);
+            return interaction.update({ ...payload, content: null });
+          }
+
+          // ── Sem lateral (limpa cor) ────────────────────────────────────
+          if (field === 'sem_cor') {
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, welcomeColor: null },
+              update: { welcomeColor: null },
+            });
             const cfg     = await getCfg(interaction.guildId);
             const payload = buildWelcomeConfigPayload(cfg);
             return interaction.update({ ...payload, content: null });

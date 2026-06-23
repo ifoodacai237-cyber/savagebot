@@ -1,9 +1,12 @@
 import {
   SlashCommandBuilder,
-  EmbedBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
+  MessageFlags,
 } from 'discord.js';
 
 const COLOR = 0x9B4FD6;
@@ -120,19 +123,16 @@ function buildSelectMenu() {
   return new ActionRowBuilder().addComponents(sel);
 }
 
-function buildInitialEmbed(botUser) {
-  return new EmbedBuilder()
-    .setColor(COLOR)
-    .setTitle('📖 Central de Ajuda')
-    .setThumbnail(botUser.displayAvatarURL({ size: 128 }))
-    .setDescription(
-      '**Selecione uma categoria abaixo** para ver os comandos disponíveis.\n\n' +
-      CATEGORIES.map(c => `${c.emoji} **${c.label}** — ${c.description}`).join('\n')
-    )
-    .setFooter({ text: 'Fallen Bot · Ajuda • [] = Obrigatório  () = Opcional' });
+function buildInitialContainer(botUser) {
+  const catList = CATEGORIES.map(c => `${c.emoji} **${c.label}** — ${c.description}`).join('\n');
+  const text = `## 📖 Central de Ajuda\n\nSelecione uma categoria abaixo para ver os comandos disponíveis.\n\n${catList}\n\n-# [] = Obrigatório  () = Opcional`;
+
+  const c = new ContainerBuilder().setAccentColor(COLOR);
+  c.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+  return c;
 }
 
-function buildCategoryEmbed(catValue, botUser) {
+function buildCategoryContainer(catValue) {
   const cat = CATEGORIES.find(c => c.value === catValue);
   if (!cat) return null;
 
@@ -140,12 +140,15 @@ function buildCategoryEmbed(catValue, botUser) {
     .map(c => `↳ \`${c.cmd}\`\n  ↪ ${c.desc}`)
     .join('\n');
 
-  return new EmbedBuilder()
-    .setColor(COLOR)
-    .setTitle(cat.title)
-    .setThumbnail(botUser.displayAvatarURL({ size: 128 }))
-    .setDescription(`**\`[]\` = Obrigatório  \`()\` = Opcional**\n\u200b\n${lines}`)
-    .setFooter({ text: 'Fallen Bot · Ajuda • Use /ajuda para voltar ao menu' });
+  const text = `## ${cat.title}\n\n**\`[]\` = Obrigatório  \`()\` = Opcional**\n\n${lines}\n\n-# Use /ajuda para voltar ao menu`;
+
+  const c = new ContainerBuilder().setAccentColor(COLOR);
+  c.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+  return c;
+}
+
+function v2HelpPayload(container) {
+  return { components: [container, buildSelectMenu()], flags: MessageFlags.IsComponentsV2 };
 }
 
 // ─── Comando ──────────────────────────────────────────────────────────────────
@@ -158,32 +161,22 @@ export default {
   aliases: ['help', 'comandos'],
 
   async execute(interaction) {
-    const embed = buildInitialEmbed(interaction.client.user);
-    return interaction.reply({
-      embeds: [embed],
-      components: [buildSelectMenu()],
-      ephemeral: true,
-    });
+    const container = buildInitialContainer(interaction.client.user);
+    return interaction.reply({ ...v2HelpPayload(container), ephemeral: true });
   },
 
   async executePrefix(message) {
-    const embed = buildInitialEmbed(message.client.user);
-    return message.reply({
-      embeds: [embed],
-      components: [buildSelectMenu()],
-    });
+    const container = buildInitialContainer(message.client.user);
+    return message.reply(v2HelpPayload(container));
   },
 };
 
 // ─── Handler do select menu (chamado pelo interactionCreate) ──────────────────
 
 export async function handleAjudaCatSel(interaction) {
-  const catValue = interaction.values[0];
-  const embed    = buildCategoryEmbed(catValue, interaction.client.user);
-  if (!embed) return interaction.update({ content: '❌ Categoria não encontrada.', components: [] });
+  const catValue  = interaction.values[0];
+  const container = buildCategoryContainer(catValue);
+  if (!container) return interaction.update({ content: '❌ Categoria não encontrada.', components: [] });
 
-  return interaction.update({
-    embeds: [embed],
-    components: [buildSelectMenu()],
-  });
+  return interaction.update(v2HelpPayload(container));
 }
