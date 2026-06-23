@@ -172,94 +172,141 @@ function drawCardBack(ctx, x, y, scale = 1) {
   }
 }
 
-// ─── Gem / Bomb icons for Mines ──────────────────────────────────────────────
+// ─── Gem / Bomb icons for Mines (cute redesign) ──────────────────────────────
 
 function drawGem(ctx, cx, cy, r) {
-  const g = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
-  g.addColorStop(0, '#A5F3FC'); g.addColorStop(0.45, '#22D3EE'); g.addColorStop(1, '#0891B2');
+  ctx.save();
+  // Glow aura
+  const aura = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 1.4);
+  aura.addColorStop(0, 'rgba(103,232,249,0.45)');
+  aura.addColorStop(1, 'rgba(103,232,249,0)');
+  ctx.fillStyle = aura;
+  ctx.beginPath(); ctx.arc(cx, cy, r * 1.4, 0, Math.PI * 2); ctx.fill();
+
+  // Main diamond body
+  const g = ctx.createLinearGradient(cx, cy - r, cx, cy + r);
+  g.addColorStop(0, '#E0F9FF');
+  g.addColorStop(0.3, '#67E8F9');
+  g.addColorStop(0.7, '#22D3EE');
+  g.addColorStop(1, '#0891B2');
   ctx.fillStyle = g;
   ctx.beginPath();
-  ctx.moveTo(cx, cy - r);
-  ctx.lineTo(cx + r * 0.5, cy - r * 0.25);
-  ctx.lineTo(cx + r * 0.85, cy + r * 0.1);
-  ctx.lineTo(cx, cy + r);
-  ctx.lineTo(cx - r * 0.85, cy + r * 0.1);
-  ctx.lineTo(cx - r * 0.5, cy - r * 0.25);
+  ctx.moveTo(cx,           cy - r);
+  ctx.lineTo(cx + r * 0.6, cy - r * 0.2);
+  ctx.lineTo(cx + r * 0.8, cy + r * 0.2);
+  ctx.lineTo(cx,           cy + r);
+  ctx.lineTo(cx - r * 0.8, cy + r * 0.2);
+  ctx.lineTo(cx - r * 0.6, cy - r * 0.2);
   ctx.closePath(); ctx.fill();
-  // Top facet highlight
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+
+  // Inner facet lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - r * 0.6, cy - r * 0.2); ctx.lineTo(cx + r * 0.6, cy - r * 0.2); ctx.stroke();
+
+  // Top highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
   ctx.beginPath();
-  ctx.moveTo(cx, cy - r);
-  ctx.lineTo(cx + r * 0.5, cy - r * 0.25);
-  ctx.lineTo(cx, cy - r * 0.1);
-  ctx.lineTo(cx - r * 0.5, cy - r * 0.25);
+  ctx.moveTo(cx,           cy - r);
+  ctx.lineTo(cx + r * 0.6, cy - r * 0.2);
+  ctx.lineTo(cx,           cy - r * 0.05);
+  ctx.lineTo(cx - r * 0.6, cy - r * 0.2);
   ctx.closePath(); ctx.fill();
-  // Shine dot
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.beginPath(); ctx.arc(cx + r * 0.22, cy - r * 0.5, r * 0.13, 0, Math.PI * 2); ctx.fill();
+
+  // Sparkle dot
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath(); ctx.arc(cx + r * 0.3, cy - r * 0.55, r * 0.14, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 }
 
 function drawBomb(ctx, cx, cy, r) {
-  // Fuse
-  ctx.strokeStyle = '#A0522D'; ctx.lineWidth = r * 0.14; ctx.lineCap = 'round';
+  ctx.save();
+  // Fuse stem
+  ctx.strokeStyle = '#92400E'; ctx.lineWidth = r * 0.13; ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(cx + r * 0.38, cy - r * 0.55);
-  ctx.quadraticCurveTo(cx + r * 0.75, cy - r * 1.0, cx + r * 0.5, cy - r * 1.2);
+  ctx.moveTo(cx + r * 0.42, cy - r * 0.6);
+  ctx.quadraticCurveTo(cx + r * 0.8, cy - r * 1.05, cx + r * 0.55, cy - r * 1.25);
   ctx.stroke();
-  // Fuse tip glow
-  ctx.fillStyle = '#FCD34D';
-  ctx.beginPath(); ctx.arc(cx + r * 0.5, cy - r * 1.2, r * 0.14, 0, Math.PI * 2); ctx.fill();
-  // Body shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.beginPath(); ctx.arc(cx + 3, cy + r * 0.12 + 3, r * 0.72, 0, Math.PI * 2); ctx.fill();
-  // Body
-  const bg = ctx.createRadialGradient(cx - r * 0.2, cy - r * 0.15, r * 0.05, cx, cy + r * 0.1, r * 0.72);
-  bg.addColorStop(0, '#4A3020'); bg.addColorStop(1, '#150800');
+  // Fuse spark
+  ctx.fillStyle = '#FDE68A';
+  ctx.shadowColor = '#F59E0B'; ctx.shadowBlur = 6;
+  ctx.beginPath(); ctx.arc(cx + r * 0.55, cy - r * 1.25, r * 0.13, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Drop shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath(); ctx.ellipse(cx + 2, cy + r * 0.85, r * 0.68, r * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Body gradient
+  const bg = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.2, r * 0.05, cx, cy + r * 0.1, r * 0.72);
+  bg.addColorStop(0, '#374151');
+  bg.addColorStop(0.6, '#1F2937');
+  bg.addColorStop(1, '#111827');
   ctx.fillStyle = bg;
-  ctx.beginPath(); ctx.arc(cx, cy + r * 0.1, r * 0.72, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy + r * 0.08, r * 0.72, 0, Math.PI * 2); ctx.fill();
+
   // Shine
-  ctx.fillStyle = 'rgba(255,255,255,0.22)';
-  ctx.beginPath(); ctx.arc(cx - r * 0.22, cy - r * 0.08, r * 0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.beginPath(); ctx.arc(cx - r * 0.24, cy - r * 0.12, r * 0.22, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 }
 
-// ─── Mines result card ────────────────────────────────────────────────────────
+// ─── Mines result card (cute redesign) ───────────────────────────────────────
 
 export function generateMinesCard({ grid, revealed, bombs, bet, payout, memberName, status }) {
-  const GRID = 4, CELL = 88, GAP = 8;
+  const GRID = 4, CELL = 90, GAP = 10;
   const GW  = GRID * CELL + (GRID - 1) * GAP;
-  const PAD = 24;
-  const W   = GW + PAD * 2;
-  const H   = 64 + GW + PAD * 2 + 56;
+  const PAD = 22;
+  const W   = GW + PAD * 2;   // 426
+  const H   = W + 100;        // header + footer
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
-  // Outer background
-  const outerG = ctx.createLinearGradient(0, 0, W, H);
-  outerG.addColorStop(0, '#14532D'); outerG.addColorStop(1, '#166534');
-  ctx.fillStyle = outerG;
-  roundRect(ctx, 0, 0, W, H, 22); ctx.fill();
+  // ── Background ──────────────────────────────────────────────────────────────
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#052e16');
+  bg.addColorStop(0.5, '#064e3b');
+  bg.addColorStop(1, '#052e16');
+  ctx.fillStyle = bg;
+  roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
 
-  // Subtle polka dots
-  ctx.fillStyle = 'rgba(255,255,255,0.04)';
-  for (let dx = 20; dx < W; dx += 36) for (let dy = 20; dy < H; dy += 36) {
-    ctx.beginPath(); ctx.arc(dx, dy, 3, 0, Math.PI * 2); ctx.fill();
-  }
+  // Radial centre glow
+  const glow = ctx.createRadialGradient(W / 2, H / 2, 30, W / 2, H / 2, W * 0.7);
+  glow.addColorStop(0, 'rgba(52,211,153,0.12)');
+  glow.addColorStop(1, 'rgba(52,211,153,0)');
+  ctx.fillStyle = glow;
+  roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
 
-  // Header
-  const headerText = status === 'lost' ? '💥  FIM DE JOGO!' : '✅  FIM DE JOGO!';
-  ctx.fillStyle = 'rgba(0,0,0,0.30)';
-  roundRect(ctx, PAD, 12, GW, 48, 12); ctx.fill();
-  ctx.fillStyle = '#FFFFFF'; ctx.font = `bold 20px ${FONT}`; ctx.textAlign = 'center';
-  ctx.fillText(headerText, W / 2, 43);
+  // Sparkles
+  const sp = [[38,30],[W-38,28],[22,H-40],[W-24,H-38],[W/2-60,18],[W/2+55,22],[30,H/2],[W-28,H/2+10]];
+  for (const [sx,sy] of sp) drawSparkle(ctx, sx, sy, 7, 'rgba(167,243,208,0.55)');
 
-  // Grid background
-  const gridY = 12 + 48 + 10;
-  const gridG = ctx.createLinearGradient(PAD - 6, gridY - 6, PAD + GW + 6, gridY + GW + 6);
-  gridG.addColorStop(0, '#15803D'); gridG.addColorStop(1, '#166534');
-  ctx.fillStyle = gridG;
-  roundRect(ctx, PAD - 6, gridY - 6, GW + 12, GW + 12, 16); ctx.fill();
+  // ── Header pill ─────────────────────────────────────────────────────────────
+  const isLost   = status === 'lost';
+  const hText    = isLost ? '💥  Você perdeu!' : '✅  Você ganhou!';
+  const hColor   = isLost ? ['#991B1B','#7F1D1D'] : ['#065F46','#064E3B'];
 
-  // Draw cells
+  const hg = ctx.createLinearGradient(PAD, 14, PAD + GW, 58);
+  hg.addColorStop(0, hColor[0]); hg.addColorStop(1, hColor[1]);
+  ctx.fillStyle = hg;
+  roundRect(ctx, PAD, 14, GW, 44, 22); ctx.fill();
+  ctx.strokeStyle = isLost ? 'rgba(252,165,165,0.4)' : 'rgba(110,231,183,0.4)';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, PAD, 14, GW, 44, 22); ctx.stroke();
+
+  ctx.fillStyle = '#FFFFFF'; ctx.font = `bold 18px ${FONT}`; ctx.textAlign = 'center';
+  ctx.fillText(hText, W / 2, 42);
+
+  // ── Grid wrapper ─────────────────────────────────────────────────────────────
+  const gridY = 72;
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  roundRect(ctx, PAD - 7, gridY - 7, GW + 14, GW + 14, 20); ctx.fill();
+
+  // Inner grid rim
+  ctx.strokeStyle = 'rgba(52,211,153,0.2)'; ctx.lineWidth = 1.5;
+  roundRect(ctx, PAD - 7, gridY - 7, GW + 14, GW + 14, 20); ctx.stroke();
+
+  // ── Cells ────────────────────────────────────────────────────────────────────
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
       const idx  = row * GRID + col;
@@ -268,32 +315,57 @@ export function generateMinesCard({ grid, revealed, bombs, bet, payout, memberNa
       const rev  = revealed[idx];
       const bomb = grid[idx];
 
-      const cellG = ctx.createLinearGradient(cx, cy, cx + CELL, cy + CELL);
-      if (rev && bomb)       { cellG.addColorStop(0, '#B45309'); cellG.addColorStop(1, '#78350F'); }
-      else if (rev)          { cellG.addColorStop(0, '#86EFAC'); cellG.addColorStop(1, '#4ADE80'); }
-      else                   { cellG.addColorStop(0, '#22C55E'); cellG.addColorStop(1, '#16A34A'); }
-      ctx.fillStyle = cellG;
-      roundRect(ctx, cx, cy, CELL, CELL, 12); ctx.fill();
+      // Shadow beneath cell
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';
+      roundRect(ctx, cx + 3, cy + 5, CELL, CELL, 18); ctx.fill();
 
-      // Cell shine
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
-      roundRect(ctx, cx + 3, cy + 3, CELL - 6, 18, 6); ctx.fill();
+      // Cell background
+      const cg = ctx.createLinearGradient(cx, cy, cx, cy + CELL);
+      if (rev && bomb) {
+        cg.addColorStop(0, '#FCA5A5'); cg.addColorStop(1, '#F87171');
+      } else if (rev) {
+        cg.addColorStop(0, '#A7F3D0'); cg.addColorStop(1, '#6EE7B7');
+      } else {
+        cg.addColorStop(0, '#34D399'); cg.addColorStop(1, '#10B981');
+      }
+      ctx.fillStyle = cg;
+      roundRect(ctx, cx, cy, CELL, CELL, 18); ctx.fill();
 
-      const iconX = cx + CELL / 2, iconY = cy + CELL / 2;
-      if (rev && bomb) drawBomb(ctx, iconX, iconY, 24);
-      else if (rev)    drawGem(ctx, iconX, iconY, 24);
+      // Top gloss
+      const gloss = ctx.createLinearGradient(cx, cy, cx, cy + CELL * 0.45);
+      gloss.addColorStop(0, 'rgba(255,255,255,0.28)');
+      gloss.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gloss;
+      roundRect(ctx, cx, cy, CELL, CELL * 0.45, 18); ctx.fill();
+
+      // Border
+      ctx.strokeStyle = rev && bomb
+        ? 'rgba(239,68,68,0.5)'
+        : rev
+          ? 'rgba(52,211,153,0.5)'
+          : 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, cx, cy, CELL, CELL, 18); ctx.stroke();
+
+      // Icon
+      const iconX = cx + CELL / 2, iconY = cy + CELL / 2 + 2;
+      if (rev && bomb) drawBomb(ctx, iconX, iconY, 26);
+      else if (rev)    drawGem(ctx, iconX, iconY, 26);
     }
   }
 
-  // Footer
-  const footerY = gridY + GW + 12 + 6;
+  // ── Footer pill ──────────────────────────────────────────────────────────────
+  const footerY = gridY + GW + 14;
   ctx.fillStyle = 'rgba(0,0,0,0.30)';
-  roundRect(ctx, PAD, footerY, GW, 42, 12); ctx.fill();
-  ctx.fillStyle = '#FFFFFF'; ctx.font = `bold 13px ${FONT}`; ctx.textAlign = 'center';
-  const gainLine = status === 'lost' ? '0' : fmtShort(payout);
-  ctx.fillText(`🤑 Aposta: ${fmtShort(bet)}  •  💸 Ganhos: ${gainLine}  •  ${memberName}`, W / 2, footerY + 16);
-  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = `11px ${FONT}`;
-  ctx.fillText(`💣 Minas: ${bombs}`, W / 2, footerY + 33);
+  roundRect(ctx, PAD, footerY, GW, 54, 18); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+  roundRect(ctx, PAD, footerY, GW, 54, 18); ctx.stroke();
+
+  ctx.fillStyle = '#FFFFFF'; ctx.font = `bold 14px ${FONT}`; ctx.textAlign = 'center';
+  const gainTxt = isLost ? '0' : fmtShort(payout);
+  ctx.fillText(`Aposta: ${fmtShort(bet)}   •   Ganhos: ${gainTxt}`, W / 2, footerY + 22);
+  ctx.fillStyle = 'rgba(167,243,208,0.7)'; ctx.font = `12px ${FONT}`;
+  ctx.fillText(`💣 ${bombs} minas  •  ${memberName}`, W / 2, footerY + 41);
 
   return canvas.toBuffer('image/png');
 }
@@ -301,93 +373,127 @@ export function generateMinesCard({ grid, revealed, bombs, bet, payout, memberNa
 // ─── Blackjack card ───────────────────────────────────────────────────────────
 
 export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal, won, tie, bust, bet, payout, userBalance, hideDealer = false }) {
-  const W = 920, H = 510;
+  const W = 820, H = 500;
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
-  drawCuteBg(ctx, W, H, ['#2D1B4E', '#4B2E7A', '#6B3FA0']);
+  // ── Background ──────────────────────────────────────────────────────────────
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#0F0A2A');
+  bg.addColorStop(0.5, '#1E1040');
+  bg.addColorStop(1, '#0F0A2A');
+  ctx.fillStyle = bg;
+  roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
 
-  // Subtle star sparkles
-  const sparklePositions = [[60,40],[840,60],[100,440],[820,430],[500,60],[200,100],[680,400]];
-  for (const [sx, sy] of sparklePositions) {
-    drawSparkle(ctx, sx, sy, 10, 'rgba(255,200,255,0.3)');
-  }
+  // Centre radial glow
+  const cg = ctx.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, W * 0.55);
+  cg.addColorStop(0, 'rgba(139,92,246,0.18)');
+  cg.addColorStop(1, 'rgba(139,92,246,0)');
+  ctx.fillStyle = cg; roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
 
-  drawCuteHeader(ctx, W, '🃏  B L A C K J A C K  🃏', '#F0C0FF', '#3A1A6A');
+  // Sparkles
+  const sp = [[42,34],[W-42,32],[36,H-36],[W-38,H-34],[W/2,22],[W/2-130,H-28],[W/2+125,H-26],[60,H/2-10],[W-55,H/2+8]];
+  for (const [sx,sy] of sp) drawSparkle(ctx, sx, sy, 8, 'rgba(196,181,253,0.55)');
 
-  // Felt table — soft rounded oval
-  const ox = W / 2, oy = H / 2 + 28, rx = 400, ry = 185;
+  // ── Header ──────────────────────────────────────────────────────────────────
+  const headerG = ctx.createLinearGradient(0, 0, W, 52);
+  headerG.addColorStop(0, '#2E1065'); headerG.addColorStop(1, '#1E0A40');
+  ctx.fillStyle = headerG;
+  roundRect(ctx, 0, 0, W, 52, 24); ctx.fill();
+  ctx.fillRect(0, 28, W, 24);
+  ctx.strokeStyle = 'rgba(167,139,250,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, 52); ctx.lineTo(W, 52); ctx.stroke();
 
-  const feltGrad = ctx.createRadialGradient(ox, oy - 40, 40, ox, oy, rx);
-  feltGrad.addColorStop(0, '#3A7F5A');
-  feltGrad.addColorStop(1, '#1F5A3A');
-  ctx.beginPath(); ctx.ellipse(ox, oy, rx, ry, 0, 0, Math.PI * 2);
-  ctx.fillStyle = feltGrad; ctx.fill();
+  ctx.fillStyle = '#E9D5FF'; ctx.font = `bold 19px ${FONT}`; ctx.textAlign = 'center';
+  ctx.fillText('🃏  BLACKJACK  🃏', W / 2, 34);
 
-  const feltShine = ctx.createRadialGradient(ox, oy - 60, 60, ox, oy, rx);
-  feltShine.addColorStop(0, 'rgba(255,255,255,0.07)');
-  feltShine.addColorStop(1, 'rgba(0,0,0,0.15)');
-  ctx.beginPath(); ctx.ellipse(ox, oy, rx, ry, 0, 0, Math.PI * 2);
-  ctx.fillStyle = feltShine; ctx.fill();
-
-  ctx.strokeStyle = 'rgba(255,180,255,0.5)'; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.ellipse(ox, oy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,180,255,0.2)'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.ellipse(ox, oy, rx - 12, ry - 12, 0, 0, Math.PI * 2); ctx.stroke();
-
-  // Score labels
-  function drawScorePill(cx, y, text) {
-    ctx.font = `bold 13px ${FONT}`;
+  // ── Helper: score badge ──────────────────────────────────────────────────────
+  function scoreBadge(text, bx, by) {
+    ctx.font = `bold 12px ${FONT}`;
     const tw = ctx.measureText(text).width;
-    const pw = tw + 30, ph = 26;
-    const g = ctx.createLinearGradient(cx - pw/2, y, cx + pw/2, y + ph);
-    g.addColorStop(0, 'rgba(80,40,120,0.9)');
-    g.addColorStop(1, 'rgba(50,20,80,0.9)');
-    ctx.fillStyle = g;
-    roundRect(ctx, cx - pw/2, y, pw, ph, 13); ctx.fill();
-    ctx.strokeStyle = 'rgba(200,150,255,0.5)'; ctx.lineWidth = 1;
-    roundRect(ctx, cx - pw/2, y, pw, ph, 13); ctx.stroke();
+    const pw = tw + 28, ph = 24;
+    ctx.fillStyle = 'rgba(139,92,246,0.55)';
+    roundRect(ctx, bx - pw / 2, by, pw, ph, 12); ctx.fill();
+    ctx.strokeStyle = 'rgba(196,181,253,0.5)'; ctx.lineWidth = 1;
+    roundRect(ctx, bx - pw / 2, by, pw, ph, 12); ctx.stroke();
     ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center';
-    ctx.fillText(text, cx, y + 17);
+    ctx.fillText(text, bx, by + 16);
   }
 
-  const dZoneY = oy - ry + 18;
-  drawScorePill(ox, dZoneY, `DEALER  •  ${hideDealer ? '?' : dTotal}`);
-  const dCount = hideDealer ? 2 : dealerCards.length;
-  const dGap   = Math.min(78, (rx * 1.4) / dCount);
-  const dStart = ox - ((dCount - 1) * dGap) / 2 - 35;
+  // ── Section label ─────────────────────────────────────────────────────────
+  function sectionLabel(text, x, y) {
+    ctx.fillStyle = 'rgba(196,181,253,0.55)'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'left';
+    ctx.fillText(text, x, y);
+  }
+
+  // ── Dealer panel ────────────────────────────────────────────────────────────
+  const dPanelY = 62, dPanelH = 178;
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  roundRect(ctx, 20, dPanelY, W - 40, dPanelH, 16); ctx.fill();
+  ctx.strokeStyle = 'rgba(167,139,250,0.2)'; ctx.lineWidth = 1;
+  roundRect(ctx, 20, dPanelY, W - 40, dPanelH, 16); ctx.stroke();
+
+  sectionLabel('DEALER', 36, dPanelY + 18);
+  scoreBadge(hideDealer ? '?' : String(dTotal), W - 80, dPanelY + 6);
+
+  const dCount  = hideDealer ? 2 : dealerCards.length;
+  const dGap    = Math.min(82, (W - 120) / dCount);
+  const dStart  = W / 2 - ((dCount - 1) * dGap) / 2 - 35;
   if (hideDealer) {
-    drawCard(ctx, dStart, dZoneY + 34, dealerCards[0].rank, dealerCards[0].suit);
-    drawCardBack(ctx, dStart + dGap, dZoneY + 34);
+    drawCard(ctx, dStart, dPanelY + 30, dealerCards[0].rank, dealerCards[0].suit);
+    drawCardBack(ctx, dStart + dGap, dPanelY + 30);
   } else {
-    dealerCards.forEach((c, i) => drawCard(ctx, dStart + i * dGap, dZoneY + 34, c.rank, c.suit));
+    dealerCards.forEach((c, i) => drawCard(ctx, dStart + i * dGap, dPanelY + 30, c.rank, c.suit));
   }
 
-  // Center result (only when game is finished)
+  // ── Divider / result banner ──────────────────────────────────────────────────
+  const midY = dPanelY + dPanelH + 10;
   if (!hideDealer) {
-    if (won) drawResultBanner(ctx, W, oy - 32, '✨  VITÓRIA!', '#1E8A4A', '#15B85A', '#FFFFFF');
-    else if (tie) drawResultBanner(ctx, W, oy - 32, '🤝  EMPATE', '#2A5AA0', '#3A7AE0', '#FFFFFF');
-    else if (bust) drawResultBanner(ctx, W, oy - 32, '💥  BUST!', '#A02828', '#D03030', '#FFFFFF');
-    else drawResultBanner(ctx, W, oy - 32, '❌  DERROTA', '#8A2020', '#B83030', '#FFFFFF');
+    let rFrom, rTo, rText;
+    if (won)       { rFrom = '#064E3B'; rTo = '#059669'; rText = '✨  VITÓRIA!'; }
+    else if (tie)  { rFrom = '#1E3A5F'; rTo = '#2563EB'; rText = '🤝  EMPATE'; }
+    else if (bust) { rFrom = '#7F1D1D'; rTo = '#DC2626'; rText = '💥  BUST!'; }
+    else           { rFrom = '#7F1D1D'; rTo = '#B91C1C'; rText = '❌  DERROTA'; }
+    const rg = ctx.createLinearGradient(W * 0.2, midY, W * 0.8, midY + 36);
+    rg.addColorStop(0, rFrom); rg.addColorStop(1, rTo);
+    ctx.fillStyle = rg;
+    roundRect(ctx, W * 0.2, midY, W * 0.6, 36, 18); ctx.fill();
+    ctx.fillStyle = '#FFFFFF'; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center';
+    ctx.fillText(rText, W / 2, midY + 24);
+  } else {
+    ctx.strokeStyle = 'rgba(139,92,246,0.25)'; ctx.lineWidth = 1;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(40, midY + 18); ctx.lineTo(W - 40, midY + 18); ctx.stroke();
+    ctx.setLineDash([]);
   }
 
-  const pZoneY = oy + 34;
-  const bustLabel = bust ? ` 💥` : '';
-  drawScorePill(ox, pZoneY, `VOCÊ  •  ${pTotal}${bustLabel}`);
-  const pCount = playerCards.length;
-  const pGap   = Math.min(78, (rx * 1.4) / pCount);
-  const pStart = ox - ((pCount - 1) * pGap) / 2 - 35;
-  playerCards.forEach((c, i) => drawCard(ctx, pStart + i * pGap, pZoneY + 34, c.rank, c.suit));
+  // ── Player panel ────────────────────────────────────────────────────────────
+  const pPanelY = midY + 46, pPanelH = 178;
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  roundRect(ctx, 20, pPanelY, W - 40, pPanelH, 16); ctx.fill();
+  ctx.strokeStyle = 'rgba(167,139,250,0.2)'; ctx.lineWidth = 1;
+  roundRect(ctx, 20, pPanelY, W - 40, pPanelH, 16); ctx.stroke();
 
+  sectionLabel('VOCÊ', 36, pPanelY + 18);
+  const bustLabel = bust ? ' 💥' : '';
+  scoreBadge(`${pTotal}${bustLabel}`, W - 80, pPanelY + 6);
+
+  const pCount = playerCards.length;
+  const pGap   = Math.min(82, (W - 120) / pCount);
+  const pStart = W / 2 - ((pCount - 1) * pGap) / 2 - 35;
+  playerCards.forEach((c, i) => drawCard(ctx, pStart + i * pGap, pPanelY + 30, c.rank, c.suit));
+
+  // ── Footer stat bar ──────────────────────────────────────────────────────────
+  const fY = pPanelY + pPanelH + 10;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  roundRect(ctx, 20, fY, W - 40, 34, 17); ctx.fill();
+  ctx.fillStyle = 'rgba(196,181,253,0.75)'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center';
   if (hideDealer) {
-    drawFooterStats(ctx, W, H, `Aposta: ${fmt(bet)} 💰  •  Possível ganho: ${fmt(bet * 2)} 💰`);
+    ctx.fillText(`Aposta: ${fmt(bet)} 💰  •  Possível ganho: ${fmt(bet * 2)} 💰`, W / 2, fY + 22);
   } else {
     const sign   = won ? '+' : tie ? '±' : '-';
     const change = tie ? 0 : won ? payout - bet : bet;
-    drawFooterStats(ctx, W, H,
-      `${sign}${fmt(change)} 💰  •  Saldo: ${fmt(userBalance)} 💰`,
-      `Aposta: ${fmt(bet)} 💰`
-    );
+    ctx.fillText(`${sign}${fmt(change)} 💰   Aposta: ${fmt(bet)} 💰`, W / 2, fY + 22);
   }
 
   return canvas.toBuffer('image/png');
