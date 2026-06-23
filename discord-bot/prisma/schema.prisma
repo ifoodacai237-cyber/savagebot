@@ -96,6 +96,30 @@ model GuildConfig {
   welcomeText      String?
   welcomeRoles     String?
   welcomeChannels  String?
+
+  partnerChannel         String?
+  partnerResponsibleRole String?
+  partnerPingRole        String?
+  partnerRole            String?
+  partnerNotifyDm        Boolean @default(false)
+  partnerMessage         String?
+  partnerImage           String?
+  partnerThumbnail       String?
+  partnerFooter          String?
+  partnerColor           String?
+  partnerRemoveOnLeave   Boolean @default(false)
+}
+
+model Partnership {
+  id               String   @id @default(cuid())
+  guildId          String
+  partnerServerId  String
+  partnerName      String
+  promoterId       String
+  representativeId String?
+  inviteCode       String
+  messageUrl       String?
+  createdAt        DateTime @default(now())
 }
 
 model Economy {

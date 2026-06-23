@@ -7,6 +7,7 @@ import {
 } from 'discord.js';
 import prisma from '../database/client.js';
 import { likesMap, threadsMap } from '../utils/instaState.js';
+import { buildPartnershipPost } from '../utils/partnershipPanels.js';
 
 const PREFIX = 'fallen ';
 
@@ -53,6 +54,101 @@ export default {
     // ── INSTAGRAM AUTO-POST ──────────────────────────────────────────────────
     if (message.guildId) {
       const cfg = await getGuildCfg(message.guildId);
+
+      // ── PARCERIAS AUTO-DETECT ──────────────────────────────────────────────
+      if (cfg?.partnerChannel && message.channelId === cfg.partnerChannel) {
+        const hasRole = cfg.partnerResponsibleRole
+          ? message.member?.roles.cache.has(cfg.partnerResponsibleRole)
+          : true;
+
+        if (hasRole) {
+          const inviteMatch = message.content.match(/discord(?:\.gg|app\.com\/invite|\.com\/invite)\/([a-zA-Z0-9-]+)/i);
+          if (inviteMatch) {
+            const inviteCode = inviteMatch[1];
+
+            let invite = null;
+            try { invite = await message.client.fetchInvite(inviteCode); } catch {}
+
+            if (invite && invite.guild?.id !== message.guildId) {
+              const partnerServerId = invite.guild?.id   || 'unknown';
+              const partnerName     = invite.guild?.name || 'Desconhecido';
+
+              let representativeId = null;
+              const repMatch = message.content.match(/(?:rep(?:resentante)?)\s*:\s*<@!?(\d+)>/i);
+              if (repMatch) {
+                representativeId = repMatch[1];
+              } else if (message.mentions.users.size > 0) {
+                representativeId = message.mentions.users.first().id;
+              }
+
+              const prevCount = await prisma.partnership.count({
+                where: { guildId: message.guildId, promoterId: message.author.id },
+              });
+              const partnershipCount = prevCount + 1;
+
+              const allPromoterCounts = await prisma.partnership.groupBy({
+                by: ['promoterId'],
+                where: { guildId: message.guildId, promoterId: { not: message.author.id } },
+                _count: { id: true },
+              });
+              const rank = allPromoterCounts.filter(p => p._count.id >= partnershipCount).length + 1;
+
+              await prisma.partnership.create({
+                data: {
+                  guildId: message.guildId,
+                  partnerServerId,
+                  partnerName,
+                  promoterId:       message.author.id,
+                  representativeId: representativeId ?? null,
+                  inviteCode,
+                  messageUrl: message.url,
+                },
+              }).catch(() => {});
+
+              if (cfg.partnerRole && representativeId) {
+                const rep = message.guild.members.cache.get(representativeId)
+                  ?? await message.guild.members.fetch(representativeId).catch(() => null);
+                if (rep) rep.roles.add(cfg.partnerRole).catch(() => {});
+              }
+
+              const thumbUrl = cfg.partnerThumbnail || invite.guild?.iconURL?.({ size: 256 })    || null;
+              const imageUrl = cfg.partnerImage     || invite.guild?.bannerURL?.({ size: 1024 }) || null;
+
+              const post = buildPartnershipPost({
+                cfg,
+                promoterId: message.author.id,
+                partnerName,
+                inviteCode,
+                partnershipCount,
+                rank,
+                thumbUrl,
+                imageUrl,
+                messageUrl: message.url,
+              });
+
+              const pingContent = cfg.partnerPingRole ? `<@&${cfg.partnerPingRole}>` : undefined;
+              await message.channel.send({ content: pingContent, ...post });
+
+              if (cfg.partnerNotifyDm && representativeId) {
+                const accentColor = cfg.partnerColor ? (parseInt(cfg.partnerColor, 16) || 0xA020F0) : 0xA020F0;
+                const rep = message.guild.members.cache.get(representativeId)
+                  ?? await message.guild.members.fetch(representativeId).catch(() => null);
+                if (rep) {
+                  rep.user.send({
+                    embeds: [new EmbedBuilder()
+                      .setColor(accentColor)
+                      .setTitle('🤝 Parceria Realizada!')
+                      .setDescription(`Você foi marcado como representante da parceria com **${partnerName}** no servidor **${message.guild.name}**.\n\n[Ver parceria](${message.url})`)
+                      .setTimestamp()
+                    ],
+                  }).catch(() => {});
+                }
+              }
+            }
+          }
+        }
+        return;
+      }
 
       if (cfg?.instaChannel && message.channelId === cfg.instaChannel && message.attachments.size > 0) {
         const color      = parseInt(cfg.instaColor ?? '833AB4', 16);

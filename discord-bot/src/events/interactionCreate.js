@@ -26,6 +26,7 @@ import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoe
 import { generateTellonymCard } from '../utils/cardGenerator.js';
 import { likesMap } from '../utils/instaState.js';
 import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, buildTicketPanelV2, buildTellonymPanelV2, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT, DEFAULT_WELCOME_TITLE, DEFAULT_WELCOME_TEXT } from '../utils/configPanels.js';
+import { buildPartnerConfigPayload } from '../utils/partnershipPanels.js';
 import {
   getSession,
   deleteSession,
@@ -143,6 +144,14 @@ const WELCOME_MODAL_FIELDS = {
   thumb:  { label: 'URL da thumbnail',            db: 'welcomeThumb',   placeholder: 'https://... (deixe vazio para avatar do usuário)', isUrl: true,  isLong: false },
   rodape: { label: 'Rodapé (use {server}, {count})', db: 'welcomeFooter', placeholder: '{server} • Membro nº {count}',                  isUrl: false, isLong: false },
   texto:  { label: 'Texto ({user} {username} {server} {count})', db: 'welcomeText', placeholder: '> Seja bem-vindo(a), {user}!', isUrl: false, isLong: true },
+};
+
+const PARTNER_MODAL_FIELDS = {
+  cor:      { label: 'Cor (hex, ex: A020F0)',    db: 'partnerColor',     isUrl: false, isLong: false, placeholder: 'A020F0 (deixe vazio para padrão)' },
+  imagem:   { label: 'URL da imagem/banner',      db: 'partnerImage',     isUrl: true,  isLong: false, placeholder: 'https://... (deixe vazio para padrão)' },
+  thumb:    { label: 'URL da thumbnail',          db: 'partnerThumbnail', isUrl: true,  isLong: false, placeholder: 'https://... (deixe vazio para padrão)' },
+  footer:   { label: 'Rodapé do embed',           db: 'partnerFooter',    isUrl: false, isLong: false, placeholder: 'Fallen Bot · Parcerias' },
+  mensagem: { label: 'Mensagem de agradecimento', db: 'partnerMessage',   isUrl: false, isLong: true,  placeholder: '★ Obrigado por fortalecer nossa comunidade!' },
 };
 
 // ─── Handler principal ────────────────────────────────────────────────────────
@@ -278,6 +287,17 @@ export default {
           });
           const cfg     = await getCfg(interaction.guildId);
           const payload = buildTellonymConfigPayload(cfg);
+          return interaction.update({ ...payload, content: null });
+        }
+
+        if (interaction.customId === 'chansel_pc') {
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, partnerChannel: channelId },
+            update: { partnerChannel: channelId },
+          });
+          const cfg     = await getCfg(interaction.guildId);
+          const payload = buildPartnerConfigPayload(cfg);
           return interaction.update({ ...payload, content: null });
         }
 
@@ -1299,6 +1319,109 @@ export default {
           return interaction.showModal(modal);
         }
 
+        // ── CONFIG: Parcerias — botões ──────────────────────────────────
+        if (customId.startsWith('pcfg_')) {
+          const field = customId.replace('pcfg_', '');
+
+          if (field === 'cancelar') {
+            const cfg     = await getCfg(interaction.guildId);
+            const payload = buildPartnerConfigPayload(cfg);
+            return interaction.update({ ...payload, content: null });
+          }
+
+          if (field === 'canal') {
+            const select = new ChannelSelectMenuBuilder()
+              .setCustomId('chansel_pc')
+              .setPlaceholder('Selecione o canal de parcerias')
+              .setChannelTypes([ChannelType.GuildText]);
+            const cancelBtn = new ButtonBuilder().setCustomId('pcfg_cancelar').setLabel('Cancelar').setEmoji('↩️').setStyle(ButtonStyle.Secondary);
+            return interaction.update({
+              content: '💌 Selecione o canal onde as parcerias serão aceitas:',
+              embeds: [],
+              components: [new ActionRowBuilder().addComponents(select), new ActionRowBuilder().addComponents(cancelBtn)],
+            });
+          }
+
+          if (field === 'cargo_resp') {
+            const cfg = await getCfg(interaction.guildId);
+            const modal = new ModalBuilder().setCustomId('pcfg_modal_cargo_resp').setTitle('👑 Cargo Responsável');
+            modal.addComponents(new ActionRowBuilder().addComponents(
+              new TextInputBuilder().setCustomId('role_id')
+                .setLabel('ID do cargo responsável pelas parcerias')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('123456789012345678 (deixe vazio para remover)')
+                .setValue(cfg.partnerResponsibleRole ?? '').setRequired(false).setMaxLength(20),
+            ));
+            return interaction.showModal(modal);
+          }
+
+          if (field === 'cargo_ping') {
+            const cfg = await getCfg(interaction.guildId);
+            const modal = new ModalBuilder().setCustomId('pcfg_modal_cargo_ping').setTitle('🔔 Cargo de Ping');
+            modal.addComponents(new ActionRowBuilder().addComponents(
+              new TextInputBuilder().setCustomId('role_id')
+                .setLabel('ID do cargo para pingar na parceria')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('123456789012345678 (deixe vazio para remover)')
+                .setValue(cfg.partnerPingRole ?? '').setRequired(false).setMaxLength(20),
+            ));
+            return interaction.showModal(modal);
+          }
+
+          if (field === 'cargo_parceiro') {
+            const cfg = await getCfg(interaction.guildId);
+            const modal = new ModalBuilder().setCustomId('pcfg_modal_cargo_parceiro').setTitle('🤝 Cargo de Parceiro');
+            modal.addComponents(new ActionRowBuilder().addComponents(
+              new TextInputBuilder().setCustomId('role_id')
+                .setLabel('ID do cargo dado ao representante')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('123456789012345678 (deixe vazio para remover)')
+                .setValue(cfg.partnerRole ?? '').setRequired(false).setMaxLength(20),
+            ));
+            return interaction.showModal(modal);
+          }
+
+          if (field === 'toggle_dm') {
+            const cfg = await getCfg(interaction.guildId);
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, partnerNotifyDm: !cfg.partnerNotifyDm },
+              update: { partnerNotifyDm: !cfg.partnerNotifyDm },
+            });
+            const updated = await getCfg(interaction.guildId);
+            return interaction.update(buildPartnerConfigPayload(updated));
+          }
+
+          if (field === 'toggle_remove') {
+            const cfg = await getCfg(interaction.guildId);
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, partnerRemoveOnLeave: !cfg.partnerRemoveOnLeave },
+              update: { partnerRemoveOnLeave: !cfg.partnerRemoveOnLeave },
+            });
+            const updated = await getCfg(interaction.guildId);
+            return interaction.update(buildPartnerConfigPayload(updated));
+          }
+
+          const def = PARTNER_MODAL_FIELDS[field];
+          if (def) {
+            const cfg = await getCfg(interaction.guildId);
+            const modal = new ModalBuilder()
+              .setCustomId(`pcfg_modal_${field}`)
+              .setTitle(`🤝 Parceria — ${def.label.slice(0, 45)}`);
+            const input = new TextInputBuilder()
+              .setCustomId('value')
+              .setLabel(def.label.slice(0, 45))
+              .setStyle(def.isLong ? TextInputStyle.Paragraph : TextInputStyle.Short)
+              .setPlaceholder(def.placeholder.slice(0, 100))
+              .setRequired(false)
+              .setMaxLength(def.isLong ? 1000 : 200);
+            if (cfg[def.db]) input.setValue(cfg[def.db]);
+            modal.addComponents(new ActionRowBuilder().addComponents(input));
+            return interaction.showModal(modal);
+          }
+        }
+
         // ── INTERAÇÕES: Retribuir ────────────────────────────────────────
         if (customId.startsWith('int_r_')) {
           const parts          = customId.split('_');
@@ -2114,6 +2237,92 @@ export default {
           });
           const cfg = await getCfg(interaction.guildId);
           await interaction.message?.edit(buildWelcomeConfigPayload(cfg)).catch(() => {});
+          return interaction.reply({ content: '✅ Campo atualizado!', ephemeral: true });
+        }
+
+        // ── CONFIG: Parcerias — cargo responsável ────────────────────────
+        if (interaction.customId === 'pcfg_modal_cargo_resp') {
+          const raw = interaction.fields.getTextInputValue('role_id').trim();
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, partnerResponsibleRole: raw || null },
+            update: { partnerResponsibleRole: raw || null },
+          });
+          const cfg = await getCfg(interaction.guildId);
+          await interaction.message?.edit(buildPartnerConfigPayload(cfg)).catch(() => {});
+          return interaction.reply({ content: raw ? `✅ Cargo responsável definido: <@&${raw}>` : '✅ Cargo responsável removido.', ephemeral: true });
+        }
+
+        // ── CONFIG: Parcerias — cargo de ping ────────────────────────────
+        if (interaction.customId === 'pcfg_modal_cargo_ping') {
+          const raw = interaction.fields.getTextInputValue('role_id').trim();
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, partnerPingRole: raw || null },
+            update: { partnerPingRole: raw || null },
+          });
+          const cfg = await getCfg(interaction.guildId);
+          await interaction.message?.edit(buildPartnerConfigPayload(cfg)).catch(() => {});
+          return interaction.reply({ content: raw ? `✅ Cargo de ping definido: <@&${raw}>` : '✅ Cargo de ping removido.', ephemeral: true });
+        }
+
+        // ── CONFIG: Parcerias — cargo de parceiro ────────────────────────
+        if (interaction.customId === 'pcfg_modal_cargo_parceiro') {
+          const raw = interaction.fields.getTextInputValue('role_id').trim();
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, partnerRole: raw || null },
+            update: { partnerRole: raw || null },
+          });
+          const cfg = await getCfg(interaction.guildId);
+          await interaction.message?.edit(buildPartnerConfigPayload(cfg)).catch(() => {});
+          return interaction.reply({ content: raw ? `✅ Cargo de parceiro definido: <@&${raw}>` : '✅ Cargo de parceiro removido.', ephemeral: true });
+        }
+
+        // ── CONFIG: Parcerias — campos genéricos ─────────────────────────
+        if (interaction.customId.startsWith('pcfg_modal_')) {
+          const field = interaction.customId.replace('pcfg_modal_', '');
+          const def   = PARTNER_MODAL_FIELDS[field];
+          if (!def) return;
+
+          const rawValue = interaction.fields.getTextInputValue('value');
+          let value = rawValue?.trim() ?? '';
+          const isEmpty = value === '';
+
+          if (def.isUrl) {
+            await interaction.deferReply({ ephemeral: true });
+            if (isEmpty) {
+              value = null;
+            } else {
+              const resolved = await resolveImageUrl(value, client);
+              if (resolved === null) {
+                return interaction.editReply({ embeds: [errorEmbed('Não encontrei nenhuma imagem. Cole uma URL direta ou o link de uma mensagem do Discord com imagem.')] });
+              }
+              value = resolved;
+            }
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, [def.db]: value },
+              update: { [def.db]: value },
+            });
+            const cfg = await getCfg(interaction.guildId);
+            await interaction.message?.edit(buildPartnerConfigPayload(cfg)).catch(() => {});
+            return interaction.editReply({ content: '✅ Campo atualizado!' });
+          }
+
+          if (isEmpty) {
+            value = null;
+          } else if (field === 'cor') {
+            value = value.replace('#', '').toUpperCase();
+          }
+
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, [def.db]: value },
+            update: { [def.db]: value },
+          });
+          const cfg = await getCfg(interaction.guildId);
+          await interaction.message?.edit(buildPartnerConfigPayload(cfg)).catch(() => {});
           return interaction.reply({ content: '✅ Campo atualizado!', ephemeral: true });
         }
 
