@@ -205,7 +205,7 @@ export function buildMsgMenuEditor(session) {
 
 export function buildMsgColorPicker() {
   const COLORS = [
-    { label: '⚫ Ocultar',   id: 'none'   },
+    { label: '🚫 Sem Lateral', id: 'none'   },
     { label: '🟣 Roxo',      id: 'purple' },
     { label: '🔵 Azul',      id: 'blue'   },
     { label: '🩵 Ciano',     id: 'cyan'   },

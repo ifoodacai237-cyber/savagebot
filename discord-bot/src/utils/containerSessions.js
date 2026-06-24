@@ -34,7 +34,10 @@ export function deleteSession(userId, guildId) {
 // ─── Container builder ────────────────────────────────────────────────────────
 
 export function buildContainerPayload(session) {
-  const container = new ContainerBuilder().setAccentColor(session.accentColor);
+  const container = new ContainerBuilder();
+  if (session.accentColor !== null && session.accentColor !== undefined) {
+    container.setAccentColor(session.accentColor);
+  }
 
   // Corpo/texto inicial (estilo webhook)
   if (session.bodyText) {
@@ -111,14 +114,15 @@ export function buildTypeSelector() {
 
 export function buildColorPicker() {
   const COLORS = [
-    { label: '🟣 Roxo',     id: 'purple',  hex: 0x9B4FD6 },
-    { label: '🔵 Azul',     id: 'blue',    hex: 0x5865F2 },
-    { label: '🩵 Ciano',    id: 'cyan',    hex: 0x00B0F4 },
-    { label: '🟢 Verde',    id: 'green',   hex: 0x57F287 },
-    { label: '🟡 Amarelo',  id: 'yellow',  hex: 0xFEE75C },
-    { label: '🔴 Vermelho', id: 'red',     hex: 0xED4245 },
-    { label: '🟠 Laranja',  id: 'orange',  hex: 0xE67E22 },
-    { label: '⚫ Preto',    id: 'black',   hex: 0x23272A },
+    { label: '🚫 Sem Lateral', id: 'none'   },
+    { label: '🟣 Roxo',        id: 'purple' },
+    { label: '🔵 Azul',        id: 'blue'   },
+    { label: '🩵 Ciano',       id: 'cyan'   },
+    { label: '🟢 Verde',       id: 'green'  },
+    { label: '🟡 Amarelo',     id: 'yellow' },
+    { label: '🔴 Vermelho',    id: 'red'    },
+    { label: '🟠 Laranja',     id: 'orange' },
+    { label: '⚫ Preto',       id: 'black'  },
   ];
   return [
     new ActionRowBuilder().addComponents(
@@ -134,6 +138,7 @@ export function buildColorPicker() {
 }
 
 export const COLOR_MAP = {
+  none:   null,
   purple: 0x9B4FD6,
   blue:   0x5865F2,
   cyan:   0x00B0F4,
