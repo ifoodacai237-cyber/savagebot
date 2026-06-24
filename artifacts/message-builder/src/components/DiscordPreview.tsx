@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
-import type { MessageGroup, Block, TextBlock, RolesBlock, SeparatorBlock } from "@/types/message";
+import type { MessageGroup, Block, TextBlock, RolesBlock, SeparatorBlock, ButtonsBlock, DividerBlock } from "@/types/message";
 
 interface Props {
   groups: MessageGroup[];
@@ -25,6 +25,13 @@ function parseMarkdown(text: string): React.ReactNode[] {
   }
   return parts;
 }
+
+const BUTTON_STYLE_CLASSES: Record<string, string> = {
+  primary:   "bg-[#5865F2] hover:bg-[#4752c4] text-white",
+  secondary: "bg-[#4e5058] hover:bg-[#43444b] text-white",
+  success:   "bg-[#248046] hover:bg-[#1a6b38] text-white",
+  danger:    "bg-[#da373c] hover:bg-[#c12d31] text-white",
+};
 
 function renderBlock(block: Block) {
   if (block.type === "text") {
@@ -63,6 +70,31 @@ function renderBlock(block: Block) {
     );
   }
 
+  if (block.type === "divider") {
+    return (
+      <div key={block.id} className="my-2">
+        <div className="h-px bg-[#3f4147] w-full" />
+      </div>
+    );
+  }
+
+  if (block.type === "buttons") {
+    const bb = block as ButtonsBlock;
+    return (
+      <div key={block.id} className="flex flex-wrap gap-2 mt-2">
+        {bb.items.map(item => (
+          <button
+            key={item.id}
+            className={`inline-flex items-center gap-1.5 px-4 py-[6px] rounded text-sm font-medium transition-colors cursor-default select-none ${BUTTON_STYLE_CLASSES[item.style] ?? BUTTON_STYLE_CLASSES.secondary}`}
+          >
+            {item.emoji && <span className="leading-none">{item.emoji}</span>}
+            {item.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
   return null;
 }
 
@@ -71,10 +103,16 @@ function buildPlainText(groups: MessageGroup[]): string {
     return g.blocks.map(block => {
       if (block.type === "text") return (block as TextBlock).content;
       if (block.type === "separator") return (block as SeparatorBlock).content;
+      if (block.type === "divider") return "───────────────────";
       if (block.type === "roles") {
         return (block as RolesBlock).roles
           .map(r => `• @${r.name}`)
           .join("\n");
+      }
+      if (block.type === "buttons") {
+        return (block as ButtonsBlock).items
+          .map(i => `[ ${i.emoji ? i.emoji + " " : ""}${i.label} ]`)
+          .join("  ");
       }
       return "";
     }).join("\n");
@@ -126,15 +164,9 @@ function DiscordMessage({ group, isFirst }: { group: MessageGroup; isFirst: bool
     <div className="flex group/msg hover:bg-white/[0.03] rounded px-2 py-0.5 -mx-2 transition-colors">
       <div className="flex gap-4 w-full min-w-0">
         <div className="flex-shrink-0 w-10 flex justify-start pt-[3px]">
-          {isFirst ? (
-            <div className="w-10 h-10 rounded-full bg-[#5865F2] flex items-center justify-center text-white text-sm font-bold select-none flex-shrink-0">
-              W
-            </div>
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-[#5865F2] flex items-center justify-center text-white text-sm font-bold select-none flex-shrink-0">
-              W
-            </div>
-          )}
+          <div className="w-10 h-10 rounded-full bg-[#5865F2] flex items-center justify-center text-white text-sm font-bold select-none flex-shrink-0">
+            W
+          </div>
         </div>
 
         <div className="flex-1 min-w-0">

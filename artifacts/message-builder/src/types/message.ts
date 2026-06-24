@@ -4,7 +4,14 @@ export interface RoleMention {
   color: string;
 }
 
-export type BlockType = "text" | "roles" | "separator";
+export interface ButtonItem {
+  id: string;
+  label: string;
+  emoji: string;
+  style: "primary" | "secondary" | "success" | "danger";
+}
+
+export type BlockType = "text" | "roles" | "separator" | "buttons" | "divider";
 
 export interface TextBlock {
   id: string;
@@ -24,7 +31,18 @@ export interface SeparatorBlock {
   content: string;
 }
 
-export type Block = TextBlock | RolesBlock | SeparatorBlock;
+export interface ButtonsBlock {
+  id: string;
+  type: "buttons";
+  items: ButtonItem[];
+}
+
+export interface DividerBlock {
+  id: string;
+  type: "divider";
+}
+
+export type Block = TextBlock | RolesBlock | SeparatorBlock | ButtonsBlock | DividerBlock;
 
 export interface MessageGroup {
   id: string;

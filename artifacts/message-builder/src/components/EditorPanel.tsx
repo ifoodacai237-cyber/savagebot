@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { nanoid } from "nanoid";
-import type { MessageGroup, Block, RoleMention, TextBlock, RolesBlock, SeparatorBlock } from "@/types/message";
-import { Trash2, Plus, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
+import type { MessageGroup, Block, RoleMention, TextBlock, RolesBlock, SeparatorBlock, ButtonsBlock, DividerBlock, ButtonItem } from "@/types/message";
+import { Trash2, Plus, ChevronDown, ChevronUp, GripVertical, Minus } from "lucide-react";
 
 interface Props {
   groups: MessageGroup[];
@@ -35,6 +35,23 @@ export function EditorPanel({ groups, selectedGroupId, onSelectGroup, onAddGroup
 
   const addSeparatorBlock = () => {
     const block: SeparatorBlock = { id: nanoid(), type: "separator", content: "— ☆ 🌸 Seção 〇〇" };
+    onUpdateGroup(selectedGroupId, g => ({ ...g, blocks: [...g.blocks, block] }));
+  };
+
+  const addButtonsBlock = () => {
+    const block: ButtonsBlock = {
+      id: nanoid(),
+      type: "buttons",
+      items: [
+        { id: nanoid(), label: "Botão 1", emoji: "", style: "secondary" },
+        { id: nanoid(), label: "Botão 2", emoji: "", style: "secondary" },
+      ],
+    };
+    onUpdateGroup(selectedGroupId, g => ({ ...g, blocks: [...g.blocks, block] }));
+  };
+
+  const addDividerBlock = () => {
+    const block: DividerBlock = { id: nanoid(), type: "divider" };
     onUpdateGroup(selectedGroupId, g => ({ ...g, blocks: [...g.blocks, block] }));
   };
 
@@ -137,24 +154,36 @@ export function EditorPanel({ groups, selectedGroupId, onSelectGroup, onAddGroup
             ))}
           </div>
 
-          <div className="flex gap-2 mt-3">
+          <div className="grid grid-cols-3 gap-2 mt-3">
             <button
               onClick={addRolesBlock}
-              className="flex-1 flex items-center justify-center gap-1 bg-[#383a40] hover:bg-[#43464d] text-[#b5bac1] text-xs py-2 rounded transition-colors"
+              className="flex items-center justify-center gap-1 bg-[#383a40] hover:bg-[#43464d] text-[#b5bac1] text-xs py-2 rounded transition-colors"
             >
               <Plus size={12} /> Cargos
             </button>
             <button
               onClick={addTextBlock}
-              className="flex-1 flex items-center justify-center gap-1 bg-[#383a40] hover:bg-[#43464d] text-[#b5bac1] text-xs py-2 rounded transition-colors"
+              className="flex items-center justify-center gap-1 bg-[#383a40] hover:bg-[#43464d] text-[#b5bac1] text-xs py-2 rounded transition-colors"
             >
               <Plus size={12} /> Texto
             </button>
             <button
               onClick={addSeparatorBlock}
-              className="flex-1 flex items-center justify-center gap-1 bg-[#383a40] hover:bg-[#43464d] text-[#b5bac1] text-xs py-2 rounded transition-colors"
+              className="flex items-center justify-center gap-1 bg-[#383a40] hover:bg-[#43464d] text-[#b5bac1] text-xs py-2 rounded transition-colors"
             >
               <Plus size={12} /> Separador
+            </button>
+            <button
+              onClick={addButtonsBlock}
+              className="flex items-center justify-center gap-1 bg-[#383a40] hover:bg-[#43464d] text-[#b5bac1] text-xs py-2 rounded transition-colors"
+            >
+              <Plus size={12} /> Botões
+            </button>
+            <button
+              onClick={addDividerBlock}
+              className="col-span-2 flex items-center justify-center gap-1 bg-[#383a40] hover:bg-[#43464d] text-[#b5bac1] text-xs py-2 rounded transition-colors"
+            >
+              <Minus size={12} /> Divisória
             </button>
           </div>
         </div>
@@ -187,8 +216,28 @@ interface BlockEditorProps {
 function BlockEditor({ block, isFirst, isLast, onRemove, onUpdate, onMoveUp, onMoveDown }: BlockEditorProps) {
   const [collapsed, setCollapsed] = useState(false);
 
-  const typeLabel = block.type === "text" ? "Texto" : block.type === "roles" ? "Cargos" : "Separador";
-  const typeColor = block.type === "text" ? "bg-[#248046]" : block.type === "roles" ? "bg-[#5865F2]" : "bg-[#e67e22]";
+  const typeLabel =
+    block.type === "text" ? "Texto" :
+    block.type === "roles" ? "Cargos" :
+    block.type === "separator" ? "Separador" :
+    block.type === "buttons" ? "Botões" :
+    "Divisória";
+
+  const typeColor =
+    block.type === "text" ? "bg-[#248046]" :
+    block.type === "roles" ? "bg-[#5865F2]" :
+    block.type === "separator" ? "bg-[#e67e22]" :
+    block.type === "buttons" ? "bg-[#9b59b6]" :
+    "bg-[#4e5058]";
+
+  const preview =
+    block.type === "roles" ? `${(block as RolesBlock).roles.length} cargo(s)` :
+    block.type === "text" ? (block as TextBlock).content.slice(0, 30) + "..." :
+    block.type === "separator" ? (block as SeparatorBlock).content.slice(0, 30) :
+    block.type === "buttons" ? `${(block as ButtonsBlock).items.length} botão(ões)` :
+    "linha divisória";
+
+  const isDivider = block.type === "divider";
 
   return (
     <div className="bg-[#1e1f22] rounded border border-[#3f4147]">
@@ -196,9 +245,7 @@ function BlockEditor({ block, isFirst, isLast, onRemove, onUpdate, onMoveUp, onM
         <GripVertical size={14} className="text-[#4e5058] flex-shrink-0" />
         <span className={`${typeColor} text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm`}>{typeLabel}</span>
         <div className="flex-1 min-w-0 truncate text-[#949ba4] text-xs">
-          {block.type === "roles" ? `${(block as RolesBlock).roles.length} cargo(s)` :
-           block.type === "text" ? (block as TextBlock).content.slice(0, 30) + "..." :
-           (block as SeparatorBlock).content.slice(0, 30)}
+          {preview}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           <button onClick={onMoveUp} disabled={isFirst} className="text-[#4e5058] hover:text-[#b5bac1] disabled:opacity-30 transition-colors">
@@ -207,16 +254,18 @@ function BlockEditor({ block, isFirst, isLast, onRemove, onUpdate, onMoveUp, onM
           <button onClick={onMoveDown} disabled={isLast} className="text-[#4e5058] hover:text-[#b5bac1] disabled:opacity-30 transition-colors">
             <ChevronDown size={14} />
           </button>
-          <button onClick={() => setCollapsed(c => !c)} className="text-[#4e5058] hover:text-[#b5bac1] transition-colors">
-            {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-          </button>
+          {!isDivider && (
+            <button onClick={() => setCollapsed(c => !c)} className="text-[#4e5058] hover:text-[#b5bac1] transition-colors">
+              {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+            </button>
+          )}
           <button onClick={onRemove} className="text-[#4e5058] hover:text-[#f87171] transition-colors ml-1">
             <Trash2 size={13} />
           </button>
         </div>
       </div>
 
-      {!collapsed && (
+      {!isDivider && !collapsed && (
         <div className="px-3 pb-3 border-t border-[#3f4147]">
           {block.type === "text" && (
             <TextBlockEditor block={block as TextBlock} onUpdate={onUpdate} />
@@ -226,6 +275,9 @@ function BlockEditor({ block, isFirst, isLast, onRemove, onUpdate, onMoveUp, onM
           )}
           {block.type === "separator" && (
             <SeparatorBlockEditor block={block as SeparatorBlock} onUpdate={onUpdate} />
+          )}
+          {block.type === "buttons" && (
+            <ButtonsBlockEditor block={block as ButtonsBlock} onUpdate={onUpdate} />
           )}
         </div>
       )}
@@ -316,6 +368,82 @@ function RolesBlockEditor({ block, onUpdate }: { block: RolesBlock; onUpdate: (u
         className="w-full flex items-center justify-center gap-1 bg-[#383a40] hover:bg-[#43464d] text-[#b5bac1] text-xs py-1.5 rounded transition-colors border border-dashed border-[#3f4147]"
       >
         <Plus size={12} /> Adicionar cargo
+      </button>
+    </div>
+  );
+}
+
+const BUTTON_STYLES: { value: ButtonItem["style"]; label: string; color: string }[] = [
+  { value: "primary",   label: "Azul",     color: "bg-[#5865F2]" },
+  { value: "secondary", label: "Cinza",    color: "bg-[#4e5058]" },
+  { value: "success",   label: "Verde",    color: "bg-[#248046]" },
+  { value: "danger",    label: "Vermelho", color: "bg-[#da373c]" },
+];
+
+function ButtonsBlockEditor({ block, onUpdate }: { block: ButtonsBlock; onUpdate: (u: (b: Block) => Block) => void }) {
+  const addItem = () => {
+    const item: ButtonItem = { id: nanoid(), label: "Botão", emoji: "", style: "secondary" };
+    onUpdate(b => ({ ...b, items: [...(b as ButtonsBlock).items, item] } as ButtonsBlock));
+  };
+
+  const removeItem = (itemId: string) => {
+    onUpdate(b => ({ ...b, items: (b as ButtonsBlock).items.filter(i => i.id !== itemId) } as ButtonsBlock));
+  };
+
+  const updateItem = (itemId: string, field: keyof ButtonItem, value: string) => {
+    onUpdate(b => ({
+      ...b,
+      items: (b as ButtonsBlock).items.map(i => i.id === itemId ? { ...i, [field]: value } : i),
+    } as ButtonsBlock));
+  };
+
+  return (
+    <div className="mt-2 space-y-2">
+      {block.items.map((item, idx) => (
+        <div key={item.id} className="bg-[#2b2d31] rounded border border-[#3f4147] p-2 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[#949ba4] text-[10px] w-4 text-center">{idx + 1}</span>
+            <input
+              type="text"
+              value={item.emoji}
+              onChange={e => updateItem(item.id, "emoji", e.target.value)}
+              className="w-10 bg-[#1e1f22] text-[#dbdee1] text-sm px-1.5 py-1 rounded border border-[#3f4147] focus:outline-none focus:border-[#5865F2] text-center"
+              placeholder="😀"
+              title="Emoji (opcional)"
+            />
+            <input
+              type="text"
+              value={item.label}
+              onChange={e => updateItem(item.id, "label", e.target.value)}
+              className="flex-1 bg-[#1e1f22] text-[#dbdee1] text-sm px-2 py-1 rounded border border-[#3f4147] focus:outline-none focus:border-[#5865F2]"
+              placeholder="Label do botão"
+            />
+            <button
+              onClick={() => removeItem(item.id)}
+              className="text-[#4e5058] hover:text-[#f87171] transition-colors flex-shrink-0"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+          <div className="flex items-center gap-1.5 pl-6">
+            <span className="text-[#949ba4] text-[10px] mr-1">Estilo:</span>
+            {BUTTON_STYLES.map(s => (
+              <button
+                key={s.value}
+                onClick={() => updateItem(item.id, "style", s.value)}
+                className={`px-2 py-0.5 rounded text-[10px] text-white font-medium transition-opacity ${s.color} ${item.style === s.value ? "opacity-100 ring-1 ring-white/40" : "opacity-40 hover:opacity-70"}`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      <button
+        onClick={addItem}
+        className="w-full flex items-center justify-center gap-1 bg-[#383a40] hover:bg-[#43464d] text-[#b5bac1] text-xs py-1.5 rounded transition-colors border border-dashed border-[#3f4147]"
+      >
+        <Plus size={12} /> Adicionar botão
       </button>
     </div>
   );
