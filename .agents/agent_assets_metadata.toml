@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "4AOTjtd6LAAOcCUcwG7WG"
+uri = "file://artifacts/api-server/public/games/test-grid-preview.png"
+type = "image"
+title = "Mines Grid — Dark + Diamond preview"
