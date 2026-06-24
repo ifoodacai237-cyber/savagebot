@@ -16,6 +16,8 @@ function getBaseUrl() {
   return null;
 }
 
+// Returns only the filename (e.g. "guildId_key.jpg").
+// The full URL is rebuilt at runtime via buildBannerUrl() in shopData.js.
 async function downloadBannerImage(imageUrl, filename) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
@@ -40,9 +42,7 @@ async function downloadBannerImage(imageUrl, filename) {
     if (!fs.existsSync(BANNERS_DIR)) fs.mkdirSync(BANNERS_DIR, { recursive: true });
     fs.writeFileSync(filePath, buf);
 
-    const base = getBaseUrl();
-    if (!base) throw new Error('URL base não disponível no ambiente.');
-    return `${base}/api/public/banners/${fullName}`;
+    return fullName; // ← apenas o nome do arquivo, sem URL completa
   } finally {
     clearTimeout(timer);
   }
@@ -78,26 +78,27 @@ export default {
       if (!existing)
         return interaction.editReply({ content: `❌ Banner com chave \`${chaveExistente}\` não encontrado.` });
 
-      const filename = `${interaction.guildId}_${chaveExistente}`;
-      let localUrl;
+      const baseFilename = `${interaction.guildId}_${chaveExistente}`;
+      let savedFilename;
       try {
-        localUrl = await downloadBannerImage(imagem, filename);
+        savedFilename = await downloadBannerImage(imagem, baseFilename);
       } catch (err) {
         return interaction.editReply({ content: `❌ Falha ao baixar imagem: \`${err.message}\`` });
       }
 
       await prisma.customBanner.update({
         where: { id: existing.id },
-        data: { imageUrl: localUrl, active: true, name: nome },
+        data: { imageUrl: savedFilename, active: true, name: nome },
       });
 
+      const previewUrl = `${getBaseUrl()}/api/public/banners/${savedFilename}`;
       return interaction.editReply({
         embeds: [
           new EmbedBuilder()
             .setColor(0x57F287)
             .setTitle('✅ Banner Atualizado!')
             .setDescription(`O banner **${nome}** foi atualizado com sucesso!\n✅ Nova imagem salva permanentemente.`)
-            .setImage(localUrl)
+            .setImage(previewUrl)
             .addFields({ name: '🔑 Chave', value: `\`${chaveExistente}\``, inline: true })
             .setFooter({ text: 'Use /loja painel → Vitrine para ver o banner' }),
         ],
@@ -115,12 +116,12 @@ export default {
     const existing = await prisma.customBanner.findUnique({
       where: { guildId_key: { guildId: interaction.guildId, key: chave } },
     });
-    const finalKey = existing ? `${chave}_${Date.now().toString(36)}` : chave;
-    const filename = `${interaction.guildId}_${finalKey}`;
+    const finalKey  = existing ? `${chave}_${Date.now().toString(36)}` : chave;
+    const baseFilename = `${interaction.guildId}_${finalKey}`;
 
-    let localUrl;
+    let savedFilename;
     try {
-      localUrl = await downloadBannerImage(imagem, filename);
+      savedFilename = await downloadBannerImage(imagem, baseFilename);
     } catch (err) {
       return interaction.editReply({ content: `❌ Não foi possível baixar a imagem: \`${err.message}\`` });
     }
@@ -132,7 +133,7 @@ export default {
         name:        nome,
         description: '',
         price:       priceVal,
-        imageUrl:    localUrl,
+        imageUrl:    savedFilename,
         gradient1:   '#1a0533',
         gradient2:   '#4a1a8a',
         emoji:       '🖼️',
@@ -140,11 +141,12 @@ export default {
       },
     });
 
+    const previewUrl = `${getBaseUrl()}/api/public/banners/${savedFilename}`;
     const embed = new EmbedBuilder()
       .setColor(0x9B4FD6)
       .setTitle('✅ Banner Criado!')
       .setDescription(`O banner **${nome}** foi adicionado à loja!\n✅ Imagem salva permanentemente (sem expiração).`)
-      .setImage(localUrl)
+      .setImage(previewUrl)
       .addFields(
         { name: '💰 Preço', value: `**${priceVal.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
         { name: '🔑 Chave', value: `\`${finalKey}\``, inline: true },

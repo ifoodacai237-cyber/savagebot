@@ -49,7 +49,7 @@ export const BANNERS = [
     name: '🔥 Chamas',
     description: 'Fundo de chamas vibrantes e intensas em tons de laranja e vermelho.',
     price: 2200,
-    imageUrl: 'https://74ef574d-acdd-451b-a8c8-fd3bc73e98da-00-1mooelq94wdwn.kirk.replit.dev/api/public/banners/fire.jpg',
+    imageUrl: '__local__fire.jpg',
     gradient: ['#2a0a00', '#aa3300'],
     emoji: '🔥',
   },
@@ -73,8 +73,55 @@ export const BANNERS = [
   },
 ];
 
+// ── Banner URL helpers ──────────────────────────────────────────────────────
+// Always rebuild from the CURRENT domain so stale stored URLs never break.
+function getBannerBaseUrl() {
+  const domains = process.env.REPLIT_DOMAINS?.split(',').filter(Boolean);
+  if (domains?.length) return `https://${domains[0]}`;
+  if (process.env.REPLIT_DEV_DOMAIN) return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  return null;
+}
+
+// Accepts:
+//   - '__local__<filename>'  → file stored on our server
+//   - '<filename>'           → bare filename stored by new criar-banner
+//   - 'https://...'          → old full URL: extract filename, rebuild with current domain
+//                              but only if it points to our own server
+export function buildBannerUrl(stored) {
+  if (!stored) return null;
+
+  // New format: bare filename (no protocol, no __local__ prefix)
+  if (!stored.startsWith('http') && !stored.startsWith('__local__')) {
+    const base = getBannerBaseUrl();
+    return base ? `${base}/api/public/banners/${stored}` : null;
+  }
+
+  // Static banners stored with __local__ prefix
+  if (stored.startsWith('__local__')) {
+    const filename = stored.replace('__local__', '');
+    const base = getBannerBaseUrl();
+    return base ? `${base}/api/public/banners/${filename}` : null;
+  }
+
+  // Old format: full URL — if it's our own server, extract filename and rebuild
+  try {
+    const url = new URL(stored);
+    const isOwnServer = url.pathname.includes('/api/public/banners/');
+    if (isOwnServer) {
+      const filename = url.pathname.split('/').pop();
+      const base = getBannerBaseUrl();
+      return base ? `${base}/api/public/banners/${filename}` : stored;
+    }
+  } catch {}
+
+  // External URL (Unsplash, Discord CDN, etc.) — use as-is
+  return stored;
+}
+
 export function getBanner(key) {
-  return BANNERS.find(b => b.key === key) ?? null;
+  const b = BANNERS.find(b => b.key === key) ?? null;
+  if (!b) return null;
+  return { ...b, imageUrl: buildBannerUrl(b.imageUrl) };
 }
 
 export async function resolveBanner(key, guildId) {
@@ -91,7 +138,7 @@ export async function resolveBanner(key, guildId) {
       name:        custom.name,
       description: custom.description ?? '',
       price:       custom.price,
-      imageUrl:    custom.imageUrl,
+      imageUrl:    buildBannerUrl(custom.imageUrl),
       gradient:    [custom.gradient1, custom.gradient2],
       emoji:       custom.emoji,
       isCustom:    true,
