@@ -11,7 +11,7 @@ import {
   PermissionFlagsBits,
 } from 'discord.js';
 import prisma from '../database/client.js';
-import { BANNERS, getBanner, RING_PRESETS, getRing } from './shopData.js';
+import { BANNERS, getBanner, RING_PRESETS, getRing, buildBannerUrl } from './shopData.js';
 
 const SHOP_COLOR = 0x9B4FD6;
 const DIVIDER    = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
@@ -35,7 +35,7 @@ async function getAllBannersForGuild(guildId) {
   const custom = guildId ? await prisma.customBanner.findMany({ where: { guildId, active: true } }) : [];
   const customMapped = custom.map(c => ({
     key: c.key, name: c.name, description: c.description || '',
-    price: c.price, imageUrl: c.imageUrl,
+    price: c.price, imageUrl: buildBannerUrl(c.imageUrl),
     gradient: [c.gradient1, c.gradient2], emoji: c.emoji, isCustom: true,
   }));
   return [...BANNERS, ...customMapped];
@@ -49,7 +49,7 @@ async function resolveBannerForGuild(key, guildId) {
   if (!custom) return null;
   return {
     key: custom.key, name: custom.name, description: custom.description || '',
-    price: custom.price, imageUrl: custom.imageUrl,
+    price: custom.price, imageUrl: buildBannerUrl(custom.imageUrl),
     gradient: [custom.gradient1, custom.gradient2], emoji: custom.emoji, isCustom: true,
   };
 }
@@ -200,7 +200,7 @@ async function handleBannerAdminRemoveSel(interaction) {
     .setColor(0xED4245)
     .setTitle('⚠️ Confirmar Remoção')
     .setDescription(`Tem certeza que deseja remover o banner **${banner.name}** da loja?\n\nEssa ação não pode ser desfeita.`)
-    .setImage(banner.imageUrl || null)
+    .setImage(buildBannerUrl(banner.imageUrl) || null)
     .addFields({ name: '💰 Preço', value: `${banner.price.toLocaleString('pt-BR')} coins`, inline: true })
     .setFooter({ text: 'Fallen Bot · Admin da Loja' });
 
