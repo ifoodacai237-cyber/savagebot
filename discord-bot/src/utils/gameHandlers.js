@@ -28,7 +28,7 @@ function getMinesGridUrl(state) {
     s: state.status === 'playing' ? 'p' : state.status === 'lost' ? 'l' : 'c',
   };
   const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  return `https://${host}/api/games/mines-grid?state=${encoded}&t=${Date.now()}`;
+  return `https://${host}/api/games/mines-grid/${Date.now()}/${encoded}.png`;
 }
 
 const COIN = '<a:emoji_1:1516993823665033286>';
@@ -301,7 +301,7 @@ function buildMinesContainer(state) {
   const mult   = calcMult(state.gems, state.bombs);
   const payout = Math.floor(state.bet * mult);
 
-  const accentColor = 0x000000;
+  const accentColor = state.status === 'lost' ? 0xEF4444 : state.status === 'cashed' ? 0x22C55E : 0x5865F2;
 
   const titleLine = state.status === 'lost'   ? '## ❌ Fim de jogo!'
     : state.status === 'cashed'               ? '## ✅ Fim de jogo!'

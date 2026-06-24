@@ -12,3 +12,9 @@ id = "ohrrdIqT66ovjKfNede6R"
 uri = "file://artifacts/api-server/public/games/test-bomb-preview.png"
 type = "image"
 title = "Mines Grid — com bomba nova"
+
+[[outputs]]
+id = "_7tsuqP2K4pW-XP4Oapt0"
+uri = "file://artifacts/api-server/public/games/initial-preview.png"
+type = "image"
+title = "Grade inicial (todas ocultas)"

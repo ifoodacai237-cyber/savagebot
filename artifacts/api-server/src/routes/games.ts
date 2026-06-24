@@ -128,8 +128,9 @@ function drawBombCell(
 
 const gamesRouter = Router();
 
-gamesRouter.get("/games/mines-grid", async (req, res): Promise<void> => {
-  const stateParam = req.query.state as string | undefined;
+gamesRouter.get("/games/mines-grid/:ts/:stateFile", async (req, res): Promise<void> => {
+  const stateFile = req.params.stateFile as string | undefined;
+  const stateParam = stateFile?.replace(/\.png$/, "");
   if (!stateParam) { res.status(400).send("Missing state"); return; }
 
   let grid: number[];
