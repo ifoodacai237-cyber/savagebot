@@ -93,6 +93,93 @@ async function loadEmojiImg(emojiOrImg) {
   return null;
 }
 
+// ── Bio tokenizer + inline-emoji renderer ────────────────────────────────────
+
+// Splits a bio string into {type:'text'|'emoji', value} tokens.
+// Handles Discord custom emojis <:name:id> / <a:name:id> and Unicode emoji.
+function tokenizeBio(text) {
+  const re = /<a?:\w+:\d{10,20}>|(?:\p{Emoji_Presentation}|\p{Extended_Pictographic})\uFE0F?(?:\u200D(?:\p{Emoji_Presentation}|\p{Extended_Pictographic})\uFE0F?)*/gu;
+  const tokens = [];
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    if (m.index > last) tokens.push({ type: 'text', value: text.slice(last, m.index) });
+    tokens.push({ type: 'emoji', value: m[0] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) tokens.push({ type: 'text', value: text.slice(last) });
+  return tokens;
+}
+
+// Draws bio with inline emoji images; returns updated Y after all lines.
+async function drawBioWithEmojis(ctx, text, x, y, maxWidth, lineH, emojiSz) {
+  const tokens = tokenizeBio(text);
+
+  // Pre-load all emoji images in parallel
+  const cache = new Map();
+  await Promise.all(
+    tokens.filter(t => t.type === 'emoji').map(async t => {
+      if (cache.has(t.value)) return;
+      const img = await loadEmojiImg(t.value).catch(() => null);
+      if (img) cache.set(t.value, img);
+    }),
+  );
+
+  // Flatten tokens → drawable items {kind, value, width}
+  const SPACE_W = ctx.measureText(' ').width;
+  const items = [];
+  for (const tok of tokens) {
+    if (tok.type === 'emoji') {
+      items.push({ kind: 'emoji', value: tok.value, width: emojiSz + 2 });
+    } else {
+      for (const part of tok.value.split(/(\s+)/)) {
+        if (!part) continue;
+        if (/^\s+$/.test(part)) {
+          items.push({ kind: 'space', value: part, width: SPACE_W * part.length });
+        } else {
+          items.push({ kind: 'word', value: part, width: ctx.measureText(part).width });
+        }
+      }
+    }
+  }
+
+  // Word-wrap into lines
+  const lines = [];
+  let cur = [], curW = 0;
+  for (const item of items) {
+    if (item.kind === 'space') { cur.push(item); curW += item.width; continue; }
+    if (curW + item.width > maxWidth && cur.length > 0) {
+      while (cur.length && cur[cur.length - 1].kind === 'space') cur.pop();
+      lines.push(cur); cur = []; curW = 0;
+    }
+    cur.push(item); curW += item.width;
+  }
+  if (cur.length) { while (cur.length && cur[cur.length - 1].kind === 'space') cur.pop(); lines.push(cur); }
+
+  // Draw each line
+  for (const line of lines) {
+    let cx = x;
+    for (const item of line) {
+      if (item.kind === 'emoji') {
+        const img = cache.get(item.value);
+        if (img) {
+          // Align emoji vertically: bottom ~2px below text baseline
+          ctx.drawImage(img, cx, y - emojiSz + 3, emojiSz, emojiSz);
+        } else {
+          ctx.fillText(item.value, cx, y); // fallback: raw text
+        }
+        cx += item.width;
+      } else if (item.kind === 'space') {
+        cx += item.width;
+      } else {
+        ctx.fillText(item.value, cx, y);
+        cx += item.width;
+      }
+    }
+    y += lineH;
+  }
+  return y;
+}
+
 // Draw purple rounded icon background, then the emoji image centered inside
 async function drawStatIcon(ctx, x, y, size, emojiOrImg, coinImg) {
   const g = ctx.createLinearGradient(x, y, x + size, y + size);
@@ -267,16 +354,7 @@ export async function generateProfileCard({
   const bioText = bio ?? 'Utilize: fallen bio para alterar esta frase.';
   ctx.font      = `13px ${FONT}`;
   ctx.fillStyle = '#555';
-  const maxBioW = 560;
-  const words   = bioText.split(' ');
-  let   line    = '';
-  for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(test).width > maxBioW && line) {
-      ctx.fillText(line, LEFT_X, textY); textY += 17; line = word;
-    } else { line = test; }
-  }
-  if (line) { ctx.fillText(line, LEFT_X, textY); textY += 17; }
+  textY = await drawBioWithEmojis(ctx, bioText, LEFT_X, textY, 560, 17, 16);
 
   // ── Stats panel ───────────────────────────────────────────────────────────────
   const PANEL_Y = textY + 12;
