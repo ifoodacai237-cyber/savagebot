@@ -301,7 +301,7 @@ function buildMinesContainer(state) {
   const mult   = calcMult(state.gems, state.bombs);
   const payout = Math.floor(state.bet * mult);
 
-  const accentColor = state.status === 'lost' ? 0xEF4444 : 0x22C55E;
+  const accentColor = 0x000000;
 
   const titleLine = state.status === 'lost'   ? '## ❌ Fim de jogo!'
     : state.status === 'cashed'               ? '## ✅ Fim de jogo!'

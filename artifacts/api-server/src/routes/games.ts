@@ -4,8 +4,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SPRITE_PATH  = path.join(__dirname, "../public/games/mines-sprite.png");
 const DIAMOND_PATH = path.join(__dirname, "../public/games/diamond.webp");
+const BOMB_PATH    = path.join(__dirname, "../public/games/bomb.webp");
 
 // ── Output grid settings ──────────────────────────────────────────────────
 const GRID     = 4;
@@ -24,19 +24,16 @@ const CELL_SHINE  = "#21262d"; // subtle highlight edge
 const GEM_BG      = "#0d1117"; // dark bg behind diamond
 const BOMB_BG     = "#1a0a0a"; // dark red bg behind bomb
 
-// Bomb icon rect in sprite sheet
-const BOMB_CELL = { sx: 450, sy: 225, sw: 225, sh: 225 };
-
-let spriteCache:  Awaited<ReturnType<typeof loadImage>> | null = null;
 let diamondCache: Awaited<ReturnType<typeof loadImage>> | null = null;
+let bombCache:    Awaited<ReturnType<typeof loadImage>> | null = null;
 
-async function getSprite()  {
-  if (!spriteCache)  spriteCache  = await loadImage(SPRITE_PATH);
-  return spriteCache;
-}
 async function getDiamond() {
   if (!diamondCache) diamondCache = await loadImage(DIAMOND_PATH);
   return diamondCache;
+}
+async function getBomb() {
+  if (!bombCache) bombCache = await loadImage(BOMB_PATH);
+  return bombCache;
 }
 
 // ── Drawing helpers ───────────────────────────────────────────────────────
@@ -106,7 +103,7 @@ function drawGemCell(
 
 function drawBombCell(
   ctx: SKRSContext2D,
-  sprite: Awaited<ReturnType<typeof loadImage>>,
+  bomb: Awaited<ReturnType<typeof loadImage>>,
   x: number,
   y: number,
   size: number,
@@ -122,16 +119,11 @@ function drawBombCell(
   roundRect(ctx, x, y, size, size, O_RADIUS);
   ctx.stroke();
 
-  // Clip to rounded rect then draw bomb sprite
-  ctx.save();
-  roundRect(ctx, x, y, size, size, O_RADIUS);
-  ctx.clip();
-  ctx.drawImage(
-    sprite,
-    BOMB_CELL.sx, BOMB_CELL.sy, BOMB_CELL.sw, BOMB_CELL.sh,
-    x, y, size, size,
-  );
-  ctx.restore();
+  // Bomb icon — centered, 76% of cell size
+  const iconSize = Math.round(size * 0.76);
+  const ix = x + Math.round((size - iconSize) / 2);
+  const iy = y + Math.round((size - iconSize) / 2);
+  ctx.drawImage(bomb, ix, iy, iconSize, iconSize);
 }
 
 const gamesRouter = Router();
@@ -157,7 +149,7 @@ gamesRouter.get("/games/mines-grid", async (req, res): Promise<void> => {
   }
 
   try {
-    const [sprite, diamond] = await Promise.all([getSprite(), getDiamond()]);
+    const [diamond, bomb] = await Promise.all([getDiamond(), getBomb()]);
     const canvas = createCanvas(O_W, O_H);
     const ctx    = canvas.getContext("2d");
     const isDone = status !== "p";
@@ -176,11 +168,11 @@ gamesRouter.get("/games/mines-grid", async (req, res): Promise<void> => {
       const isBomb     = grid[i] === 1;
 
       if (isRevealed && isBomb) {
-        drawBombCell(ctx, sprite, dx, dy, O_CELL);
+        drawBombCell(ctx, bomb, dx, dy, O_CELL);
       } else if (isRevealed) {
         drawGemCell(ctx, diamond, dx, dy, O_CELL);
       } else if (isDone && isBomb) {
-        drawBombCell(ctx, sprite, dx, dy, O_CELL);
+        drawBombCell(ctx, bomb, dx, dy, O_CELL);
       } else {
         drawHiddenCell(ctx, dx, dy, O_CELL);
       }
