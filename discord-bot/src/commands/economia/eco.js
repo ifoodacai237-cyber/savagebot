@@ -13,12 +13,14 @@ import {
 import prisma from '../../database/client.js';
 import { generateBalanceCard, generateTopCard } from '../../utils/economyCards.js';
 
+const Y2K_GIFS = ['y2k1.gif', 'y2k2.gif', 'y2k3.gif', 'y2k4.gif', 'y2k5.gif'];
+
 const GIF_FILES = {
-  daily:   ['daily1.gif', 'daily2.gif', 'daily3.gif'],
-  work:    ['work1.gif',  'work2.gif',  'work3.gif'],
-  deposit: ['deposit1.gif', 'deposit2.gif'],
-  sacar:   ['sacar1.gif',  'sacar2.gif'],
-  pagar:   ['pagar1.gif',  'pagar2.gif'],
+  daily:   Y2K_GIFS,
+  work:    Y2K_GIFS,
+  deposit: Y2K_GIFS,
+  sacar:   Y2K_GIFS,
+  pagar:   Y2K_GIFS,
 };
 
 function getGifBaseUrl() {
