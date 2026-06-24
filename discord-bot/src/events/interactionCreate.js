@@ -56,6 +56,15 @@ import {
   msgTotalCount,
   publishedMenus,
 } from '../utils/messageSessions.js';
+import {
+  getRPSession,
+  deleteRPSession,
+  buildRPPayload,
+  buildRPControls,
+  buildRPRoleSelector,
+  buildRPColorPicker,
+  RP_COLOR_MAP,
+} from '../utils/rolePanelSessions.js';
 
 // ─── Container preview updater ────────────────────────────────────────────────
 
@@ -213,6 +222,40 @@ export default {
           return interaction.update({
             content: `**💬 Montador de Mensagem**\n✅ Menu criado com ${roles.length} cargo(s): ${mentions}\nTotal: **${msgTotalCount(session)}** item(s).`,
             components: buildMsgMainControls(session),
+          });
+        }
+
+        // ── PAINEL DE CARGOS: Adicionar cargo ao painel ───────────────────
+        if (interaction.customId === 'rp_role_sel') {
+          const session = getRPSession(interaction.user.id, interaction.guildId);
+          if (!session) return interaction.update({ content: '❌ Sessão expirada. Use `/painel-cargos` novamente.', components: [] });
+
+          const added = [];
+          for (const [, role] of interaction.roles) {
+            if (session.roles.length >= 25) break;
+            const already = session.roles.find(r => r.roleId === role.id);
+            if (!already) {
+              session.roles.push({ roleId: role.id, label: role.name, emoji: '' });
+              added.push(role.name);
+            }
+          }
+
+          const rpCh = interaction.guild.channels.cache.get(session.previewChannelId);
+          if (rpCh) {
+            const rpMsg = await rpCh.messages.fetch(session.previewMessageId).catch(() => null);
+            if (rpMsg) await rpMsg.edit(buildRPPayload(session)).catch(() => {});
+          }
+
+          return interaction.update({
+            content: [
+              '**👤 Painel de Cargos — Editor**',
+              added.length > 0
+                ? `✅ Cargo(s) adicionado(s): **${added.join(', ')}**`
+                : '⚠️ Cargo(s) já adicionado(s) ou limite atingido.',
+              '',
+              `📋 Cargos: **${session.roles.length}** | Divisória: **${session.useSeparator ? 'Sim' : 'Não'}**`,
+            ].join('\n'),
+            components: buildRPControls(session),
           });
         }
 
@@ -1715,6 +1758,134 @@ export default {
           }
         }
 
+        // ── PAINEL DE CARGOS: Toggle cargo publicado ──────────────────────
+        if (customId.startsWith('rp_rb_')) {
+          const roleId = customId.replace('rp_rb_', '');
+          const member = interaction.member;
+          if (!member) return interaction.reply({ content: '❌ Não foi possível identificar seu perfil.', ephemeral: true });
+          try {
+            if (member.roles.cache.has(roleId)) {
+              await member.roles.remove(roleId);
+              return interaction.reply({ content: `✅ Cargo <@&${roleId}> removido.`, ephemeral: true });
+            } else {
+              await member.roles.add(roleId);
+              return interaction.reply({ content: `✅ Cargo <@&${roleId}> concedido!`, ephemeral: true });
+            }
+          } catch {
+            return interaction.reply({ content: '❌ Sem permissão para gerenciar esse cargo.', ephemeral: true });
+          }
+        }
+
+        // ── PAINEL DE CARGOS: Controles do editor ────────────────────────
+        if (customId.startsWith('rp_')) {
+          const session = getRPSession(interaction.user.id, interaction.guildId);
+
+          const rpRefresh = async () => {
+            try {
+              const ch = interaction.guild.channels.cache.get(session?.previewChannelId);
+              if (!ch || !session) return;
+              const msg = await ch.messages.fetch(session.previewMessageId).catch(() => null);
+              if (msg) await msg.edit(buildRPPayload(session)).catch(() => {});
+            } catch {}
+          };
+
+          const rpStatus = (session) => [
+            '**👤 Painel de Cargos — Editor**',
+            `📋 Cargos: **${session.roles.length}** | Divisória: **${session.useSeparator ? 'Sim' : 'Não'}** | Borda: **${session.accentColor !== null ? 'Sim' : 'Nenhuma'}**`,
+          ].join('\n');
+
+          if (customId === 'rp_back') {
+            if (!session) return interaction.update({ content: '❌ Sessão expirada.', components: [] });
+            return interaction.update({ content: rpStatus(session), components: buildRPControls(session) });
+          }
+
+          if (customId === 'rp_text') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            const modal = new ModalBuilder().setCustomId('rp_modal_text').setTitle('✏️ Texto do Painel de Cargos');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('rp_field_title').setLabel('Título (opcional, deixe vazio para remover)')
+                  .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100)
+                  .setValue(session.title || '').setPlaceholder('Ex: Escolha seus cargos')
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('rp_field_text').setLabel('Texto principal do painel')
+                  .setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(2000)
+                  .setValue(session.text || '').setPlaceholder('Escolha seu cargo abaixo...')
+              ),
+            );
+            return interaction.showModal(modal);
+          }
+
+          if (customId === 'rp_sep') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            session.useSeparator = !session.useSeparator;
+            await rpRefresh();
+            return interaction.update({ content: rpStatus(session), components: buildRPControls(session) });
+          }
+
+          if (customId === 'rp_border') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            if (session.accentColor !== null) {
+              session.accentColor = null;
+            } else {
+              session.accentColor = 0x57F287;
+            }
+            await rpRefresh();
+            return interaction.update({ content: rpStatus(session), components: buildRPControls(session) });
+          }
+
+          if (customId === 'rp_color') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            return interaction.update({ content: '**🎨 Escolha a cor da borda lateral:**', components: buildRPColorPicker() });
+          }
+
+          if (customId.startsWith('rp_color_')) {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            const colorKey = customId.replace('rp_color_', '');
+            session.accentColor = RP_COLOR_MAP[colorKey] ?? 0x57F287;
+            await rpRefresh();
+            return interaction.update({ content: rpStatus(session), components: buildRPControls(session) });
+          }
+
+          if (customId === 'rp_add_role') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            return interaction.update({ content: '**👤 Selecione os cargos para adicionar ao painel:**', components: buildRPRoleSelector() });
+          }
+
+          if (customId === 'rp_rm_last') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            const removed = session.roles.pop();
+            await rpRefresh();
+            return interaction.update({
+              content: removed
+                ? `${rpStatus(session)}\n🗑️ Cargo **${removed.label}** removido.`
+                : `${rpStatus(session)}\n⚠️ Nenhum cargo para remover.`,
+              components: buildRPControls(session),
+            });
+          }
+
+          if (customId === 'rp_publish') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            if (session.roles.length === 0) return interaction.reply({ content: '❌ Adicione pelo menos um cargo antes de publicar.', ephemeral: true });
+            deleteRPSession(interaction.user.id, interaction.guildId);
+            return interaction.update({ content: '✅ **Painel de Cargos publicado com sucesso!**', components: [] });
+          }
+
+          if (customId === 'rp_cancel') {
+            const sess = getRPSession(interaction.user.id, interaction.guildId);
+            if (sess) {
+              try {
+                const ch  = interaction.guild.channels.cache.get(sess.previewChannelId);
+                const m   = ch ? await ch.messages.fetch(sess.previewMessageId).catch(() => null) : null;
+                if (m) await m.delete().catch(() => {});
+              } catch {}
+              deleteRPSession(interaction.user.id, interaction.guildId);
+            }
+            return interaction.update({ content: '❌ **Criação cancelada.** O painel foi removido.', components: [] });
+          }
+        }
+
         // ── CONTAINER: Buttons ────────────────────────────────────────────
         if (customId.startsWith('cont_')) {
           const session = getSession(interaction.user.id, interaction.guildId);
@@ -1861,6 +2032,33 @@ export default {
 
       // ── MODALS ─────────────────────────────────────────────────────────────
       if (interaction.isModalSubmit()) {
+
+        // ── PAINEL DE CARGOS: Salvar texto ─────────────────────────────
+        if (interaction.customId === 'rp_modal_text') {
+          const session = getRPSession(interaction.user.id, interaction.guildId);
+          if (!session) return interaction.reply({ content: '❌ Sessão expirada. Use `/painel-cargos` novamente.', ephemeral: true });
+
+          session.title = (interaction.fields.getTextInputValue('rp_field_title') || '').trim();
+          session.text  = (interaction.fields.getTextInputValue('rp_field_text')  || '').trim();
+
+          try {
+            const ch = interaction.guild.channels.cache.get(session.previewChannelId);
+            if (ch) {
+              const msg = await ch.messages.fetch(session.previewMessageId).catch(() => null);
+              if (msg) await msg.edit(buildRPPayload(session)).catch(() => {});
+            }
+          } catch {}
+
+          return interaction.reply({
+            content: [
+              '**👤 Painel de Cargos — Editor**',
+              '✅ Texto atualizado!',
+              `📋 Cargos: **${session.roles.length}** | Divisória: **${session.useSeparator ? 'Sim' : 'Não'}** | Borda: **${session.accentColor !== null ? 'Sim' : 'Nenhuma'}**`,
+            ].join('\n'),
+            components: buildRPControls(session),
+            ephemeral: true,
+          });
+        }
 
         // ── LOJA: Config, gift, admin e perfil (argola, fundo) ─────────
         if (
