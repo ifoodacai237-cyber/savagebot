@@ -6,37 +6,29 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPRITE_PATH = path.join(__dirname, "../public/games/mines-sprite.png");
 
-// ── Sprite sheet (mines-1.png, 900×900, 4×4 grid) ───────────────────────────
-// S_PAD=14, S_GAP=8, S_CELL=212, S_STEP=220
-const S_PAD  = 14;
-const S_GAP  = 8;
-const S_CELL = 212;
-const S_STEP = S_CELL + S_GAP; // 220
+// ── Sprite sheet: mines-1.png, 900×900, 4×4 cells of 225×225 each ─────────
+// Gem cell  (0,0): sx=0,   sy=0   — bright gem; icon (blue area) at (106,92,118,118)
+// Bomb cell (1,2): sx=450, sy=225 — bomb; icon fills most of cell centered
 
-function spriteRect(row: number, col: number) {
-  return { sx: S_PAD + col * S_STEP, sy: S_PAD + row * S_STEP, sw: S_CELL, sh: S_CELL };
-}
+// Source rect of just the gem icon (blue diamond pixels determined by pixel scan)
+const GEM_ICON  = { sx: 106, sy: 92,  sw: 118, sh: 118 };
+const BOMB_CELL = { sx: 450, sy: 225, sw: 225, sh: 225 }; // full bomb cell (icon is centered)
 
-// Only two sprites needed: revealed gem (row 0, col 0) and bomb (row 1, col 3)
-const SPRITE = {
-  gem:  spriteRect(0, 0),  // bright colorful gem
-  bomb: spriteRect(1, 3),  // brown bomb
-};
-
-// ── Output image settings ────────────────────────────────────────────────────
-const GRID       = 4;
-const O_CELL     = 126;
-const O_GAP      = 6;
-const O_PAD      = 14;
-const O_RADIUS   = 12;
-const O_W        = O_PAD * 2 + GRID * O_CELL + (GRID - 1) * O_GAP; // 546
-const O_H        = O_PAD * 2 + GRID * O_CELL + (GRID - 1) * O_GAP; // 546
+// ── Output grid settings ──────────────────────────────────────────────────
+const GRID     = 4;
+const O_CELL   = 126;    // output cell size
+const O_GAP    = 7;      // gap between cells
+const O_PAD    = 13;     // outer padding
+const O_RADIUS = 14;     // corner radius
+const O_W      = O_PAD * 2 + GRID * O_CELL + (GRID - 1) * O_GAP; // 546
+const O_H      = O_W;
 
 // Colors matching the reference image
-const BG_COLOR       = "#4CAF50"; // bright green background
-const HIDDEN_FILL    = "#3E9E42"; // darker green for hidden cells
-const HIDDEN_BORDER  = "#2E7D32"; // border/shadow edge
-const HIDDEN_SHINE   = "#56C45A"; // top-left highlight
+const BG_GREEN     = "#48B55A"; // outer background
+const CELL_FILL    = "#3BA04A"; // hidden cell face
+const CELL_SHADOW  = "#2D8238"; // hidden cell shadow
+const CELL_SHINE   = "#50BF5F"; // hidden cell highlight edge
+const GEM_BG       = "#46B85A"; // bright cell behind gem icon (close to sprite sample)
 
 let spriteCache: Awaited<ReturnType<typeof loadImage>> | null = null;
 async function getSprite() {
@@ -44,66 +36,84 @@ async function getSprite() {
   return spriteCache;
 }
 
-function drawRoundRect(
-  ctx: SKRSContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-) {
+// ── Drawing helpers ───────────────────────────────────────────────────────
+function roundRect(ctx: SKRSContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.lineTo(x + w - r, y);
-  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.arcTo(x + w, y,     x + w, y + r,     r);
   ctx.lineTo(x + w, y + h - r);
   ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
   ctx.lineTo(x + r, y + h);
-  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.arcTo(x, y + h,     x, y + h - r,     r);
   ctx.lineTo(x, y + r);
-  ctx.arcTo(x, y, x + r, y, r);
+  ctx.arcTo(x, y,         x + r, y,          r);
   ctx.closePath();
 }
 
-function drawHiddenCell(
-  ctx: SKRSContext2D,
-  x: number,
-  y: number,
-  size: number,
-) {
-  const r = O_RADIUS;
-  // Shadow (bottom-right offset)
-  ctx.fillStyle = HIDDEN_BORDER;
-  drawRoundRect(ctx, x + 2, y + 3, size, size, r);
+function drawHiddenCell(ctx: SKRSContext2D, x: number, y: number, size: number) {
+  // Shadow layer (bottom-right offset)
+  ctx.fillStyle = CELL_SHADOW;
+  roundRect(ctx, x + 2, y + 3, size, size, O_RADIUS);
   ctx.fill();
 
   // Main face
-  ctx.fillStyle = HIDDEN_FILL;
-  drawRoundRect(ctx, x, y, size, size, r);
+  ctx.fillStyle = CELL_FILL;
+  roundRect(ctx, x, y, size, size, O_RADIUS);
   ctx.fill();
 
-  // Shine line (top-left inner highlight)
-  ctx.strokeStyle = HIDDEN_SHINE;
+  // Shine edge (top + left inside border)
+  ctx.strokeStyle = CELL_SHINE;
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(x + r, y + 2);
-  ctx.lineTo(x + size - r, y + 2);
+  ctx.moveTo(x + O_RADIUS, y + 2);
+  ctx.lineTo(x + size - O_RADIUS, y + 2);
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(x + 2, y + r);
-  ctx.lineTo(x + 2, y + size - r);
+  ctx.moveTo(x + 2, y + O_RADIUS);
+  ctx.lineTo(x + 2, y + size - O_RADIUS);
   ctx.stroke();
+}
+
+function drawGemCell(ctx: SKRSContext2D, sprite: Awaited<ReturnType<typeof loadImage>>, x: number, y: number, size: number) {
+  // Background (bright green)
+  ctx.fillStyle = GEM_BG;
+  roundRect(ctx, x, y, size, size, O_RADIUS);
+  ctx.fill();
+
+  // Centered icon: scale 118×118 sprite crop to fit inside cell with ~10% padding
+  const maxIcon  = Math.round(size * 0.82);
+  const scale    = maxIcon / Math.max(GEM_ICON.sw, GEM_ICON.sh);
+  const outW     = Math.round(GEM_ICON.sw * scale);
+  const outH     = Math.round(GEM_ICON.sh * scale);
+  const ix       = x + Math.round((size - outW) / 2);
+  const iy       = y + Math.round((size - outH) / 2);
+
+  ctx.drawImage(
+    sprite,
+    GEM_ICON.sx, GEM_ICON.sy, GEM_ICON.sw, GEM_ICON.sh,
+    ix, iy, outW, outH,
+  );
+}
+
+function drawBombCell(ctx: SKRSContext2D, sprite: Awaited<ReturnType<typeof loadImage>>, x: number, y: number, size: number) {
+  // Clip to rounded rect then draw full bomb sprite cell
+  ctx.save();
+  roundRect(ctx, x, y, size, size, O_RADIUS);
+  ctx.clip();
+  ctx.drawImage(
+    sprite,
+    BOMB_CELL.sx, BOMB_CELL.sy, BOMB_CELL.sw, BOMB_CELL.sh,
+    x, y, size, size,
+  );
+  ctx.restore();
 }
 
 const gamesRouter = Router();
 
-// GET /api/games/mines-grid?state=BASE64&t=TIMESTAMP
 gamesRouter.get("/games/mines-grid", async (req, res): Promise<void> => {
   const stateParam = req.query.state as string | undefined;
-  if (!stateParam) {
-    res.status(400).send("Missing state");
-    return;
-  }
+  if (!stateParam) { res.status(400).send("Missing state"); return; }
 
   let grid: number[];
   let revealed: number[];
@@ -122,13 +132,13 @@ gamesRouter.get("/games/mines-grid", async (req, res): Promise<void> => {
   }
 
   try {
-    const sprite  = await getSprite();
-    const canvas  = createCanvas(O_W, O_H);
-    const ctx     = canvas.getContext("2d");
-    const isDone  = status !== "p";
+    const sprite = await getSprite();
+    const canvas = createCanvas(O_W, O_H);
+    const ctx    = canvas.getContext("2d");
+    const isDone = status !== "p";
 
-    // ── Background ──────────────────────────────────────────────────────────
-    ctx.fillStyle = BG_COLOR;
+    // Background
+    ctx.fillStyle = BG_GREEN;
     ctx.fillRect(0, 0, O_W, O_H);
 
     for (let i = 0; i < GRID * GRID; i++) {
@@ -140,19 +150,15 @@ gamesRouter.get("/games/mines-grid", async (req, res): Promise<void> => {
       const isRevealed = revealed[i] === 1;
       const isBomb     = grid[i] === 1;
 
-      if (!isRevealed && !(isDone && isBomb)) {
-        // ── Hidden cell ── draw plain tile
-        drawHiddenCell(ctx, dx, dy, O_CELL);
+      if (isRevealed && isBomb) {
+        drawBombCell(ctx, sprite, dx, dy, O_CELL);
+      } else if (isRevealed) {
+        drawGemCell(ctx, sprite, dx, dy, O_CELL);
+      } else if (isDone && isBomb) {
+        // Game over: expose hidden bombs
+        drawBombCell(ctx, sprite, dx, dy, O_CELL);
       } else {
-        // ── Revealed cell ── draw sprite (gem or bomb)
-        const src = isBomb ? SPRITE.bomb : SPRITE.gem;
-
-        // Round-clip the sprite to match cell shape
-        ctx.save();
-        drawRoundRect(ctx, dx, dy, O_CELL, O_CELL, O_RADIUS);
-        ctx.clip();
-        ctx.drawImage(sprite, src.sx, src.sy, src.sw, src.sh, dx, dy, O_CELL, O_CELL);
-        ctx.restore();
+        drawHiddenCell(ctx, dx, dy, O_CELL);
       }
     }
 
