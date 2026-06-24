@@ -136,12 +136,6 @@ function buildBJContainer(state, hideDealer = false) {
   ].filter(l => l !== undefined).join('\n');
 
   const container = new ContainerBuilder().setAccentColor(accentColor);
-  const bjImg = getGameImgUrl('blackjack.png');
-  if (bjImg) {
-    container.addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(bjImg)),
-    );
-  }
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
   return container;
 }
@@ -303,12 +297,6 @@ function buildMinesContainer(state) {
   const text = `${titleLine}\n\n> 🤑 **Aposta:** ${fmtNum(state.bet)} ${COIN}\n${gainLine}${statusLine}`;
 
   const container = new ContainerBuilder().setAccentColor(accentColor);
-  const minesImg = getGameImgUrl('mines.png');
-  if (minesImg) {
-    container.addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(minesImg)),
-    );
-  }
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
   return container;
 }

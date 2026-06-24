@@ -73,8 +73,6 @@ export default {
     if (sub === 'blackjack' || sub === 'bj') {
       const bet = parseBet(args[1], eco.balance);
       if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `fallen jogo blackjack 500`')] });
-      message.user   = message.author;
-      message.member = message.member;
       return startBlackjack(message, bet, opts => message.reply(opts));
     }
 
