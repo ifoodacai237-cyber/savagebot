@@ -2,7 +2,6 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  AttachmentBuilder,
   ContainerBuilder,
   TextDisplayBuilder,
   SeparatorBuilder,
@@ -10,14 +9,14 @@ import {
   MediaGalleryItemBuilder,
   MessageFlags,
 } from 'discord.js';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { join, dirname } from 'node:path';
 import prisma from '../database/client.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const BJ_IMG    = readFileSync(join(__dirname, '../assets/blackjack.png'));
-const MINES_IMG = readFileSync(join(__dirname, '../assets/mines.png'));
+function getGameImgUrl(filename) {
+  const domains = process.env.REPLIT_DOMAINS;
+  const host = domains ? domains.split(',')[0].trim() : null;
+  if (!host) return null;
+  return `https://${host}/api/public/games/${filename}`;
+}
 
 const COIN = '<a:emoji_1:1516993823665033286>';
 
@@ -62,23 +61,7 @@ function memberInfo(interaction) {
   };
 }
 
-// ─── Static image attachments ─────────────────────────────────────────────────
-
-function bjAttachment() {
-  return new AttachmentBuilder(BJ_IMG, { name: 'blackjack.png' });
-}
-
-function minesAttachment() {
-  return new AttachmentBuilder(MINES_IMG, { name: 'mines.png' });
-}
-
 // ─── V2 payload helpers ───────────────────────────────────────────────────────
-
-function withFiles(payload, ...attachments) {
-  const files = attachments.filter(Boolean);
-  if (files.length === 0) return payload;
-  return { ...payload, files, attachments: [] };
-}
 
 function v2Payload(container, ...extras) {
   return { components: [container, ...extras], flags: MessageFlags.IsComponentsV2 };
@@ -153,9 +136,12 @@ function buildBJContainer(state, hideDealer = false) {
   ].filter(l => l !== undefined).join('\n');
 
   const container = new ContainerBuilder().setAccentColor(accentColor);
-  container.addMediaGalleryComponents(
-    new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('attachment://blackjack.png')),
-  );
+  const bjImg = getGameImgUrl('blackjack.png');
+  if (bjImg) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(bjImg)),
+    );
+  }
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
   return container;
 }
@@ -195,8 +181,7 @@ async function finalizeBJ(state, interaction, name, avatar) {
   blackjackGames.delete(state.userId);
 
   const container = buildBJContainer(state);
-  const file = bjAttachment();
-  return interaction.update(withFiles(v2Payload(container), file));
+  return interaction.update(v2Payload(container));
 }
 
 export async function startBlackjack(ctx, bet, sendFn) {
@@ -231,8 +216,7 @@ export async function startBlackjack(ctx, bet, sendFn) {
     await addWin(userId, guildId, payout);
     blackjackGames.delete(userId);
     const container = buildBJContainer(state);
-    const file = bjAttachment();
-    return sendFn(withFiles(v2Payload(container), file));
+    return sendFn(v2Payload(container));
   }
 
   // Auto-timeout 2 min
@@ -245,8 +229,7 @@ export async function startBlackjack(ctx, bet, sendFn) {
   }, 120_000);
 
   const container = buildBJContainer(state, true);
-  const file = bjAttachment();
-  return sendFn(withFiles(v2Payload(container, ...buildBJComponents(state)), file));
+  return sendFn(v2Payload(container, ...buildBJComponents(state)));
 }
 
 export async function handleBJHit(interaction, targetId) {
@@ -265,14 +248,12 @@ export async function handleBJHit(interaction, targetId) {
     state.bust = true;
     blackjackGames.delete(targetId);
     const container = buildBJContainer(state);
-    const file = bjAttachment();
-    return interaction.update(withFiles(v2Payload(container), file));
+    return interaction.update(v2Payload(container));
   }
   if (total === 21) return finalizeBJ(state, interaction, name, avatar);
 
   const container = buildBJContainer(state, true);
-  const file = bjAttachment();
-  return interaction.update(withFiles(v2Payload(container, ...buildBJComponents(state)), file));
+  return interaction.update(v2Payload(container, ...buildBJComponents(state)));
 }
 
 export async function handleBJStand(interaction, targetId) {
@@ -322,9 +303,12 @@ function buildMinesContainer(state) {
   const text = `${titleLine}\n\n> 🤑 **Aposta:** ${fmtNum(state.bet)} ${COIN}\n${gainLine}${statusLine}`;
 
   const container = new ContainerBuilder().setAccentColor(accentColor);
-  container.addMediaGalleryComponents(
-    new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('attachment://mines.png')),
-  );
+  const minesImg = getGameImgUrl('mines.png');
+  if (minesImg) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(minesImg)),
+    );
+  }
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
   return container;
 }
@@ -444,11 +428,7 @@ export async function handleMinesCell(interaction, idx, targetId) {
     state.status = 'lost';
     minesGames.delete(targetId);
     const container = buildMinesContainer(state);
-    const file = minesAttachment();
-    return interaction.update(withFiles(
-      v2Payload(container, ...buildMinesComponents(state)),
-      file,
-    ));
+    return interaction.update(v2Payload(container, ...buildMinesComponents(state)));
   }
 
   state.gems++;
@@ -461,11 +441,7 @@ export async function handleMinesCell(interaction, idx, targetId) {
     minesGames.delete(targetId);
     await addWin(targetId, state.guildId, payout);
     const container = buildMinesContainer(state);
-    const file = minesAttachment();
-    return interaction.update(withFiles(
-      v2Payload(container, ...buildMinesComponents(state)),
-      file,
-    ));
+    return interaction.update(v2Payload(container, ...buildMinesComponents(state)));
   }
 
   const container = buildMinesContainer(state);
@@ -488,9 +464,5 @@ export async function handleMinesCashout(interaction, targetId) {
   await addWin(targetId, state.guildId, payout);
 
   const container = buildMinesContainer(state);
-  const file = minesAttachment();
-  return interaction.update(withFiles(
-    v2Payload(container, ...buildMinesComponents(state)),
-    file,
-  ));
+  return interaction.update(v2Payload(container, ...buildMinesComponents(state)));
 }

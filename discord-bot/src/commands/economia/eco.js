@@ -13,61 +13,26 @@ import {
 import prisma from '../../database/client.js';
 import { generateBalanceCard, generateTopCard } from '../../utils/economyCards.js';
 
-// Giphy new URL format: i.giphy.com/{id}.gif (old media.giphy.com/media/{id}/giphy.gif returns 404)
-const GIFS = {
-  daily: [
-    'https://i.giphy.com/3ohs4lOkMMmbPoGMSk.gif',
-    'https://i.giphy.com/26FPokl39a7lHMpTq.gif',
-    'https://i.giphy.com/l46CfHGzXFSMGhXpC.gif',
-    'https://i.giphy.com/kFgzrTt798d2w.gif',
-    'https://i.giphy.com/7JvlHfd7C2GDr7zfZF.gif',
-    'https://i.giphy.com/Vccpm1O9gV1g4.gif',
-    'https://i.giphy.com/MDJ9IbxxvDUQM.gif',
-    'https://i.giphy.com/5z0cCCGooBQUtejM4v.gif',
-    'https://i.giphy.com/iD2HZaTqfhcAo.gif',
-  ],
-  work: [
-    'https://i.giphy.com/LHZyixOnHwDDy.gif',
-    'https://i.giphy.com/xT5LMHxhOfscxPfIfm.gif',
-    'https://i.giphy.com/3o7TKDLFRkSAkpCyZG.gif',
-    'https://i.giphy.com/VGwTq3G6a39cI.gif',
-    'https://i.giphy.com/3oEjI5VtIhHvK37WYo.gif',
-    'https://i.giphy.com/l3q2K5jinAlChoCLS.gif',
-    'https://i.giphy.com/xT9KVmZwJl7fnigeAg.gif',
-    'https://i.giphy.com/4HnRQfgHm9bXK.gif',
-    'https://i.giphy.com/RkYNmkVuQFaP6.gif',
-  ],
-  deposit: [
-    'https://i.giphy.com/26BRsF5TJuqGCcME0.gif',
-    'https://i.giphy.com/3o7TKSOvfaCO9b3MlO.gif',
-    'https://i.giphy.com/l0MYGb1LuZ3n7dRnO.gif',
-    'https://i.giphy.com/h2OCIFJlSHNACtU7TA.gif',
-    'https://i.giphy.com/9EvzNG9HAVc64.gif',
-    'https://i.giphy.com/xUPJPpHORMLhHvwb9i.gif',
-    'https://i.giphy.com/26FPokl39a7lHMpTq.gif',
-  ],
-  sacar: [
-    'https://i.giphy.com/3ohs4lOkMMmbPoGMSk.gif',
-    'https://i.giphy.com/26FPCXdkvDbKBbgOI.gif',
-    'https://i.giphy.com/l46CfHGzXFSMGhXpC.gif',
-    'https://i.giphy.com/5z0cCCGooBQUtejM4v.gif',
-    'https://i.giphy.com/l0MYECaWkjSReVQMo.gif',
-    'https://i.giphy.com/MDJ9IbxxvDUQM.gif',
-    'https://i.giphy.com/kFgzrTt798d2w.gif',
-  ],
-  pagar: [
-    'https://i.giphy.com/26FPokl39a7lHMpTq.gif',
-    'https://i.giphy.com/d2Z4rTi11c9LRita.gif',
-    'https://i.giphy.com/xUPJPqpB6FiG01Cjh6.gif',
-    'https://i.giphy.com/l0HlHFRbmaZtBRhXG.gif',
-    'https://i.giphy.com/TdfyKrN7HGTIY.gif',
-    'https://i.giphy.com/Vccpm1O9gV1g4.gif',
-  ],
+const GIF_FILES = {
+  daily:   ['daily1.gif', 'daily2.gif', 'daily3.gif'],
+  work:    ['work1.gif',  'work2.gif',  'work3.gif'],
+  deposit: ['deposit1.gif', 'deposit2.gif'],
+  sacar:   ['sacar1.gif',  'sacar2.gif'],
+  pagar:   ['pagar1.gif',  'pagar2.gif'],
 };
 
+function getGifBaseUrl() {
+  const domains = process.env.REPLIT_DOMAINS;
+  const host = domains ? domains.split(',')[0].trim() : null;
+  return host ? `https://${host}/api/public/gifs` : null;
+}
+
 function pickGif(key) {
-  const list = GIFS[key];
-  return list[Math.floor(Math.random() * list.length)];
+  const base = getGifBaseUrl();
+  if (!base) return null;
+  const files = GIF_FILES[key];
+  const file  = files[Math.floor(Math.random() * files.length)];
+  return `${base}/${file}`;
 }
 
 const COL_OK   = 0x9B4FD6;
