@@ -18,6 +18,19 @@ function getGameImgUrl(filename) {
   return `https://${host}/api/public/games/${filename}`;
 }
 
+function getMinesGridUrl(state) {
+  const domains = process.env.REPLIT_DOMAINS;
+  const host = domains ? domains.split(',')[0].trim() : null;
+  if (!host) return null;
+  const payload = {
+    g: state.grid.map(v => v ? 1 : 0),
+    r: state.revealed.map(v => v ? 1 : 0),
+    s: state.status === 'playing' ? 'p' : state.status === 'lost' ? 'l' : 'c',
+  };
+  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  return `https://${host}/api/games/mines-grid?state=${encoded}&t=${Date.now()}`;
+}
+
 const COIN = '<a:emoji_1:1516993823665033286>';
 
 // ─── In-memory game states ────────────────────────────────────────────────────
@@ -137,6 +150,14 @@ function buildBJContainer(state, hideDealer = false) {
 
   const container = new ContainerBuilder().setAccentColor(accentColor);
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+
+  const imgUrl = getGameImgUrl(`blackjack.png?v=${state.player.length}`);
+  if (imgUrl) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(imgUrl)),
+    );
+  }
+
   return container;
 }
 
@@ -298,6 +319,14 @@ function buildMinesContainer(state) {
 
   const container = new ContainerBuilder().setAccentColor(accentColor);
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+
+  const gridUrl = getMinesGridUrl(state);
+  if (gridUrl) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(gridUrl)),
+    );
+  }
+
   return container;
 }
 
