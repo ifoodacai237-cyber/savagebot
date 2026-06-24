@@ -304,16 +304,16 @@ function buildMinesContainer(state) {
 
   const accentColor = 0x000000;
 
-  const titleLine = state.status === 'lost'   ? '## ❌ Fim de jogo!'
-    : state.status === 'cashed'               ? '## ✅ Fim de jogo!'
-    : '## 💎 Mines';
+  const titleLine = state.status === 'lost'   ? '## <a:05_angels:1510663251598512279> Fim de jogo!'
+    : state.status === 'cashed'               ? '## <:dinheiro_kingbuxx:1452430513519198281> Fim de jogo!'
+    : '## <a:Diamante:1482392803299430451> Mines';
 
   const gainLine = state.status === 'lost'
     ? `> ${getEmoji('c_flymoney')} **Ganhos:** 0 ${COIN}`
     : `> ${getEmoji('c_flymoney')} **Ganhos:** ${fmtNum(payout)} ${COIN}`;
 
   const statusLine = state.status === 'playing'
-    ? `\n> 💣 **Minas:** ${state.bombs} | 💎 **Reveladas:** ${state.gems}`
+    ? `\n> <:p_bom:997485486803271720> **Minas:** ${state.bombs} | <a:Diamante:1482392803299430451> **Reveladas:** ${state.gems}`
     : '';
 
   const text = `${titleLine}\n\n> ${getEmoji('f_3bat')} **Aposta:** ${fmtNum(state.bet)} ${COIN}\n${gainLine}${statusLine}`;
@@ -347,11 +347,11 @@ function buildMinesComponents(state) {
       let disabled = done;
 
       if (isRevealed) {
-        emoji    = isBomb ? '💣' : '💎';
+        emoji    = isBomb ? '<:p_bom:997485486803271720>' : '<a:Diamante:1482392803299430451>';
         style    = isBomb ? ButtonStyle.Danger : ButtonStyle.Success;
         disabled = true;
       } else if (done && isBomb) {
-        emoji    = '💣';
+        emoji    = '<:p_bom:997485486803271720>';
         style    = ButtonStyle.Danger;
         disabled = true;
       } else if (done) {
