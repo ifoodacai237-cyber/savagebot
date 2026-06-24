@@ -1,26 +1,50 @@
 import { Router } from "express";
-import { createCanvas } from "@napi-rs/canvas";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SPRITE_PATH = path.join(__dirname, "../public/games/mines-sprite.png");
+
+// Sprite sheet layout (900×900, 4×4 grid)
+const S_PAD  = 14;   // outer padding
+const S_GAP  = 8;    // gap between cells
+const S_CELL = 212;  // cell size in sprite sheet
+const S_STEP = S_CELL + S_GAP; // 220
+
+// Sprite crop coords in the reference image
+// (0,0)  = bright revealed gem  →  top-left cell
+// (0,1)  = hidden/faded gem     →  top row, second cell
+// (1,3)  = bomb cell            →  second row, last column
+function spriteRect(row: number, col: number) {
+  return { sx: S_PAD + col * S_STEP, sy: S_PAD + row * S_STEP, sw: S_CELL, sh: S_CELL };
+}
+const SPRITE = {
+  gem:    spriteRect(0, 0),   // bright colorful gem
+  hidden: spriteRect(0, 1),   // faded/translucent gem (hidden cell)
+  bomb:   spriteRect(1, 3),   // brown bomb
+};
+
+// Output image dimensions
+const O_COLS = 4;
+const O_ROWS = 4;
+const O_CELL = 130;
+const O_GAP  = 8;
+const O_PAD  = 14;
+const O_W    = O_PAD * 2 + O_COLS * O_CELL + (O_COLS - 1) * O_GAP;
+const O_H    = O_PAD * 2 + O_ROWS * O_CELL + (O_ROWS - 1) * O_GAP;
+const BG_COLOR = "#4aac4a";
+
+let spriteCache: Awaited<ReturnType<typeof loadImage>> | null = null;
+async function getSprite() {
+  if (!spriteCache) spriteCache = await loadImage(SPRITE_PATH);
+  return spriteCache;
+}
 
 const gamesRouter = Router();
 
-type Ctx2D = ReturnType<ReturnType<typeof createCanvas>["getContext"]>;
-
-function roundRect(ctx: Ctx2D, x: number, y: number, w: number, h: number, r: number): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.arcTo(x + w, y, x + w, y + r, r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-  ctx.lineTo(x + r, y + h);
-  ctx.arcTo(x, y + h, x, y + h - r, r);
-  ctx.lineTo(x, y + r);
-  ctx.arcTo(x, y, x + r, y, r);
-  ctx.closePath();
-}
-
 // GET /api/games/mines-grid?state=BASE64&t=TIMESTAMP
-gamesRouter.get("/games/mines-grid", (req, res): void => {
+gamesRouter.get("/games/mines-grid", async (req, res): Promise<void> => {
   const stateParam = req.query.state as string | undefined;
   if (!stateParam) {
     res.status(400).send("Missing state");
@@ -45,76 +69,52 @@ gamesRouter.get("/games/mines-grid", (req, res): void => {
     return;
   }
 
-  const COLS = 4;
-  const ROWS = 4;
-  const CELL = 72;
-  const GAP  = 6;
-  const PAD  = 12;
-  const W    = PAD * 2 + COLS * CELL + (COLS - 1) * GAP;
-  const H    = PAD * 2 + ROWS * CELL + (ROWS - 1) * GAP;
+  try {
+    const sprite  = await getSprite();
+    const canvas  = createCanvas(O_W, O_H);
+    const ctx     = canvas.getContext("2d");
+    const isDone  = status !== "p";
 
-  const canvas = createCanvas(W, H);
-  const ctx    = canvas.getContext("2d");
+    // Background
+    ctx.fillStyle = BG_COLOR;
+    ctx.fillRect(0, 0, O_W, O_H);
 
-  // Background
-  ctx.fillStyle = "#0f0f1a";
-  ctx.fillRect(0, 0, W, H);
+    for (let i = 0; i < O_ROWS * O_COLS; i++) {
+      const row = Math.floor(i / O_COLS);
+      const col = i % O_COLS;
+      const dx  = O_PAD + col * (O_CELL + O_GAP);
+      const dy  = O_PAD + row * (O_CELL + O_GAP);
 
-  const isDone = status !== "p";
+      const isRevealed = revealed[i] === 1;
+      const isBomb     = grid[i] === 1;
 
-  for (let i = 0; i < ROWS * COLS; i++) {
-    const row = Math.floor(i / COLS);
-    const col = i % COLS;
-    const x   = PAD + col * (CELL + GAP);
-    const y   = PAD + row * (CELL + GAP);
+      let src: typeof SPRITE.gem;
 
-    const isRevealed = revealed[i] === 1;
-    const isBomb     = grid[i] === 1;
+      if (isRevealed && isBomb) {
+        src = SPRITE.bomb;
+      } else if (isRevealed && !isBomb) {
+        src = SPRITE.gem;
+      } else if (isDone && isBomb) {
+        // Game over: show hidden bombs in bomb style
+        src = SPRITE.bomb;
+      } else {
+        src = SPRITE.hidden;
+      }
 
-    let bg: string;
-    let symbol: string;
-    let symbolColor: string;
-
-    if (isRevealed && isBomb) {
-      bg          = "#7f1d1d";
-      symbol      = "\u2715";
-      symbolColor = "#fca5a5";
-    } else if (isRevealed && !isBomb) {
-      bg          = "#14532d";
-      symbol      = "\u25C6";
-      symbolColor = "#4ade80";
-    } else if (isDone && isBomb) {
-      bg          = "#450a0a";
-      symbol      = "\u2715";
-      symbolColor = "#ef4444";
-    } else {
-      bg          = "#1e293b";
-      symbol      = "";
-      symbolColor = "";
+      ctx.drawImage(
+        sprite,
+        src.sx, src.sy, src.sw, src.sh,
+        dx,     dy,     O_CELL,  O_CELL,
+      );
     }
 
-    ctx.fillStyle = bg;
-    roundRect(ctx, x, y, CELL, CELL, 10);
-    ctx.fill();
-
-    ctx.strokeStyle = isDone && isBomb && !isRevealed ? "#ef444460" : "#ffffff12";
-    ctx.lineWidth   = 1.5;
-    roundRect(ctx, x, y, CELL, CELL, 10);
-    ctx.stroke();
-
-    if (symbol) {
-      ctx.fillStyle    = symbolColor;
-      ctx.font         = `bold 30px sans-serif`;
-      ctx.textAlign    = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(symbol, x + CELL / 2, y + CELL / 2 + 1);
-    }
+    const buffer = canvas.toBuffer("image/png");
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.send(buffer);
+  } catch {
+    res.status(500).send("Error generating grid");
   }
-
-  const buffer = canvas.toBuffer("image/png");
-  res.setHeader("Content-Type", "image/png");
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-  res.send(buffer);
 });
 
 export default gamesRouter;
