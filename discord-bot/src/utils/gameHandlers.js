@@ -6,6 +6,8 @@ import {
   ContainerBuilder,
   TextDisplayBuilder,
   SeparatorBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
   MessageFlags,
 } from 'discord.js';
 import { readFileSync } from 'node:fs';
@@ -151,6 +153,9 @@ function buildBJContainer(state, hideDealer = false) {
   ].filter(l => l !== undefined).join('\n');
 
   const container = new ContainerBuilder().setAccentColor(accentColor);
+  container.addMediaGalleryComponents(
+    new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('attachment://blackjack.png')),
+  );
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
   return container;
 }
@@ -317,6 +322,9 @@ function buildMinesContainer(state) {
   const text = `${titleLine}\n\n> 🤑 **Aposta:** ${fmtNum(state.bet)} ${COIN}\n${gainLine}${statusLine}`;
 
   const container = new ContainerBuilder().setAccentColor(accentColor);
+  container.addMediaGalleryComponents(
+    new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('attachment://mines.png')),
+  );
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
   return container;
 }
