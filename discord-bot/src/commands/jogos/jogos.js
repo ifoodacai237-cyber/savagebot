@@ -32,7 +32,7 @@ export default {
       .addStringOption(o => o.setName('aposta').setDescription('Valor (ex: 500 ou "tudo")').setRequired(true))
       .addIntegerOption(o => o.setName('bombas').setDescription('Número de bombas (padrão: 3)').setMinValue(1).setMaxValue(13))),
   name: 'jogo',
-  aliases: ['apostar', 'jog'],
+  aliases: ['apostar', 'jog', 'blackjack', 'bj', 'mines'],
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
@@ -54,8 +54,7 @@ export default {
     }
   },
 
-  async executePrefix(message, args) {
-    const sub    = args[0]?.toLowerCase();
+  async executePrefix(message, args, client, calledAs) {
     const userId  = message.author.id;
     const guildId = message.guildId;
 
@@ -63,12 +62,28 @@ export default {
       embeds: [errorEmbed('**Uso:** `fallen jogo <subcomando> <aposta> [extra]`\n**Subcomandos:** `blackjack <aposta>`, `mines <aposta> [bombas]`')],
     });
 
-    if (!sub) return help();
-
     const eco = await getEco(userId, guildId).catch(() => null);
     if (!eco) return message.reply({ embeds: [errorEmbed('Erro ao acessar seu saldo.')] });
 
     const send = opts => message.reply(opts);
+
+    // Chamada direta: "fallen blackjack 500" ou "fallen bj 500"
+    if (calledAs === 'blackjack' || calledAs === 'bj') {
+      const bet = parseBet(args[0], eco.balance);
+      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `fallen blackjack 500`')] });
+      return startBlackjack(message, bet, opts => message.reply(opts));
+    }
+
+    // Chamada direta: "fallen mines 500 3"
+    if (calledAs === 'mines') {
+      const bet   = parseBet(args[0], eco.balance);
+      const bombs = parseInt(args[1]) || 3;
+      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `fallen mines 500 3`')] });
+      return startMines(message, bet, bombs, opts => message.reply(opts));
+    }
+
+    const sub = args[0]?.toLowerCase();
+    if (!sub) return help();
 
     if (sub === 'blackjack' || sub === 'bj') {
       const bet = parseBet(args[1], eco.balance);

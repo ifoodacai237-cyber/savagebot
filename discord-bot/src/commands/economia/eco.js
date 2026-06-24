@@ -32,7 +32,7 @@ function pickGif(key) {
   if (!base) return null;
   const files = GIF_FILES[key];
   const file  = files[Math.floor(Math.random() * files.length)];
-  return `${base}/${file}`;
+  return `${base}/${file}?v=${Date.now()}`;
 }
 
 const COL_OK   = 0x9B4FD6;

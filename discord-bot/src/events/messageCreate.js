@@ -280,7 +280,7 @@ export default {
     if (!cmd?.executePrefix) return;
 
     try {
-      await cmd.executePrefix(message, args, client);
+      await cmd.executePrefix(message, args, client, commandName);
     } catch (err) {
       console.error(`[PREFIX ERROR] ${commandName}:`, err);
       message.reply({ content: '❌ Ocorreu um erro ao executar esse comando.' }).catch(() => {});
