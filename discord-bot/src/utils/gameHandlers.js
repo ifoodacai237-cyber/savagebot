@@ -10,6 +10,7 @@ import {
   MessageFlags,
 } from 'discord.js';
 import prisma from '../database/client.js';
+import { getEmoji } from './emojiManager.js';
 
 function getGameImgUrl(filename) {
   const domains = process.env.REPLIT_DOMAINS;
@@ -308,14 +309,14 @@ function buildMinesContainer(state) {
     : '## 💎 Mines';
 
   const gainLine = state.status === 'lost'
-    ? `> <:c_flymoney:997485969303420978> **Ganhos:** 0 ${COIN}`
-    : `> <:c_flymoney:997485969303420978> **Ganhos:** ${fmtNum(payout)} ${COIN}`;
+    ? `> ${getEmoji('c_flymoney')} **Ganhos:** 0 ${COIN}`
+    : `> ${getEmoji('c_flymoney')} **Ganhos:** ${fmtNum(payout)} ${COIN}`;
 
   const statusLine = state.status === 'playing'
     ? `\n> 💣 **Minas:** ${state.bombs} | 💎 **Reveladas:** ${state.gems}`
     : '';
 
-  const text = `${titleLine}\n\n> <a:f_3bat:1420292544255889451> **Aposta:** ${fmtNum(state.bet)} ${COIN}\n${gainLine}${statusLine}`;
+  const text = `${titleLine}\n\n> ${getEmoji('f_3bat')} **Aposta:** ${fmtNum(state.bet)} ${COIN}\n${gainLine}${statusLine}`;
 
   const container = new ContainerBuilder().setAccentColor(accentColor);
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));

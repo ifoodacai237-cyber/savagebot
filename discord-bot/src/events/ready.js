@@ -1,5 +1,6 @@
 import { ActivityType } from 'discord.js';
 import { registerSlashCommands } from '../utils/loader.js';
+import { initEmojis } from '../utils/emojiManager.js';
 
 export default {
   name: 'clientReady',
@@ -17,7 +18,10 @@ export default {
       }],
     });
 
-    await registerSlashCommands(client);
+    await Promise.all([
+      registerSlashCommands(client),
+      initEmojis(client),
+    ]);
     console.log(`🟣 Status de Streaming ativo.`);
   },
 };
