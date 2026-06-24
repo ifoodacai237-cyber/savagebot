@@ -308,14 +308,14 @@ function buildMinesContainer(state) {
     : '## 💎 Mines';
 
   const gainLine = state.status === 'lost'
-    ? `> 💸 **Ganhos:** 0 ${COIN}`
-    : `> 💸 **Ganhos:** ${fmtNum(payout)} ${COIN}`;
+    ? `> <:c_flymoney:997485969303420978> **Ganhos:** 0 ${COIN}`
+    : `> <:c_flymoney:997485969303420978> **Ganhos:** ${fmtNum(payout)} ${COIN}`;
 
   const statusLine = state.status === 'playing'
     ? `\n> 💣 **Minas:** ${state.bombs} | 💎 **Reveladas:** ${state.gems}`
     : '';
 
-  const text = `${titleLine}\n\n> 🤑 **Aposta:** ${fmtNum(state.bet)} ${COIN}\n${gainLine}${statusLine}`;
+  const text = `${titleLine}\n\n> <a:f_3bat:1420292544255889451> **Aposta:** ${fmtNum(state.bet)} ${COIN}\n${gainLine}${statusLine}`;
 
   const container = new ContainerBuilder().setAccentColor(accentColor);
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
