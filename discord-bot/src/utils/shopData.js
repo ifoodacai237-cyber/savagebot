@@ -79,6 +79,8 @@ function getBannerBaseUrl() {
   const domains = process.env.REPLIT_DOMAINS?.split(',').filter(Boolean);
   if (domains?.length) return `https://${domains[0]}`;
   if (process.env.REPLIT_DEV_DOMAIN) return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+  if (process.env.API_BASE_URL) return process.env.API_BASE_URL.replace(/\/$/, '');
   return null;
 }
 

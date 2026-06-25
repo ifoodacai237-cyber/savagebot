@@ -12,16 +12,25 @@ import {
 import prisma from '../database/client.js';
 import { getEmoji } from './emojiManager.js';
 
-function getGameImgUrl(filename) {
+function getPublicHost() {
   const domains = process.env.REPLIT_DOMAINS;
-  const host = domains ? domains.split(',')[0].trim() : null;
+  if (domains) return domains.split(',')[0].trim();
+  if (process.env.REPLIT_DEV_DOMAIN) return process.env.REPLIT_DEV_DOMAIN;
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) return process.env.RAILWAY_PUBLIC_DOMAIN;
+  if (process.env.API_BASE_URL) {
+    try { return new URL(process.env.API_BASE_URL).host; } catch {}
+  }
+  return null;
+}
+
+function getGameImgUrl(filename) {
+  const host = getPublicHost();
   if (!host) return null;
   return `https://${host}/api/public/games/${filename}`;
 }
 
 function getMinesGridUrl(state) {
-  const domains = process.env.REPLIT_DOMAINS;
-  const host = domains ? domains.split(',')[0].trim() : null;
+  const host = getPublicHost();
   if (!host) return null;
   const payload = {
     g: state.grid.map(v => v ? 1 : 0),

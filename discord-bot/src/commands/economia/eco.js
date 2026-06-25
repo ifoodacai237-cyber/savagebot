@@ -10,8 +10,14 @@ import {
   MessageFlags,
   PermissionFlagsBits,
 } from 'discord.js';
+import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+import path from 'path';
 import prisma from '../../database/client.js';
 import { generateBalanceCard, generateTopCard } from '../../utils/economyCards.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const GIF_DIR = path.resolve(__dirname, '../../assets/gifs');
 
 const Y2K_GIFS = ['y2k1.gif', 'y2k2.gif', 'y2k3.gif', 'y2k4.gif', 'y2k5.gif'];
 
@@ -23,18 +29,12 @@ const GIF_FILES = {
   pagar:   Y2K_GIFS,
 };
 
-function getGifBaseUrl() {
-  const domains = process.env.REPLIT_DOMAINS;
-  const host = domains ? domains.split(',')[0].trim() : null;
-  return host ? `https://${host}/api/public/gifs` : null;
-}
-
 function pickGif(key) {
-  const base = getGifBaseUrl();
-  if (!base) return null;
   const files = GIF_FILES[key];
   const file  = files[Math.floor(Math.random() * files.length)];
-  return `${base}/${file}?v=${Date.now()}`;
+  const fullPath = path.join(GIF_DIR, file);
+  if (!existsSync(fullPath)) return null;
+  return { file, path: fullPath };
 }
 
 const COL_OK   = 0x9B4FD6;
@@ -46,7 +46,7 @@ const COIN = '<a:emoji_1:1516993823665033286>';
 
 // ─── V2 helpers ───────────────────────────────────────────────────────────────
 
-function v2Rich({ text, color, thumbnailUrl, gifUrl }) {
+function v2Rich({ text, color, thumbnailUrl, gif }) {
   const c = new ContainerBuilder().setAccentColor(color);
 
   if (thumbnailUrl) {
@@ -58,13 +58,16 @@ function v2Rich({ text, color, thumbnailUrl, gifUrl }) {
     c.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
   }
 
-  if (gifUrl) {
+  const files = [];
+  if (gif) {
+    const attachment = new AttachmentBuilder(gif.path, { name: gif.file });
+    files.push(attachment);
     c.addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(gifUrl)),
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${gif.file}`)),
     );
   }
 
-  return { components: [c], flags: MessageFlags.IsComponentsV2 };
+  return { components: [c], flags: MessageFlags.IsComponentsV2, files };
 }
 
 function v2Err(text) {
@@ -154,7 +157,7 @@ export default {
         color: COL_OK,
         text: `## 💰 Daily Coletado!\nVocê recebeu **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> ⏰ Volte em **24 horas** para coletar novamente.`,
         thumbnailUrl: interaction.user.displayAvatarURL(),
-        gifUrl: pickGif('daily'),
+        gif: pickGif('daily'),
       }));
     }
 
@@ -178,7 +181,7 @@ export default {
         color: COL_WARN,
         text: `## 💼 Trabalho Concluído!\n**${msg}** e ganhou **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> 🕐 Volte em **1 hora** para trabalhar novamente.`,
         thumbnailUrl: interaction.user.displayAvatarURL(),
-        gifUrl: pickGif('work'),
+        gif: pickGif('work'),
       }));
     }
 
@@ -196,7 +199,7 @@ export default {
       return interaction.reply(v2Rich({
         color: COL_OK,
         text: `## 💸 Transferência Realizada!\n${interaction.user} enviou **${valor.toLocaleString('pt-BR')} ${COIN}** para ${target}!`,
-        gifUrl: pickGif('pagar'),
+        gif: pickGif('pagar'),
       }));
     }
 
@@ -231,7 +234,7 @@ export default {
       return interaction.reply(v2Rich({
         color: COL_BLUE,
         text: `## 🏦 Depósito Realizado!\n**${valor.toLocaleString('pt-BR')} ${COIN}** depositados com segurança!\n\n> 🔒 Coins no banco estão protegidos de roubos.`,
-        gifUrl: pickGif('deposit'),
+        gif: pickGif('deposit'),
       }));
     }
 
@@ -249,7 +252,7 @@ export default {
       return interaction.reply(v2Rich({
         color: COL_OK,
         text: `## 🏧 Saque Realizado!\n**${valor.toLocaleString('pt-BR')} ${COIN}** sacados para sua carteira!\n\n> 🪙 Pronto para apostar nos jogos.`,
-        gifUrl: pickGif('sacar'),
+        gif: pickGif('sacar'),
       }));
     }
   },
@@ -289,7 +292,7 @@ export default {
         color: COL_OK,
         text: `## 💰 Daily Coletado!\nVocê recebeu **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> ⏰ Volte em **24 horas** para coletar novamente.`,
         thumbnailUrl: message.author.displayAvatarURL(),
-        gifUrl: pickGif('daily'),
+        gif: pickGif('daily'),
       }));
     }
 
@@ -313,7 +316,7 @@ export default {
         color: COL_WARN,
         text: `## 💼 Trabalho Concluído!\n**${msg}** e ganhou **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> 🕐 Volte em **1 hora** para trabalhar novamente.`,
         thumbnailUrl: message.author.displayAvatarURL(),
-        gifUrl: pickGif('work'),
+        gif: pickGif('work'),
       }));
     }
 
@@ -333,7 +336,7 @@ export default {
       return replyV2(v2Rich({
         color: COL_OK,
         text: `## 💸 Transferência Realizada!\n${message.author} enviou **${valor.toLocaleString('pt-BR')} ${COIN}** para ${target}!`,
-        gifUrl: pickGif('pagar'),
+        gif: pickGif('pagar'),
       }));
     }
 
@@ -367,7 +370,7 @@ export default {
       return replyV2(v2Rich({
         color: COL_BLUE,
         text: `## 🏦 Depósito Realizado!\n**${valor.toLocaleString('pt-BR')} ${COIN}** depositados com segurança!\n\n> 🔒 Coins no banco estão protegidos de roubos.`,
-        gifUrl: pickGif('deposit'),
+        gif: pickGif('deposit'),
       }));
     }
 
@@ -385,7 +388,7 @@ export default {
       return replyV2(v2Rich({
         color: COL_OK,
         text: `## 🏧 Saque Realizado!\n**${valor.toLocaleString('pt-BR')} ${COIN}** sacados para sua carteira!\n\n> 🪙 Pronto para apostar nos jogos.`,
-        gifUrl: pickGif('sacar'),
+        gif: pickGif('sacar'),
       }));
     }
 
