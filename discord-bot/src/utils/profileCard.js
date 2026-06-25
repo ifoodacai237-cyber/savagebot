@@ -8,32 +8,53 @@ import path from 'path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FONTS_DIR = path.resolve(__dirname, '../../fonts');
 
-// 1. loadSystemFonts() + fc-cache — fontconfig do SO (Railway roda fc-cache no build)
+// Passo 1: fontes do sistema via fontconfig (fc-cache rodou no build do Railway)
 try { GlobalFonts.loadSystemFonts(); } catch {}
 
-// 2. loadFontsFromDir — escaneia /var/fonts/ (copiados durante o build do Railway)
+// Passo 2: escaneia /var/fonts/ (TTFs copiados durante o build)
 try { GlobalFonts.loadFontsFromDir('/var/fonts'); } catch {}
 
-// 3. register(buffer) — injeta dados da fonte diretamente, bypassa qualquer
-//    dependência de fontconfig/sistema. Método mais confiável em containers.
+// Passo 3: injeta as fontes bundled diretamente como buffer — bypassa sistema de arquivos
 for (const file of ['Roboto-Regular.ttf', 'Roboto-Bold.ttf']) {
-  const fp = path.join(FONTS_DIR, file);
   try {
+    const fp = path.join(FONTS_DIR, file);
     if (existsSync(fp)) GlobalFonts.register(readFileSync(fp), 'BotFont');
   } catch {}
 }
 
-// 4. Paths absolutos individuais — fallback final
+// Passo 4: injeta paths absolutos individuais como buffer (Railway apt-installed fonts)
 for (const fp of [
-  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
   '/var/fonts/DejaVuSans.ttf',
   '/var/fonts/DejaVuSans-Bold.ttf',
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+  '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+  '/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf',
 ]) {
   try { if (existsSync(fp)) GlobalFonts.register(readFileSync(fp)); } catch {}
 }
 
-const FONT = `"BotFont", "DejaVu Sans", "Liberation Sans", Arial, sans-serif`;
+// Passo 5: cria alias 'BotFont' para a primeira família disponível no sistema.
+// setAlias garante que 'BotFont' sempre resolva para algo que renderiza texto.
+{
+  let famsRaw;
+  try { famsRaw = GlobalFonts.getFamilies(); } catch {}
+  if (famsRaw) {
+    const fams = Buffer.isBuffer(famsRaw)
+      ? JSON.parse(famsRaw.toString('utf8'))
+      : (Array.isArray(famsRaw) ? famsRaw : JSON.parse(String(famsRaw)));
+    const names = fams.map(f => (typeof f === 'string' ? f : f.family)).filter(Boolean);
+    console.log('[ProfileCard] Fontes disponíveis:', names.join(', ') || 'NENHUMA');
+    for (const name of names) {
+      if (name && name !== 'BotFont') {
+        try { GlobalFonts.setAlias(name, 'BotFont'); } catch {}
+        break; // alias para a primeira disponível
+      }
+    }
+  }
+}
+
+const FONT = `"BotFont", "DejaVu Sans", "Noto Sans", "Liberation Sans", Arial, sans-serif`;
 const W = 900, H = 510;
 
 const COIN_EMOJI_ID = '1516993823665033286';
