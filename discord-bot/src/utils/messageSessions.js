@@ -244,6 +244,7 @@ export function buildMsgMainControls(session) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('msg_banner').setLabel('Banner').setStyle(ButtonStyle.Secondary).setEmoji('🖼️'),
       new ButtonBuilder().setCustomId('msg_thumb').setLabel('Miniatura').setStyle(ButtonStyle.Secondary).setEmoji('🔷'),
+      new ButtonBuilder().setCustomId('msg_sep_img').setLabel('Imagem').setStyle(ButtonStyle.Secondary).setEmoji('🌄'),
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('msg_remove_last').setLabel('Remover Último').setStyle(ButtonStyle.Danger).setEmoji('🗑️').setDisabled(total === 0),

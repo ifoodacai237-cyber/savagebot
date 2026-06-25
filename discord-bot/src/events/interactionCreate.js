@@ -52,7 +52,6 @@ import {
   buildCargoRoleSelector,
   buildMsgColorPicker,
   buildRoleSelector,
-  buildSepTypeSelector,
   MSG_COLOR_MAP,
   msgTotalCount,
   publishedMenus,
@@ -1654,19 +1653,11 @@ export default {
 
           if (customId === 'msg_add_sep') {
             if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
-            return interaction.update({
-              content: '**💬 Montador de Mensagem**\n➕ Texto 2 — escolha o tipo de bloco:',
-              components: buildSepTypeSelector(),
-            });
-          }
-
-          if (customId === 'msg_sep_text') {
-            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
             const modal = new ModalBuilder().setCustomId('msg_modal_sep').setTitle('➕ Texto 2 (nova seção)');
             modal.addComponents(new ActionRowBuilder().addComponents(
               new TextInputBuilder().setCustomId('sep_content')
                 .setLabel('Conteúdo (suporta **negrito**, *itálico*)').setStyle(TextInputStyle.Paragraph)
-                .setRequired(true).setMaxLength(2000).setPlaceholder('↳ Texto da nova seção...')
+                .setRequired(true).setMaxLength(2000).setPlaceholder('↳ Título ou texto da nova seção...')
             ));
             return interaction.showModal(modal);
           }
