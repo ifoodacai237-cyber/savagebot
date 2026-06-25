@@ -1,6 +1,6 @@
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { resolveBanner, getRingColors } from './shopData.js';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -8,24 +8,29 @@ import path from 'path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FONTS_DIR = path.resolve(__dirname, '../../fonts');
 
-// 1. loadSystemFonts() — usa fontconfig do SO para descobrir todas as fontes
-//    instaladas (Railway tem fontconfig + fonts-dejavu-core via apt).
+// 1. loadSystemFonts() + fc-cache — fontconfig do SO (Railway roda fc-cache no build)
 try { GlobalFonts.loadSystemFonts(); } catch {}
 
-// 2. Fontes bundled no repositório — garantia absoluta independente do ambiente.
-//    Registradas como 'BotFont' para uso explícito no canvas.
+// 2. loadFontsFromDir — escaneia /var/fonts/ (copiados durante o build do Railway)
+try { GlobalFonts.loadFontsFromDir('/var/fonts'); } catch {}
+
+// 3. register(buffer) — injeta dados da fonte diretamente, bypassa qualquer
+//    dependência de fontconfig/sistema. Método mais confiável em containers.
 for (const file of ['Roboto-Regular.ttf', 'Roboto-Bold.ttf']) {
   const fp = path.join(FONTS_DIR, file);
-  try { if (existsSync(fp)) GlobalFonts.registerFromPath(fp, 'BotFont'); } catch {}
+  try {
+    if (existsSync(fp)) GlobalFonts.register(readFileSync(fp), 'BotFont');
+  } catch {}
 }
 
-// 3. Caminhos absolutos conhecidos como fallback extra (Railway/apt subpastas)
+// 4. Paths absolutos individuais — fallback final
 for (const fp of [
   '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
   '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
   '/var/fonts/DejaVuSans.ttf',
+  '/var/fonts/DejaVuSans-Bold.ttf',
 ]) {
-  try { if (existsSync(fp)) GlobalFonts.registerFromPath(fp); } catch {}
+  try { if (existsSync(fp)) GlobalFonts.register(readFileSync(fp)); } catch {}
 }
 
 const FONT = `"BotFont", "DejaVu Sans", "Liberation Sans", Arial, sans-serif`;
