@@ -1,60 +1,15 @@
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { resolveBanner, getRingColors } from './shopData.js';
-import { existsSync, readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import path from 'path';
+import { ROBOTO_REGULAR_B64, ROBOTO_BOLD_B64 } from './fontData.js';
 
 // ─── Carregar fontes ───────────────────────────────────────────────────────────
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FONTS_DIR = path.resolve(__dirname, '../../fonts');
+// Fontes Roboto embutidas como base64 — método mais confiável.
+// Não depende de sistema de arquivos, fontconfig, apt, ou qualquer configuração
+// do ambiente. Funciona em qualquer container/OS/hospedagem.
+GlobalFonts.register(Buffer.from(ROBOTO_REGULAR_B64, 'base64'), 'BotFont');
+GlobalFonts.register(Buffer.from(ROBOTO_BOLD_B64,    'base64'), 'BotFont');
 
-// Passo 1: fontes do sistema via fontconfig (fc-cache rodou no build do Railway)
-try { GlobalFonts.loadSystemFonts(); } catch {}
-
-// Passo 2: escaneia /var/fonts/ (TTFs copiados durante o build)
-try { GlobalFonts.loadFontsFromDir('/var/fonts'); } catch {}
-
-// Passo 3: injeta as fontes bundled diretamente como buffer — bypassa sistema de arquivos
-for (const file of ['Roboto-Regular.ttf', 'Roboto-Bold.ttf']) {
-  try {
-    const fp = path.join(FONTS_DIR, file);
-    if (existsSync(fp)) GlobalFonts.register(readFileSync(fp), 'BotFont');
-  } catch {}
-}
-
-// Passo 4: injeta paths absolutos individuais como buffer (Railway apt-installed fonts)
-for (const fp of [
-  '/var/fonts/DejaVuSans.ttf',
-  '/var/fonts/DejaVuSans-Bold.ttf',
-  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-  '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
-  '/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf',
-]) {
-  try { if (existsSync(fp)) GlobalFonts.register(readFileSync(fp)); } catch {}
-}
-
-// Passo 5: cria alias 'BotFont' para a primeira família disponível no sistema.
-// setAlias garante que 'BotFont' sempre resolva para algo que renderiza texto.
-{
-  let famsRaw;
-  try { famsRaw = GlobalFonts.getFamilies(); } catch {}
-  if (famsRaw) {
-    const fams = Buffer.isBuffer(famsRaw)
-      ? JSON.parse(famsRaw.toString('utf8'))
-      : (Array.isArray(famsRaw) ? famsRaw : JSON.parse(String(famsRaw)));
-    const names = fams.map(f => (typeof f === 'string' ? f : f.family)).filter(Boolean);
-    console.log('[ProfileCard] Fontes disponíveis:', names.join(', ') || 'NENHUMA');
-    for (const name of names) {
-      if (name && name !== 'BotFont') {
-        try { GlobalFonts.setAlias(name, 'BotFont'); } catch {}
-        break; // alias para a primeira disponível
-      }
-    }
-  }
-}
-
-const FONT = `"BotFont", "DejaVu Sans", "Noto Sans", "Liberation Sans", Arial, sans-serif`;
+const FONT = 'BotFont';
 const W = 900, H = 510;
 
 const COIN_EMOJI_ID = '1516993823665033286';
