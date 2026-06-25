@@ -1,1 +1,8 @@
-# Vazio — Railway usa railpack.toml para o build (apt + fontconfig).
+[variables]
+NIXPACKS_NODE_VERSION = "22"
+
+[phases.setup]
+nixPkgs = ["ffmpeg", "python3"]
+
+[phases.install]
+cmds = ["npm install --production=false --registry=https://registry.npmjs.org/", "npx prisma generate"]

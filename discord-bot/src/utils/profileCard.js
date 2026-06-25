@@ -1,31 +1,21 @@
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { readFileSync } from 'fs';
 import { resolveBanner, getRingColors } from './shopData.js';
 
 // ─── Carregar fontes ───────────────────────────────────────────────────────────
+// Lê os arquivos TTF como buffer e registra diretamente no skia.
+// Este método funciona em qualquer ambiente (Replit, Railway, Docker)
+// sem depender de fontconfig, sistema operacional ou variáveis de ambiente.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
+const FONTS_DIR  = join(__dirname, '../../fonts');
 
-// 1. Fontes do sistema via fontconfig (funciona no Railway com apt + fc-cache)
-try { GlobalFonts.loadSystemFonts(); } catch {}
+GlobalFonts.register(readFileSync(join(FONTS_DIR, 'Roboto-Regular.ttf')), 'BotFont');
+GlobalFonts.register(readFileSync(join(FONTS_DIR, 'Roboto-Bold.ttf')),    'BotFont');
 
-// 2. Pasta bundled do projeto + /var/fonts/ copiados no build
-try { GlobalFonts.loadFontsFromDir(join(__dirname, '../../fonts')); } catch {}
-try { GlobalFonts.loadFontsFromDir('/var/fonts'); } catch {}
-
-// 3. Descobre qual família de fonte está disponível e usa ela
-let FONT = 'DejaVu Sans';
-try {
-  const raw = GlobalFonts.getFamilies();
-  const list = Buffer.isBuffer(raw)
-    ? JSON.parse(raw.toString('utf8'))
-    : (Array.isArray(raw) ? raw : JSON.parse(String(raw)));
-  const available = list.map(f => (typeof f === 'string' ? f : f.family)).filter(Boolean);
-  for (const name of ['Roboto', 'Noto Sans', 'Liberation Sans', 'DejaVu Sans']) {
-    if (available.includes(name)) { FONT = name; break; }
-  }
-} catch {}
+const FONT = 'BotFont';
 const W = 900, H = 510;
 
 const COIN_EMOJI_ID = '1516993823665033286';
