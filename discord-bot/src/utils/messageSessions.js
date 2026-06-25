@@ -113,27 +113,39 @@ function buildPublishedSelectMenu(selectMenu) {
   return new ActionRowBuilder().addComponents(menu);
 }
 
-// ─── buildMsgPayloadV2 (sem lateral — usa ContainerBuilder) ────────────────────
+// ─── buildMsgPayloadV2 (sem lateral — múltiplos containers p/ gap visual) ──────
 
 function buildMsgPayloadV2(session) {
-  const container = new ContainerBuilder();
-  // Sem setAccentColor() = sem barra lateral de verdade
+  const containers = [];
+  let current = new ContainerBuilder();
+  let pendingText = '';
+  let currentHasContent = false;
+
+  const flushText = () => {
+    const t = pendingText.trimEnd();
+    if (t) {
+      current.addTextDisplayComponents(new TextDisplayBuilder().setContent(t));
+      pendingText = '';
+      currentHasContent = true;
+    }
+  };
+
+  // Finaliza container atual e começa um novo (cria o "pulo" visual)
+  const newSection = () => {
+    flushText();
+    if (currentHasContent) {
+      containers.push(current);
+      current = new ContainerBuilder();
+      currentHasContent = false;
+    }
+  };
 
   if (session.blocks.length === 0) {
-    container.addTextDisplayComponents(
+    current.addTextDisplayComponents(
       new TextDisplayBuilder().setContent('-# 💬 Mensagem vazia — use os botões abaixo para adicionar blocos.')
     );
+    containers.push(current);
   } else {
-    let pendingText = '';
-
-    const flushText = () => {
-      const t = pendingText.trimEnd();
-      if (t) {
-        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(t));
-        pendingText = '';
-      }
-    };
-
     for (const block of session.blocks) {
       if (block.type === 'text') {
         pendingText += block.content + '\n\n';
@@ -141,30 +153,37 @@ function buildMsgPayloadV2(session) {
         for (const roleId of block.roleIds) pendingText += `• <@&${roleId}>\n`;
         pendingText += '\n';
       } else if (block.type === 'separator') {
-        flushText();
-        container.addSeparatorComponents(new SeparatorBuilder());
+        newSection();
         if (block.content) {
-          container.addTextDisplayComponents(new TextDisplayBuilder().setContent(block.content));
+          current.addTextDisplayComponents(new TextDisplayBuilder().setContent(block.content));
+          currentHasContent = true;
         }
       } else if (block.type === 'separator_img') {
-        flushText();
+        newSection();
         const gallery = new MediaGalleryBuilder();
         gallery.addItems(new MediaGalleryItemBuilder().setURL(block.url));
-        container.addMediaGalleryComponents(gallery);
+        current.addMediaGalleryComponents(gallery);
+        currentHasContent = true;
+        // imagem isolada → fecha container imediatamente para criar o gap depois
+        containers.push(current);
+        current = new ContainerBuilder();
+        currentHasContent = false;
       }
     }
     flushText();
+    if (currentHasContent) containers.push(current);
   }
 
   if (session.banner) {
-    container.addSeparatorComponents(new SeparatorBuilder());
+    const bannerCont = new ContainerBuilder();
     const gallery = new MediaGalleryBuilder();
     gallery.addItems(new MediaGalleryItemBuilder().setURL(session.banner));
-    container.addMediaGalleryComponents(gallery);
+    bannerCont.addMediaGalleryComponents(gallery);
+    containers.push(bannerCont);
   }
 
   const components = [
-    container,
+    ...containers,
     buildPublishedButtonRow(session.msgButtons),
     buildPublishedSelectMenu(session.selectMenu),
   ].filter(Boolean);
@@ -185,37 +204,36 @@ export function buildMsgPayload(session) {
       .setColor(session.accentColor);
     embeds = [empty];
   } else {
-    const allItems = [];
+    // Lógica original: cada separator inicia um novo embed (gap visual)
+    const sections = [];
     let currentHeader = null;
     let currentBlocks = [];
 
-    const flushSection = () => {
-      if (currentHeader !== null || currentBlocks.length > 0) {
-        allItems.push({ type: 'text', header: currentHeader, blocks: currentBlocks });
-      }
-      currentHeader = null;
-      currentBlocks = [];
-    };
-
     for (const block of session.blocks) {
       if (block.type === 'separator') {
-        flushSection();
+        sections.push({ header: currentHeader, blocks: currentBlocks, img: null });
         currentHeader = block.content;
+        currentBlocks = [];
       } else if (block.type === 'separator_img') {
-        flushSection();
-        allItems.push({ type: 'img', url: block.url });
+        sections.push({ header: currentHeader, blocks: currentBlocks, img: null });
+        currentHeader = null;
+        currentBlocks = [];
+        sections.push({ header: null, blocks: [], img: block.url }); // embed isolado com imagem
       } else {
         currentBlocks.push(block);
       }
     }
-    flushSection();
+    sections.push({ header: currentHeader, blocks: currentBlocks, img: null });
 
-    embeds = allItems.slice(0, 10).map(s => {
-      if (s.type === 'img') {
-        return new EmbedBuilder().setImage(s.url).setColor(session.accentColor);
-      }
-      return buildSection(s.blocks, session.accentColor, s.header);
-    });
+    embeds = sections
+      .filter(s => s.img !== null || s.header !== null || s.blocks.length > 0)
+      .slice(0, 10)
+      .map(s => {
+        if (s.img !== null) {
+          return new EmbedBuilder().setImage(s.img).setColor(session.accentColor);
+        }
+        return buildSection(s.blocks, session.accentColor, s.header);
+      });
   }
 
   if (session.thumbnail && embeds.length > 0) embeds[0].setThumbnail(session.thumbnail);
