@@ -71,11 +71,20 @@ import {
 
 function resolveEmojis(text, client) {
   if (!text || !client) return text;
-  return text.replace(/:([a-zA-Z0-9_]+):/g, (match, name) => {
+  // Passo 1: protege padrões <:name:id> e <a:name:id> já formatados
+  const slots = [];
+  const safe = text.replace(/<(a?):([a-zA-Z0-9_]+):(\d+)>/g, (match) => {
+    slots.push(match);
+    return `\x00EMOJI${slots.length - 1}\x00`;
+  });
+  // Passo 2: converte :shortcode: para o emoji personalizado (busca em todos os servidores)
+  const resolved = safe.replace(/:([a-zA-Z0-9_]+):/g, (match, name) => {
     const emoji = client.emojis.cache.find(e => e.name === name);
     if (!emoji) return match;
     return emoji.animated ? `<a:${emoji.name}:${emoji.id}>` : `<:${emoji.name}:${emoji.id}>`;
   });
+  // Passo 3: restaura os padrões protegidos
+  return resolved.replace(/\x00EMOJI(\d+)\x00/g, (_, i) => slots[+i]);
 }
 
 // ─── Container preview updater ────────────────────────────────────────────────
