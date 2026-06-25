@@ -1,13 +1,21 @@
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { existsSync } from 'fs';
 import { resolveBanner, getRingColors } from './shopData.js';
-import { ROBOTO_REGULAR_B64, ROBOTO_BOLD_B64 } from './fontData.js';
 
 // ─── Carregar fontes ───────────────────────────────────────────────────────────
-// Fontes Roboto embutidas como base64 — método mais confiável.
-// Não depende de sistema de arquivos, fontconfig, apt, ou qualquer configuração
-// do ambiente. Funciona em qualquer container/OS/hospedagem.
-GlobalFonts.register(Buffer.from(ROBOTO_REGULAR_B64, 'base64'), 'BotFont');
-GlobalFonts.register(Buffer.from(ROBOTO_BOLD_B64,    'base64'), 'BotFont');
+// Carrega os arquivos TTF diretamente da pasta fonts/ — funciona em qualquer
+// ambiente (Replit, Railway, Docker, etc.) desde que os arquivos estejam no repo.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = dirname(__filename);
+const FONTS_DIR  = join(__dirname, '../../fonts');
+
+const regularTtf = join(FONTS_DIR, 'Roboto-Regular.ttf');
+const boldTtf    = join(FONTS_DIR, 'Roboto-Bold.ttf');
+
+if (existsSync(regularTtf)) GlobalFonts.registerFromPath(regularTtf, 'BotFont');
+if (existsSync(boldTtf))    GlobalFonts.registerFromPath(boldTtf,    'BotFont');
 
 const FONT = 'BotFont';
 const W = 900, H = 510;
