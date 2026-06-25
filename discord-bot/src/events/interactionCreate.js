@@ -86,6 +86,29 @@ function resolveEmojis(text, client) {
   return resolved.replace(/\x00EMOJI(\d+)\x00/g, (_, i) => slots[+i]);
 }
 
+// ─── Msg preview updater (V1/V2-aware) ──────────────────────────────────────
+
+async function refreshMsgPreview(session, guild) {
+  try {
+    const ch = guild.channels.cache.get(session.previewChannelId);
+    if (!ch) return;
+    const m = await ch.messages.fetch(session.previewMessageId).catch(() => null);
+    if (!m) return;
+    const payload = buildMsgPayload(session);
+    const needsV2 = !!payload.flags;
+    const currentlyEmbed = (m.embeds?.length ?? 0) > 0;
+    if ((needsV2 && currentlyEmbed) || (!needsV2 && !currentlyEmbed)) {
+      await m.delete().catch(() => {});
+      const newMsg = await ch.send(payload).catch(() => null);
+      if (newMsg) session.previewMessageId = newMsg.id;
+    } else {
+      await m.edit(payload).catch(e => console.error('[MSG PREVIEW]', e?.message ?? e));
+    }
+  } catch (e) {
+    console.error('[MSG PREVIEW]', e?.message ?? e);
+  }
+}
+
 // ─── Container preview updater ────────────────────────────────────────────────
 
 async function updateContainerPreview(session, client) {
@@ -1607,21 +1630,7 @@ export default {
 
           // helper para atualizar preview — detecta troca V1↔V2 e recria se necessário
           async function msgRefreshPreview() {
-            const ch = interaction.guild.channels.cache.get(session.previewChannelId);
-            if (!ch) return;
-            const m = await ch.messages.fetch(session.previewMessageId).catch(() => null);
-            if (!m) return;
-            const payload = buildMsgPayload(session);
-            const needsV2 = !!payload.flags;
-            const currentlyEmbed = (m.embeds?.length ?? 0) > 0;
-            if ((needsV2 && currentlyEmbed) || (!needsV2 && !currentlyEmbed)) {
-              // Tipo mudou (embed→container ou container→embed): deleta e recria
-              await m.delete().catch(() => {});
-              const newMsg = await ch.send(payload).catch(() => null);
-              if (newMsg) session.previewMessageId = newMsg.id;
-            } else {
-              await m.edit(payload).catch(console.error);
-            }
+            await refreshMsgPreview(session, interaction.guild);
           }
 
           if (customId === 'msg_back') {
@@ -2631,11 +2640,7 @@ export default {
             session.thumbnail = url.startsWith('http') ? url : null;
           }
 
-          const ch = interaction.guild.channels.cache.get(session.previewChannelId);
-          if (ch) {
-            const pm = await ch.messages.fetch(session.previewMessageId).catch(() => null);
-            if (pm) await pm.edit(buildMsgPayload(session)).catch(() => {});
-          }
+          await refreshMsgPreview(session, interaction.guild);
 
           return interaction.editReply({
             content: `**💬 Montador de Mensagem**\n✅ Item adicionado! Total: **${msgTotalCount(session)}** item(s). Continue editando ou clique em **Publicar**.`,
