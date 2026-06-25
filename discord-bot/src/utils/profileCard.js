@@ -14,19 +14,30 @@ for (const dir of FONT_DIRS) {
   try { if (existsSync(dir)) GlobalFonts.loadFontsFromDir(dir); } catch {}
 }
 
-// 2. Detectar qual fonte está disponível (parse correto do Buffer retornado)
+// 2. Detectar qual fonte está disponível
+// getFamilies() pode retornar Buffer, Array ou string dependendo da versão
 let FONT_FAMILIES = [];
 try {
-  FONT_FAMILIES = JSON.parse(GlobalFonts.getFamilies().toString());
+  const raw = GlobalFonts.getFamilies();
+  if (Buffer.isBuffer(raw)) {
+    FONT_FAMILIES = JSON.parse(raw.toString('utf8'));
+  } else if (Array.isArray(raw)) {
+    FONT_FAMILIES = raw;
+  } else if (typeof raw === 'string') {
+    FONT_FAMILIES = JSON.parse(raw);
+  }
 } catch {}
 
-const HAS_DEJAVU     = FONT_FAMILIES.some(f => /dejavu/i.test(f.family));
-const HAS_LIBERATION = FONT_FAMILIES.some(f => /liberation/i.test(f.family));
-const HAS_NOTO       = FONT_FAMILIES.some(f => /noto/i.test(f.family));
+const familyName = f => (typeof f === 'string' ? f : f?.family ?? '');
+const HAS_DEJAVU     = FONT_FAMILIES.some(f => /dejavu/i.test(familyName(f)));
+const HAS_LIBERATION = FONT_FAMILIES.some(f => /liberation/i.test(familyName(f)));
+const HAS_NOTO       = FONT_FAMILIES.some(f => /noto/i.test(familyName(f)));
 
-// 3. Seleciona a melhor fonte disponível
-const BEST_FONT = HAS_DEJAVU ? 'DejaVu Sans' : HAS_LIBERATION ? 'Liberation Sans' : HAS_NOTO ? 'Noto Sans' : 'sans-serif';
-const FONT = `"${BEST_FONT}", "DejaVu Sans", "Liberation Sans", Arial, sans-serif`;
+// 3. Seleciona a melhor fonte disponível.
+// DejaVu é sempre instalado via nixpacks — usar como padrão mesmo se
+// getFamilies() falhar na detecção (a fonte ainda está carregada no dir).
+const BEST_FONT = HAS_DEJAVU ? 'DejaVu Sans' : HAS_LIBERATION ? 'Liberation Sans' : HAS_NOTO ? 'Noto Sans' : 'DejaVu Sans';
+const FONT = `"DejaVu Sans", "Liberation Sans", Arial, sans-serif`;
 const W = 900, H = 510;
 
 const COIN_EMOJI_ID = '1516993823665033286';
