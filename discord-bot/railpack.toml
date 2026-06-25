@@ -1,0 +1,7 @@
+[start]
+command = "node src/index.js"
+
+[phases.setup]
+# Fonts needed for @napi-rs/canvas (profile card images)
+# ffmpeg needed for radio/voice features
+aptPkgs = ["ffmpeg", "fonts-dejavu-core", "fonts-liberation", "fontconfig"]
