@@ -5,33 +5,28 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 
 // ─── Carregar fontes ───────────────────────────────────────────────────────────
-// Estratégia: usar as fontes BUNDLED no repositório (fonts/) — funciona em
-// qualquer ambiente (Railway, Replit, local) sem depender de pacotes do sistema.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FONTS_DIR = path.resolve(__dirname, '../../fonts');
 
-const BUNDLED = [
-  { file: 'Roboto-Regular.ttf', family: 'BotFont' },
-  { file: 'Roboto-Bold.ttf',    family: 'BotFont' },
-];
-for (const { file, family } of BUNDLED) {
+// 1. loadSystemFonts() — usa fontconfig do SO para descobrir todas as fontes
+//    instaladas (Railway tem fontconfig + fonts-dejavu-core via apt).
+try { GlobalFonts.loadSystemFonts(); } catch {}
+
+// 2. Fontes bundled no repositório — garantia absoluta independente do ambiente.
+//    Registradas como 'BotFont' para uso explícito no canvas.
+for (const file of ['Roboto-Regular.ttf', 'Roboto-Bold.ttf']) {
   const fp = path.join(FONTS_DIR, file);
-  try { if (existsSync(fp)) GlobalFonts.registerFromPath(fp, family); } catch {}
+  try { if (existsSync(fp)) GlobalFonts.registerFromPath(fp, 'BotFont'); } catch {}
 }
 
-// Fallback: tentar fontes do sistema se disponíveis
-const SYS_FONTS = [
+// 3. Caminhos absolutos conhecidos como fallback extra (Railway/apt subpastas)
+for (const fp of [
   '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
   '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-  '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
-  '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
   '/var/fonts/DejaVuSans.ttf',
-  '/var/fonts/DejaVuSans-Bold.ttf',
-];
-for (const fp of SYS_FONTS) {
+]) {
   try { if (existsSync(fp)) GlobalFonts.registerFromPath(fp); } catch {}
 }
-try { GlobalFonts.loadFontsFromDir('/var/fonts'); } catch {}
 
 const FONT = `"BotFont", "DejaVu Sans", "Liberation Sans", Arial, sans-serif`;
 const W = 900, H = 510;
