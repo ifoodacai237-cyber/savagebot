@@ -1822,7 +1822,7 @@ export default {
               return interaction.reply({ content: `✅ Cargo <@&${roleId}> concedido!`, ephemeral: true });
             }
           } catch {
-            return interaction.reply({ content: '❌ Sem permissão para gerenciar esse cargo.', ephemeral: true });
+            return interaction.reply({ content: '❌ Não foi possível gerenciar esse cargo.\n> O cargo do bot precisa estar **acima** desse cargo na lista de cargos do servidor.\n> Vá em **Configurações do Servidor → Cargos** e arraste o cargo do bot para cima.', ephemeral: true });
           }
         }
 
