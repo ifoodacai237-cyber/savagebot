@@ -11,6 +11,8 @@ import { buildPartnershipPost } from '../utils/partnershipPanels.js';
 
 const PREFIX = 'fallen ';
 
+const processedMessages = new Set();
+
 const cfgCache = new Map();
 async function getGuildCfg(guildId) {
   if (cfgCache.has(guildId)) return cfgCache.get(guildId);
@@ -273,6 +275,10 @@ export default {
 
     // ── PREFIX COMMANDS ──────────────────────────────────────────────────────
     if (!message.content.toLowerCase().startsWith(PREFIX)) return;
+
+    if (processedMessages.has(message.id)) return;
+    processedMessages.add(message.id);
+    setTimeout(() => processedMessages.delete(message.id), 10_000);
 
     const args        = message.content.slice(PREFIX.length).trim().split(/\s+/);
     const commandName = args.shift().toLowerCase();
