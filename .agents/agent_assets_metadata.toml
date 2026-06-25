@@ -18,3 +18,9 @@ id = "_7tsuqP2K4pW-XP4Oapt0"
 uri = "file://artifacts/api-server/public/games/initial-preview.png"
 type = "image"
 title = "Grade inicial (todas ocultas)"
+
+[[outputs]]
+id = "IKVnxj74hTMdQ1zmGAZbk"
+uri = "file://perfil_preview.png"
+type = "image"
+title = "Preview do /perfil — fonte funcionando"
