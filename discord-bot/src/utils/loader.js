@@ -59,10 +59,13 @@ export async function registerSlashCommands(client) {
   }
 
   // ── Registro: guild (instantâneo) se GUILD_ID definido, senão global ─────
-  // IMPORTANTE: registrar apenas em UM lugar para evitar comandos duplicados
-  // no Discord (guild + global aparecem como dois comandos separados).
+  // IMPORTANTE: registrar apenas em UM lugar e limpar o outro escopo para
+  // evitar comandos duplicados no Discord (guild + global = dois /perfil).
   if (guildId) {
     try {
+      // Limpa comandos globais antigos (evita duplicatas no Discord)
+      await rest.put(Routes.applicationCommands(client.user.id), { body: [] }).catch(() => {});
+      // Registra no servidor (instantâneo)
       await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body });
       const guild = client.guilds.cache.get(guildId)
         ?? await client.guilds.fetch(guildId).catch(() => null);

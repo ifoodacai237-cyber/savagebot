@@ -307,7 +307,8 @@ export async function generateProfileCard({
   ctx.save();
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R, 0, Math.PI * 2); ctx.clip();
   try {
-    const img = await loadUrl(`${avatarUrl}?size=256`);
+    // avatarUrl já pode conter ?size=256 (passado pelo comando), não adicionar novamente
+    const img = await loadUrl(avatarUrl);
     ctx.drawImage(img, AV_CX - AV_R, AV_CY - AV_R, AV_R * 2, AV_R * 2);
   } catch {
     ctx.fillStyle = '#5a5a8a'; ctx.fillRect(AV_CX - AV_R, AV_CY - AV_R, AV_R * 2, AV_R * 2);
