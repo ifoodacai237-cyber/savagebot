@@ -34,3 +34,16 @@ O banco SQLite (`bot.db`) é efêmero no Railway (sem volume). `prisma generate`
 ## Regra: loader.js deve registrar comandos em apenas UM escopo
 
 Registrar guild + global ao mesmo tempo faz o `/perfil` aparecer duplicado no Discord. Usar `if (GUILD_ID) guild-only, else global-only`, e limpar o escopo oposto com `PUT [...] body:[]` para remover comandos antigos.
+
+  ## Regra: @napi-rs/canvas 1.0.0 não registra fontes TTF customizadas via API
+
+  No ambiente Nix/Replit, `GlobalFonts.register()`, `registerFromPath()` e `loadFontsFromDir()` retornam null/0 silenciosamente — fontes customizadas nunca aparecem em `getFamilies()`. Apenas fontes do SISTEMA (via fontconfig) são acessíveis.
+
+  **Como aplicar**: Nunca depender de registro manual de fonte. Usar `GlobalFonts.loadSystemFonts()` + detecção dinâmica da família disponível. No Railway, garantir que fontconfig + apt-fonts estejam instalados (via railpack.toml com aptPkgs).
+
+  ## Regra: usar railpack.toml (apt) em vez de nixpacks.toml (nix) para fontes no Railway
+
+  Nixpacks não configura fontconfig corretamente para o skia do @napi-rs/canvas. Com aptPkgs: ["fonts-dejavu-core","fonts-noto","fonts-liberation","fontconfig"] + fc-cache no build, o `loadSystemFonts()` funciona.
+
+  **Como aplicar**: Manter nixpacks.toml vazio/comentado. Não forçar builder no railway.json — deixar Railway auto-detectar o railpack.toml.
+  
