@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["ffmpeg", "python3", "dejavu_fonts", "liberation_ttf"]
+nixPkgs = ["ffmpeg", "python3", "dejavu_fonts", "liberation_ttf", "nodejs_22"]
 
 [phases.build]
 cmds = [
