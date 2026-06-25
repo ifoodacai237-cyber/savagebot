@@ -1,18 +1,1 @@
-[variables]
-NIXPACKS_NODE_VERSION = "22"
-
-[phases.setup]
-nixPkgs = ["ffmpeg", "python3", "dejavu_fonts", "liberation_ttf"]
-
-[phases.install]
-cmds = ["npm install --production=false --registry=https://registry.npmjs.org/", "npx prisma generate"]
-
-[phases.build]
-cmds = [
-  "mkdir -p /var/fonts",
-  "find /nix/store -name '*.ttf' \\( -path '*/dejavu*' -o -path '*/liberation*' \\) -exec cp {} /var/fonts/ \\; 2>/dev/null || true",
-  "ls /var/fonts/ || echo 'no fonts copied'"
-]
-
-[start]
-cmd = "node src/index.js"
+# Vazio — Railway usa railpack.toml para o build (apt + fontconfig).
