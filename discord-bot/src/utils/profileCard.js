@@ -24,7 +24,7 @@ const SPECIFIC_FONTS = [
   '/var/fonts/LiberationSans-Bold.ttf',
 ];
 for (const fp of SPECIFIC_FONTS) {
-  try { if (existsSync(fp)) GlobalFonts.loadFontSync(fp); } catch {}
+  try { if (existsSync(fp)) GlobalFonts.registerFromPath(fp); } catch {}
 }
 
 // 2. Fallback: varrer diretórios de nível superior (funciona se /var/fonts tiver TTFs diretos)
