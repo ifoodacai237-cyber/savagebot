@@ -1,6 +1,3 @@
-[start]
-command = "npx prisma db push && node src/index.js"
-
 [phases.setup]
 aptPkgs = ["ffmpeg", "fonts-dejavu-core", "fonts-noto", "fonts-liberation", "fontconfig"]
 
@@ -9,7 +6,6 @@ cmds = [
   "mkdir -p /var/fonts",
   "find /usr/share/fonts -name '*.ttf' -exec cp {} /var/fonts/ \\; 2>/dev/null || true",
   "find /usr/local/share/fonts -name '*.ttf' -exec cp {} /var/fonts/ \\; 2>/dev/null || true",
-  "fc-cache -f -v || true",
-  "echo '=== Fonts disponíveis ===' && fc-list | head -20 || true",
-  "ls /var/fonts/ | wc -l || echo 'no fonts in /var/fonts'"
+  "fc-cache -f -v 2>&1 | tail -3 || true",
+  "fc-list | head -10 || true"
 ]
