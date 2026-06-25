@@ -69,10 +69,10 @@ import {
 
 // ─── Emoji resolver ───────────────────────────────────────────────────────────
 
-function resolveEmojis(text, guild) {
-  if (!text || !guild) return text;
+function resolveEmojis(text, client) {
+  if (!text || !client) return text;
   return text.replace(/:([a-zA-Z0-9_]+):/g, (match, name) => {
-    const emoji = guild.emojis.cache.find(e => e.name === name);
+    const emoji = client.emojis.cache.find(e => e.name === name);
     if (!emoji) return match;
     return emoji.animated ? `<a:${emoji.name}:${emoji.id}>` : `<:${emoji.name}:${emoji.id}>`;
   });
@@ -1597,12 +1597,22 @@ export default {
         if (customId.startsWith('msg_')) {
           const session = getMsgSession(interaction.user.id, interaction.guildId);
 
-          // helper para atualizar preview e painel de uma vez
+          // helper para atualizar preview — detecta troca V1↔V2 e recria se necessário
           async function msgRefreshPreview() {
             const ch = interaction.guild.channels.cache.get(session.previewChannelId);
-            if (ch) {
-              const m = await ch.messages.fetch(session.previewMessageId).catch(() => null);
-              if (m) await m.edit(buildMsgPayload(session)).catch(() => {});
+            if (!ch) return;
+            const m = await ch.messages.fetch(session.previewMessageId).catch(() => null);
+            if (!m) return;
+            const payload = buildMsgPayload(session);
+            const needsV2 = !!payload.flags;
+            const currentlyEmbed = (m.embeds?.length ?? 0) > 0;
+            if ((needsV2 && currentlyEmbed) || (!needsV2 && !currentlyEmbed)) {
+              // Tipo mudou (embed→container ou container→embed): deleta e recria
+              await m.delete().catch(() => {});
+              const newMsg = await ch.send(payload).catch(() => null);
+              if (newMsg) session.previewMessageId = newMsg.id;
+            } else {
+              await m.edit(payload).catch(console.error);
             }
           }
 
@@ -2596,13 +2606,13 @@ export default {
 
           if (mid === 'msg_modal_text') {
             const raw = interaction.fields.getTextInputValue('text_content').trim();
-            const content = resolveEmojis(raw, interaction.guild);
+            const content = resolveEmojis(raw, interaction.client);
             if (content) session.blocks.push({ type: 'text', content });
           }
 
           if (mid === 'msg_modal_sep') {
             const raw = interaction.fields.getTextInputValue('sep_content').trim();
-            const content = resolveEmojis(raw, interaction.guild);
+            const content = resolveEmojis(raw, interaction.client);
             if (content) session.blocks.push({ type: 'separator', content });
           }
 
@@ -2641,7 +2651,7 @@ export default {
           await interaction.deferUpdate().catch(() => {});
 
           if (interaction.customId === 'cont_modal_body') {
-            const bodyText = resolveEmojis(interaction.fields.getTextInputValue('body_content')?.trim() ?? '', interaction.guild);
+            const bodyText = resolveEmojis(interaction.fields.getTextInputValue('body_content')?.trim() ?? '', interaction.client);
             session.bodyText = bodyText || null;
             await updateContainerPreview(session, interaction.client);
             return interaction.editReply({
@@ -2651,7 +2661,7 @@ export default {
           }
 
           if (interaction.customId === 'cont_modal_text') {
-            const content = resolveEmojis(interaction.fields.getTextInputValue('text_content'), interaction.guild);
+            const content = resolveEmojis(interaction.fields.getTextInputValue('text_content'), interaction.client);
             session.items.push({ type: 'text', content });
             await updateContainerPreview(session, interaction.client);
           }
