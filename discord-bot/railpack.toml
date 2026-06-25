@@ -5,3 +5,11 @@ command = "node src/index.js"
 # Fonts needed for @napi-rs/canvas (profile card images)
 # ffmpeg needed for radio/voice features
 aptPkgs = ["ffmpeg", "fonts-dejavu-core", "fonts-liberation", "fontconfig"]
+
+[phases.build]
+cmds = [
+  "mkdir -p /var/fonts",
+  "find /usr/share/fonts -name '*.ttf' -exec cp {} /var/fonts/ \\; 2>/dev/null || true",
+  "find /usr/local/share/fonts -name '*.ttf' -exec cp {} /var/fonts/ \\; 2>/dev/null || true",
+  "ls /var/fonts/ | head -10 || echo 'no fonts copied'"
+]

@@ -5,16 +5,35 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 
 // ─── Carregar fontes ───────────────────────────────────────────────────────────
-// getFamilies() retorna um Buffer JSON — precisa de JSON.parse para iterar
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// 1. Fontes de diretórios conhecidos (Railway/nix instala em /var/fonts via nixpacks)
+// 1. Caminhos específicos de arquivos TTF conhecidos (Railway/apt instala em subpastas
+//    que loadFontsFromDir NÃO escaneia recursivamente — por isso carregamos direto).
+const SPECIFIC_FONTS = [
+  // Railway railpack: apt install fonts-dejavu-core
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf',
+  // Railway railpack: apt install fonts-liberation
+  '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+  '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+  // Nixpacks: fontes copiadas para /var/fonts pelo build phase
+  '/var/fonts/DejaVuSans.ttf',
+  '/var/fonts/DejaVuSans-Bold.ttf',
+  '/var/fonts/LiberationSans-Regular.ttf',
+  '/var/fonts/LiberationSans-Bold.ttf',
+];
+for (const fp of SPECIFIC_FONTS) {
+  try { if (existsSync(fp)) GlobalFonts.loadFontSync(fp); } catch {}
+}
+
+// 2. Fallback: varrer diretórios de nível superior (funciona se /var/fonts tiver TTFs diretos)
 const FONT_DIRS = ['/var/fonts', '/usr/share/fonts', '/usr/local/share/fonts'];
 for (const dir of FONT_DIRS) {
   try { if (existsSync(dir)) GlobalFonts.loadFontsFromDir(dir); } catch {}
 }
 
-// 2. Detectar qual fonte está disponível
+// 3. Detectar qual fonte foi carregada
 // getFamilies() pode retornar Buffer, Array ou string dependendo da versão
 let FONT_FAMILIES = [];
 try {
@@ -33,11 +52,9 @@ const HAS_DEJAVU     = FONT_FAMILIES.some(f => /dejavu/i.test(familyName(f)));
 const HAS_LIBERATION = FONT_FAMILIES.some(f => /liberation/i.test(familyName(f)));
 const HAS_NOTO       = FONT_FAMILIES.some(f => /noto/i.test(familyName(f)));
 
-// 3. Seleciona a melhor fonte disponível.
-// DejaVu é sempre instalado via nixpacks — usar como padrão mesmo se
-// getFamilies() falhar na detecção (a fonte ainda está carregada no dir).
+// 4. Seleciona a melhor fonte disponível (DejaVu como padrão — sempre instalado)
 const BEST_FONT = HAS_DEJAVU ? 'DejaVu Sans' : HAS_LIBERATION ? 'Liberation Sans' : HAS_NOTO ? 'Noto Sans' : 'DejaVu Sans';
-const FONT = `"DejaVu Sans", "Liberation Sans", Arial, sans-serif`;
+const FONT = `"${BEST_FONT}", "DejaVu Sans", "Liberation Sans", Arial, sans-serif`;
 const W = 900, H = 510;
 
 const COIN_EMOJI_ID = '1516993823665033286';
