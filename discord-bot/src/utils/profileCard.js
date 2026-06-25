@@ -1,7 +1,32 @@
-import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { resolveBanner, getRingColors } from './shopData.js';
+import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
-const FONT = '"Noto Sans", "DejaVu Sans", Arial, sans-serif';
+// ─── Carregar fontes ───────────────────────────────────────────────────────────
+// getFamilies() retorna um Buffer JSON — precisa de JSON.parse para iterar
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// 1. Fontes de diretórios conhecidos (Railway/nix instala em /var/fonts via nixpacks)
+const FONT_DIRS = ['/var/fonts', '/usr/share/fonts', '/usr/local/share/fonts'];
+for (const dir of FONT_DIRS) {
+  try { if (existsSync(dir)) GlobalFonts.loadFontsFromDir(dir); } catch {}
+}
+
+// 2. Detectar qual fonte está disponível (parse correto do Buffer retornado)
+let FONT_FAMILIES = [];
+try {
+  FONT_FAMILIES = JSON.parse(GlobalFonts.getFamilies().toString());
+} catch {}
+
+const HAS_DEJAVU     = FONT_FAMILIES.some(f => /dejavu/i.test(f.family));
+const HAS_LIBERATION = FONT_FAMILIES.some(f => /liberation/i.test(f.family));
+const HAS_NOTO       = FONT_FAMILIES.some(f => /noto/i.test(f.family));
+
+// 3. Seleciona a melhor fonte disponível
+const BEST_FONT = HAS_DEJAVU ? 'DejaVu Sans' : HAS_LIBERATION ? 'Liberation Sans' : HAS_NOTO ? 'Noto Sans' : 'sans-serif';
+const FONT = `"${BEST_FONT}", "DejaVu Sans", "Liberation Sans", Arial, sans-serif`;
 const W = 900, H = 510;
 
 const COIN_EMOJI_ID = '1516993823665033286';
