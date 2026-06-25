@@ -5,56 +5,35 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 
 // ─── Carregar fontes ───────────────────────────────────────────────────────────
+// Estratégia: usar as fontes BUNDLED no repositório (fonts/) — funciona em
+// qualquer ambiente (Railway, Replit, local) sem depender de pacotes do sistema.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FONTS_DIR = path.resolve(__dirname, '../../fonts');
 
-// 1. Caminhos específicos de arquivos TTF conhecidos (Railway/apt instala em subpastas
-//    que loadFontsFromDir NÃO escaneia recursivamente — por isso carregamos direto).
-const SPECIFIC_FONTS = [
-  // Railway railpack: apt install fonts-dejavu-core
+const BUNDLED = [
+  { file: 'Roboto-Regular.ttf', family: 'BotFont' },
+  { file: 'Roboto-Bold.ttf',    family: 'BotFont' },
+];
+for (const { file, family } of BUNDLED) {
+  const fp = path.join(FONTS_DIR, file);
+  try { if (existsSync(fp)) GlobalFonts.registerFromPath(fp, family); } catch {}
+}
+
+// Fallback: tentar fontes do sistema se disponíveis
+const SYS_FONTS = [
   '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
   '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf',
-  // Railway railpack: apt install fonts-liberation
   '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
   '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
-  // Nixpacks: fontes copiadas para /var/fonts pelo build phase
   '/var/fonts/DejaVuSans.ttf',
   '/var/fonts/DejaVuSans-Bold.ttf',
-  '/var/fonts/LiberationSans-Regular.ttf',
-  '/var/fonts/LiberationSans-Bold.ttf',
 ];
-for (const fp of SPECIFIC_FONTS) {
+for (const fp of SYS_FONTS) {
   try { if (existsSync(fp)) GlobalFonts.registerFromPath(fp); } catch {}
 }
+try { GlobalFonts.loadFontsFromDir('/var/fonts'); } catch {}
 
-// 2. Fallback: varrer diretórios de nível superior (funciona se /var/fonts tiver TTFs diretos)
-const FONT_DIRS = ['/var/fonts', '/usr/share/fonts', '/usr/local/share/fonts'];
-for (const dir of FONT_DIRS) {
-  try { if (existsSync(dir)) GlobalFonts.loadFontsFromDir(dir); } catch {}
-}
-
-// 3. Detectar qual fonte foi carregada
-// getFamilies() pode retornar Buffer, Array ou string dependendo da versão
-let FONT_FAMILIES = [];
-try {
-  const raw = GlobalFonts.getFamilies();
-  if (Buffer.isBuffer(raw)) {
-    FONT_FAMILIES = JSON.parse(raw.toString('utf8'));
-  } else if (Array.isArray(raw)) {
-    FONT_FAMILIES = raw;
-  } else if (typeof raw === 'string') {
-    FONT_FAMILIES = JSON.parse(raw);
-  }
-} catch {}
-
-const familyName = f => (typeof f === 'string' ? f : f?.family ?? '');
-const HAS_DEJAVU     = FONT_FAMILIES.some(f => /dejavu/i.test(familyName(f)));
-const HAS_LIBERATION = FONT_FAMILIES.some(f => /liberation/i.test(familyName(f)));
-const HAS_NOTO       = FONT_FAMILIES.some(f => /noto/i.test(familyName(f)));
-
-// 4. Seleciona a melhor fonte disponível (DejaVu como padrão — sempre instalado)
-const BEST_FONT = HAS_DEJAVU ? 'DejaVu Sans' : HAS_LIBERATION ? 'Liberation Sans' : HAS_NOTO ? 'Noto Sans' : 'DejaVu Sans';
-const FONT = `"${BEST_FONT}", "DejaVu Sans", "Liberation Sans", Arial, sans-serif`;
+const FONT = `"BotFont", "DejaVu Sans", "Liberation Sans", Arial, sans-serif`;
 const W = 900, H = 510;
 
 const COIN_EMOJI_ID = '1516993823665033286';
