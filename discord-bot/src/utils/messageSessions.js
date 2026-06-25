@@ -1,5 +1,11 @@
 import {
   EmbedBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
+  MessageFlags,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
@@ -107,36 +113,109 @@ function buildPublishedSelectMenu(selectMenu) {
   return new ActionRowBuilder().addComponents(menu);
 }
 
+// ─── buildMsgPayloadV2 (sem lateral — usa ContainerBuilder) ────────────────────
+
+function buildMsgPayloadV2(session) {
+  const container = new ContainerBuilder();
+  // Sem setAccentColor() = sem barra lateral de verdade
+
+  if (session.blocks.length === 0) {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent('-# 💬 Mensagem vazia — use os botões abaixo para adicionar blocos.')
+    );
+  } else {
+    let pendingText = '';
+
+    const flushText = () => {
+      const t = pendingText.trimEnd();
+      if (t) {
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(t));
+        pendingText = '';
+      }
+    };
+
+    for (const block of session.blocks) {
+      if (block.type === 'text') {
+        pendingText += block.content + '\n\n';
+      } else if (block.type === 'roles') {
+        for (const roleId of block.roleIds) pendingText += `• <@&${roleId}>\n`;
+        pendingText += '\n';
+      } else if (block.type === 'separator') {
+        flushText();
+        container.addSeparatorComponents(new SeparatorBuilder());
+        if (block.content) {
+          container.addTextDisplayComponents(new TextDisplayBuilder().setContent(block.content));
+        }
+      } else if (block.type === 'separator_img') {
+        flushText();
+        const gallery = new MediaGalleryBuilder();
+        gallery.addItems(new MediaGalleryItemBuilder().setURL(block.url));
+        container.addMediaGalleryComponents(gallery);
+      }
+    }
+    flushText();
+  }
+
+  if (session.banner) {
+    container.addSeparatorComponents(new SeparatorBuilder());
+    const gallery = new MediaGalleryBuilder();
+    gallery.addItems(new MediaGalleryItemBuilder().setURL(session.banner));
+    container.addMediaGalleryComponents(gallery);
+  }
+
+  const components = [
+    container,
+    buildPublishedButtonRow(session.msgButtons),
+    buildPublishedSelectMenu(session.selectMenu),
+  ].filter(Boolean);
+
+  return { components, flags: MessageFlags.IsComponentsV2 };
+}
+
 // ─── buildMsgPayload ───────────────────────────────────────────────────────────
 
 export function buildMsgPayload(session) {
+  if (session.accentColor === null) return buildMsgPayloadV2(session);
+
   let embeds;
 
   if (session.blocks.length === 0) {
     const empty = new EmbedBuilder()
-      .setDescription('-# 💬 Mensagem vazia — use os botões abaixo para adicionar blocos.');
-    if (session.accentColor !== null) empty.setColor(session.accentColor);
+      .setDescription('-# 💬 Mensagem vazia — use os botões abaixo para adicionar blocos.')
+      .setColor(session.accentColor);
     embeds = [empty];
   } else {
-    const sections = [];
+    const allItems = [];
     let currentHeader = null;
     let currentBlocks = [];
 
+    const flushSection = () => {
+      if (currentHeader !== null || currentBlocks.length > 0) {
+        allItems.push({ type: 'text', header: currentHeader, blocks: currentBlocks });
+      }
+      currentHeader = null;
+      currentBlocks = [];
+    };
+
     for (const block of session.blocks) {
       if (block.type === 'separator') {
-        sections.push({ header: currentHeader, blocks: currentBlocks });
+        flushSection();
         currentHeader = block.content;
-        currentBlocks = [];
+      } else if (block.type === 'separator_img') {
+        flushSection();
+        allItems.push({ type: 'img', url: block.url });
       } else {
         currentBlocks.push(block);
       }
     }
-    sections.push({ header: currentHeader, blocks: currentBlocks });
+    flushSection();
 
-    embeds = sections
-      .filter(s => s.header !== null || s.blocks.length > 0)
-      .slice(0, 10)
-      .map(s => buildSection(s.blocks, session.accentColor, s.header));
+    embeds = allItems.slice(0, 10).map(s => {
+      if (s.type === 'img') {
+        return new EmbedBuilder().setImage(s.url).setColor(session.accentColor);
+      }
+      return buildSection(s.blocks, session.accentColor, s.header);
+    });
   }
 
   if (session.thumbnail && embeds.length > 0) embeds[0].setThumbnail(session.thumbnail);
@@ -256,3 +335,13 @@ export const MSG_COLOR_MAP = {
   red:    0xED4245,
   orange: 0xE67E22,
 };
+
+export function buildSepTypeSelector() {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('msg_sep_text').setLabel('Texto').setStyle(ButtonStyle.Primary).setEmoji('📝'),
+      new ButtonBuilder().setCustomId('msg_sep_img').setLabel('Imagem').setStyle(ButtonStyle.Primary).setEmoji('🖼️'),
+      new ButtonBuilder().setCustomId('msg_back').setLabel('Voltar').setStyle(ButtonStyle.Danger).setEmoji('↩️'),
+    ),
+  ];
+}

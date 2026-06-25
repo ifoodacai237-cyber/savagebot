@@ -52,6 +52,7 @@ import {
   buildCargoRoleSelector,
   buildMsgColorPicker,
   buildRoleSelector,
+  buildSepTypeSelector,
   MSG_COLOR_MAP,
   msgTotalCount,
   publishedMenus,
@@ -65,6 +66,17 @@ import {
   buildRPColorPicker,
   RP_COLOR_MAP,
 } from '../utils/rolePanelSessions.js';
+
+// ─── Emoji resolver ───────────────────────────────────────────────────────────
+
+function resolveEmojis(text, guild) {
+  if (!text || !guild) return text;
+  return text.replace(/:([a-zA-Z0-9_]+):/g, (match, name) => {
+    const emoji = guild.emojis.cache.find(e => e.name === name);
+    if (!emoji) return match;
+    return emoji.animated ? `<a:${emoji.name}:${emoji.id}>` : `<:${emoji.name}:${emoji.id}>`;
+  });
+}
 
 // ─── Container preview updater ────────────────────────────────────────────────
 
@@ -1623,11 +1635,30 @@ export default {
 
           if (customId === 'msg_add_sep') {
             if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            return interaction.update({
+              content: '**💬 Montador de Mensagem**\n➕ Texto 2 — escolha o tipo de bloco:',
+              components: buildSepTypeSelector(),
+            });
+          }
+
+          if (customId === 'msg_sep_text') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
             const modal = new ModalBuilder().setCustomId('msg_modal_sep').setTitle('➕ Texto 2 (nova seção)');
             modal.addComponents(new ActionRowBuilder().addComponents(
               new TextInputBuilder().setCustomId('sep_content')
                 .setLabel('Conteúdo (suporta **negrito**, *itálico*)').setStyle(TextInputStyle.Paragraph)
                 .setRequired(true).setMaxLength(2000).setPlaceholder('↳ Texto da nova seção...')
+            ));
+            return interaction.showModal(modal);
+          }
+
+          if (customId === 'msg_sep_img') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            const modal = new ModalBuilder().setCustomId('msg_modal_sep_img').setTitle('🖼️ Texto 2 — Imagem');
+            modal.addComponents(new ActionRowBuilder().addComponents(
+              new TextInputBuilder().setCustomId('sep_img_url')
+                .setLabel('URL da imagem').setStyle(TextInputStyle.Short)
+                .setRequired(true).setMaxLength(500).setPlaceholder('https://i.imgur.com/exemplo.png')
             ));
             return interaction.showModal(modal);
           }
@@ -2564,13 +2595,20 @@ export default {
           const mid = interaction.customId;
 
           if (mid === 'msg_modal_text') {
-            const content = interaction.fields.getTextInputValue('text_content').trim();
+            const raw = interaction.fields.getTextInputValue('text_content').trim();
+            const content = resolveEmojis(raw, interaction.guild);
             if (content) session.blocks.push({ type: 'text', content });
           }
 
           if (mid === 'msg_modal_sep') {
-            const content = interaction.fields.getTextInputValue('sep_content').trim();
+            const raw = interaction.fields.getTextInputValue('sep_content').trim();
+            const content = resolveEmojis(raw, interaction.guild);
             if (content) session.blocks.push({ type: 'separator', content });
+          }
+
+          if (mid === 'msg_modal_sep_img') {
+            const url = interaction.fields.getTextInputValue('sep_img_url').trim();
+            if (url.startsWith('http')) session.blocks.push({ type: 'separator_img', url });
           }
 
           if (mid === 'msg_modal_banner') {
@@ -2603,7 +2641,7 @@ export default {
           await interaction.deferUpdate().catch(() => {});
 
           if (interaction.customId === 'cont_modal_body') {
-            const bodyText = interaction.fields.getTextInputValue('body_content')?.trim() ?? '';
+            const bodyText = resolveEmojis(interaction.fields.getTextInputValue('body_content')?.trim() ?? '', interaction.guild);
             session.bodyText = bodyText || null;
             await updateContainerPreview(session, interaction.client);
             return interaction.editReply({
@@ -2613,7 +2651,7 @@ export default {
           }
 
           if (interaction.customId === 'cont_modal_text') {
-            const content = interaction.fields.getTextInputValue('text_content');
+            const content = resolveEmojis(interaction.fields.getTextInputValue('text_content'), interaction.guild);
             session.items.push({ type: 'text', content });
             await updateContainerPreview(session, interaction.client);
           }
