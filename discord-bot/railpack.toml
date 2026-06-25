@@ -1,14 +1,15 @@
 [start]
-command = "npx prisma generate && npx prisma db push --accept-data-loss && node src/index.js"
+command = "npx prisma db push && node src/index.js"
 
 [phases.setup]
-aptPkgs = ["ffmpeg", "fonts-dejavu-core", "fonts-liberation", "fontconfig"]
+aptPkgs = ["ffmpeg", "fonts-dejavu-core", "fonts-noto", "fonts-liberation", "fontconfig"]
 
 [phases.build]
 cmds = [
   "mkdir -p /var/fonts",
   "find /usr/share/fonts -name '*.ttf' -exec cp {} /var/fonts/ \\; 2>/dev/null || true",
   "find /usr/local/share/fonts -name '*.ttf' -exec cp {} /var/fonts/ \\; 2>/dev/null || true",
-  "fc-cache -fv || true",
-  "ls /var/fonts/ | head -10 || echo 'no fonts copied'"
+  "fc-cache -f -v || true",
+  "echo '=== Fonts disponíveis ===' && fc-list | head -20 || true",
+  "ls /var/fonts/ | wc -l || echo 'no fonts in /var/fonts'"
 ]
