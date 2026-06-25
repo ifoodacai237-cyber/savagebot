@@ -58,7 +58,9 @@ export async function registerSlashCommands(client) {
     }
   }
 
-  // ── 1. Registro no servidor (instantâneo) ────────────────────────────────
+  // ── Registro: guild (instantâneo) se GUILD_ID definido, senão global ─────
+  // IMPORTANTE: registrar apenas em UM lugar para evitar comandos duplicados
+  // no Discord (guild + global aparecem como dois comandos separados).
   if (guildId) {
     try {
       await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body });
@@ -69,15 +71,15 @@ export async function registerSlashCommands(client) {
       console.error('❌ Erro no registro do servidor:', err.message);
       if (err.rawError) console.error('   Detalhes:', JSON.stringify(err.rawError, null, 2));
     }
-  }
-
-  // ── 2. Registro global (todos os servidores, pode levar até 1h) ──────────
-  try {
-    await rest.put(Routes.applicationCommands(client.user.id), { body });
-    console.log(`🌐 ${body.length} comandos registrados globalmente (todos os servidores).`);
-  } catch (err) {
-    console.error('❌ Erro no registro global:', err.message);
-    if (err.rawError) console.error('   Detalhes:', JSON.stringify(err.rawError, null, 2));
+  } else {
+    // Sem GUILD_ID → registra globalmente (pode levar até 1h para propagar)
+    try {
+      await rest.put(Routes.applicationCommands(client.user.id), { body });
+      console.log(`🌐 ${body.length} comandos registrados globalmente.`);
+    } catch (err) {
+      console.error('❌ Erro no registro global:', err.message);
+      if (err.rawError) console.error('   Detalhes:', JSON.stringify(err.rawError, null, 2));
+    }
   }
 }
 
