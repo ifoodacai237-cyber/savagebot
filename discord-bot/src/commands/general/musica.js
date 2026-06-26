@@ -13,7 +13,7 @@ const MUSIC_COLOR = 0x1DB954;
 const PLATFORM_ICONS = {
   youtube:    '▶️ YouTube',
   soundcloud: '🟠 SoundCloud',
-  spotify:    '💚 Spotify → YouTube',
+  spotify:    '💚 Spotify → SoundCloud',
   default:    '🎵 Música',
 };
 
