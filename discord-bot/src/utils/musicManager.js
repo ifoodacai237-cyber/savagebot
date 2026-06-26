@@ -27,90 +27,111 @@ export function resolveQuery(input) {
     return { query: input, platform: 'soundcloud', isSearch: false };
   }
   if (/spotify\.com/i.test(input)) {
-    // Spotify não tem stream direto — busca o nome no YouTube
     return { query: input, platform: 'spotify', isSearch: false };
   }
-  // Qualquer texto → busca no YouTube
+  // Texto → busca no YouTube
   return { query: `ytsearch1:${input}`, platform: 'youtube', isSearch: true };
+}
+
+// ─── Helper: roda yt-dlp com timeout ─────────────────────────────────────────
+function runYtdlp(args, timeoutMs = 30_000) {
+  return new Promise((resolve, reject) => {
+    let proc;
+    try {
+      proc = spawn('yt-dlp', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (e) {
+      return reject(new Error(`yt-dlp não encontrado: ${e.message}`));
+    }
+
+    let stdout = '', stderr = '';
+    proc.stdout.on('data', d => { stdout += d.toString(); });
+    proc.stderr.on('data', d => { stderr += d.toString(); });
+
+    proc.on('error', err => {
+      clearTimeout(timer);
+      reject(new Error(`yt-dlp spawn error: ${err.message}`));
+    });
+
+    proc.on('close', code => {
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve(stdout);
+      } else {
+        reject(new Error(stderr.trim() || `yt-dlp saiu com código ${code}`));
+      }
+    });
+
+    const timer = setTimeout(() => {
+      try { proc.kill('SIGKILL'); } catch {}
+      reject(new Error('yt-dlp timeout — YouTube pode estar bloqueando este IP'));
+    }, timeoutMs);
+  });
+}
+
+// ─── Args base para YouTube (tv_embedded bypassa rate-limit em servers) ───────
+function youtubeArgs() {
+  return [
+    '--extractor-args', 'youtube:player_client=tv_embedded,ios',
+    '--no-check-certificates',
+    '--socket-timeout', '15',
+  ];
 }
 
 // ─── Busca informações da música via yt-dlp ──────────────────────────────────
 export async function getTrackInfo(rawQuery) {
   const { query, platform } = resolveQuery(rawQuery);
 
-  // Para Spotify: primeiro pegar o título via yt-dlp (ele extrai metadados) e buscar no YT
   const ytdlpQuery = platform === 'spotify'
     ? await resolveSpotifyToYouTube(rawQuery)
     : query;
 
-  return new Promise((resolve, reject) => {
-    const args = [
-      '--no-playlist',
-      '--print', '%(title)s\n%(duration)s\n%(uploader)s\n%(thumbnail)s\n%(webpage_url)s',
-      '--no-warnings',
-    ];
+  const args = [
+    '--no-playlist',
+    '--print', '%(title)s\n%(duration)s\n%(uploader)s\n%(thumbnail)s\n%(webpage_url)s',
+    '--no-warnings',
+  ];
 
-    // YouTube precisa do client android para evitar bloqueio de IPs de servidor
-    if (platform === 'youtube' || platform === 'spotify') {
-      args.push('--extractor-args', 'youtube:player_client=android');
-      args.push('--format', '18/bestaudio');
-    }
+  if (platform === 'youtube' || platform === 'spotify') {
+    args.push(...youtubeArgs());
+    args.push('--format', 'bestaudio[ext=m4a]/bestaudio/best');
+  } else {
+    args.push('--format', 'bestaudio/best');
+    args.push('--socket-timeout', '15');
+  }
 
-    args.push(ytdlpQuery);
+  args.push(ytdlpQuery);
 
-    const proc = spawn('yt-dlp', args);
+  const stdout = await runYtdlp(args, 30_000);
+  const lines     = stdout.trim().split('\n');
+  const title     = lines[0] || 'Música desconhecida';
+  const rawDur    = parseInt(lines[1], 10) || 0;
+  const uploader  = lines[2] || 'Desconhecido';
+  const thumbnail = lines[3] || null;
+  const url       = lines[4] || rawQuery;
 
-    let stdout = '';
-    let stderr = '';
+  const minutes  = Math.floor(rawDur / 60);
+  const seconds  = String(rawDur % 60).padStart(2, '0');
+  const duration = rawDur > 0 ? `${minutes}:${seconds}` : 'Desconhecido';
 
-    proc.stdout.on('data', d => { stdout += d.toString(); });
-    proc.stderr.on('data', d => { stderr += d.toString(); });
-
-    proc.on('close', code => {
-      if (code !== 0) {
-        const errMsg = stderr.trim() || 'yt-dlp falhou';
-        console.error('[MUSIC] yt-dlp info erro:', errMsg.slice(0, 300));
-        reject(new Error(errMsg));
-        return;
-      }
-      const lines     = stdout.trim().split('\n');
-      const title     = lines[0] || 'Música desconhecida';
-      const rawDur    = parseInt(lines[1], 10) || 0;
-      const uploader  = lines[2] || 'Desconhecido';
-      const thumbnail = lines[3] || null;
-      const url       = lines[4] || rawQuery;
-
-      const minutes = Math.floor(rawDur / 60);
-      const seconds = String(rawDur % 60).padStart(2, '0');
-      const duration = rawDur > 0 ? `${minutes}:${seconds}` : 'Desconhecido';
-
-      resolve({ title, duration, uploader, thumbnail, url, platform });
-    });
-  });
+  return { title, duration, uploader, thumbnail, url, platform };
 }
 
 // ─── Resolve link Spotify → busca no YouTube ─────────────────────────────────
 async function resolveSpotifyToYouTube(spotifyUrl) {
-  return new Promise((resolve) => {
-    const proc = spawn('yt-dlp', [
+  try {
+    const out = await runYtdlp([
       '--no-download',
       '--print', '%(track)s %(artist)s',
       '--no-warnings',
+      '--socket-timeout', '10',
       spotifyUrl,
-    ]);
-
-    let out = '';
-    proc.stdout.on('data', d => { out += d.toString(); });
-    proc.on('close', (code) => {
-      const trackName = out.trim();
-      if (code === 0 && trackName && trackName !== 'NA NA') {
-        resolve(`ytsearch1:${trackName}`);
-      } else {
-        // Fallback: tenta extrair da URL o que der
-        resolve(`ytsearch1:${spotifyUrl}`);
-      }
-    });
-  });
+    ], 20_000);
+    const trackName = out.trim();
+    if (trackName && trackName !== 'NA NA') {
+      return `ytsearch1:${trackName}`;
+    }
+  } catch {}
+  return `ytsearch1:${spotifyUrl}`;
 }
 
 // ─── Stream: yt-dlp → ffmpeg → Discord ───────────────────────────────────────
@@ -119,13 +140,14 @@ function spawnMusicStream(url, platform) {
     '--no-playlist',
     '--no-warnings',
     '-o', '-',
+    '--socket-timeout', '15',
   ];
 
   if (platform === 'youtube' || platform === 'spotify') {
-    ytdlpArgs.push('--extractor-args', 'youtube:player_client=android');
-    ytdlpArgs.push('--format', '18/bestaudio');
+    ytdlpArgs.push(...youtubeArgs());
+    ytdlpArgs.push('--format', 'bestaudio[ext=m4a]/bestaudio/best');
   } else {
-    ytdlpArgs.push('--format', 'bestaudio');
+    ytdlpArgs.push('--format', 'bestaudio/best');
   }
 
   ytdlpArgs.push(url);
