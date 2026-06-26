@@ -25,7 +25,7 @@ import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, Colors } from '.
 import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoes.js';
 import { generateTellonymCard } from '../utils/cardGenerator.js';
 import { likesMap } from '../utils/instaState.js';
-import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, buildTicketPanelV2, buildTellonymPanelV2, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT, DEFAULT_WELCOME_TITLE, DEFAULT_WELCOME_TEXT } from '../utils/configPanels.js';
+import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, buildWelcomeV2, buildTicketPanelV2, buildTellonymPanelV2, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT } from '../utils/configPanels.js';
 import { buildPartnerConfigPayload } from '../utils/partnershipPanels.js';
 import {
   getSession,
@@ -190,7 +190,6 @@ const TELLONYM_MODAL_FIELDS = {
 };
 
 const WELCOME_MODAL_FIELDS = {
-  cor:    { label: 'Cor (hex, ex: 5865F2)',        db: 'welcomeColor',   placeholder: '5865F2 (deixe vazio para padrão)',                isUrl: false, isLong: false },
   titulo: { label: 'Título (use {server}, {count})', db: 'welcomeTitle', placeholder: '👋 Bem-vindo(a) ao {server}!',                   isUrl: false, isLong: false },
   banner: { label: 'URL do banner',               db: 'welcomeBanner',  placeholder: 'https://... (deixe vazio para remover)',            isUrl: true,  isLong: false },
   thumb:  { label: 'URL da thumbnail',            db: 'welcomeThumb',   placeholder: 'https://... (deixe vazio para avatar do usuário)', isUrl: true,  isLong: false },
@@ -1285,25 +1284,19 @@ export default {
             if (!channel) {
               return interaction.editReply({ embeds: [errorEmbed('Canal de boas-vindas não encontrado.')] });
             }
-            const color    = cfg.welcomeColor ? (parseInt(cfg.welcomeColor, 16) || 0x5865F2) : 0x5865F2;
-            const member   = interaction.member;
-            const vars     = {
-              user:     `<@${member.id}>`,
-              username: member.user.username,
-              server:   interaction.guild.name,
-              count:    interaction.guild.memberCount.toLocaleString('pt-BR'),
+            const member = interaction.member;
+            const vars   = {
+              user:      `<@${member.id}>`,
+              username:  member.user.username,
+              server:    interaction.guild.name,
+              count:     interaction.guild.memberCount.toLocaleString('pt-BR'),
+              avatarUrl: member.user.displayAvatarURL({ size: 256 }),
             };
-            const title = (cfg.welcomeTitle ?? DEFAULT_WELCOME_TITLE).replace(/\{user\}/g, vars.user).replace(/\{username\}/g, vars.username).replace(/\{server\}/g, vars.server).replace(/\{count\}/g, vars.count);
-            const desc  = (cfg.welcomeText  ?? DEFAULT_WELCOME_TEXT ).replace(/\{user\}/g, vars.user).replace(/\{username\}/g, vars.username).replace(/\{server\}/g, vars.server).replace(/\{count\}/g, vars.count);
-            const embed = new EmbedBuilder().setColor(color).setTitle(title).setDescription(desc).setTimestamp();
-            if (cfg.welcomeBanner) embed.setImage(cfg.welcomeBanner);
-            if (cfg.welcomeThumb)  embed.setThumbnail(cfg.welcomeThumb);
-            else                   embed.setThumbnail(member.user.displayAvatarURL({ size: 256 }));
-            if (cfg.welcomeFooter) embed.setFooter({ text: cfg.welcomeFooter.replace(/\{server\}/g, vars.server).replace(/\{count\}/g, vars.count) });
             const parts = [`<@${member.id}>`];
             if (cfg.welcomeRoles)    cfg.welcomeRoles.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<@&${id}>`));
             if (cfg.welcomeChannels) cfg.welcomeChannels.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<#${id}>`));
-            await channel.send({ content: parts.join(' ') + ' *(teste)*', embeds: [embed] });
+            const payload = buildWelcomeV2(cfg, vars);
+            await channel.send({ content: parts.join(' ') + ' *(teste)*', ...payload });
             return interaction.editReply({ embeds: [successEmbed('Teste Enviado', `Mensagem de teste enviada em ${channel}.`)] });
           }
 
@@ -1313,16 +1306,17 @@ export default {
             return interaction.update({ ...payload, content: null });
           }
 
-          // ── Sem lateral (limpa cor) ────────────────────────────────────
-          if (field === 'sem_cor') {
+          // ── Toggle divisória ───────────────────────────────────────────
+          if (field === 'separador') {
+            const cfg    = await getCfg(interaction.guildId);
+            const newVal = !(cfg.welcomeUseDivider ?? false);
             await prisma.guildConfig.upsert({
               where:  { guildId: interaction.guildId },
-              create: { guildId: interaction.guildId, welcomeColor: null },
-              update: { welcomeColor: null },
+              create: { guildId: interaction.guildId, welcomeUseDivider: newVal },
+              update: { welcomeUseDivider: newVal },
             });
-            const cfg     = await getCfg(interaction.guildId);
-            const payload = buildWelcomeConfigPayload(cfg);
-            return interaction.update({ ...payload, content: null });
+            const updated = await getCfg(interaction.guildId);
+            return interaction.update({ ...buildWelcomeConfigPayload(updated), content: null });
           }
 
           if (field === 'toggle') {

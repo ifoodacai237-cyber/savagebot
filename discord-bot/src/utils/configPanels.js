@@ -168,22 +168,23 @@ export function tellonymConfigButtons() {
   return [row1, row2, row3];
 }
 
-export function welcomeConfigButtons(enabled = true) {
+export function welcomeConfigButtons(cfg = {}) {
+  const enabled  = cfg.welcomeEnabled ?? true;
+  const sepOn    = cfg.welcomeUseDivider ?? false;
   const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('wcfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('wcfg_sem_cor').setLabel('Sem Lateral').setEmoji('◻️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_titulo').setLabel('Título').setEmoji('📝').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_banner').setLabel('Banner').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_thumb').setLabel('Thumbnail').setEmoji('📷').setStyle(ButtonStyle.Secondary),
-  );
-  const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('wcfg_rodape').setLabel('Rodapé').setEmoji('👇').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_texto').setLabel('Texto').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
+  );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('wcfg_separador').setLabel('Divisória').setEmoji('➖').setStyle(sepOn ? ButtonStyle.Success : ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_canal').setLabel('Canal').setEmoji('📣').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('wcfg_cargos').setLabel('Cargos').setEmoji('🔔').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('wcfg_canais').setLabel('Canais').setEmoji('🔗').setStyle(ButtonStyle.Primary),
   );
   const row3 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('wcfg_canais').setLabel('Canais').setEmoji('🔗').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('wcfg_test').setLabel('Testar').setEmoji('🧪').setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId('wcfg_toggle')
@@ -282,11 +283,53 @@ export function buildTellonymConfigPayload(cfg) {
   return { embeds: [configEmbed, previewEmbed], components: tellonymConfigButtons() };
 }
 
+export function buildWelcomeV2(cfg, vars) {
+  const titulo = cfg.welcomeTitle ?? DEFAULT_WELCOME_TITLE;
+  const texto  = cfg.welcomeText  ?? DEFAULT_WELCOME_TEXT;
+
+  const replaceVars = str => str
+    .replace(/\{user\}/g,     vars.user)
+    .replace(/\{username\}/g, vars.username)
+    .replace(/\{server\}/g,   vars.server)
+    .replace(/\{count\}/g,    vars.count);
+
+  const titleResolved = replaceVars(titulo);
+  const textResolved  = replaceVars(texto);
+  const sepLine = cfg.welcomeUseDivider ? '──────────────────────────────────\n\n' : '';
+  const fullText = `## ${titleResolved}\n\n${sepLine}${textResolved}`;
+
+  const container = new ContainerBuilder();
+
+  if (cfg.welcomeBanner) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(cfg.welcomeBanner)),
+    );
+  }
+
+  const thumbUrl = cfg.welcomeThumb || vars.avatarUrl || null;
+  if (thumbUrl) {
+    const section = new SectionBuilder()
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText))
+      .setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbUrl));
+    container.addSectionComponents(section);
+  } else {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText));
+  }
+
+  if (cfg.welcomeFooter) {
+    const footerText = replaceVars(cfg.welcomeFooter);
+    container.addSeparatorComponents(new SeparatorBuilder());
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${footerText}`));
+  }
+
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
+}
+
 export function buildWelcomeConfigPayload(cfg) {
-  const color   = cfg.welcomeColor ? (parseInt(cfg.welcomeColor, 16) || 0x5865F2) : 0x5865F2;
   const titulo  = cfg.welcomeTitle ?? DEFAULT_WELCOME_TITLE;
   const texto   = cfg.welcomeText  ?? DEFAULT_WELCOME_TEXT;
   const enabled = cfg.welcomeEnabled ?? true;
+  const sepOn   = cfg.welcomeUseDivider ?? false;
 
   const rolesStr = cfg.welcomeRoles
     ? cfg.welcomeRoles.split(',').filter(Boolean).map(id => `<@&${id.trim()}>`).join(' ') || '*(nenhum)*'
@@ -296,52 +339,24 @@ export function buildWelcomeConfigPayload(cfg) {
     : '*(nenhum)*';
 
   const configEmbed = new EmbedBuilder()
-    .setColor(enabled ? color : 0x6B6B6B)
-    .setTitle('🎉 Configuração — Boas-Vindas')
+    .setColor(enabled ? 0x5865F2 : 0x6B6B6B)
+    .setTitle('🎉 Configuração — Boas-Vindas (V2)')
     .setDescription(
       (enabled ? '✅ **Sistema ATIVO**' : '🔴 **Sistema DESATIVADO**') +
-      '\nConfigure a mensagem de boas-vindas. Placeholders disponíveis:\n' +
+      '\nMensagem enviada como componente V2. Placeholders:\n' +
       '`{user}` `{username}` `{server}` `{count}`',
     )
     .addFields(
-      { name: '🎨 Cor',       value: cfg.welcomeColor  ? `\`#${cfg.welcomeColor}\`` : '*(sem lateral)*', inline: true },
-      { name: '📝 Título',    value: titulo.length > 50 ? titulo.slice(0, 47) + '...' : titulo,          inline: true },
-      { name: '👇 Rodapé',    value: cfg.welcomeFooter  || '*(não definido)*',                            inline: true },
-      { name: '🖼️ Banner',   value: cfg.welcomeBanner  ? '✅ definido' : '*(avatar do usuário)*',       inline: true },
-      { name: '📷 Thumbnail', value: cfg.welcomeThumb   ? '✅ definido' : '*(avatar do usuário)*',       inline: true },
+      { name: '📝 Título',    value: titulo.length > 50 ? titulo.slice(0, 47) + '...' : titulo,            inline: true },
+      { name: '👇 Rodapé',    value: cfg.welcomeFooter  || '*(não definido)*',                              inline: true },
+      { name: '🖼️ Banner',   value: cfg.welcomeBanner  ? '✅ definido' : '*(não definido)*',              inline: true },
+      { name: '📷 Thumbnail', value: cfg.welcomeThumb   ? '✅ definido' : '*(avatar do usuário)*',         inline: true },
       { name: '📣 Canal',     value: cfg.welcomeChannel ? `<#${cfg.welcomeChannel}>` : '*(não definido)*', inline: true },
-      { name: '🔔 Cargos',    value: rolesStr,                                                            inline: true },
-      { name: '🔗 Canais',    value: chansStr,                                                            inline: true },
-      { name: '✏️ Texto',     value: texto.length > 120  ? texto.slice(0, 117) + '...' : texto,          inline: false },
+      { name: '➖ Divisória',  value: sepOn ? '✅ Ativada' : '❌ Desativada',                               inline: true },
+      { name: '🔔 Cargos',    value: rolesStr,                                                              inline: true },
+      { name: '🔗 Canais',    value: chansStr,                                                              inline: true },
+      { name: '✏️ Texto',     value: texto.length > 120  ? texto.slice(0, 117) + '...' : texto,            inline: false },
     );
 
-  const previewDesc  = texto
-    .replace(/\{user\}/g,     '`@NovoMembro`')
-    .replace(/\{username\}/g, 'NovoMembro')
-    .replace(/\{server\}/g,   cfg.guildName ?? 'Servidor')
-    .replace(/\{count\}/g,    '1.234');
-
-  const previewTitle = titulo
-    .replace(/\{server\}/g,   cfg.guildName ?? 'Servidor')
-    .replace(/\{username\}/g, 'NovoMembro')
-    .replace(/\{count\}/g,    '1.234');
-
-  const previewEmbed = new EmbedBuilder()
-    .setColor(color)
-    .setTitle(previewTitle)
-    .setDescription(previewDesc)
-    .setTimestamp()
-    .setAuthor({ name: !cfg.welcomeColor ? '👁️ Preview — sem barra lateral' : '👁️ Preview — como a mensagem vai aparecer' });
-
-  if (cfg.welcomeBanner) previewEmbed.setImage(cfg.welcomeBanner);
-  if (cfg.welcomeThumb)  previewEmbed.setThumbnail(cfg.welcomeThumb);
-  if (cfg.welcomeFooter) {
-    const footerText = cfg.welcomeFooter
-      .replace(/\{server\}/g,   cfg.guildName ?? 'Servidor')
-      .replace(/\{username\}/g, 'NovoMembro')
-      .replace(/\{count\}/g,    '1.234');
-    previewEmbed.setFooter({ text: footerText });
-  }
-
-  return { embeds: [configEmbed, previewEmbed], components: welcomeConfigButtons(enabled) };
+  return { embeds: [configEmbed], components: welcomeConfigButtons(cfg) };
 }
