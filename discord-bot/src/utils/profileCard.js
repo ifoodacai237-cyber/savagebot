@@ -194,43 +194,122 @@ async function drawBioWithEmojis(ctx, text, x, y, maxWidth, lineH, emojiSz) {
   return y;
 }
 
-// Draw purple rounded icon background, then the emoji image centered inside
-async function drawStatIcon(ctx, x, y, size, emojiOrImg, coinImg) {
+// ── Modern stat icon drawers ──────────────────────────────────────────────────
+
+function drawIconBg(ctx, x, y, size, bg1, bg2) {
   const g = ctx.createLinearGradient(x, y, x + size, y + size);
-  g.addColorStop(0, '#c45ef5');
-  g.addColorStop(1, '#8b2fc9');
+  g.addColorStop(0, bg1);
+  g.addColorStop(1, bg2);
   ctx.fillStyle = g;
   roundRect(ctx, x, y, size, size, 10);
   ctx.fill();
-
-  const innerSize = size * 0.60;
-  const cx = x + size / 2 - innerSize / 2;
-  const cy = y + size / 2 - innerSize / 2;
-
-  if (emojiOrImg === '__coin__' && coinImg) {
-    ctx.drawImage(coinImg, cx, cy, innerSize, innerSize);
-    return;
-  }
-  const img = await loadEmojiImg(emojiOrImg);
-  if (img) {
-    ctx.drawImage(img, cx, cy, innerSize, innerSize);
-  }
 }
 
+// Coins icon — amber/gold coin face
+function drawCoinStatIcon(ctx, x, y, sz) {
+  drawIconBg(ctx, x, y, sz, '#FBBF24', '#B45309');
+  const cx = x + sz / 2, cy = y + sz / 2, r = sz * 0.27;
+  // Outer coin glow
+  ctx.save();
+  ctx.shadowColor = 'rgba(245,158,11,.5)';
+  ctx.shadowBlur  = 4;
+  ctx.fillStyle   = 'rgba(255,255,255,.93)';
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  // Inner ring
+  ctx.strokeStyle = 'rgba(180,83,9,.45)';
+  ctx.lineWidth   = sz * 0.035;
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.70, 0, Math.PI * 2); ctx.stroke();
+  // Center dot
+  ctx.fillStyle = '#92400E';
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.18, 0, Math.PI * 2); ctx.fill();
+}
+
+// Bank icon — blue building
+function drawBankStatIcon(ctx, x, y, sz) {
+  drawIconBg(ctx, x, y, sz, '#60A5FA', '#1D4ED8');
+  const cx = x + sz / 2, cy = y + sz * 0.5;
+  ctx.fillStyle = 'rgba(255,255,255,.92)';
+  // Roof triangle
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - sz * 0.27);
+  ctx.lineTo(cx + sz * 0.24, cy - sz * 0.10);
+  ctx.lineTo(cx - sz * 0.24, cy - sz * 0.10);
+  ctx.closePath();
+  ctx.fill();
+  // 3 columns
+  const colW = sz * 0.055, colH = sz * 0.20;
+  for (let i = -1; i <= 1; i++) {
+    ctx.fillRect(cx + i * sz * 0.095 - colW / 2, cy - sz * 0.10, colW, colH);
+  }
+  // Base slab
+  ctx.fillRect(cx - sz * 0.26, cy + sz * 0.10, sz * 0.52, sz * 0.055);
+}
+
+// Badges icon — purple 5-point star
+function drawBadgeStatIcon(ctx, x, y, sz) {
+  drawIconBg(ctx, x, y, sz, '#C084FC', '#7C3AED');
+  const cx = x + sz / 2, cy = y + sz / 2;
+  const R = sz * 0.27, r2 = R * 0.42;
+  ctx.save();
+  ctx.shadowColor = 'rgba(255,255,255,.3)';
+  ctx.shadowBlur  = 3;
+  ctx.fillStyle   = 'rgba(255,255,255,.93)';
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const angle  = (i * Math.PI) / 5 - Math.PI / 2;
+    const radius = i % 2 === 0 ? R : r2;
+    const px = cx + radius * Math.cos(angle);
+    const py = cy + radius * Math.sin(angle);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// Items icon — emerald shopping bag
+function drawBagStatIcon(ctx, x, y, sz) {
+  drawIconBg(ctx, x, y, sz, '#34D399', '#059669');
+  const cx = x + sz / 2, cy = y + sz / 2;
+  ctx.fillStyle = 'rgba(255,255,255,.92)';
+  // Bag body (rounded rect)
+  const bx = cx - sz * 0.20, by = cy - sz * 0.08, bw = sz * 0.40, bh = sz * 0.28;
+  roundRect(ctx, bx, by, bw, bh, sz * 0.055);
+  ctx.fill();
+  // Handle arc
+  ctx.strokeStyle = 'rgba(255,255,255,.92)';
+  ctx.lineWidth   = sz * 0.07;
+  ctx.lineCap     = 'round';
+  ctx.beginPath();
+  ctx.arc(cx, by, sz * 0.12, Math.PI, 0);
+  ctx.stroke();
+}
+
+const STAT_ICON_DRAWERS = [drawCoinStatIcon, drawBankStatIcon, drawBadgeStatIcon, drawBagStatIcon];
+
 // ─── Main card generator ───────────────────────────────────────────────────────
+
+// Returns true if a hex color (e.g. "#1a1a2e") is dark enough that white text is preferred
+function isColorDark(hex) {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return false;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.55;
+}
 
 export async function generateProfileCard({
   username, avatarUrl, balance, bank, activeBanner, purchases,
   activeRing, ringBorderColor = null, activePet, guildBadgeEmojis = {}, guildId = null,
-  marriedToName = null, bio = null, cardBg1 = null, cardBg2 = null,
+  marriedToName = null, bio = null, cardBg1 = null, cardBg2 = null, cardPanelColor = null,
 }) {
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
   const banner      = await resolveBanner(activeBanner, guildId);
   const { c1, c2 } = getRingColors(activeRing ?? null);
-  let coinImg = null;
-  try { coinImg = await loadUrl(COIN_URL); } catch {}
 
   // ── Card background ───────────────────────────────────────────────────────────
   if (cardBg1 && cardBg2) {
@@ -379,8 +458,18 @@ export async function generateProfileCard({
   const PANEL_H = CELL_H * 2 + GAP + 24;
   const ICON_SZ = 48;
 
-  // Outer panel (light gray container)
-  ctx.fillStyle   = '#f0f0f4';
+  // Panel color theme
+  const darkPanel   = cardPanelColor ? isColorDark(cardPanelColor) : false;
+  const panelOuter  = cardPanelColor
+    ? (darkPanel ? 'rgba(0,0,0,0.20)' : 'rgba(0,0,0,0.06)')
+    : '#f0f0f4';
+  const cellFill    = cardPanelColor ?? '#ffffff';
+  const valueColor  = darkPanel ? '#f0f0f0' : '#1a1a2e';
+  const labelColor  = darkPanel ? 'rgba(240,240,240,0.65)' : '#999999';
+  const cellBorder  = darkPanel ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
+
+  // Outer panel container
+  ctx.fillStyle   = panelOuter;
   ctx.strokeStyle = 'rgba(0,0,0,0.06)';
   ctx.lineWidth   = 1;
   roundRect(ctx, LEFT_X, PANEL_Y, PANEL_W, PANEL_H, 18);
@@ -388,10 +477,10 @@ export async function generateProfileCard({
 
   const CELL_W    = (PANEL_W - GAP - 24) / 2;
   const statsData = [
-    { icon: '__coin__', label: 'Coins',  value: fmtCompact(balance)     },
-    { icon: '🏦',       label: 'Banco',  value: fmtCompact(bank)        },
-    { icon: '🏅',       label: 'Badges', value: String(earnedKeys.length) },
-    { icon: '🛍️',      label: 'Itens',  value: `${purchases} itens`    },
+    { label: 'Coins',  value: fmtCompact(balance)        },
+    { label: 'Banco',  value: fmtCompact(bank)           },
+    { label: 'Badges', value: String(earnedKeys.length)  },
+    { label: 'Itens',  value: `${purchases} itens`       },
   ];
 
   for (let i = 0; i < 4; i++) {
@@ -400,26 +489,26 @@ export async function generateProfileCard({
     const cellX = LEFT_X + 12 + col * (CELL_W + GAP);
     const cellY = PANEL_Y + 12 + row * (CELL_H + GAP);
 
-    // White cell bg
-    ctx.fillStyle   = '#ffffff';
-    ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+    // Cell background
+    ctx.fillStyle   = cellFill;
+    ctx.strokeStyle = cellBorder;
     ctx.lineWidth   = 1;
     roundRect(ctx, cellX, cellY, CELL_W, CELL_H, 12);
     ctx.fill(); ctx.stroke();
 
-    // Icon (purple rounded square)
+    // Icon (modern distinct icon per stat)
     const iconX = cellX + 10;
     const iconY = cellY + (CELL_H - ICON_SZ) / 2;
-    await drawStatIcon(ctx, iconX, iconY, ICON_SZ, statsData[i].icon, coinImg);
+    STAT_ICON_DRAWERS[i](ctx, iconX, iconY, ICON_SZ);
 
     // Value text
     const textX = iconX + ICON_SZ + 12;
-    ctx.fillStyle = '#1a1a2e';
+    ctx.fillStyle = valueColor;
     ctx.font      = `bold 20px ${FONT}`;
     ctx.fillText(statsData[i].value, textX, cellY + CELL_H / 2 - 2);
 
     // Label text
-    ctx.fillStyle = '#999';
+    ctx.fillStyle = labelColor;
     ctx.font      = `12px ${FONT}`;
     ctx.fillText(statsData[i].label, textX, cellY + CELL_H / 2 + 16);
   }

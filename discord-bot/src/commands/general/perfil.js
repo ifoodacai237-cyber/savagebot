@@ -42,18 +42,18 @@ export default {
     const activeBanner = profile?.activeBanner ?? null;
     const activeRing   = profile?.activeRing ?? null;
 
-    const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, ringBorderColor: profile?.ringBorderColor ?? null, activePet: activePetEmoji, guildBadgeEmojis, guildId: interaction.guildId, marriedToName: profile?.marriedToName ?? null, bio: profile?.bio ?? null, cardBg1: profile?.cardBg1 ?? null, cardBg2: profile?.cardBg2 ?? null });
+    const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, ringBorderColor: profile?.ringBorderColor ?? null, activePet: activePetEmoji, guildBadgeEmojis, guildId: interaction.guildId, marriedToName: profile?.marriedToName ?? null, bio: profile?.bio ?? null, cardBg1: profile?.cardBg1 ?? null, cardBg2: profile?.cardBg2 ?? null, cardPanelColor: profile?.cardPanelColor ?? null });
     const attachment = new AttachmentBuilder(buf, { name: 'perfil.png' });
 
-    const row = new ActionRowBuilder().addComponents(
+    const row1 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('profile_banner_btn')
-        .setLabel('Mudar Banner')
+        .setLabel('Banner')
         .setEmoji('🖼️')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('profile_ring_btn')
-        .setLabel('Mudar Argola')
+        .setLabel('Argola')
         .setEmoji('💠')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
@@ -62,10 +62,18 @@ export default {
         .setEmoji('🎨')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
+        .setCustomId('profile_panel_btn')
+        .setLabel('Painel')
+        .setEmoji('🟦')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
         .setCustomId('profile_pet_btn')
-        .setLabel('Meu Pet')
+        .setLabel('Pet')
         .setEmoji('🐾')
         .setStyle(ButtonStyle.Secondary),
+    );
+
+    const row2 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('profile_conquistas_btn')
         .setLabel('Conquistas')
@@ -73,7 +81,7 @@ export default {
         .setStyle(ButtonStyle.Primary),
     );
 
-    return interaction.editReply({ files: [attachment], components: [row] });
+    return interaction.editReply({ files: [attachment], components: [row1, row2] });
   },
 
   async executePrefix(message) {
@@ -105,8 +113,9 @@ export default {
       activePet:       activePetEmoji,
       marriedToName:   profile?.marriedToName ?? null,
       bio:             profile?.bio           ?? null,
-      cardBg1:         profile?.cardBg1       ?? null,
-      cardBg2:         profile?.cardBg2       ?? null,
+      cardBg1:         profile?.cardBg1        ?? null,
+      cardBg2:         profile?.cardBg2        ?? null,
+      cardPanelColor:  profile?.cardPanelColor ?? null,
       purchases,
       guildBadgeEmojis,
       guildId: message.guildId,

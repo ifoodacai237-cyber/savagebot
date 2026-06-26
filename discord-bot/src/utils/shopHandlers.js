@@ -466,6 +466,9 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'profile_bg_solid')               return handleProfileBgSolid(interaction);
     if (id === 'profile_bg_gradient')            return handleProfileBgGradient(interaction);
     if (id === 'profile_bg_reset')               return handleProfileBgReset(interaction);
+    if (id === 'profile_panel_btn')              return handleProfilePanelBtn(interaction);
+    if (id === 'profile_panel_custom')           return handleProfilePanelCustom(interaction);
+    if (id === 'profile_panel_reset')            return handleProfilePanelReset(interaction);
     if (id === 'profile_pet_btn')                return handleProfilePetBtn(interaction);
     if (id.startsWith('loja_cfg_'))              return handleLojaCfgBtn(interaction);
     if (id === 'loja_admin_cargos')              return handleLojaAdminCargos(interaction);
@@ -495,6 +498,7 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'profile_ring_border_modal')      return handleProfileRingBorderModal(interaction);
     if (id === 'profile_bg_solid_modal')         return handleProfileBgSolidModal(interaction);
     if (id === 'profile_bg_gradient_modal')      return handleProfileBgGradientModal(interaction);
+    if (id === 'profile_panel_modal')            return handleProfilePanelModal(interaction);
   }
 }
 
@@ -1677,6 +1681,88 @@ async function handleProfileBgGradientModal(interaction) {
 
   return interaction.reply({
     content: `✅ Fundo alterado para gradiente \`#${hex1}\` → \`#${hex2}\`! Use \`/perfil\` para ver.`,
+    ephemeral: true,
+  });
+}
+
+// ─── 🟦 Cor do Painel de Stats ────────────────────────────────────────────────
+
+function panelDescription(color) {
+  if (color) return `🟦 Cor personalizada: \`${color}\``;
+  return '⬜ Branco (padrão)';
+}
+
+async function handleProfilePanelBtn(interaction) {
+  const profile = await prisma.userProfile.findUnique({ where: { userId: interaction.user.id } });
+  const current = profile?.cardPanelColor ?? null;
+
+  return interaction.reply({
+    embeds: [
+      new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🟦 Cor do Painel de Stats')
+        .setDescription(
+          `Personalize a cor dos campos de stats no seu card.\n\n` +
+          `**Cor atual:** ${panelDescription(current)}\n\n` +
+          `Escolha uma opção abaixo:`
+        )
+        .setFooter({ text: 'Use /perfil para ver o resultado' }),
+    ],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('profile_panel_custom').setLabel('Definir Cor').setEmoji('🎨').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('profile_panel_reset').setLabel('Resetar (Branco)').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
+      ),
+    ],
+    ephemeral: true,
+  });
+}
+
+async function handleProfilePanelCustom(interaction) {
+  const modal = new ModalBuilder().setCustomId('profile_panel_modal').setTitle('🟦 Cor do Painel de Stats');
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder().setCustomId('hex')
+        .setLabel('Cor em Hex (ex: 1a1a2e para escuro)')
+        .setStyle(TextInputStyle.Short).setRequired(true)
+        .setMinLength(6).setMaxLength(7).setPlaceholder('1a1a2e')
+    )
+  );
+  return interaction.showModal(modal);
+}
+
+async function handleProfilePanelReset(interaction) {
+  await prisma.userProfile.upsert({
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, cardPanelColor: null },
+    update: { cardPanelColor: null },
+  });
+  return interaction.update({
+    embeds: [
+      new EmbedBuilder().setColor(SHOP_COLOR).setTitle('🟦 Cor do Painel de Stats')
+        .setDescription('✅ Painel resetado para **branco** (padrão).\nUse `/perfil` para ver.')
+        .setFooter({ text: 'Use /perfil para ver o resultado' }),
+    ],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('profile_panel_custom').setLabel('Definir Cor').setEmoji('🎨').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('profile_panel_reset').setLabel('Resetar (Branco)').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
+      ),
+    ],
+  });
+}
+
+async function handleProfilePanelModal(interaction) {
+  let hex = interaction.fields.getTextInputValue('hex').trim().replace(/^#/, '').toUpperCase();
+  if (!/^[0-9A-F]{6}$/.test(hex))
+    return interaction.reply({ content: '❌ Cor inválida! Use um hex de 6 dígitos (ex: `1a1a2e`).', ephemeral: true });
+
+  await prisma.userProfile.upsert({
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, cardPanelColor: `#${hex}` },
+    update: { cardPanelColor: `#${hex}` },
+  });
+
+  return interaction.reply({
+    content: `✅ Cor do painel alterada para \`#${hex}\`! Use \`/perfil\` para ver.`,
     ephemeral: true,
   });
 }
