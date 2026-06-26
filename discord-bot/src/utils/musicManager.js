@@ -18,6 +18,21 @@ export function isUrl(str) {
   return /^https?:\/\//i.test(str);
 }
 
+// ─── SoundCloud: inicializa client_id automaticamente ────────────────────────
+let _scReady = false;
+async function ensureSoundCloud() {
+  if (_scReady) return;
+  try {
+    const id = await playdl.getFreeClientID();
+    await playdl.setToken({ soundcloud: { client_id: id } });
+    _scReady = true;
+    console.log('[MUSIC] SoundCloud client_id obtido com sucesso.');
+  } catch (err) {
+    console.error('[MUSIC] Falha ao obter client_id do SoundCloud:', err.message);
+    throw new Error('Não foi possível conectar ao SoundCloud. Tente novamente em instantes.');
+  }
+}
+
 // ─── Detecta plataforma ───────────────────────────────────────────────────────
 export function resolveQuery(input) {
   if (/youtube\.com|youtu\.be/i.test(input))  return { platform: 'youtube',    isSearch: false };
@@ -26,7 +41,7 @@ export function resolveQuery(input) {
   return { platform: 'search', isSearch: true };
 }
 
-// ─── Fetch simples com timeout ────────────────────────────────────────────────
+// ─── Fetch JSON com timeout ───────────────────────────────────────────────────
 async function fetchJson(url, ms = 8000) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
@@ -39,12 +54,12 @@ async function fetchJson(url, ms = 8000) {
   }
 }
 
-// ─── Extrai título de um link do YouTube via oEmbed (sem auth, sem bloqueio) ──
+// ─── Extrai título via YouTube oEmbed (sem auth) ──────────────────────────────
 async function youtubeTitleFromOembed(url) {
   try {
     const data = await fetchJson(
       `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
-      8_000,
+      8000,
     );
     return data?.title ?? null;
   } catch {
@@ -52,12 +67,12 @@ async function youtubeTitleFromOembed(url) {
   }
 }
 
-// ─── Extrai título de link Spotify via oEmbed ─────────────────────────────────
+// ─── Extrai título via Spotify oEmbed ────────────────────────────────────────
 async function spotifyTitleFromOembed(url) {
   try {
     const data = await fetchJson(
       `https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`,
-      8_000,
+      8000,
     );
     return data?.title ?? null;
   } catch {
@@ -65,23 +80,32 @@ async function spotifyTitleFromOembed(url) {
   }
 }
 
-// ─── Busca no SoundCloud via play-dl (funciona em qualquer IP de servidor) ───
-async function searchSoundCloud(query, limit = 1) {
+// ─── Busca no SoundCloud ──────────────────────────────────────────────────────
+async function searchSoundCloud(query) {
+  await ensureSoundCloud();
   const results = await playdl.search(query, {
     source: { soundcloud: 'tracks' },
-    limit,
+    limit: 1,
   });
-  if (!results || results.length === 0) throw new Error('Nenhum resultado no SoundCloud.');
+  if (!results || results.length === 0) throw new Error('Nenhum resultado encontrado no SoundCloud para: ' + query);
   return results[0];
 }
 
-// ─── Stream via play-dl (SoundCloud ou YouTube direto) ───────────────────────
+// ─── Stream via play-dl ───────────────────────────────────────────────────────
 async function playdlStream(url) {
-  const info = await playdl.stream(url, { quality: 2 });
-  return info; // { stream, type }
+  await ensureSoundCloud();
+  return playdl.stream(url, { quality: 2 });
 }
 
-// ─── getTrackInfo: resolve qualquer query → info da faixa ────────────────────
+// ─── Formato de duração ───────────────────────────────────────────────────────
+function formatDuration(secs) {
+  if (!secs || secs <= 0) return 'Desconhecido';
+  const m = Math.floor(secs / 60);
+  const s = String(secs % 60).padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+// ─── getTrackInfo: resolve qualquer query para info da faixa ─────────────────
 export async function getTrackInfo(rawQuery) {
   const { platform, isSearch } = resolveQuery(rawQuery);
 
@@ -98,8 +122,9 @@ export async function getTrackInfo(rawQuery) {
     };
   }
 
-  // 2. Link do SoundCloud direto → play-dl info
+  // 2. Link do SoundCloud direto
   if (platform === 'soundcloud') {
+    await ensureSoundCloud();
     const info = await playdl.soundcloud(rawQuery);
     return {
       title:    info.name,
@@ -111,33 +136,13 @@ export async function getTrackInfo(rawQuery) {
     };
   }
 
-  // 3. Link do YouTube → tenta play-dl direto; se falhar, busca título no SoundCloud
+  // 3. Link do YouTube → oEmbed para título → busca no SoundCloud
   if (platform === 'youtube') {
-    try {
-      const ytInfo = await Promise.race([
-        playdl.video_info(rawQuery),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15_000)),
-      ]);
-      const details = ytInfo?.video_details;
-      if (details) {
-        return {
-          title:    details.title ?? 'Música do YouTube',
-          duration: formatDuration(details.durationInSec ?? 0),
-          uploader: details.channel?.name ?? 'YouTube',
-          thumbnail: details.thumbnails?.[0]?.url ?? null,
-          url:      details.url ?? rawQuery,
-          platform: 'youtube',
-        };
-      }
-    } catch {
-      // YouTube bloqueou o IP — extrai o título via oEmbed e busca no SoundCloud
-    }
-
     const title = await youtubeTitleFromOembed(rawQuery);
     if (title) {
       const sc = await searchSoundCloud(title);
       return {
-        title:    `${title} (via SoundCloud)`,
+        title:    sc.name,
         duration: formatDuration(sc.durationInMs ? Math.round(sc.durationInMs / 1000) : 0),
         uploader: sc.user?.name ?? 'SoundCloud',
         thumbnail: sc.thumbnail ?? null,
@@ -145,17 +150,16 @@ export async function getTrackInfo(rawQuery) {
         platform: 'soundcloud',
       };
     }
-
-    throw new Error('Não foi possível carregar este vídeo do YouTube. Tente pesquisar pelo nome.');
+    throw new Error('Não foi possível carregar este vídeo do YouTube. Tente pesquisar pelo nome da música.');
   }
 
-  // 4. Link do Spotify → extrai título via oEmbed e busca no SoundCloud
+  // 4. Link do Spotify → oEmbed para título → busca no SoundCloud
   if (platform === 'spotify') {
     const title = await spotifyTitleFromOembed(rawQuery);
     if (!title) throw new Error('Link do Spotify inválido ou privado.');
     const sc = await searchSoundCloud(title);
     return {
-      title:    `${title} (via SoundCloud)`,
+      title:    sc.name,
       duration: formatDuration(sc.durationInMs ? Math.round(sc.durationInMs / 1000) : 0),
       uploader: sc.user?.name ?? 'SoundCloud',
       thumbnail: sc.thumbnail ?? null,
@@ -167,71 +171,45 @@ export async function getTrackInfo(rawQuery) {
   throw new Error('Formato não suportado.');
 }
 
-// ─── Cria o stream de áudio dependendo da plataforma ──────────────────────────
+// ─── Constrói o AudioResource ─────────────────────────────────────────────────
 async function buildAudioResource(url, platform) {
   if (platform === 'soundcloud') {
     const { stream, type } = await playdlStream(url);
     return createAudioResource(stream, { inputType: type });
   }
-
-  if (platform === 'youtube') {
-    // Tenta play-dl; fallback para yt-dlp + ffmpeg
-    try {
-      const { stream, type } = await Promise.race([
-        playdlStream(url),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15_000)),
-      ]);
-      return createAudioResource(stream, { inputType: type });
-    } catch {
-      // fallback: yt-dlp → ffmpeg
-      return buildYtdlpResource(url, platform);
-    }
-  }
-
-  // fallback geral
-  return buildYtdlpResource(url, platform);
+  // fallback: yt-dlp + ffmpeg
+  return buildYtdlpResource(url);
 }
 
-// ─── Fallback: yt-dlp → ffmpeg (para quando play-dl falha) ──────────────────
-function buildYtdlpResource(url, platform) {
-  const ytdlpArgs = [
+// ─── Fallback yt-dlp → ffmpeg ─────────────────────────────────────────────────
+function buildYtdlpResource(url) {
+  const ytdlp = spawn('yt-dlp', [
     '--no-playlist', '--no-warnings', '-o', '-',
     '--socket-timeout', '15',
     '--extractor-args', 'youtube:player_client=tv_embedded,ios',
     '--format', 'bestaudio/best',
     url,
-  ];
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
-  const ytdlp = spawn('yt-dlp', ytdlpArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
   ytdlp.stderr.on('data', d => {
     const m = d.toString().trim();
     if (m && !m.includes('[download]') && !m.includes('[info]'))
       console.error('[MUSIC yt-dlp]', m.slice(0, 200));
   });
+  ytdlp.on('error', err => console.error('[MUSIC yt-dlp spawn]', err.message));
 
   const ffmpeg = spawn('ffmpeg', [
     '-loglevel', 'error', '-i', 'pipe:0', '-vn',
     '-c:a', 'libopus', '-b:a', '128k', '-ar', '48000', '-ac', '2', '-f', 'ogg', 'pipe:1',
   ], { stdio: ['pipe', 'pipe', 'pipe'] });
 
-  ffmpeg.stderr.on('data', d => {
-    const m = d.toString().trim();
-    if (m) console.error('[MUSIC FFmpeg]', m.slice(0, 200));
-  });
+  ffmpeg.stderr.on('data', d => console.error('[MUSIC FFmpeg]', d.toString().trim().slice(0, 200)));
+  ffmpeg.stdout.on('error', () => {});
 
   ytdlp.stdout.pipe(ffmpeg.stdin);
   ytdlp.on('close', () => { try { ffmpeg.stdin.end(); } catch {} });
-  ffmpeg.stdout.on('error', () => {});
 
   return createAudioResource(ffmpeg.stdout, { inputType: StreamType.OggOpus });
-}
-
-// ─── Formato de duração ───────────────────────────────────────────────────────
-function formatDuration(secs) {
-  if (!secs || secs <= 0) return 'Desconhecido';
-  const m = Math.floor(secs / 60);
-  const s = String(secs % 60).padStart(2, '0');
-  return `${m}:${s}`;
 }
 
 // ─── Classe de sessão de música ───────────────────────────────────────────────
@@ -243,36 +221,27 @@ export class MusicSession {
     this.player         = createAudioPlayer();
     this.controlMessage = null;
     this.trackInfo      = null;
-    this._procs         = null;
     this._stopped       = false;
 
     connection.subscribe(this.player);
 
     this.player.on(AudioPlayerStatus.Idle, () => {
-      if (!this._stopped) {
-        console.log('[MUSIC] Reprodução encerrada (idle).');
-        this._cleanup();
-      }
+      if (!this._stopped) this._finalize();
     });
 
     this.player.on('error', err => {
       console.error('[MUSIC] Player error:', err.message);
-      this._cleanup();
+      this._finalize();
     });
   }
 
-  _cleanup() {
-    if (this._procs) {
-      try { this._procs.ytdlp.kill('SIGKILL'); } catch {}
-      try { this._procs.ffmpeg.kill('SIGKILL'); } catch {}
-      this._procs = null;
-    }
+  _finalize() {
+    console.log('[MUSIC] Reprodução encerrada.');
+    musicSessions.delete(this.guildId);
   }
 
   async play(url, info) {
-    this._cleanup();
     this.trackInfo = info;
-
     try {
       const resource = await buildAudioResource(url, info.platform);
       this.player.play(resource);
@@ -289,7 +258,6 @@ export class MusicSession {
 
   stop() {
     this._stopped = true;
-    this._cleanup();
     try { this.player.stop(true); } catch {}
     try { this.connection.destroy(); } catch {}
     musicSessions.delete(this.guildId);
@@ -302,7 +270,6 @@ export async function createMusicSession({ guild, channelId }) {
   const existing = musicSessions.get(guild.id);
   if (existing) {
     existing._stopped = true;
-    existing._cleanup();
     try { existing.player.stop(true); } catch {}
     musicSessions.delete(guild.id);
   }
@@ -338,8 +305,7 @@ export async function createMusicSession({ guild, channelId }) {
     } catch {
       const sess = musicSessions.get(guild.id);
       if (sess) sess.stop();
-      else if (connection.state.status !== VoiceConnectionStatus.Destroyed)
-        try { connection.destroy(); } catch {}
+      else { try { connection.destroy(); } catch {} }
     }
   });
 
