@@ -1,5 +1,6 @@
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   ContainerBuilder,
@@ -11,35 +12,7 @@ import {
 } from 'discord.js';
 import prisma from '../database/client.js';
 import { getEmoji } from './emojiManager.js';
-
-function getPublicHost() {
-  const domains = process.env.REPLIT_DOMAINS;
-  if (domains) return domains.split(',')[0].trim();
-  if (process.env.REPLIT_DEV_DOMAIN) return process.env.REPLIT_DEV_DOMAIN;
-  if (process.env.RAILWAY_PUBLIC_DOMAIN) return process.env.RAILWAY_PUBLIC_DOMAIN;
-  if (process.env.API_BASE_URL) {
-    try { return new URL(process.env.API_BASE_URL).host; } catch {}
-  }
-  return null;
-}
-
-function getGameImgUrl(filename) {
-  const host = getPublicHost();
-  if (!host) return null;
-  return `https://${host}/api/public/games/${filename}`;
-}
-
-function getMinesGridUrl(state) {
-  const host = getPublicHost();
-  if (!host) return null;
-  const payload = {
-    g: state.grid.map(v => v ? 1 : 0),
-    r: state.revealed.map(v => v ? 1 : 0),
-    s: state.status === 'playing' ? 'p' : state.status === 'lost' ? 'l' : 'c',
-  };
-  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  return `https://${host}/api/games/mines-grid/${Date.now()}/${encoded}.png`;
-}
+import { generateBlackjackCard, generateMinesCard } from './economyCards.js';
 
 const COIN = '<a:emoji_1:1516993823665033286>';
 
@@ -86,8 +59,10 @@ function memberInfo(interaction) {
 
 // ─── V2 payload helpers ───────────────────────────────────────────────────────
 
-function v2Payload(container, ...extras) {
-  return { components: [container, ...extras], flags: MessageFlags.IsComponentsV2 };
+function v2Payload(container, files, ...extras) {
+  const payload = { components: [container, ...extras], flags: MessageFlags.IsComponentsV2 };
+  if (files && files.length > 0) payload.files = files;
+  return payload;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -119,7 +94,7 @@ function handTotal(cards) {
 function fmtCard(c) { return `\`${c.rank}${c.suit}\``; }
 function fmtHand(cards) { return cards.map(fmtCard).join(' '); }
 
-function buildBJContainer(state, hideDealer = false) {
+function buildBJPayload(state, hideDealer = false) {
   const pTotal = handTotal(state.player);
   const dTotal = handTotal(state.dealer);
   const isPlaying = state.status === 'playing';
@@ -161,14 +136,30 @@ function buildBJContainer(state, hideDealer = false) {
   const container = new ContainerBuilder().setAccentColor(accentColor);
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
 
-  const imgUrl = getGameImgUrl(`blackjack.png?v=${state.player.length}`);
-  if (imgUrl) {
+  let files = [];
+  try {
+    const imgBuf = generateBlackjackCard({
+      playerCards: state.player,
+      dealerCards:  state.dealer,
+      pTotal,
+      dTotal,
+      won:       state.won,
+      tie:       state.tie,
+      bust:      state.bust,
+      bet:       state.bet,
+      payout:    state.bet * 2,
+      hideDealer,
+    });
+    const attachment = new AttachmentBuilder(imgBuf, { name: 'blackjack.png' });
     container.addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(imgUrl)),
+      new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder().setURL('attachment://blackjack.png'),
+      ),
     );
-  }
+    files = [attachment];
+  } catch {}
 
-  return container;
+  return { container, files };
 }
 
 function buildBJComponents(state) {
@@ -189,7 +180,7 @@ function buildBJComponents(state) {
   ];
 }
 
-async function finalizeBJ(state, interaction, name, avatar) {
+async function finalizeBJ(state, interaction) {
   while (handTotal(state.dealer) < 17) state.dealer.push(state.deck.pop());
 
   const pTotal = handTotal(state.player);
@@ -205,14 +196,13 @@ async function finalizeBJ(state, interaction, name, avatar) {
   if (payout > 0) await addWin(state.userId, state.guildId, payout);
   blackjackGames.delete(state.userId);
 
-  const container = buildBJContainer(state);
-  return interaction.update(v2Payload(container));
+  const { container, files } = buildBJPayload(state);
+  return interaction.update(v2Payload(container, files));
 }
 
 export async function startBlackjack(ctx, bet, sendFn) {
   const userId  = ctx.user?.id ?? ctx.author?.id;
   const guildId = ctx.guildId;
-  const { name, avatar } = memberInfo(ctx);
 
   if (blackjackGames.has(userId))
     return sendFn({ content: '❌ Você já tem um jogo de blackjack em andamento!' });
@@ -240,8 +230,8 @@ export async function startBlackjack(ctx, bet, sendFn) {
     const payout = won ? Math.floor(bet * 2.5) : bet;
     await addWin(userId, guildId, payout);
     blackjackGames.delete(userId);
-    const container = buildBJContainer(state);
-    return sendFn(v2Payload(container));
+    const { container, files } = buildBJPayload(state);
+    return sendFn(v2Payload(container, files));
   }
 
   // Auto-timeout 2 min
@@ -253,8 +243,8 @@ export async function startBlackjack(ctx, bet, sendFn) {
     }
   }, 120_000);
 
-  const container = buildBJContainer(state, true);
-  return sendFn(v2Payload(container, ...buildBJComponents(state)));
+  const { container, files } = buildBJPayload(state, true);
+  return sendFn(v2Payload(container, files, ...buildBJComponents(state)));
 }
 
 export async function handleBJHit(interaction, targetId) {
@@ -264,7 +254,6 @@ export async function handleBJHit(interaction, targetId) {
   const state = blackjackGames.get(targetId);
   if (!state?.status === 'playing') return interaction.update({ components: [] });
 
-  const { name, avatar } = memberInfo(interaction);
   state.player.push(state.deck.pop());
   const total = handTotal(state.player);
 
@@ -272,13 +261,13 @@ export async function handleBJHit(interaction, targetId) {
     state.status = 'done';
     state.bust = true;
     blackjackGames.delete(targetId);
-    const container = buildBJContainer(state);
-    return interaction.update(v2Payload(container));
+    const { container, files } = buildBJPayload(state);
+    return interaction.update(v2Payload(container, files));
   }
-  if (total === 21) return finalizeBJ(state, interaction, name, avatar);
+  if (total === 21) return finalizeBJ(state, interaction);
 
-  const container = buildBJContainer(state, true);
-  return interaction.update(v2Payload(container, ...buildBJComponents(state)));
+  const { container, files } = buildBJPayload(state, true);
+  return interaction.update(v2Payload(container, files, ...buildBJComponents(state)));
 }
 
 export async function handleBJStand(interaction, targetId) {
@@ -288,8 +277,7 @@ export async function handleBJStand(interaction, targetId) {
   const state = blackjackGames.get(targetId);
   if (!state) return interaction.update({ components: [] });
 
-  const { name, avatar } = memberInfo(interaction);
-  return finalizeBJ(state, interaction, name, avatar);
+  return finalizeBJ(state, interaction);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -307,7 +295,7 @@ function calcMult(gems, bombs) {
   return Math.round(m * 0.97 * 100) / 100;
 }
 
-function buildMinesContainer(state) {
+function buildMinesPayload(state, memberName = 'Jogador') {
   const mult   = calcMult(state.gems, state.bombs);
   const payout = Math.floor(state.bet * mult);
 
@@ -330,14 +318,27 @@ function buildMinesContainer(state) {
   const container = new ContainerBuilder().setAccentColor(accentColor);
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
 
-  const gridUrl = getMinesGridUrl(state);
-  if (gridUrl) {
+  let files = [];
+  try {
+    const imgBuf = generateMinesCard({
+      grid:       state.grid,
+      revealed:   state.revealed,
+      bombs:      state.bombs,
+      bet:        state.bet,
+      payout:     state.status === 'lost' ? 0 : payout,
+      memberName,
+      status:     state.status,
+    });
+    const attachment = new AttachmentBuilder(imgBuf, { name: 'mines.png' });
     container.addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(gridUrl)),
+      new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder().setURL('attachment://mines.png'),
+      ),
     );
-  }
+    files = [attachment];
+  } catch {}
 
-  return container;
+  return { container, files };
 }
 
 function buildMinesComponents(state) {
@@ -401,6 +402,7 @@ export async function startMines(ctx, bet, bombs, sendFn) {
   const userId  = ctx.user?.id ?? ctx.author?.id;
   const guildId = ctx.guildId;
   const total = GRID * GRID;
+  const { name } = memberInfo(ctx);
 
   if (minesGames.has(userId))
     return sendFn({ content: '❌ Você já tem um jogo de mines em andamento!' });
@@ -423,6 +425,7 @@ export async function startMines(ctx, bet, bombs, sendFn) {
     revealed: Array(total).fill(false),
     gems: 0,
     status: 'playing',
+    memberName: name,
   };
 
   minesGames.set(userId, state);
@@ -437,8 +440,8 @@ export async function startMines(ctx, bet, bombs, sendFn) {
     }
   }, 300_000);
 
-  const container = buildMinesContainer(state);
-  return sendFn(v2Payload(container, ...buildMinesComponents(state)));
+  const { container, files } = buildMinesPayload(state, name);
+  return sendFn(v2Payload(container, files, ...buildMinesComponents(state)));
 }
 
 export async function handleMinesCell(interaction, idx, targetId) {
@@ -454,8 +457,8 @@ export async function handleMinesCell(interaction, idx, targetId) {
     state.revealed = state.revealed.map(() => true);
     state.status = 'lost';
     minesGames.delete(targetId);
-    const container = buildMinesContainer(state);
-    return interaction.update(v2Payload(container, ...buildMinesComponents(state)));
+    const { container, files } = buildMinesPayload(state, state.memberName);
+    return interaction.update(v2Payload(container, files, ...buildMinesComponents(state)));
   }
 
   state.gems++;
@@ -467,12 +470,12 @@ export async function handleMinesCell(interaction, idx, targetId) {
     state.revealed = state.revealed.map(() => true);
     minesGames.delete(targetId);
     await addWin(targetId, state.guildId, payout);
-    const container = buildMinesContainer(state);
-    return interaction.update(v2Payload(container, ...buildMinesComponents(state)));
+    const { container, files } = buildMinesPayload(state, state.memberName);
+    return interaction.update(v2Payload(container, files, ...buildMinesComponents(state)));
   }
 
-  const container = buildMinesContainer(state);
-  return interaction.update(v2Payload(container, ...buildMinesComponents(state)));
+  const { container, files } = buildMinesPayload(state, state.memberName);
+  return interaction.update(v2Payload(container, files, ...buildMinesComponents(state)));
 }
 
 export async function handleMinesCashout(interaction, targetId) {
@@ -490,6 +493,6 @@ export async function handleMinesCashout(interaction, targetId) {
   minesGames.delete(targetId);
   await addWin(targetId, state.guildId, payout);
 
-  const container = buildMinesContainer(state);
-  return interaction.update(v2Payload(container, ...buildMinesComponents(state)));
+  const { container, files } = buildMinesPayload(state, state.memberName);
+  return interaction.update(v2Payload(container, files, ...buildMinesComponents(state)));
 }
