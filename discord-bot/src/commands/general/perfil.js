@@ -9,6 +9,16 @@ async function getGuildBadgeEmojis(guildId) {
   return map;
 }
 
+async function fetchProfileData(userId, guildId) {
+  const [eco, profile, purchases, guildBadgeEmojis] = await Promise.all([
+    prisma.economy.findUnique({ where: { userId_guildId: { userId, guildId } } }),
+    prisma.userProfile.findUnique({ where: { userId } }),
+    prisma.userPurchase.count({ where: { userId } }),
+    getGuildBadgeEmojis(guildId),
+  ]);
+  return { eco, profile, purchases, guildBadgeEmojis };
+}
+
 export default {
   data: new SlashCommandBuilder()
     .setName('perfil')
@@ -21,13 +31,7 @@ export default {
 
     const target = interaction.user;
     const member = await interaction.guild.members.fetch(target.id).catch(() => null);
-
-    const [eco, profile, purchases, guildBadgeEmojis] = await Promise.all([
-      prisma.economy.findUnique({ where: { userId_guildId: { userId: target.id, guildId: interaction.guildId } } }),
-      prisma.userProfile.findUnique({ where: { userId: target.id } }),
-      prisma.userPurchase.count({ where: { userId: target.id } }),
-      getGuildBadgeEmojis(interaction.guildId),
-    ]);
+    const { eco, profile, purchases, guildBadgeEmojis } = await fetchProfileData(target.id, interaction.guildId);
 
     let activePetEmoji = null;
     if (profile?.activePet) {
@@ -35,14 +39,31 @@ export default {
       activePetEmoji = pet?.emoji ?? null;
     }
 
-    const username     = member?.displayName ?? target.username;
-    const avatarUrl    = target.displayAvatarURL({ extension: 'png', size: 256 });
-    const balance      = eco?.balance ?? 0;
-    const bank         = eco?.bank ?? 0;
-    const activeBanner = profile?.activeBanner ?? null;
-    const activeRing   = profile?.activeRing ?? null;
+    const username = member?.displayName ?? target.username;
+    const avatarUrl = target.displayAvatarURL({ extension: 'png', size: 256 });
 
-    const buf        = await generateProfileCard({ username, avatarUrl, balance, bank, activeBanner, purchases, activeRing, ringBorderColor: profile?.ringBorderColor ?? null, activePet: activePetEmoji, guildBadgeEmojis, guildId: interaction.guildId, marriedToName: profile?.marriedToName ?? null, bio: profile?.bio ?? null, cardBg1: profile?.cardBg1 ?? null, cardBg2: profile?.cardBg2 ?? null, cardPanelColor: profile?.cardPanelColor ?? null });
+    const buf = await generateProfileCard({
+      username,
+      avatarUrl,
+      balance:        eco?.balance         ?? 0,
+      bank:           eco?.bank            ?? 0,
+      xp:             eco?.xp              ?? 0,
+      activeBanner:   profile?.activeBanner  ?? null,
+      activeRing:     profile?.activeRing    ?? null,
+      ringBorderColor: profile?.ringBorderColor ?? null,
+      activePet:      activePetEmoji,
+      marriedToName:  profile?.marriedToName  ?? null,
+      bestFriendName: profile?.bestFriendName ?? null,
+      reps:           profile?.reps           ?? 0,
+      bio:            profile?.bio            ?? null,
+      cardBg1:        profile?.cardBg1        ?? null,
+      cardBg2:        profile?.cardBg2        ?? null,
+      cardPanelColor: profile?.cardPanelColor ?? null,
+      purchases,
+      guildBadgeEmojis,
+      guildId: interaction.guildId,
+    });
+
     const attachment = new AttachmentBuilder(buf, { name: 'perfil.png' });
 
     const row1 = new ActionRowBuilder().addComponents(
@@ -87,13 +108,7 @@ export default {
   async executePrefix(message) {
     const target = message.author;
     const member = await message.guild.members.fetch(target.id).catch(() => null);
-
-    const [eco, profile, purchases, guildBadgeEmojis] = await Promise.all([
-      prisma.economy.findUnique({ where: { userId_guildId: { userId: target.id, guildId: message.guildId } } }),
-      prisma.userProfile.findUnique({ where: { userId: target.id } }),
-      prisma.userPurchase.count({ where: { userId: target.id } }),
-      getGuildBadgeEmojis(message.guildId),
-    ]);
+    const { eco, profile, purchases, guildBadgeEmojis } = await fetchProfileData(target.id, message.guildId);
 
     let activePetEmoji = null;
     if (profile?.activePet) {
@@ -103,19 +118,24 @@ export default {
 
     const username = member?.displayName ?? target.username;
     const avatarUrl = target.displayAvatarURL({ extension: 'png', size: 256 });
+
     const buf = await generateProfileCard({
-      username, avatarUrl,
-      balance:         eco?.balance          ?? 0,
-      bank:            eco?.bank             ?? 0,
-      activeBanner:    profile?.activeBanner  ?? null,
-      activeRing:      profile?.activeRing    ?? null,
+      username,
+      avatarUrl,
+      balance:        eco?.balance         ?? 0,
+      bank:           eco?.bank            ?? 0,
+      xp:             eco?.xp              ?? 0,
+      activeBanner:   profile?.activeBanner  ?? null,
+      activeRing:     profile?.activeRing    ?? null,
       ringBorderColor: profile?.ringBorderColor ?? null,
-      activePet:       activePetEmoji,
-      marriedToName:   profile?.marriedToName ?? null,
-      bio:             profile?.bio           ?? null,
-      cardBg1:         profile?.cardBg1        ?? null,
-      cardBg2:         profile?.cardBg2        ?? null,
-      cardPanelColor:  profile?.cardPanelColor ?? null,
+      activePet:      activePetEmoji,
+      marriedToName:  profile?.marriedToName  ?? null,
+      bestFriendName: profile?.bestFriendName ?? null,
+      reps:           profile?.reps           ?? 0,
+      bio:            profile?.bio            ?? null,
+      cardBg1:        profile?.cardBg1        ?? null,
+      cardBg2:        profile?.cardBg2        ?? null,
+      cardPanelColor: profile?.cardPanelColor ?? null,
       purchases,
       guildBadgeEmojis,
       guildId: message.guildId,

@@ -131,6 +131,8 @@ model Economy {
   bank         Int       @default(0)
   messageCount Int       @default(0)
   callMinutes  Int       @default(0)
+  xp           Int       @default(0)
+  level        Int       @default(1)
   lastDaily    DateTime?
   lastWork    DateTime?
   dailyStreak Int       @default(0)
@@ -192,6 +194,9 @@ model UserProfile {
   bio             String?
   marriedTo       String?
   marriedToName   String?
+  bestFriendId    String?
+  bestFriendName  String?
+  reps            Int     @default(0)
   cardBg1         String?
   cardBg2         String?
   cardPanelColor  String?
