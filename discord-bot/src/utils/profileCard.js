@@ -194,7 +194,7 @@ async function drawBioWithEmojis(ctx, text, x, y, maxWidth, lineH, emojiSz) {
   return y;
 }
 
-// ── Modern stat icon drawers ──────────────────────────────────────────────────
+// ── Stat icon drawers ─────────────────────────────────────────────────────────
 
 function drawIconBg(ctx, x, y, size, bg1, bg2) {
   const g = ctx.createLinearGradient(x, y, x + size, y + size);
