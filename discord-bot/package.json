@@ -6,7 +6,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "build": "prisma generate && prisma db push",
+    "build": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push"
   },
