@@ -172,19 +172,21 @@ export function welcomeConfigButtons(cfg = {}) {
   const enabled  = cfg.welcomeEnabled ?? true;
   const sepOn    = cfg.welcomeUseDivider ?? false;
   const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('wcfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('wcfg_sem_cor').setLabel('Sem Lateral').setEmoji('◻️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_titulo').setLabel('Título').setEmoji('📝').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_banner').setLabel('Banner').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_thumb').setLabel('Thumbnail').setEmoji('📷').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('wcfg_rodape').setLabel('Rodapé').setEmoji('👇').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('wcfg_texto').setLabel('Texto').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
   );
   const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('wcfg_rodape').setLabel('Rodapé').setEmoji('👇').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('wcfg_texto').setLabel('Texto').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_separador').setLabel('Divisória').setEmoji('➖').setStyle(sepOn ? ButtonStyle.Success : ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_canal').setLabel('Canal').setEmoji('📣').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('wcfg_cargos').setLabel('Cargos').setEmoji('🔔').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('wcfg_canais').setLabel('Canais').setEmoji('🔗').setStyle(ButtonStyle.Primary),
   );
   const row3 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('wcfg_cargos').setLabel('Cargos').setEmoji('🔔').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('wcfg_canais').setLabel('Canais').setEmoji('🔗').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('wcfg_test').setLabel('Testar').setEmoji('🧪').setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId('wcfg_toggle')
@@ -300,6 +302,11 @@ export function buildWelcomeV2(cfg, vars) {
 
   const container = new ContainerBuilder();
 
+  if (cfg.welcomeColor) {
+    const parsed = parseInt(cfg.welcomeColor, 16);
+    if (!isNaN(parsed)) container.setAccentColor(parsed);
+  }
+
   if (cfg.welcomeBanner) {
     container.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(cfg.welcomeBanner)),
@@ -338,8 +345,10 @@ export function buildWelcomeConfigPayload(cfg) {
     ? cfg.welcomeChannels.split(',').filter(Boolean).map(id => `<#${id.trim()}>`).join(' ') || '*(nenhum)*'
     : '*(nenhum)*';
 
+  const color = cfg.welcomeColor ? (parseInt(cfg.welcomeColor, 16) || 0x5865F2) : 0x5865F2;
+
   const configEmbed = new EmbedBuilder()
-    .setColor(enabled ? 0x5865F2 : 0x6B6B6B)
+    .setColor(enabled ? color : 0x6B6B6B)
     .setTitle('🎉 Configuração — Boas-Vindas (V2)')
     .setDescription(
       (enabled ? '✅ **Sistema ATIVO**' : '🔴 **Sistema DESATIVADO**') +
@@ -347,6 +356,7 @@ export function buildWelcomeConfigPayload(cfg) {
       '`{user}` `{username}` `{server}` `{count}`',
     )
     .addFields(
+      { name: '🎨 Cor',       value: cfg.welcomeColor  ? `\`#${cfg.welcomeColor}\`` : '*(sem lateral)*',   inline: true },
       { name: '📝 Título',    value: titulo.length > 50 ? titulo.slice(0, 47) + '...' : titulo,            inline: true },
       { name: '👇 Rodapé',    value: cfg.welcomeFooter  || '*(não definido)*',                              inline: true },
       { name: '🖼️ Banner',   value: cfg.welcomeBanner  ? '✅ definido' : '*(não definido)*',              inline: true },

@@ -190,11 +190,12 @@ const TELLONYM_MODAL_FIELDS = {
 };
 
 const WELCOME_MODAL_FIELDS = {
-  titulo: { label: 'Título (use {server}, {count})', db: 'welcomeTitle', placeholder: '👋 Bem-vindo(a) ao {server}!',                   isUrl: false, isLong: false },
-  banner: { label: 'URL do banner',               db: 'welcomeBanner',  placeholder: 'https://... (deixe vazio para remover)',            isUrl: true,  isLong: false },
-  thumb:  { label: 'URL da thumbnail',            db: 'welcomeThumb',   placeholder: 'https://... (deixe vazio para avatar do usuário)', isUrl: true,  isLong: false },
-  rodape: { label: 'Rodapé (use {server}, {count})', db: 'welcomeFooter', placeholder: '{server} • Membro nº {count}',                  isUrl: false, isLong: false },
-  texto:  { label: 'Texto ({user} {username} {server} {count})', db: 'welcomeText', placeholder: '> Seja bem-vindo(a), {user}!', isUrl: false, isLong: true },
+  cor:    { label: 'Cor (hex, ex: 5865F2)',           db: 'welcomeColor',  placeholder: '5865F2 (deixe vazio para sem lateral)',          isUrl: false, isLong: false },
+  titulo: { label: 'Título (use {server}, {count})', db: 'welcomeTitle',  placeholder: '👋 Bem-vindo(a) ao {server}!',                   isUrl: false, isLong: false },
+  banner: { label: 'URL do banner',                  db: 'welcomeBanner', placeholder: 'https://... (deixe vazio para remover)',           isUrl: true,  isLong: false },
+  thumb:  { label: 'URL da thumbnail',               db: 'welcomeThumb',  placeholder: 'https://... (deixe vazio para avatar do usuário)', isUrl: true,  isLong: false },
+  rodape: { label: 'Rodapé (use {server}, {count})', db: 'welcomeFooter', placeholder: '{server} • Membro nº {count}',                   isUrl: false, isLong: false },
+  texto:  { label: 'Texto ({user} {username} {server} {count})', db: 'welcomeText', placeholder: '> Seja bem-vindo(a), {user}!',  isUrl: false, isLong: true },
 };
 
 const PARTNER_MODAL_FIELDS = {
@@ -1304,6 +1305,17 @@ export default {
             const cfg     = await getCfg(interaction.guildId);
             const payload = buildWelcomeConfigPayload(cfg);
             return interaction.update({ ...payload, content: null });
+          }
+
+          // ── Sem lateral (limpa cor) ────────────────────────────────────
+          if (field === 'sem_cor') {
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, welcomeColor: null },
+              update: { welcomeColor: null },
+            });
+            const cfg     = await getCfg(interaction.guildId);
+            return interaction.update({ ...buildWelcomeConfigPayload(cfg), content: null });
           }
 
           // ── Toggle divisória ───────────────────────────────────────────
