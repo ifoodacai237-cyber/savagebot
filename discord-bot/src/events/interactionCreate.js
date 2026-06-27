@@ -1309,13 +1309,14 @@ export default {
 
           // ── Sem lateral (limpa cor) ────────────────────────────────────
           if (field === 'sem_cor') {
+            await interaction.deferUpdate();
             await prisma.guildConfig.upsert({
               where:  { guildId: interaction.guildId },
               create: { guildId: interaction.guildId, welcomeColor: null },
               update: { welcomeColor: null },
             });
-            const cfg     = await getCfg(interaction.guildId);
-            return interaction.update({ ...buildWelcomeConfigPayload(cfg), content: null });
+            const cfg = await getCfg(interaction.guildId);
+            return interaction.editReply({ ...buildWelcomeConfigPayload(cfg), content: null });
           }
 
           // ── Toggle divisória ───────────────────────────────────────────

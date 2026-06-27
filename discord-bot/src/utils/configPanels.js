@@ -295,9 +295,13 @@ export function buildWelcomeV2(cfg, vars) {
     .replace(/\{server\}/g,   vars.server)
     .replace(/\{count\}/g,    vars.count);
 
+  const SEP = '──────────────────────────────────';
   const titleResolved = replaceVars(titulo);
-  const textResolved  = replaceVars(texto);
-  const sepLine = cfg.welcomeUseDivider ? '──────────────────────────────────\n\n' : '';
+  // Substitui {sep} no texto pelo caractere de divisória
+  const textResolved  = replaceVars(texto).replace(/\{sep\}/g, SEP);
+  // Se o texto já tem {sep} posicionado, não adiciona separador automático
+  const hasSepInText  = textResolved.includes(SEP);
+  const sepLine = (!hasSepInText && cfg.welcomeUseDivider) ? `${SEP}\n\n` : '';
   const fullText = `## ${titleResolved}\n\n${sepLine}${textResolved}`;
 
   const container = new ContainerBuilder();
@@ -353,7 +357,8 @@ export function buildWelcomeConfigPayload(cfg) {
     .setDescription(
       (enabled ? '✅ **Sistema ATIVO**' : '🔴 **Sistema DESATIVADO**') +
       '\nMensagem enviada como componente V2. Placeholders:\n' +
-      '`{user}` `{username}` `{server}` `{count}`',
+      '`{user}` `{username}` `{server}` `{count}`\n' +
+      '`{sep}` — divisória na posição que você quiser no texto',
     )
     .addFields(
       { name: '🎨 Cor',       value: cfg.welcomeColor  ? `\`#${cfg.welcomeColor}\`` : '*(sem lateral)*',   inline: true },
