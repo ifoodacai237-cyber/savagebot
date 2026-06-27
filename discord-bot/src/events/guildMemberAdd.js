@@ -29,7 +29,8 @@ export default {
       if (cfg.welcomeChannels) cfg.welcomeChannels.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<#${id}>`));
 
       const payload = buildWelcomeV2(cfg, vars);
-      await channel.send({ content: parts.join(' '), ...payload });
+      await channel.send({ content: parts.join(' ') });
+      await channel.send(payload);
     } catch (err) {
       console.error('[WELCOME] Erro ao enviar boas-vindas:', err.message);
     }
