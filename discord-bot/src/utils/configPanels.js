@@ -169,9 +169,11 @@ export function tellonymConfigButtons() {
 }
 
 export function welcomeConfigButtons(cfg = {}) {
-  const enabled  = cfg.welcomeEnabled ?? true;
-  const sepOn    = cfg.welcomeUseDivider ?? false;
-  const bannerPos = cfg.welcomeBannerPosition ?? 'top';
+  const enabled    = cfg.welcomeEnabled ?? true;
+  const sepOn      = cfg.welcomeUseDivider ?? false;
+  const bannerPos  = cfg.welcomeBannerPosition ?? 'top';
+  const showTitle  = cfg.welcomeShowTitle  ?? true;
+  const showAvatar = cfg.welcomeShowAvatar ?? true;
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('wcfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_sem_cor').setLabel('Sem Lateral').setEmoji('◻️').setStyle(ButtonStyle.Secondary),
@@ -189,14 +191,18 @@ export function welcomeConfigButtons(cfg = {}) {
   const row3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('wcfg_cargos').setLabel('Cargos').setEmoji('🔔').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('wcfg_canais').setLabel('Canais').setEmoji('🔗').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('wcfg_toggle_titulo').setLabel(showTitle ? 'Sem Título' : 'Com Título').setEmoji(showTitle ? '🔤' : '✖️').setStyle(showTitle ? ButtonStyle.Secondary : ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('wcfg_toggle_avatar').setLabel(showAvatar ? 'Sem Avatar' : 'Com Avatar').setEmoji(showAvatar ? '👤' : '✖️').setStyle(showAvatar ? ButtonStyle.Secondary : ButtonStyle.Danger),
     new ButtonBuilder().setCustomId('wcfg_test').setLabel('Testar').setEmoji('🧪').setStyle(ButtonStyle.Success),
+  );
+  const row4 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('wcfg_toggle')
-      .setLabel(enabled ? 'Desativar' : 'Ativar')
+      .setLabel(enabled ? 'Desativar Sistema' : 'Ativar Sistema')
       .setEmoji(enabled ? '🔴' : '🟢')
       .setStyle(enabled ? ButtonStyle.Danger : ButtonStyle.Success),
   );
-  return [row1, row2, row3];
+  return [row1, row2, row3, row4];
 }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -298,12 +304,16 @@ export function buildWelcomeV2(cfg, vars) {
     .replace(/\{server\}/g,   vars.server)
     .replace(/\{count\}/g,    vars.count);
 
+  const showTitle  = cfg.welcomeShowTitle  ?? true;
+  const showAvatar = cfg.welcomeShowAvatar ?? true;
+
   const SEP = '──────────────────────────────────';
   const titleResolved = replaceVars(titulo);
   const textResolved  = replaceVars(texto).replace(/\{sep\}/g, SEP);
   const hasSepInText  = textResolved.includes(SEP);
   const sepLine = (!hasSepInText && cfg.welcomeUseDivider) ? `${SEP}\n\n` : '';
-  const fullText = `## ${titleResolved}\n\n${sepLine}${textResolved}`;
+  const titleLine = showTitle ? `## ${titleResolved}\n\n` : '';
+  const fullText = `${titleLine}${sepLine}${textResolved}`;
 
   const container = new ContainerBuilder();
 
@@ -319,7 +329,7 @@ export function buildWelcomeV2(cfg, vars) {
     );
   }
 
-  const thumbUrl = cfg.welcomeThumb || vars.avatarUrl || null;
+  const thumbUrl = cfg.welcomeThumb || (showAvatar ? vars.avatarUrl : null) || null;
   if (thumbUrl) {
     const section = new SectionBuilder()
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText))
@@ -377,6 +387,8 @@ export function buildWelcomeConfigPayload(cfg) {
       { name: '📷 Thumbnail', value: cfg.welcomeThumb   ? '✅ definido' : '*(avatar do usuário)*',         inline: true },
       { name: '📣 Canal',     value: cfg.welcomeChannel ? `<#${cfg.welcomeChannel}>` : '*(não definido)*', inline: true },
       { name: '➖ Divisória',  value: sepOn ? '✅ Ativada' : '❌ Desativada',                               inline: true },
+      { name: '🔤 Título',    value: (cfg.welcomeShowTitle ?? true) ? '✅ Visível' : '❌ Oculto',           inline: true },
+      { name: '👤 Avatar',    value: (cfg.welcomeShowAvatar ?? true) ? '✅ Visível' : '❌ Oculto',          inline: true },
       { name: '🔔 Cargos',    value: rolesStr,                                                              inline: true },
       { name: '🔗 Canais',    value: chansStr,                                                              inline: true },
       { name: '✏️ Texto',     value: texto.length > 120  ? texto.slice(0, 117) + '...' : texto,            inline: false },

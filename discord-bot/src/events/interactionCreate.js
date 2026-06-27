@@ -1347,6 +1347,34 @@ export default {
             return interaction.editReply({ ...buildWelcomeConfigPayload(updated), content: null });
           }
 
+          // ── Toggle visibilidade do título ─────────────────────────────
+          if (field === 'toggle_titulo') {
+            await interaction.deferUpdate();
+            const cfg    = await getCfg(interaction.guildId);
+            const newVal = !(cfg.welcomeShowTitle ?? true);
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, welcomeShowTitle: newVal },
+              update: { welcomeShowTitle: newVal },
+            });
+            const updated = await getCfg(interaction.guildId);
+            return interaction.editReply({ ...buildWelcomeConfigPayload(updated), content: null });
+          }
+
+          // ── Toggle visibilidade do avatar ──────────────────────────────
+          if (field === 'toggle_avatar') {
+            await interaction.deferUpdate();
+            const cfg    = await getCfg(interaction.guildId);
+            const newVal = !(cfg.welcomeShowAvatar ?? true);
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, welcomeShowAvatar: newVal },
+              update: { welcomeShowAvatar: newVal },
+            });
+            const updated = await getCfg(interaction.guildId);
+            return interaction.editReply({ ...buildWelcomeConfigPayload(updated), content: null });
+          }
+
           if (field === 'toggle') {
             const cfg     = await getCfg(interaction.guildId);
             const newVal  = !(cfg.welcomeEnabled ?? true);

@@ -98,6 +98,8 @@ model GuildConfig {
   welcomeChannels       String?
   welcomeUseDivider     Boolean @default(false)
   welcomeBannerPosition String  @default("top")
+  welcomeShowTitle      Boolean @default(true)
+  welcomeShowAvatar     Boolean @default(true)
 
   partnerEnabled         Boolean @default(false)
   partnerChannel         String?
