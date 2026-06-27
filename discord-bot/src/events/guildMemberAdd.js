@@ -30,7 +30,10 @@ export default {
 
       const payload = buildWelcomeV2(cfg, vars);
       await channel.send({ content: parts.join(' ') });
-      await channel.send(payload);
+      const msg = await channel.send(payload);
+      if (cfg.welcomeDeleteAfter) {
+        setTimeout(() => msg.delete().catch(() => {}), cfg.welcomeDeleteAfter * 1000);
+      }
     } catch (err) {
       console.error('[WELCOME] Erro ao enviar boas-vindas:', err.message);
     }

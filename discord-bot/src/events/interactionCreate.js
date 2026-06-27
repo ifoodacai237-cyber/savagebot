@@ -25,7 +25,7 @@ import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, Colors } from '.
 import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoes.js';
 import { generateTellonymCard } from '../utils/cardGenerator.js';
 import { likesMap } from '../utils/instaState.js';
-import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, buildWelcomeV2, buildTicketPanelV2, buildTellonymPanelV2, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT } from '../utils/configPanels.js';
+import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, buildWelcomeV2, buildTicketPanelV2, buildTellonymPanelV2, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT, formatDeleteTime } from '../utils/configPanels.js';
 import { buildPartnerConfigPayload } from '../utils/partnershipPanels.js';
 import {
   getSession,
@@ -1298,14 +1298,35 @@ export default {
             if (cfg.welcomeChannels) cfg.welcomeChannels.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<#${id}>`));
             const payload = buildWelcomeV2(cfg, vars);
             await channel.send({ content: parts.join(' ') + ' *(teste)*' });
-            await channel.send(payload);
-            return interaction.editReply({ embeds: [successEmbed('Teste Enviado', `Mensagem de teste enviada em ${channel}.`)] });
+            const testMsg = await channel.send(payload);
+            if (cfg.welcomeDeleteAfter) {
+              setTimeout(() => testMsg.delete().catch(() => {}), cfg.welcomeDeleteAfter * 1000);
+            }
+            const deleteInfo = cfg.welcomeDeleteAfter ? ` (some em ${formatDeleteTime(cfg.welcomeDeleteAfter)})` : '';
+            return interaction.editReply({ embeds: [successEmbed('Teste Enviado', `Mensagem de teste enviada em ${channel}${deleteInfo}.`)] });
           }
 
           if (field === 'cancelar') {
             const cfg     = await getCfg(interaction.guildId);
             const payload = buildWelcomeConfigPayload(cfg);
             return interaction.update({ ...payload, content: null });
+          }
+
+          // ── Sumir automaticamente ─────────────────────────────────────
+          if (field === 'sumir') {
+            const cfg   = await getCfg(interaction.guildId);
+            const modal = new ModalBuilder().setCustomId('wcfg_modal_sumir').setTitle('⏱️ Sumir — Tempo');
+            modal.addComponents(new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('value')
+                .setLabel('Tempo em segundos (vazio = desativar)')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Ex: 30 (30s)  |  120 (2min)  |  vazio = desativar')
+                .setValue(cfg.welcomeDeleteAfter ? String(cfg.welcomeDeleteAfter) : '')
+                .setRequired(false)
+                .setMaxLength(6),
+            ));
+            return interaction.showModal(modal);
           }
 
           // ── Sem lateral (limpa cor) ────────────────────────────────────
@@ -2502,6 +2523,23 @@ export default {
           const cfg = await getCfg(interaction.guildId);
           await interaction.message?.edit(buildWelcomeConfigPayload(cfg)).catch(() => {});
           return interaction.reply({ content: ids ? '✅ Canais configurados!' : '✅ Canais removidos.', ephemeral: true });
+        }
+
+        // ── CONFIG: Boas-Vindas — salvar tempo de sumir ──────────────────
+        if (interaction.customId === 'wcfg_modal_sumir') {
+          const raw = interaction.fields.getTextInputValue('value').trim();
+          const secs = raw === '' ? null : parseInt(raw, 10);
+          if (raw !== '' && (isNaN(secs) || secs < 1 || secs > 86400)) {
+            return interaction.reply({ embeds: [errorEmbed('Valor inválido. Digite um número de **1** a **86400** (24h), ou deixe vazio para desativar.')], ephemeral: true });
+          }
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, welcomeDeleteAfter: secs },
+            update: { welcomeDeleteAfter: secs },
+          });
+          const cfg = await getCfg(interaction.guildId);
+          await interaction.message?.edit(buildWelcomeConfigPayload(cfg)).catch(() => {});
+          return interaction.reply({ content: secs ? `✅ Mensagem vai sumir após **${formatDeleteTime(secs)}**.` : '✅ Auto-deleção desativada.', ephemeral: true });
         }
 
         // ── CONFIG: Boas-Vindas — salvar campo modal ─────────────────────

@@ -168,6 +168,15 @@ export function tellonymConfigButtons() {
   return [row1, row2, row3];
 }
 
+export function formatDeleteTime(seconds) {
+  if (!seconds) return 'Desativado';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m === 0) return `${s}s`;
+  if (s === 0) return `${m}min`;
+  return `${m}min ${s}s`;
+}
+
 export function welcomeConfigButtons(cfg = {}) {
   const enabled    = cfg.welcomeEnabled ?? true;
   const sepOn      = cfg.welcomeUseDivider ?? false;
@@ -195,7 +204,10 @@ export function welcomeConfigButtons(cfg = {}) {
     new ButtonBuilder().setCustomId('wcfg_toggle_avatar').setLabel(showAvatar ? 'Sem Avatar' : 'Com Avatar').setEmoji(showAvatar ? '👤' : '✖️').setStyle(showAvatar ? ButtonStyle.Secondary : ButtonStyle.Danger),
     new ButtonBuilder().setCustomId('wcfg_test').setLabel('Testar').setEmoji('🧪').setStyle(ButtonStyle.Success),
   );
+  const deleteAfter = cfg.welcomeDeleteAfter ?? null;
+  const deleteLabel = deleteAfter ? `⏱️ Sumir: ${formatDeleteTime(deleteAfter)}` : '⏱️ Sumir: Desativado';
   const row4 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('wcfg_sumir').setLabel(deleteLabel).setStyle(deleteAfter ? ButtonStyle.Primary : ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('wcfg_toggle')
       .setLabel(enabled ? 'Desativar Sistema' : 'Ativar Sistema')
@@ -387,8 +399,9 @@ export function buildWelcomeConfigPayload(cfg) {
       { name: '📷 Thumbnail', value: cfg.welcomeThumb   ? '✅ definido' : '*(avatar do usuário)*',         inline: true },
       { name: '📣 Canal',     value: cfg.welcomeChannel ? `<#${cfg.welcomeChannel}>` : '*(não definido)*', inline: true },
       { name: '➖ Divisória',  value: sepOn ? '✅ Ativada' : '❌ Desativada',                               inline: true },
-      { name: '🔤 Título',    value: (cfg.welcomeShowTitle ?? true) ? '✅ Visível' : '❌ Oculto',           inline: true },
-      { name: '👤 Avatar',    value: (cfg.welcomeShowAvatar ?? true) ? '✅ Visível' : '❌ Oculto',          inline: true },
+      { name: '🔤 Título',    value: (cfg.welcomeShowTitle ?? true) ? '✅ Visível' : '❌ Oculto',                                        inline: true },
+      { name: '👤 Avatar',    value: (cfg.welcomeShowAvatar ?? true) ? '✅ Visível' : '❌ Oculto',                                       inline: true },
+      { name: '⏱️ Sumir',    value: cfg.welcomeDeleteAfter ? `Após **${formatDeleteTime(cfg.welcomeDeleteAfter)}**` : '*(desativado)*', inline: true },
       { name: '🔔 Cargos',    value: rolesStr,                                                              inline: true },
       { name: '🔗 Canais',    value: chansStr,                                                              inline: true },
       { name: '✏️ Texto',     value: texto.length > 120  ? texto.slice(0, 117) + '...' : texto,            inline: false },

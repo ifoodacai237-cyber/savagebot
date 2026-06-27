@@ -100,6 +100,7 @@ model GuildConfig {
   welcomeBannerPosition String  @default("top")
   welcomeShowTitle      Boolean @default(true)
   welcomeShowAvatar     Boolean @default(true)
+  welcomeDeleteAfter    Int?
 
   partnerEnabled         Boolean @default(false)
   partnerChannel         String?
