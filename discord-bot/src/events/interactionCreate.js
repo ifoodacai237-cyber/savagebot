@@ -195,7 +195,7 @@ const WELCOME_MODAL_FIELDS = {
   banner: { label: 'URL do banner',                  db: 'welcomeBanner', placeholder: 'https://... (deixe vazio para remover)',           isUrl: true,  isLong: false },
   thumb:  { label: 'URL da thumbnail',               db: 'welcomeThumb',  placeholder: 'https://... (deixe vazio para avatar do usuário)', isUrl: true,  isLong: false },
   rodape: { label: 'Rodapé (use {server}, {count})', db: 'welcomeFooter', placeholder: '{server} • Membro nº {count}',                   isUrl: false, isLong: false },
-  texto:  { label: 'Texto ({user} {username} {server} {count})', db: 'welcomeText', placeholder: '> Seja bem-vindo(a), {user}!',  isUrl: false, isLong: true },
+  texto:  { label: 'Texto livre — use {user} {count} e menções', db: 'welcomeText', placeholder: 'Ex: Bem-vindo {user}! Veja <#CANAL_ID> e pegue <@&CARGO_ID>', isUrl: false, isLong: true },
 };
 
 const PARTNER_MODAL_FIELDS = {
@@ -1331,6 +1331,20 @@ export default {
             });
             const updated = await getCfg(interaction.guildId);
             return interaction.update({ ...buildWelcomeConfigPayload(updated), content: null });
+          }
+
+          // ── Toggle posição do banner (cima/baixo) ─────────────────────
+          if (field === 'banner_pos') {
+            await interaction.deferUpdate();
+            const cfg    = await getCfg(interaction.guildId);
+            const newPos = (cfg.welcomeBannerPosition ?? 'top') === 'top' ? 'bottom' : 'top';
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, welcomeBannerPosition: newPos },
+              update: { welcomeBannerPosition: newPos },
+            });
+            const updated = await getCfg(interaction.guildId);
+            return interaction.editReply({ ...buildWelcomeConfigPayload(updated), content: null });
           }
 
           if (field === 'toggle') {

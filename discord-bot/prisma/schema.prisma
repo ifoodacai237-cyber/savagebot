@@ -94,9 +94,10 @@ model GuildConfig {
   welcomeFooter       String?
   welcomeTitle        String?
   welcomeText         String?
-  welcomeRoles        String?
-  welcomeChannels     String?
-  welcomeUseDivider   Boolean @default(false)
+  welcomeRoles          String?
+  welcomeChannels       String?
+  welcomeUseDivider     Boolean @default(false)
+  welcomeBannerPosition String  @default("top")
 
   partnerEnabled         Boolean @default(false)
   partnerChannel         String?

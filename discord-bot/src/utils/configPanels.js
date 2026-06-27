@@ -171,14 +171,16 @@ export function tellonymConfigButtons() {
 export function welcomeConfigButtons(cfg = {}) {
   const enabled  = cfg.welcomeEnabled ?? true;
   const sepOn    = cfg.welcomeUseDivider ?? false;
+  const bannerPos = cfg.welcomeBannerPosition ?? 'top';
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('wcfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_sem_cor').setLabel('Sem Lateral').setEmoji('◻️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_titulo').setLabel('Título').setEmoji('📝').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_banner').setLabel('Banner').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('wcfg_thumb').setLabel('Thumbnail').setEmoji('📷').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('wcfg_banner_pos').setLabel(bannerPos === 'top' ? 'Banner ⬆️ Cima' : 'Banner ⬇️ Baixo').setStyle(ButtonStyle.Secondary),
   );
   const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('wcfg_thumb').setLabel('Thumbnail').setEmoji('📷').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_rodape').setLabel('Rodapé').setEmoji('👇').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_texto').setLabel('Texto').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('wcfg_separador').setLabel('Divisória').setEmoji('➖').setStyle(sepOn ? ButtonStyle.Success : ButtonStyle.Secondary),
@@ -288,6 +290,7 @@ export function buildTellonymConfigPayload(cfg) {
 export function buildWelcomeV2(cfg, vars) {
   const titulo = cfg.welcomeTitle ?? DEFAULT_WELCOME_TITLE;
   const texto  = cfg.welcomeText  ?? DEFAULT_WELCOME_TEXT;
+  const bannerPos = cfg.welcomeBannerPosition ?? 'top';
 
   const replaceVars = str => str
     .replace(/\{user\}/g,     vars.user)
@@ -297,9 +300,7 @@ export function buildWelcomeV2(cfg, vars) {
 
   const SEP = '──────────────────────────────────';
   const titleResolved = replaceVars(titulo);
-  // Substitui {sep} no texto pelo caractere de divisória
   const textResolved  = replaceVars(texto).replace(/\{sep\}/g, SEP);
-  // Se o texto já tem {sep} posicionado, não adiciona separador automático
   const hasSepInText  = textResolved.includes(SEP);
   const sepLine = (!hasSepInText && cfg.welcomeUseDivider) ? `${SEP}\n\n` : '';
   const fullText = `## ${titleResolved}\n\n${sepLine}${textResolved}`;
@@ -311,7 +312,8 @@ export function buildWelcomeV2(cfg, vars) {
     if (!isNaN(parsed)) container.setAccentColor(parsed);
   }
 
-  if (cfg.welcomeBanner) {
+  // Banner no topo
+  if (cfg.welcomeBanner && bannerPos === 'top') {
     container.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(cfg.welcomeBanner)),
     );
@@ -325,6 +327,13 @@ export function buildWelcomeV2(cfg, vars) {
     container.addSectionComponents(section);
   } else {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText));
+  }
+
+  // Banner embaixo
+  if (cfg.welcomeBanner && bannerPos === 'bottom') {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(cfg.welcomeBanner)),
+    );
   }
 
   if (cfg.welcomeFooter) {
@@ -364,7 +373,7 @@ export function buildWelcomeConfigPayload(cfg) {
       { name: '🎨 Cor',       value: cfg.welcomeColor  ? `\`#${cfg.welcomeColor}\`` : '*(sem lateral)*',   inline: true },
       { name: '📝 Título',    value: titulo.length > 50 ? titulo.slice(0, 47) + '...' : titulo,            inline: true },
       { name: '👇 Rodapé',    value: cfg.welcomeFooter  || '*(não definido)*',                              inline: true },
-      { name: '🖼️ Banner',   value: cfg.welcomeBanner  ? '✅ definido' : '*(não definido)*',              inline: true },
+      { name: '🖼️ Banner',   value: cfg.welcomeBanner  ? `✅ definido — ${(cfg.welcomeBannerPosition ?? 'top') === 'top' ? '⬆️ cima' : '⬇️ baixo'}` : '*(não definido)*', inline: true },
       { name: '📷 Thumbnail', value: cfg.welcomeThumb   ? '✅ definido' : '*(avatar do usuário)*',         inline: true },
       { name: '📣 Canal',     value: cfg.welcomeChannel ? `<#${cfg.welcomeChannel}>` : '*(não definido)*', inline: true },
       { name: '➖ Divisória',  value: sepOn ? '✅ Ativada' : '❌ Desativada',                               inline: true },
