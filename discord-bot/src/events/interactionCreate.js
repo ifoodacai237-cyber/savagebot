@@ -1194,6 +1194,19 @@ export default {
             return interaction.update({ ...payload, content: null });
           }
 
+          // ── Toggle posição do banner (cima/baixo) ─────────────────────
+          if (field === 'banner_pos') {
+            const cfg    = await getCfg(interaction.guildId);
+            const newPos = (cfg.ticketBannerPosition ?? 'top') === 'top' ? 'bottom' : 'top';
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, ticketBannerPosition: newPos },
+              update: { ticketBannerPosition: newPos },
+            });
+            const updated = await getCfg(interaction.guildId);
+            return interaction.update({ ...buildTicketConfigPayload(updated), content: null });
+          }
+
           const def = TICKET_MODAL_FIELDS[field];
           if (!def) return;
 

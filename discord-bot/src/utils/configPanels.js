@@ -38,6 +38,7 @@ export function buildTicketOpenButton(cfg) {
 
 export function buildTicketPanelV2(cfg) {
   const container = new ContainerBuilder();
+  const bannerPos = cfg.ticketBannerPosition ?? 'top';
 
   // Só define accentColor se o admin configurou uma cor — sem cor = sem barra lateral
   if (cfg.ticketColor) {
@@ -53,7 +54,8 @@ export function buildTicketPanelV2(cfg) {
   const titleLine = cfg.ticketTitle ? `## ${cfg.ticketTitle}\n\n` : '';
   const fullText  = `${titleLine}${body}`;
 
-  if (cfg.ticketBanner) {
+  // Banner no topo
+  if (cfg.ticketBanner && bannerPos === 'top') {
     container.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(cfg.ticketBanner)),
     );
@@ -71,6 +73,13 @@ export function buildTicketPanelV2(cfg) {
   if (cfg.ticketFooter) {
     container.addSeparatorComponents(new SeparatorBuilder());
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${cfg.ticketFooter}`));
+  }
+
+  // Banner na base
+  if (cfg.ticketBanner && bannerPos === 'bottom') {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(cfg.ticketBanner)),
+    );
   }
 
   const row = new ActionRowBuilder().addComponents(buildTicketOpenButton(cfg));
@@ -125,6 +134,7 @@ export function buildTellonymPanelV2(cfg) {
 
 export function ticketConfigButtons(cfg = {}) {
   const sepEnabled = cfg.ticketUseSeparator ?? false;
+  const bannerPos  = cfg.ticketBannerPosition ?? 'top';
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('tcfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_sem_cor').setLabel('Sem Lateral').setEmoji('◻️').setStyle(ButtonStyle.Secondary),
@@ -144,9 +154,10 @@ export function ticketConfigButtons(cfg = {}) {
     new ButtonBuilder().setCustomId('tcfg_enviar').setLabel('Enviar Painel').setEmoji('🚀').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId('tcfg_ping').setLabel('Ping Cargos').setEmoji('🔔').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('tcfg_ping_user').setLabel('Ping Usuários').setEmoji('👤').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('tcfg_salvar').setLabel('Salvar Preset').setEmoji('💾').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('tcfg_banner_pos').setLabel(bannerPos === 'top' ? 'Banner ⬆️ Cima' : 'Banner ⬇️ Baixo').setStyle(ButtonStyle.Secondary),
   );
   const row4 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('tcfg_salvar').setLabel('Salvar Preset').setEmoji('💾').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_carregar').setLabel('Carregar Preset').setEmoji('📂').setStyle(ButtonStyle.Secondary),
   );
   return [row1, row2, row3, row4];
@@ -263,7 +274,7 @@ export function buildTicketConfigPayload(cfg) {
       { name: '🎨 Cor',          value: cfg.ticketColor  ? `\`#${cfg.ticketColor}\`` : '*(sem lateral)*', inline: true },
       { name: '📝 Título',       value: cfg.ticketTitle  || '*(não definido)*',                           inline: true },
       { name: '👇 Rodapé',       value: cfg.ticketFooter || '*(não definido)*',                           inline: true },
-      { name: '🖼️ Banner',      value: cfg.ticketBanner ? '✅ definido' : '*(não definido)*',            inline: true },
+      { name: '🖼️ Banner',      value: cfg.ticketBanner ? `✅ definido — ${(cfg.ticketBannerPosition ?? 'top') === 'top' ? '⬆️ cima' : '⬇️ baixo'}` : '*(não definido)*', inline: true },
       { name: '📷 Thumbnail',    value: cfg.ticketThumb  ? '✅ definido' : '*(não definido)*',            inline: true },
       { name: '📂 Categoria',    value: cfg.ticketCategory ? `<#${cfg.ticketCategory}>` : '*(não definido)*', inline: true },
       { name: '🔔 Ping Cargos',   value: cfg.ticketPingRole ? cfg.ticketPingRole.split(',').map(id => `<@&${id.trim()}>`).join(' ') : '*(desativado)*', inline: true },
