@@ -1300,17 +1300,20 @@ export default {
             if (cfg.welcomeChannels) cfg.welcomeChannels.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<#${id}>`));
             const payload = buildWelcomeV2(cfg, vars);
             try {
-              const testMsg = await channel.send({ content: parts.join(' ') + ' *(teste)*', ...payload });
+              // Discord não aceita content + IS_COMPONENTS_V2 juntos.
+              // Enviamos dois mensagens e deletamos as duas ao mesmo tempo.
+              const pingMsg  = await channel.send({ content: parts.join(' ') + ' *(teste)*' });
+              const embedMsg = await channel.send(payload);
               if (cfg.welcomeDeleteAfter) {
-                setTimeout(() => testMsg.delete().catch(() => {}), cfg.welcomeDeleteAfter * 1000);
+                setTimeout(() => {
+                  pingMsg.delete().catch(() => {});
+                  embedMsg.delete().catch(() => {});
+                }, cfg.welcomeDeleteAfter * 1000);
               }
               const deleteInfo = cfg.welcomeDeleteAfter ? ` (some em ${formatDeleteTime(cfg.welcomeDeleteAfter)})` : '';
               return interaction.editReply({ embeds: [successEmbed('Teste Enviado', `Mensagem de teste enviada em ${channel}${deleteInfo}.`)] });
             } catch (sendErr) {
-              const isPerms = sendErr?.code === 50013 || sendErr?.code === 50001;
-              const errMsg = isPerms
-                ? `Não foi possível enviar no canal ${channel}.\nVerifique as permissões do bot (**Enviar Mensagens**, **Usar Componentes V2**).`
-                : `Erro ao enviar no canal ${channel}: \`${sendErr?.message ?? sendErr}\``;
+              const errMsg = `Erro ao enviar no canal ${channel}: \`${sendErr?.message ?? sendErr}\``;
               return interaction.editReply({ embeds: [errorEmbed(errMsg)] });
             }
           }
