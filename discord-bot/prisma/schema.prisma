@@ -274,3 +274,55 @@ model PublishedMsgData {
   data      String
   createdAt DateTime @default(now())
 }
+
+model CopaConfig {
+  id                    Int      @id @default(1)
+  guildId               String   @default("")
+  announcementChannelId String   @default("")
+  enabled               Boolean  @default(false)
+  emojiHomeWin          String   @default("🏠")
+  emojiDraw             String   @default("🤝")
+  emojiAwayWin          String   @default("✈️")
+  pointsWin             Int      @default(3)
+  pointsDraw            Int      @default(1)
+  pointsExact           Int      @default(5)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model CopaMatch {
+  id         Int      @id @default(autoincrement())
+  teamA      String
+  teamB      String
+  teamAFlag  String   @default("")
+  teamBFlag  String   @default("")
+  matchDate  DateTime
+  phase      String   @default("Fase de Grupos")
+  group      String   @default("")
+  stadium    String   @default("")
+  bannerUrl  String   @default("")
+  channelId  String   @default("")
+  messageId  String   @default("")
+  status     String   @default("pending")
+  scoreA     Int?
+  scoreB     Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  predictions CopaPrediction[]
+}
+
+model CopaPrediction {
+  id              Int      @id @default(autoincrement())
+  matchId         Int
+  discordUserId   String
+  discordUsername String   @default("")
+  prediction      String
+  points          Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  match CopaMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, discordUserId])
+}

@@ -67,6 +67,7 @@ import {
   buildRPColorPicker,
   RP_COLOR_MAP,
 } from '../utils/rolePanelSessions.js';
+import { handleCopaInteraction, handleCopaModal, handleCopaChannelSelect } from '../utils/copaHandlers.js';
 
 // ─── Emoji resolver ───────────────────────────────────────────────────────────
 
@@ -353,6 +354,11 @@ export default {
       if (interaction.isChannelSelectMenu()) {
         const channelId = interaction.values[0];
 
+        // ── COPA: Canal de partidas ─────────────────────────────────────
+        if (interaction.customId === 'copa_chansel') {
+          return handleCopaChannelSelect(interaction);
+        }
+
         if (interaction.customId === 'chansel_wc') {
           await prisma.guildConfig.upsert({
             where:  { guildId: interaction.guildId },
@@ -486,6 +492,11 @@ export default {
         }
 
         // ── LOJA / PERFIL / ADMIN: Menus da loja e banner ──────────────────
+        // ── COPA: Selecionar partida ─────────────────────────────────────
+        if (interaction.customId === 'copa_match_sel') {
+          return handleCopaInteraction(interaction, client);
+        }
+
         if (
           interaction.customId.startsWith('shop_') ||
           interaction.customId.startsWith('profile_') ||
@@ -563,6 +574,11 @@ export default {
       // ── BUTTONS ────────────────────────────────────────────────────────────
       if (interaction.isButton()) {
         const { customId } = interaction;
+
+        // ── COPA: Palpites e painel ──────────────────────────────────────
+        if (customId.startsWith('copa_')) {
+          return handleCopaInteraction(interaction, client);
+        }
 
         // ── JOGOS: Blackjack / Mines ─────────────────────────────────────
         if (customId.startsWith('bj_hit_'))
@@ -2302,6 +2318,14 @@ export default {
 
       // ── MODALS ─────────────────────────────────────────────────────────────
       if (interaction.isModalSubmit()) {
+
+        // ── COPA: Modals ────────────────────────────────────────────────
+        if (
+          interaction.customId.startsWith('copa_modal_') ||
+          interaction.customId.startsWith('copa_modal_resultado:')
+        ) {
+          return handleCopaModal(interaction, client);
+        }
 
         // ── PAINEL DE CARGOS: Salvar texto ─────────────────────────────
         if (interaction.customId === 'rp_modal_text') {
