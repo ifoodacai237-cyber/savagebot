@@ -24,7 +24,7 @@ import { generateTranscript } from '../utils/transcript.js';
 import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, Colors } from '../utils/embed.js';
 import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoes.js';
 import { generateTellonymCard } from '../utils/cardGenerator.js';
-import { likesMap } from '../utils/instaState.js';
+import { likesMap, postDataMap } from '../utils/instaState.js';
 import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, buildWelcomeV2, buildTicketPanelV2, buildTellonymPanelV2, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT, formatDeleteTime } from '../utils/configPanels.js';
 import { buildPartnerConfigPayload } from '../utils/partnershipPanels.js';
 import {
@@ -707,6 +707,26 @@ export default {
           if (likes.has(interaction.user.id)) likes.delete(interaction.user.id);
           else likes.add(interaction.user.id);
 
+          const isV2 = interaction.message.flags?.has(MessageFlags.IsComponentsV2);
+          if (isV2) {
+            // Componentes V2: ActionRow está no topo junto ao Container
+            const allComps = interaction.message.components;
+            const arIdx    = allComps.findIndex(c => c.type === 1);
+            if (arIdx >= 0) {
+              const ar = allComps[arIdx];
+              const updatedRow = new ActionRowBuilder().addComponents(
+                ar.components.map(btn => {
+                  const b = ButtonBuilder.from(btn);
+                  if (btn.customId?.startsWith('insta_like_')) b.setLabel(String(likes.size));
+                  return b;
+                })
+              );
+              const newComps = [...allComps.slice(0, arIdx), updatedRow, ...allComps.slice(arIdx + 1)];
+              return interaction.update({ components: newComps, flags: MessageFlags.IsComponentsV2 });
+            }
+          }
+
+          // Fallback: formato antigo (sem V2)
           const comps   = interaction.message.components[0].components;
           const updated = new ActionRowBuilder().addComponents(
             ButtonBuilder.from(comps[0]).setLabel(String(likes.size)),
