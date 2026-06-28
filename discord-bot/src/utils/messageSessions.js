@@ -19,8 +19,10 @@ import {
 const sessions = new Map();
 
 // Guarda config dos menus publicados (messageId → selectMenu config)
-// Permite que o bot processe interações mesmo após publicar
 export const publishedMenus = new Map();
+
+// Guarda textos dos botões info (messageId → [texto0, texto1, ...])
+export const publishedInfoBtns = new Map();
 
 function key(userId, guildId) { return `${guildId}_${userId}`; }
 
@@ -76,17 +78,32 @@ function buildSection(blocks, color, headerText) {
   return embed;
 }
 
+const BTN_STYLE_FROM_KEY = {
+  azul:      ButtonStyle.Primary,
+  cinza:     ButtonStyle.Secondary,
+  verde:     ButtonStyle.Success,
+  vermelho:  ButtonStyle.Danger,
+};
+
+function resolveStyle(key) {
+  return BTN_STYLE_FROM_KEY[key?.toLowerCase()] ?? ButtonStyle.Secondary;
+}
+
 function buildPublishedButtonRow(msgButtons) {
   if (!msgButtons?.length) return null;
   const row = new ActionRowBuilder();
-  for (const btn of msgButtons.slice(0, 5)) {
+  for (const [i, btn] of msgButtons.slice(0, 5).entries()) {
     if (btn.type === 'role') {
       row.addComponents(
-        new ButtonBuilder().setCustomId(`msg_rb_${btn.roleId}`).setLabel(btn.label).setStyle(ButtonStyle.Primary)
+        new ButtonBuilder().setCustomId(`msg_rb_${btn.roleId}`).setLabel(btn.label).setStyle(resolveStyle(btn.style))
       );
     } else if (btn.type === 'link') {
       row.addComponents(
         new ButtonBuilder().setURL(btn.url).setLabel(btn.label).setStyle(ButtonStyle.Link)
+      );
+    } else if (btn.type === 'info') {
+      row.addComponents(
+        new ButtonBuilder().setCustomId(`msg_info_${i}`).setLabel(btn.label).setStyle(resolveStyle(btn.style))
       );
     }
   }
@@ -263,11 +280,22 @@ export function buildMsgMainControls(session) {
       new ButtonBuilder().setCustomId('msg_banner').setLabel('Banner').setStyle(ButtonStyle.Secondary).setEmoji('🖼️'),
       new ButtonBuilder().setCustomId('msg_thumb').setLabel('Miniatura').setStyle(ButtonStyle.Secondary).setEmoji('🔷'),
       new ButtonBuilder().setCustomId('msg_sep_img').setLabel('Imagem').setStyle(ButtonStyle.Secondary).setEmoji('🌄'),
+      new ButtonBuilder().setCustomId('msg_add_btn').setLabel('Botão').setStyle(ButtonStyle.Secondary).setEmoji('🔘').setDisabled(session.msgButtons.length >= 5),
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('msg_remove_last').setLabel('Remover Último').setStyle(ButtonStyle.Danger).setEmoji('🗑️').setDisabled(total === 0),
       new ButtonBuilder().setCustomId('msg_publish').setLabel('Publicar').setStyle(ButtonStyle.Success).setEmoji('✅').setDisabled(total === 0),
       new ButtonBuilder().setCustomId('msg_cancel').setLabel('Cancelar').setStyle(ButtonStyle.Danger).setEmoji('❌'),
+    ),
+  ];
+}
+
+export function buildMsgButtonTypeSelector() {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('msg_btn_info').setLabel('💬 Info (mostra texto)').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('msg_btn_link').setLabel('🔗 Link (abre URL)').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('msg_back').setLabel('Voltar').setStyle(ButtonStyle.Danger).setEmoji('↩️'),
     ),
   ];
 }

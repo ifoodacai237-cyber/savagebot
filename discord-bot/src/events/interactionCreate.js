@@ -49,12 +49,14 @@ import {
   deleteMsgSession,
   buildMsgPayload,
   buildMsgMainControls,
+  buildMsgButtonTypeSelector,
   buildCargoRoleSelector,
   buildMsgColorPicker,
   buildRoleSelector,
   MSG_COLOR_MAP,
   msgTotalCount,
   publishedMenus,
+  publishedInfoBtns,
 } from '../utils/messageSessions.js';
 import {
   getRPSession,
@@ -1797,6 +1799,46 @@ export default {
             return interaction.showModal(modal);
           }
 
+          // ── Adicionar Botão ───────────────────────────────────────────────
+          if (customId === 'msg_add_btn') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            return interaction.update({
+              content: '**💬 Montador de Mensagem**\n🔘 Que tipo de botão deseja adicionar?',
+              components: buildMsgButtonTypeSelector(),
+            });
+          }
+
+          if (customId === 'msg_btn_info') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            const modal = new ModalBuilder().setCustomId('msg_modal_btn_info').setTitle('💬 Botão — Info');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('btn_label').setLabel('Texto do botão (ex: regras)').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(80)
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('btn_text').setLabel('Texto ao clicar (mensagem privada)').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1000)
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('btn_style').setLabel('Cor: azul | cinza | verde | vermelho').setStyle(TextInputStyle.Short).setRequired(false).setPlaceholder('cinza').setMaxLength(10)
+              ),
+            );
+            return interaction.showModal(modal);
+          }
+
+          if (customId === 'msg_btn_link') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            const modal = new ModalBuilder().setCustomId('msg_modal_btn_link').setTitle('🔗 Botão — Link');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('btn_label').setLabel('Texto do botão (ex: diretrizes)').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(80)
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder().setCustomId('btn_url').setLabel('URL (https://...)').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(500).setPlaceholder('https://discord.com/channels/...')
+              ),
+            );
+            return interaction.showModal(modal);
+          }
+
           // ── Adicionar Cargos (menu dropdown automático) ───────────────────
           if (customId === 'msg_add_cargos') {
             if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
@@ -1834,9 +1876,13 @@ export default {
           if (customId === 'msg_publish') {
             if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
             if (msgTotalCount(session) === 0) return interaction.reply({ content: '❌ Adicione pelo menos um item antes de publicar.', ephemeral: true });
-            // Salva config do menu publicado (persiste interações após publicar)
             if (session.selectMenu?.options?.length > 0) {
               publishedMenus.set(session.previewMessageId, session.selectMenu);
+            }
+            // Salva textos dos botões info para uso após publicar
+            const infoBtns = session.msgButtons.filter(b => b.type === 'info');
+            if (infoBtns.length > 0) {
+              publishedInfoBtns.set(session.previewMessageId, session.msgButtons.map(b => b.type === 'info' ? b.text : null));
             }
             deleteMsgSession(interaction.user.id, interaction.guildId);
             return interaction.update({
@@ -1859,6 +1905,15 @@ export default {
             return interaction.update({ content: '❌ **Montagem cancelada.** A pré-visualização foi removida.', components: [] });
           }
 
+          // ── Voltar ao painel principal ─────────────────────────────────────
+          if (customId === 'msg_back') {
+            if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
+            return interaction.update({
+              content: `**💬 Montador de Mensagem**\nTotal: **${msgTotalCount(session)}** item(s).`,
+              components: buildMsgMainControls(session),
+            });
+          }
+
           // ── Botão de Cargo publicado (toggle role) ────────────────────────
           if (customId.startsWith('msg_rb_')) {
             const roleId = customId.replace('msg_rb_', '');
@@ -1875,6 +1930,16 @@ export default {
             } catch {
               return interaction.reply({ content: '❌ Sem permissão para gerenciar esse cargo.', ephemeral: true });
             }
+          }
+
+          // ── Botão Info publicado (mostra texto ephemeral) ─────────────────
+          if (customId.startsWith('msg_info_')) {
+            const idx = parseInt(customId.replace('msg_info_', ''), 10);
+            const msgId = interaction.message?.id;
+            const texts = msgId ? publishedInfoBtns.get(msgId) : null;
+            const text = texts?.[idx];
+            if (!text) return interaction.reply({ content: '❌ Informação não encontrada.', ephemeral: true });
+            return interaction.reply({ content: text, ephemeral: true });
           }
         }
 
@@ -2725,6 +2790,23 @@ export default {
           if (mid === 'msg_modal_thumb') {
             const url = interaction.fields.getTextInputValue('thumb_url').trim();
             session.thumbnail = url.startsWith('http') ? url : null;
+          }
+
+          if (mid === 'msg_modal_btn_info') {
+            const label = interaction.fields.getTextInputValue('btn_label').trim();
+            const text  = interaction.fields.getTextInputValue('btn_text').trim();
+            const style = interaction.fields.getTextInputValue('btn_style').trim() || 'cinza';
+            if (label && text && session.msgButtons.length < 5) {
+              session.msgButtons.push({ type: 'info', label, text, style });
+            }
+          }
+
+          if (mid === 'msg_modal_btn_link') {
+            const label = interaction.fields.getTextInputValue('btn_label').trim();
+            const url   = interaction.fields.getTextInputValue('btn_url').trim();
+            if (label && url.startsWith('http') && session.msgButtons.length < 5) {
+              session.msgButtons.push({ type: 'link', label, url });
+            }
           }
 
           await refreshMsgPreview(session, interaction.guild);
