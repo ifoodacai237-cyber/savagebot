@@ -188,7 +188,7 @@ const TELLONYM_MODAL_FIELDS = {
   banner: { label: 'URL da imagem do banner',    db: 'tellonymBanner', placeholder: 'https://... ou discord.com/channels/... (deixe vazio para remover)', isUrl: true, isLong: false },
   thumb:  { label: 'URL da thumbnail',           db: 'tellonymThumb',  placeholder: 'https://... ou discord.com/channels/... (deixe vazio para remover)', isUrl: true, isLong: false },
   rodape: { label: 'Texto do rodapé',            db: 'tellonymFooter', placeholder: 'Fallen Bot · Tellonym (deixe vazio para remover)',  isUrl: false, isLong: false },
-  texto:  { label: 'Texto principal do painel',  db: 'tellonymText',   placeholder: 'Clique no botão para enviar uma mensagem... (deixe vazio para padrão)', isUrl: false, isLong: true },
+  texto:  { label: 'Texto principal do painel',  db: 'tellonymText',   placeholder: 'Clique no botão para enviar uma mensagem... (deixe vazio para remover o texto)', isUrl: false, isLong: true },
 };
 
 const WELCOME_MODAL_FIELDS = {
@@ -2624,7 +2624,8 @@ export default {
           }
 
           if (isEmpty) {
-            value = null;
+            // Para o campo texto do tellonym: vazio = remover texto (armazena ''), não volta ao padrão
+            value = (field === 'texto') ? '' : null;
           } else if (field === 'cor') {
             value = value.replace('#', '').toUpperCase();
           }
