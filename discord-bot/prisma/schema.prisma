@@ -264,3 +264,53 @@ model CustomBanner {
 
   @@unique([guildId, key])
 }
+model CopaConfig {
+  id                    Int      @id @default(autoincrement())
+  guildId               String   @unique
+  categoryId            String   @default("")
+  announcementChannelId String   @default("")
+  enabled               Boolean  @default(false)
+  emojiHomeWin          String   @default("🏠")
+  emojiDraw             String   @default("🤝")
+  emojiAwayWin          String   @default("✈️")
+  defaultBannerUrl      String   @default("")
+  updatedAt             DateTime @updatedAt
+}
+
+model CopaMatch {
+  id          Int      @id @default(autoincrement())
+  guildId     String   @default("")
+  teamA       String
+  teamB       String
+  teamAEmoji  String   @default("")
+  teamBEmoji  String   @default("")
+  matchDate   DateTime
+  phase       String   @default("Fase de Grupos")
+  group       String   @default("")
+  stadium     String   @default("")
+  bannerUrl   String   @default("")
+  channelId   String   @default("")
+  messageId   String   @default("")
+  status      String   @default("pending")
+  scoreA      Int?
+  scoreB      Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  predictions CopaPrediction[]
+}
+
+model CopaPrediction {
+  id              Int      @id @default(autoincrement())
+  matchId         Int
+  match           CopaMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  discordUserId   String
+  discordUsername String   @default("")
+  prediction      String
+  scoreA          Int?
+  scoreB          Int?
+  points          Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([matchId, discordUserId])
+}
