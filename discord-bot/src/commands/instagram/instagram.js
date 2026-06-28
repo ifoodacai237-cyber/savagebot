@@ -22,9 +22,18 @@ export default {
         .addStringOption(o => o.setName('hex').setDescription('Cor hex, ex: E1306C ou #833AB4').setRequired(true))
     )
     .addSubcommand(sub =>
+      sub.setName('sem-cor')
+        .setDescription('Remove a barra lateral de cor dos posts')
+    )
+    .addSubcommand(sub =>
       sub.setName('emoji')
         .setDescription('Altera o emoji do botão de curtir')
         .addStringOption(o => o.setName('emoji').setDescription('Emoji para curtir (ex: ❤️ 🔥 👍)').setRequired(true))
+    )
+    .addSubcommand(sub =>
+      sub.setName('handle')
+        .setDescription('Define o @ do Instagram do servidor (exibe botão de link nos posts)')
+        .addStringOption(o => o.setName('arroba').setDescription('@ do Instagram, ex: fallen.angels ou @fallen.angels').setRequired(false))
     )
     .addSubcommand(sub =>
       sub.setName('perfil')
@@ -69,6 +78,29 @@ export default {
         update: { instaColor: m[1].toUpperCase() },
       });
       return interaction.reply({ embeds: [successEmbed('Cor Atualizada', `A cor dos posts foi alterada para **#${m[1].toUpperCase()}**.`)], ephemeral: true });
+    }
+
+    if (sub === 'sem-cor') {
+      await prisma.guildConfig.upsert({
+        where:  { guildId: interaction.guildId },
+        create: { guildId: interaction.guildId, instaColor: null },
+        update: { instaColor: null },
+      });
+      return interaction.reply({ embeds: [successEmbed('Lateral Removida', 'Os posts não terão mais barra lateral de cor.')], ephemeral: true });
+    }
+
+    if (sub === 'handle') {
+      const raw    = interaction.options.getString('arroba')?.trim() ?? null;
+      const handle = raw ? raw.replace(/^@/, '') : null;
+      await prisma.guildConfig.upsert({
+        where:  { guildId: interaction.guildId },
+        create: { guildId: interaction.guildId, instaHandle: handle },
+        update: { instaHandle: handle },
+      });
+      if (handle) {
+        return interaction.reply({ embeds: [successEmbed('Handle Configurado', `Os posts terão um botão de link para **instagram.com/${handle}**.`)], ephemeral: true });
+      }
+      return interaction.reply({ embeds: [successEmbed('Handle Removido', 'O botão de link do Instagram foi removido dos posts.')], ephemeral: true });
     }
 
     if (sub === 'emoji') {
