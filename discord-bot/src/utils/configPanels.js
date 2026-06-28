@@ -110,9 +110,11 @@ export function buildTellonymPanelV2(cfg) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${cfg.tellonymFooter}`));
   }
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('tellonym_send').setLabel('Enviar Mensagem').setEmoji('💌').setStyle(ButtonStyle.Secondary),
-  );
+  const btnLabel = cfg.tellonymBtnLabel?.trim() || 'Enviar Mensagem';
+  const btnEmoji = cfg.tellonymBtnEmoji?.trim() || '💌';
+  const sendBtn = new ButtonBuilder().setCustomId('tellonym_send').setLabel(btnLabel).setStyle(ButtonStyle.Secondary);
+  try { sendBtn.setEmoji(btnEmoji); } catch { sendBtn.setEmoji('💌'); }
+  const row = new ActionRowBuilder().addComponents(sendBtn);
   return { components: [container, row], flags: MessageFlags.IsComponentsV2 };
 }
 
@@ -158,6 +160,7 @@ export function tellonymConfigButtons() {
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('tncfg_rodape').setLabel('Rodapé').setEmoji('👇').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tncfg_texto').setLabel('Texto').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('tncfg_botao').setLabel('Botão').setEmoji('🔘').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tncfg_canal').setLabel('Canal').setEmoji('📣').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('tncfg_enviar').setLabel('Enviar Painel').setEmoji('🚀').setStyle(ButtonStyle.Success),
   );
