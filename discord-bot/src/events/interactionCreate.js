@@ -1298,12 +1298,7 @@ export default {
             const parts = [`<@${member.id}>`];
             if (cfg.welcomeRoles)    cfg.welcomeRoles.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<@&${id}>`));
             if (cfg.welcomeChannels) cfg.welcomeChannels.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<#${id}>`));
-            let payload;
-            try {
-              payload = buildWelcomeV2(cfg, vars);
-            } catch (err) {
-              return interaction.editReply({ embeds: [errorEmbed(`Erro ao montar a mensagem de boas-vindas: ${err.message}`)] });
-            }
+            const payload = buildWelcomeV2(cfg, vars);
             try {
               const testMsg = await channel.send({ content: parts.join(' ') + ' *(teste)*', ...payload });
               if (cfg.welcomeDeleteAfter) {
@@ -1311,8 +1306,12 @@ export default {
               }
               const deleteInfo = cfg.welcomeDeleteAfter ? ` (some em ${formatDeleteTime(cfg.welcomeDeleteAfter)})` : '';
               return interaction.editReply({ embeds: [successEmbed('Teste Enviado', `Mensagem de teste enviada em ${channel}${deleteInfo}.`)] });
-            } catch (err) {
-              return interaction.editReply({ embeds: [errorEmbed(`Não foi possível enviar no canal ${channel}. Verifique as permissões do bot (Enviar Mensagens, Usar Componentes V2).`)] });
+            } catch (sendErr) {
+              const isPerms = sendErr?.code === 50013 || sendErr?.code === 50001;
+              const errMsg = isPerms
+                ? `Não foi possível enviar no canal ${channel}.\nVerifique as permissões do bot (**Enviar Mensagens**, **Usar Componentes V2**).`
+                : `Erro ao enviar no canal ${channel}: \`${sendErr?.message ?? sendErr}\``;
+              return interaction.editReply({ embeds: [errorEmbed(errMsg)] });
             }
           }
 
