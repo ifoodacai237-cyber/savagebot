@@ -4,9 +4,16 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SectionBuilder,
+  ThumbnailBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
+  MessageFlags,
 } from 'discord.js';
 import prisma from '../database/client.js';
-import { likesMap, threadsMap } from '../utils/instaState.js';
+import { likesMap, threadsMap, postDataMap } from '../utils/instaState.js';
 import { buildPartnershipPost } from '../utils/partnershipPanels.js';
 
 const PREFIX = 'fallen ';
@@ -167,10 +174,69 @@ export default {
       }
 
       if (cfg?.instaChannel && message.channelId === cfg.instaChannel && message.attachments.size > 0) {
-        const color      = parseInt(cfg.instaColor ?? '833AB4', 16);
-        const likeEmoji  = parseEmoji(cfg.instaEmoji ?? '💜');
+        const accentColor = cfg.instaColor ? parseInt(cfg.instaColor, 16) : null;
+        const likeEmoji   = parseEmoji(cfg.instaEmoji ?? '💜');
+        const instaHandle = cfg.instaHandle ?? null;
 
-        // Pré-busca todos os arquivos de imagem ANTES de deletar a mensagem original
+        // Helpers para montar o Container e o ActionRow
+        function buildInstaContainer({ authorName, authorAvatar, content, accentColor: ac, imageUrl }) {
+          const c = new ContainerBuilder();
+          if (ac !== null && ac !== undefined) c.setAccentColor(ac);
+          const headerText = content ? `### ${authorName}\n${content}` : `### ${authorName}`;
+          c.addSectionComponents(
+            new SectionBuilder()
+              .addTextDisplayComponents(new TextDisplayBuilder().setContent(headerText))
+              .setThumbnailAccessory(new ThumbnailBuilder().setURL(authorAvatar))
+          );
+          if (imageUrl) {
+            c.addMediaGalleryComponents(
+              new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(imageUrl))
+            );
+          }
+          return c;
+        }
+
+        function buildInstaActionRow({ postId, likeEmoji: emoji, likesCount, threadId, instaHandle: handle, authorId }) {
+          const buttons = [
+            new ButtonBuilder()
+              .setCustomId(`insta_like_${postId}`)
+              .setEmoji(emoji)
+              .setLabel(String(likesCount))
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId(`insta_who_${postId}`)
+              .setEmoji('👁️')
+              .setLabel('Curtidas')
+              .setStyle(ButtonStyle.Secondary),
+          ];
+          if (threadId) {
+            buttons.push(
+              new ButtonBuilder()
+                .setCustomId(`insta_comment_${threadId}`)
+                .setEmoji('💬')
+                .setLabel('Comentar')
+                .setStyle(ButtonStyle.Secondary)
+            );
+          }
+          if (handle) {
+            buttons.push(
+              new ButtonBuilder()
+                .setStyle(ButtonStyle.Link)
+                .setURL(`https://www.instagram.com/${handle}/`)
+                .setEmoji('📸')
+                .setLabel(`@${handle}`)
+            );
+          }
+          buttons.push(
+            new ButtonBuilder()
+              .setCustomId(`insta_del_${postId}_${authorId}`)
+              .setEmoji('🗑️')
+              .setStyle(ButtonStyle.Danger)
+          );
+          return new ActionRowBuilder().addComponents(buttons);
+        }
+
+        // Pré-busca todos os arquivos ANTES de deletar a mensagem original
         const attachmentFiles = [];
         for (const attachment of message.attachments.values()) {
           const isImage = attachment.contentType?.startsWith('image/');
@@ -198,45 +264,50 @@ export default {
         try { await message.delete(); } catch {}
 
         for (const { attachment, isImage, isVideo, imageBuf, ext } of attachmentFiles) {
-          const postId       = `${message.id}_${attachment.id}`;
-          const authorName   = message.member?.displayName ?? message.author.username;
+          const postId     = `${message.id}_${attachment.id}`;
+          const authorName = message.member?.displayName ?? message.author.username;
           const authorAvatar = message.author.displayAvatarURL({ size: 64 });
+          const content    = message.content || null;
 
-          const embed = new EmbedBuilder()
-            .setColor(color)
-            .setAuthor({ name: authorName, iconURL: authorAvatar })
-            .setTimestamp();
-
-          if (message.content) embed.setDescription(message.content);
-
-          // Monta o arquivo para re-upload (persiste independente da mensagem original)
+          // Monta arquivo para re-upload (imagem) ou usa URL para vídeo
           let files = [];
+          let initialImageUrl = null;
+
           if (isImage && imageBuf) {
             const fileName = `post_${Date.now()}.${ext}`;
             files = [new AttachmentBuilder(imageBuf, { name: fileName })];
-            embed.setImage(`attachment://${fileName}`);
+            initialImageUrl = `attachment://${fileName}`;
           } else if (isImage) {
-            // fallback se o fetch falhou
-            embed.setImage(attachment.proxyURL || attachment.url);
+            initialImageUrl = attachment.proxyURL || attachment.url;
           }
+          // Vídeo: attachment vai automaticamente junto com a mensagem V2
 
-          // Inicializa set de likes em memória
           likesMap.set(postId, new Set());
 
-          // Botões base (sem Comentar ainda)
-          const baseRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId(`insta_like_${postId}`)
-              .setEmoji(likeEmoji)
-              .setLabel('0')
-              .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-              .setCustomId(`insta_del_${postId}_${message.author.id}`)
-              .setEmoji('🗑️')
-              .setStyle(ButtonStyle.Danger),
-          );
+          const containerOpts = { authorName, authorAvatar, content, accentColor, imageUrl: initialImageUrl };
+          const post = await message.channel.send({
+            components: [
+              buildInstaContainer(containerOpts),
+              buildInstaActionRow({ postId, likeEmoji, likesCount: 0, threadId: null, instaHandle, authorId: message.author.id }),
+            ],
+            files,
+            flags: MessageFlags.IsComponentsV2,
+          });
 
-          const post = await message.channel.send({ embeds: [embed], files, components: [baseRow] });
+          // Após o envio, pega a URL CDN real do attachment para usar nos edits futuros
+          const cdnImageUrl = post.attachments.first()?.url ?? initialImageUrl;
+
+          // Armazena dados do post para reuso no handler de likes
+          postDataMap.set(postId, {
+            authorName,
+            authorAvatar,
+            content,
+            accentColor,
+            likeEmoji,
+            instaHandle,
+            authorId: message.author.id,
+            cdnImageUrl,
+          });
 
           // Cria thread de comentários e atualiza botões com "Comentar"
           try {
@@ -244,27 +315,16 @@ export default {
               name: `Comentários · ${authorName}`,
               autoArchiveDuration: 1440,
             });
-
             threadsMap.set(postId, thread.id);
 
-            const rowWithComment = new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId(`insta_like_${postId}`)
-                .setEmoji(likeEmoji)
-                .setLabel('0')
-                .setStyle(ButtonStyle.Secondary),
-              new ButtonBuilder()
-                .setCustomId(`insta_comment_${thread.id}`)
-                .setEmoji('💬')
-                .setLabel('Comentar')
-                .setStyle(ButtonStyle.Secondary),
-              new ButtonBuilder()
-                .setCustomId(`insta_del_${postId}_${message.author.id}`)
-                .setEmoji('🗑️')
-                .setStyle(ButtonStyle.Danger),
-            );
-
-            await post.edit({ components: [rowWithComment] });
+            const editContainerOpts = { authorName, authorAvatar, content, accentColor, imageUrl: cdnImageUrl };
+            await post.edit({
+              components: [
+                buildInstaContainer(editContainerOpts),
+                buildInstaActionRow({ postId, likeEmoji, likesCount: 0, threadId: thread.id, instaHandle, authorId: message.author.id }),
+              ],
+              flags: MessageFlags.IsComponentsV2,
+            });
           } catch (e) {
             console.error('[INSTA THREAD]', e.message);
           }
