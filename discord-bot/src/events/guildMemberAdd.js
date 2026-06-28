@@ -29,8 +29,7 @@ export default {
       if (cfg.welcomeChannels) cfg.welcomeChannels.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<#${id}>`));
 
       const payload = buildWelcomeV2(cfg, vars);
-      await channel.send({ content: parts.join(' ') });
-      const msg = await channel.send(payload);
+      const msg = await channel.send({ content: parts.join(' '), ...payload });
       if (cfg.welcomeDeleteAfter) {
         setTimeout(() => msg.delete().catch(() => {}), cfg.welcomeDeleteAfter * 1000);
       }

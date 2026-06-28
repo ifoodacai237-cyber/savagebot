@@ -1297,8 +1297,7 @@ export default {
             if (cfg.welcomeRoles)    cfg.welcomeRoles.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<@&${id}>`));
             if (cfg.welcomeChannels) cfg.welcomeChannels.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<#${id}>`));
             const payload = buildWelcomeV2(cfg, vars);
-            await channel.send({ content: parts.join(' ') + ' *(teste)*' });
-            const testMsg = await channel.send(payload);
+            const testMsg = await channel.send({ content: parts.join(' ') + ' *(teste)*', ...payload });
             if (cfg.welcomeDeleteAfter) {
               setTimeout(() => testMsg.delete().catch(() => {}), cfg.welcomeDeleteAfter * 1000);
             }
