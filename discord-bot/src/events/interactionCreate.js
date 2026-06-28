@@ -1298,13 +1298,22 @@ export default {
             const parts = [`<@${member.id}>`];
             if (cfg.welcomeRoles)    cfg.welcomeRoles.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<@&${id}>`));
             if (cfg.welcomeChannels) cfg.welcomeChannels.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<#${id}>`));
-            const payload = buildWelcomeV2(cfg, vars);
-            const testMsg = await channel.send({ content: parts.join(' ') + ' *(teste)*', ...payload });
-            if (cfg.welcomeDeleteAfter) {
-              setTimeout(() => testMsg.delete().catch(() => {}), cfg.welcomeDeleteAfter * 1000);
+            let payload;
+            try {
+              payload = buildWelcomeV2(cfg, vars);
+            } catch (err) {
+              return interaction.editReply({ embeds: [errorEmbed(`Erro ao montar a mensagem de boas-vindas: ${err.message}`)] });
             }
-            const deleteInfo = cfg.welcomeDeleteAfter ? ` (some em ${formatDeleteTime(cfg.welcomeDeleteAfter)})` : '';
-            return interaction.editReply({ embeds: [successEmbed('Teste Enviado', `Mensagem de teste enviada em ${channel}${deleteInfo}.`)] });
+            try {
+              const testMsg = await channel.send({ content: parts.join(' ') + ' *(teste)*', ...payload });
+              if (cfg.welcomeDeleteAfter) {
+                setTimeout(() => testMsg.delete().catch(() => {}), cfg.welcomeDeleteAfter * 1000);
+              }
+              const deleteInfo = cfg.welcomeDeleteAfter ? ` (some em ${formatDeleteTime(cfg.welcomeDeleteAfter)})` : '';
+              return interaction.editReply({ embeds: [successEmbed('Teste Enviado', `Mensagem de teste enviada em ${channel}${deleteInfo}.`)] });
+            } catch (err) {
+              return interaction.editReply({ embeds: [errorEmbed(`Não foi possível enviar no canal ${channel}. Verifique as permissões do bot (Enviar Mensagens, Usar Componentes V2).`)] });
+            }
           }
 
           if (field === 'cancelar') {
