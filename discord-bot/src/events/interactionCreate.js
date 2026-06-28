@@ -555,8 +555,8 @@ export default {
 
       // ── BUTTONS ────────────────────────────────────────────────────────────
       if (interaction.isButton()) {
-        if (customId.startsWith('copa_')) return handleCopaInteraction(interaction, client);
         const { customId } = interaction;
+        if (customId.startsWith('copa_')) return handleCopaInteraction(interaction, client);
 
         // ── JOGOS: Blackjack / Mines ─────────────────────────────────────
         if (customId.startsWith('bj_hit_'))
