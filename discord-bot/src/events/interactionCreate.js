@@ -331,7 +331,15 @@ export default {
 
           if (value.startsWith('t:')) {
             const idx    = parseInt(value.slice(2), 10);
-            const config = publishedMenus.get(interaction.message.id);
+            const msgId  = interaction.message.id;
+            let config = publishedMenus.get(msgId);
+            if (!config) {
+              const row = await prisma.publishedMsgData.findUnique({ where: { messageId: msgId } }).catch(() => null);
+              if (row) {
+                try { const parsed = JSON.parse(row.data); config = parsed.selectMenu ?? null; } catch {}
+                if (config) publishedMenus.set(msgId, config);
+              }
+            }
             const opt    = config?.options?.[idx];
             const reply  = opt?.replyText || `✅ **${opt?.label ?? 'Opção'}** selecionada!`;
             return interaction.reply({ content: reply, ephemeral: true });
@@ -1252,6 +1260,36 @@ export default {
             });
           }
 
+          if (field === 'botao') {
+            const cfg = await getCfg(interaction.guildId);
+            const modal = new ModalBuilder()
+              .setCustomId('tncfg_modal_botao')
+              .setTitle('🔘 Tellonym — Botão do Painel');
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('btn_label')
+                  .setLabel('Texto do botão')
+                  .setStyle(TextInputStyle.Short)
+                  .setPlaceholder('Ex: Enviar Mensagem')
+                  .setValue(cfg.tellonymBtnLabel ?? '')
+                  .setRequired(false)
+                  .setMaxLength(80)
+              ),
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId('btn_emoji')
+                  .setLabel('Emoji do botão')
+                  .setStyle(TextInputStyle.Short)
+                  .setPlaceholder('Ex: 💌 ou <:nome:123456789>')
+                  .setValue(cfg.tellonymBtnEmoji ?? '')
+                  .setRequired(false)
+                  .setMaxLength(100)
+              ),
+            );
+            return interaction.showModal(modal);
+          }
+
           const def = TELLONYM_MODAL_FIELDS[field];
           if (!def) return;
 
@@ -1887,13 +1925,22 @@ export default {
           if (customId === 'msg_publish') {
             if (!session) return interaction.reply({ content: '❌ Sessão expirada.', ephemeral: true });
             if (msgTotalCount(session) === 0) return interaction.reply({ content: '❌ Adicione pelo menos um item antes de publicar.', ephemeral: true });
+            const persistData = {};
             if (session.selectMenu?.options?.length > 0) {
               publishedMenus.set(session.previewMessageId, session.selectMenu);
+              persistData.selectMenu = session.selectMenu;
             }
-            // Salva textos dos botões info para uso após publicar
-            const infoBtns = session.msgButtons.filter(b => b.type === 'info');
-            if (infoBtns.length > 0) {
-              publishedInfoBtns.set(session.previewMessageId, session.msgButtons.map(b => b.type === 'info' ? b.text : null));
+            const infoBtnsArr = session.msgButtons.map(b => b.type === 'info' ? b.text : null);
+            if (session.msgButtons.some(b => b.type === 'info')) {
+              publishedInfoBtns.set(session.previewMessageId, infoBtnsArr);
+              persistData.infoBtns = infoBtnsArr;
+            }
+            if (Object.keys(persistData).length > 0) {
+              await prisma.publishedMsgData.upsert({
+                where:  { messageId: session.previewMessageId },
+                create: { messageId: session.previewMessageId, guildId: interaction.guildId, data: JSON.stringify(persistData) },
+                update: { data: JSON.stringify(persistData) },
+              }).catch(() => {});
             }
             deleteMsgSession(interaction.user.id, interaction.guildId);
             return interaction.update({
@@ -1947,7 +1994,14 @@ export default {
           if (customId.startsWith('msg_info_')) {
             const idx = parseInt(customId.replace('msg_info_', ''), 10);
             const msgId = interaction.message?.id;
-            const texts = msgId ? publishedInfoBtns.get(msgId) : null;
+            let texts = msgId ? publishedInfoBtns.get(msgId) : null;
+            if (!texts && msgId) {
+              const row = await prisma.publishedMsgData.findUnique({ where: { messageId: msgId } }).catch(() => null);
+              if (row) {
+                try { const parsed = JSON.parse(row.data); texts = parsed.infoBtns ?? null; } catch {}
+                if (texts) publishedInfoBtns.set(msgId, texts);
+              }
+            }
             const text = texts?.[idx];
             if (!text) return interaction.reply({ content: '❌ Informação não encontrada.', ephemeral: true });
             return interaction.reply({ content: text, ephemeral: true });
@@ -2522,6 +2576,20 @@ export default {
         }
 
         // ── CONFIG: Tellonym — salvar campo modal ────────────────────────
+        if (interaction.customId === 'tncfg_modal_botao') {
+          const label = interaction.fields.getTextInputValue('btn_label').trim() || null;
+          const emoji = interaction.fields.getTextInputValue('btn_emoji').trim() || null;
+          await prisma.guildConfig.upsert({
+            where:  { guildId: interaction.guildId },
+            create: { guildId: interaction.guildId, tellonymBtnLabel: label, tellonymBtnEmoji: emoji },
+            update: { tellonymBtnLabel: label, tellonymBtnEmoji: emoji },
+          });
+          const cfg     = await getCfg(interaction.guildId);
+          const payload = buildTellonymConfigPayload(cfg);
+          await interaction.message?.edit(payload).catch(() => {});
+          return interaction.reply({ content: `✅ Botão atualizado! Label: **${label ?? 'Enviar Mensagem'}** | Emoji: ${emoji ?? '💌'}`, ephemeral: true });
+        }
+
         if (interaction.customId.startsWith('tncfg_modal_')) {
           const field = interaction.customId.replace('tncfg_modal_', '');
           const def   = TELLONYM_MODAL_FIELDS[field];
