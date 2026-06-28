@@ -1207,6 +1207,19 @@ export default {
             return interaction.update({ ...buildTicketConfigPayload(updated), content: null });
           }
 
+          // ── Toggle modo só banner (sem texto) ─────────────────────────
+          if (field === 'only_banner') {
+            const cfg    = await getCfg(interaction.guildId);
+            const newVal = !(cfg.ticketOnlyBanner ?? false);
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, ticketOnlyBanner: newVal },
+              update: { ticketOnlyBanner: newVal },
+            });
+            const updated = await getCfg(interaction.guildId);
+            return interaction.update({ ...buildTicketConfigPayload(updated), content: null });
+          }
+
           const def = TICKET_MODAL_FIELDS[field];
           if (!def) return;
 

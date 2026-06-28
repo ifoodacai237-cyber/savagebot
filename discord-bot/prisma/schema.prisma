@@ -58,6 +58,7 @@ model GuildConfig {
   ticketOpenText      String?
   ticketUseSeparator  Boolean @default(false)
   ticketBannerPosition String  @default("top")
+  ticketOnlyBanner     Boolean @default(false)
   ticketQuestion1 String?
   ticketQuestion2 String?
   ticketQuestion3 String?
