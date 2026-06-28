@@ -29,9 +29,17 @@ export default {
       if (cfg.welcomeChannels) cfg.welcomeChannels.split(',').map(s => s.trim()).filter(Boolean).forEach(id => parts.push(`<#${id}>`));
 
       const payload = buildWelcomeV2(cfg, vars);
-      const msg = await channel.send({ content: parts.join(' '), ...payload });
+
+      // Discord não aceita content + IS_COMPONENTS_V2 juntos.
+      // Enviamos dois mensagens e deletamos as duas ao mesmo tempo.
+      const pingMsg  = await channel.send({ content: parts.join(' ') });
+      const embedMsg = await channel.send(payload);
+
       if (cfg.welcomeDeleteAfter) {
-        setTimeout(() => msg.delete().catch(() => {}), cfg.welcomeDeleteAfter * 1000);
+        setTimeout(() => {
+          pingMsg.delete().catch(() => {});
+          embedMsg.delete().catch(() => {});
+        }, cfg.welcomeDeleteAfter * 1000);
       }
     } catch (err) {
       console.error('[WELCOME] Erro ao enviar boas-vindas:', err.message);
