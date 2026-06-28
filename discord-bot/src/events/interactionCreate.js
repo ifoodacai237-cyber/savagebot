@@ -38,6 +38,7 @@ import {
   COLOR_MAP,
 } from '../utils/containerSessions.js';
 import { handleShopInteraction } from '../utils/shopHandlers.js';
+import { handleCopaInteraction } from '../utils/copaHandlers.js';
 import { handleBJHit, handleBJStand, handleMinesCell, handleMinesCashout } from '../utils/gameHandlers.js';
 import { handleAjudaCatSel } from '../commands/general/ajuda.js';
 import { radioSessions, createRadioSession } from '../utils/radioManager.js';
@@ -554,6 +555,7 @@ export default {
 
       // ── BUTTONS ────────────────────────────────────────────────────────────
       if (interaction.isButton()) {
+        if (customId.startsWith('copa_')) return handleCopaInteraction(interaction, client);
         const { customId } = interaction;
 
         // ── JOGOS: Blackjack / Mines ─────────────────────────────────────
@@ -2217,6 +2219,7 @@ export default {
 
       // ── MODALS ─────────────────────────────────────────────────────────────
       if (interaction.isModalSubmit()) {
+        if (interaction.customId.startsWith('copa_modal_')) return handleCopaInteraction(interaction, client);
 
         // ── PAINEL DE CARGOS: Salvar texto ─────────────────────────────
         if (interaction.customId === 'rp_modal_text') {
