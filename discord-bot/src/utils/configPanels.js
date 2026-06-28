@@ -86,9 +86,10 @@ export function buildTellonymPanelV2(cfg) {
     if (!isNaN(parsed)) container.setAccentColor(parsed);
   }
 
-  const body      = cfg.tellonymText ?? DEFAULT_TELLONYM_TEXT;
+  // null = nunca configurado → usa texto padrão; '' = usuário limpou → sem texto
+  const body      = (cfg.tellonymText == null) ? DEFAULT_TELLONYM_TEXT : cfg.tellonymText;
   const titleLine = cfg.tellonymTitle ? `## ${cfg.tellonymTitle}\n\n` : '';
-  const fullText  = `${titleLine}${body}`;
+  const fullText  = `${titleLine}${body}`.trim();
 
   if (cfg.tellonymBanner) {
     container.addMediaGalleryComponents(
@@ -96,13 +97,15 @@ export function buildTellonymPanelV2(cfg) {
     );
   }
 
-  if (cfg.tellonymThumb) {
-    const section = new SectionBuilder()
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText))
-      .setThumbnailAccessory(new ThumbnailBuilder().setURL(cfg.tellonymThumb));
-    container.addSectionComponents(section);
-  } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText));
+  if (fullText) {
+    if (cfg.tellonymThumb) {
+      const section = new SectionBuilder()
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText))
+        .setThumbnailAccessory(new ThumbnailBuilder().setURL(cfg.tellonymThumb));
+      container.addSectionComponents(section);
+    } else {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText));
+    }
   }
 
   if (cfg.tellonymFooter) {
