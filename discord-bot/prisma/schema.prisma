@@ -24,6 +24,20 @@ model TellonymProfile {
   link   String
 }
 
+model TicketOption {
+  id          String   @id @default(cuid())
+  guildId     String
+  label       String
+  emoji       String   @default("🎫")
+  description String   @default("")
+  pingRole    String   @default("")
+  pingUser    String   @default("")
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([guildId])
+}
+
 model Ticket {
   id        String   @id @default(cuid())
   channelId String   @unique
@@ -59,6 +73,7 @@ model GuildConfig {
   ticketUseSeparator  Boolean @default(false)
   ticketBannerPosition String  @default("top")
   ticketOnlyBanner     Boolean @default(false)
+  ticketUseMenu        Boolean @default(false)
   ticketQuestion1 String?
   ticketQuestion2 String?
   ticketQuestion3 String?

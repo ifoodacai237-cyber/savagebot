@@ -26,6 +26,7 @@ import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoe
 import { generateTellonymCard } from '../utils/cardGenerator.js';
 import { likesMap, postDataMap } from '../utils/instaState.js';
 import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, buildWelcomeV2, buildTicketPanelV2, buildTellonymPanelV2, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT, formatDeleteTime } from '../utils/configPanels.js';
+import { buildMenuOptsPanel, buildOptionDetailPanel, buildAddOptionModal, buildEditOptionModal, parseIdList } from '../utils/ticketMenuHandlers.js';
 import { buildPartnerConfigPayload } from '../utils/partnershipPanels.js';
 import {
   getSession,
@@ -408,6 +409,106 @@ export default {
 
       // ── STRING SELECT MENUS ────────────────────────────────────────────────
       if (interaction.isStringSelectMenu()) {
+        // ── TICKET: Painel público — menu de categorias ──────────────────────
+        if (interaction.customId === 'ticket_menu_sel') {
+          await interaction.deferReply({ ephemeral: true });
+          const optId  = interaction.values[0];
+          const option = await prisma.ticketOption.findUnique({ where: { id: optId } });
+          if (!option) return interaction.editReply({ embeds: [errorEmbed('Opção não encontrada. Contate um administrador.')] });
+
+          const guild  = interaction.guild;
+          const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
+
+          const existing = await prisma.ticket.findFirst({ where: { userId: interaction.user.id, guildId: guild.id, status: 'open' } });
+          if (existing) {
+            const existingChannel = guild.channels.cache.get(existing.channelId)
+              ?? await guild.channels.fetch(existing.channelId).catch(() => null);
+            if (!existingChannel) {
+              await prisma.ticket.updateMany({ where: { userId: interaction.user.id, guildId: guild.id, status: 'open' }, data: { status: 'closed' } });
+            } else {
+              return interaction.editReply({ embeds: [errorEmbed(`Você já tem um ticket aberto: <#${existing.channelId}>`)] });
+            }
+          }
+
+          const ticketCount  = await prisma.ticket.count({ where: { guildId: guild.id } });
+          const ticketNumber = ticketCount + 1;
+
+          const pingRole = option.pingRole || config?.ticketPingRole || null;
+          const pingUser = option.pingUser || config?.ticketPingUser || null;
+
+          const permissionOverwrites = [
+            { id: guild.roles.everyone, deny:  [PermissionFlagsBits.ViewChannel] },
+            { id: interaction.user.id,  allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+            { id: client.user.id,       allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.AttachFiles] },
+          ];
+          if (pingRole) {
+            for (const rId of pingRole.split(',').map(s => s.trim()).filter(Boolean)) {
+              permissionOverwrites.push({ id: rId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+            }
+          }
+
+          let category = null;
+          if (config?.ticketCategory) {
+            const cat = guild.channels.cache.get(config.ticketCategory);
+            if (cat && cat.type === ChannelType.GuildCategory) category = config.ticketCategory;
+          }
+
+          const channel = await guild.channels.create({
+            name:  `${option.emoji || '📌'}・${option.label}・N°${ticketNumber}`,
+            type:  ChannelType.GuildText,
+            topic: `${option.label} — ${interaction.member?.displayName ?? interaction.user.username}`,
+            parent: category,
+            permissionOverwrites,
+          });
+
+          await prisma.ticket.create({ data: { channelId: channel.id, userId: interaction.user.id, guildId: guild.id } });
+
+          const memberAvatar = interaction.member?.displayAvatarURL({ size: 128, extension: 'png' }) ?? interaction.user.displayAvatarURL({ size: 128, extension: 'png' });
+          const memberName   = interaction.member?.displayName ?? interaction.user.username;
+
+          const pingRoleMentions = pingRole ? pingRole.split(',').map(s => `<@&${s.trim()}>`).filter(Boolean).join(' ') : '';
+          const pingUserMentions = pingUser ? pingUser.split(',').map(s => `<@${s.trim()}>`).filter(Boolean).join(' ') : '';
+          const extraPings = [pingRoleMentions, pingUserMentions].filter(Boolean).join(' ');
+          const pingLine = extraPings ? `<@${interaction.user.id}> ${extraPings}` : `<@${interaction.user.id}>`;
+
+          const pingDisplay    = new TextDisplayBuilder().setContent(pingLine);
+          const openText       = config?.ticketOpenText || 'Aguarde um instante, em breve um promotor irá lhe atender.';
+          const ticketContainer = new ContainerBuilder()
+            .addSectionComponents(
+              new SectionBuilder()
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`# ${option.label} - ${memberName}`))
+                .setThumbnailAccessory(new ThumbnailBuilder().setURL(memberAvatar)),
+            )
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent('**Assumido por:** Ninguém'))
+            .addSeparatorComponents(new SeparatorBuilder())
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(openText))
+            .addActionRowComponents(
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`ticket_assume_${channel.id}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
+              ),
+            );
+
+          try {
+            await channel.send({ components: [pingDisplay, ticketContainer], flags: MessageFlags.IsComponentsV2 });
+          } catch (err) {
+            console.error('[TICKET MENU SEND ERROR]', err?.message ?? err);
+            await channel.delete().catch(() => {});
+            await prisma.ticket.deleteMany({ where: { channelId: channel.id } }).catch(() => {});
+            return interaction.editReply({ embeds: [errorEmbed('Não foi possível criar o ticket. Tente novamente.')] });
+          }
+          return interaction.editReply({ embeds: [successEmbed('Ticket Criado', `Seu ticket foi aberto em ${channel}.`)] });
+        }
+
+        // ── TICKET ADMIN: Selecionar opção para gerenciar ───────────────────
+        if (interaction.customId === 'tcfg_menu_opt_sel') {
+          const optId  = interaction.values[0];
+          const option = await prisma.ticketOption.findUnique({ where: { id: optId } });
+          if (!option) return interaction.update({ content: '❌ Opção não encontrada.', embeds: [], components: [] });
+          await interaction.deferUpdate();
+          return interaction.editReply(await buildOptionDetailPanel(option));
+        }
+
         // ── RÁDIO: Selecionar playlist ──────────────────────────────────────
         if (interaction.customId.startsWith('radio_playlist_sel')) {
           // Acknowledge immediately to avoid 3-second timeout
@@ -1012,8 +1113,48 @@ export default {
           if (field === 'enviar') {
             await interaction.deferReply({ flags: 64 });
             const cfg = await getCfg(interaction.guildId);
-            await interaction.channel.send(buildTicketPanelV2(cfg));
+            const menuOptions = cfg.ticketUseMenu
+              ? await prisma.ticketOption.findMany({ where: { guildId: interaction.guildId }, orderBy: { order: 'asc' } })
+              : [];
+            await interaction.channel.send(buildTicketPanelV2(cfg, menuOptions));
             return interaction.editReply({ embeds: [successEmbed('Painel Enviado', `O painel de tickets foi enviado em ${interaction.channel}.`)] });
+          }
+
+          // ── Toggle modo menu (select menu em vez de botão) ────────────────
+          if (field === 'use_menu') {
+            const cfg    = await getCfg(interaction.guildId);
+            const newVal = !(cfg.ticketUseMenu ?? false);
+            await prisma.guildConfig.upsert({
+              where:  { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, ticketUseMenu: newVal },
+              update: { ticketUseMenu: newVal },
+            });
+            const updated = await getCfg(interaction.guildId);
+            return interaction.update({ ...buildTicketConfigPayload(updated), content: null });
+          }
+
+          // ── Gestão de opções do menu de ticket ────────────────────────────
+          if (field === 'menu_opts' || field === 'menu_back') {
+            await interaction.deferUpdate();
+            return interaction.editReply(await buildMenuOptsPanel(interaction.guildId));
+          }
+
+          if (field === 'menu_opt_add') {
+            return interaction.showModal(buildAddOptionModal());
+          }
+
+          if (field.startsWith('menu_opt_edit:')) {
+            const optId  = field.split(':')[1];
+            const option = await prisma.ticketOption.findUnique({ where: { id: optId } });
+            if (!option) return interaction.reply({ content: '❌ Opção não encontrada.', ephemeral: true });
+            return interaction.showModal(buildEditOptionModal(option));
+          }
+
+          if (field.startsWith('menu_opt_del:')) {
+            const optId = field.split(':')[1];
+            await prisma.ticketOption.delete({ where: { id: optId } }).catch(() => {});
+            await interaction.deferUpdate();
+            return interaction.editReply(await buildMenuOptsPanel(interaction.guildId));
           }
 
           if (field === 'salvar') {
@@ -2415,6 +2556,45 @@ export default {
             console.error('[INSTA COMMENT]', e.message);
             return interaction.editReply({ content: '❌ Não foi possível enviar o comentário.' });
           }
+        }
+
+        // ── TICKET MENU: Adicionar nova opção ───────────────────────────
+        if (interaction.customId === 'tcfg_menu_modal_add') {
+          const label    = interaction.fields.getTextInputValue('opt_label').trim();
+          const emoji    = interaction.fields.getTextInputValue('opt_emoji').trim() || '🎫';
+          const desc     = interaction.fields.getTextInputValue('opt_desc').trim();
+          const pingRole = parseIdList(interaction.fields.getTextInputValue('opt_ping_role'));
+          const pingUser = parseIdList(interaction.fields.getTextInputValue('opt_ping_user'));
+
+          const count = await prisma.ticketOption.count({ where: { guildId: interaction.guildId } });
+          if (count >= 25) {
+            return interaction.reply({ content: '❌ Máximo de 25 opções atingido.', ephemeral: true });
+          }
+
+          await prisma.ticketOption.create({
+            data: { guildId: interaction.guildId, label, emoji, description: desc, pingRole, pingUser, order: count },
+          });
+
+          await interaction.deferUpdate();
+          return interaction.editReply(await buildMenuOptsPanel(interaction.guildId));
+        }
+
+        // ── TICKET MENU: Editar opção existente ─────────────────────────
+        if (interaction.customId.startsWith('tcfg_menu_modal_edit:')) {
+          const optId    = interaction.customId.split(':')[1];
+          const label    = interaction.fields.getTextInputValue('opt_label').trim();
+          const emoji    = interaction.fields.getTextInputValue('opt_emoji').trim() || '🎫';
+          const desc     = interaction.fields.getTextInputValue('opt_desc').trim();
+          const pingRole = parseIdList(interaction.fields.getTextInputValue('opt_ping_role'));
+          const pingUser = parseIdList(interaction.fields.getTextInputValue('opt_ping_user'));
+
+          await prisma.ticketOption.update({
+            where: { id: optId },
+            data:  { label, emoji, description: desc, pingRole, pingUser },
+          });
+
+          await interaction.deferUpdate();
+          return interaction.editReply(await buildMenuOptsPanel(interaction.guildId));
         }
 
         // ── TICKET: Criar canal ──────────────────────────────────────────

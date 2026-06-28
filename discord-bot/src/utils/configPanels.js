@@ -10,6 +10,8 @@ import {
   ThumbnailBuilder,
   MediaGalleryBuilder,
   MediaGalleryItemBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
   MessageFlags,
 } from 'discord.js';
 import { buildConfigEmbed, Colors } from './embed.js';
@@ -36,7 +38,8 @@ export function buildTicketOpenButton(cfg) {
 
 // ─── Painel público V2 (sem barra lateral quando sem cor) ─────────────────────
 
-export function buildTicketPanelV2(cfg) {
+// options = array de TicketOption do banco (passados pelo caller que faz query assíncrona)
+export function buildTicketPanelV2(cfg, options = []) {
   const container = new ContainerBuilder();
   const bannerPos = cfg.ticketBannerPosition ?? 'top';
 
@@ -49,7 +52,7 @@ export function buildTicketPanelV2(cfg) {
   const onlyBanner = cfg.ticketOnlyBanner ?? false;
 
   if (onlyBanner) {
-    // Modo só banner: apenas imagem + botão, sem nenhum texto
+    // Modo só banner: apenas imagem + botão/menu, sem nenhum texto
     if (cfg.ticketBanner) {
       container.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(cfg.ticketBanner)),
@@ -91,6 +94,26 @@ export function buildTicketPanelV2(cfg) {
         new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(cfg.ticketBanner)),
       );
     }
+  }
+
+  // ── Modo menu (select) ou botão único ────────────────────────────────────
+  const useMenu = cfg.ticketUseMenu && options.length > 0;
+  if (useMenu) {
+    const select = new StringSelectMenuBuilder()
+      .setCustomId('ticket_menu_sel')
+      .setPlaceholder(cfg.ticketBtnLabel || 'Selecione o tipo de suporte…')
+      .addOptions(
+        options.map(o => {
+          const opt = new StringSelectMenuOptionBuilder()
+            .setLabel(o.label.slice(0, 100))
+            .setValue(o.id)
+            .setDescription((o.description?.slice(0, 100)) || 'Clique para abrir um ticket');
+          try { opt.setEmoji(o.emoji || '🎫'); } catch { opt.setEmoji('🎫'); }
+          return opt;
+        }),
+      );
+    const row = new ActionRowBuilder().addComponents(select);
+    return { components: [container, row], flags: MessageFlags.IsComponentsV2 };
   }
 
   const row = new ActionRowBuilder().addComponents(buildTicketOpenButton(cfg));
@@ -147,6 +170,7 @@ export function ticketConfigButtons(cfg = {}) {
   const sepEnabled  = cfg.ticketUseSeparator ?? false;
   const bannerPos   = cfg.ticketBannerPosition ?? 'top';
   const onlyBanner  = cfg.ticketOnlyBanner ?? false;
+  const useMenu     = cfg.ticketUseMenu ?? false;
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('tcfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_sem_cor').setLabel('Sem Lateral').setEmoji('◻️').setStyle(ButtonStyle.Secondary),
@@ -155,7 +179,7 @@ export function ticketConfigButtons(cfg = {}) {
     new ButtonBuilder().setCustomId('tcfg_thumb').setLabel('Thumbnail').setEmoji('📷').setStyle(ButtonStyle.Secondary),
   );
   const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('tcfg_botao').setLabel('Botão').setEmoji('🔘').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('tcfg_botao').setLabel('Botão / Menu').setEmoji('🔘').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_rodape').setLabel('Rodapé').setEmoji('👇').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_texto').setLabel('Texto').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_abertura').setLabel('Txt Abertura').setEmoji('💬').setStyle(ButtonStyle.Secondary),
@@ -169,6 +193,8 @@ export function ticketConfigButtons(cfg = {}) {
     new ButtonBuilder().setCustomId('tcfg_banner_pos').setLabel(bannerPos === 'top' ? 'Banner ⬆️ Cima' : 'Banner ⬇️ Baixo').setStyle(ButtonStyle.Secondary),
   );
   const row4 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('tcfg_use_menu').setLabel('Modo Menu').setEmoji('📋').setStyle(useMenu ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('tcfg_menu_opts').setLabel('Opções do Menu').setEmoji('⚙️').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('tcfg_only_banner').setLabel('Só Banner').setEmoji('🖼️').setStyle(onlyBanner ? ButtonStyle.Success : ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_salvar').setLabel('Salvar Preset').setEmoji('💾').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_carregar').setLabel('Carregar Preset').setEmoji('📂').setStyle(ButtonStyle.Secondary),
