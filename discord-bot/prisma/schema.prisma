@@ -62,8 +62,9 @@ model GuildConfig {
   ticketQuestion3 String?
 
   instaChannel   String?
-  instaColor     String  @default("833AB4")
+  instaColor     String?
   instaEmoji     String  @default("💜")
+  instaHandle    String?
 
   tellonymChannel  String?
   tellonymColor    String?
