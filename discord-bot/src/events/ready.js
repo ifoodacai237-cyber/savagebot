@@ -1,7 +1,6 @@
 import { ActivityType } from 'discord.js';
 import { registerSlashCommands } from '../utils/loader.js';
 import { initEmojis } from '../utils/emojiManager.js';
-import { startCopaScheduler } from '../utils/copaHandlers.js';
 
 export default {
   name: 'clientReady',
@@ -23,9 +22,6 @@ export default {
       registerSlashCommands(client),
       initEmojis(client),
     ]);
-
-    startCopaScheduler(client);
-
     console.log(`🟣 Status de Streaming ativo.`);
   },
 };
