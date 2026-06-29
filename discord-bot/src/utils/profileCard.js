@@ -274,10 +274,20 @@ export async function generateProfileCard({
     const g = ctx.createLinearGradient(0, 0, W, H);
     g.addColorStop(0, cardBg1); g.addColorStop(1, cardBg2);
     ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  } else if (cardBg1) {
+    ctx.fillStyle = cardBg1;
+    ctx.fillRect(0, 0, W, H);
   } else {
-    ctx.fillStyle = cardBg1 ?? '#ffffff';
+    // Fundo branco com micro-gradiente lilás
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+    const bodyTint = ctx.createLinearGradient(0, 220, 0, H);
+    bodyTint.addColorStop(0, 'rgba(245,242,255,0.55)');
+    bodyTint.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = bodyTint;
+    ctx.fillRect(0, 220, W, H - 220);
   }
-  ctx.fillRect(0, 0, W, H);
 
   // ── Banner ─────────────────────────────────────────────────────────────────
   const BANNER_H = 220;
@@ -381,8 +391,8 @@ export async function generateProfileCard({
   const LEFT_X = 28;
   let textY    = BANNER_H + 26;
   const bioText = bio ?? 'Utilize: fallen bio para alterar esta frase.';
-  ctx.font = `bold 13px ${FONT}`; ctx.fillStyle = '#44446a';
-  textY = await drawBioWithEmojis(ctx, bioText, LEFT_X, textY, 555, 18, 15);
+  ctx.font = `bold 14px ${FONT}`; ctx.fillStyle = '#3a3a5c';
+  textY = await drawBioWithEmojis(ctx, bioText, LEFT_X, textY, 555, 19, 16);
 
   // ── Painel de stats ────────────────────────────────────────────────────────
   //  Container externo cinza-claro → 3 linhas de 2 pílulas brancas cada
@@ -396,12 +406,17 @@ export async function generateProfileCard({
   const PNY  = textY + 10;
   const ISZ  = 46;  // ícone tamanho
 
-  // Container externo
+  // Container externo — gradiente sutil + borda fina
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.10)'; ctx.shadowBlur = 12; ctx.shadowOffsetY = 3;
-  ctx.fillStyle = '#e2e2ed';
+  ctx.shadowColor = 'rgba(100,80,160,0.13)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
+  const outerG = ctx.createLinearGradient(PNX, PNY, PNX, PNY + OH);
+  outerG.addColorStop(0, '#e8e6f2');
+  outerG.addColorStop(1, '#dddbe8');
+  ctx.fillStyle = outerG;
   roundRect(ctx, PNX, PNY, OW, OH, 22); ctx.fill();
   ctx.restore();
+  ctx.strokeStyle = 'rgba(180,170,210,0.50)'; ctx.lineWidth = 1;
+  roundRect(ctx, PNX, PNY, OW, OH, 22); ctx.stroke();
 
   const statsData = [
     { label: 'Coins',     topText: fmtCompact(balance),          botText: 'Coins'        },

@@ -1094,6 +1094,62 @@ export default {
           return interaction.reply({ content: `🎉 Parabéns, <@${proposerId}> e <@${targetId}>!`, ephemeral: false });
         }
 
+        // ── AMIGO: Aceitar / Recusar ─────────────────────────────────────
+        if (customId.startsWith('amigo_accept_') || customId.startsWith('amigo_reject_')) {
+          const parts      = customId.split('_');
+          const action     = parts[1];
+          const requesterId = parts[2];
+          const targetId   = parts[3];
+
+          if (interaction.user.id !== targetId)
+            return interaction.reply({ content: '❌ Apenas a pessoa marcada pode responder a este pedido.', ephemeral: true });
+
+          const requesterName = (await interaction.guild.members.fetch(requesterId).catch(() => null))?.displayName
+            ?? (await interaction.client.users.fetch(requesterId).catch(() => null))?.username
+            ?? 'Desconhecido';
+          const targetName = interaction.member?.displayName ?? interaction.user.username;
+
+          if (action === 'reject') {
+            const rejectEmbed = new EmbedBuilder()
+              .setColor(0xFF6B6B)
+              .setTitle('💔 Pedido Recusado')
+              .setDescription(`**${targetName}** recusou o pedido de amizade de **${requesterName}**. 😢`);
+            await interaction.message.edit({ embeds: [rejectEmbed], components: [] }).catch(() => {});
+            return interaction.reply({ content: `💔 Que pena, **${requesterName}**...` });
+          }
+
+          const [rp, tp] = await Promise.all([
+            prisma.userProfile.findUnique({ where: { userId: requesterId } }),
+            prisma.userProfile.findUnique({ where: { userId: targetId } }),
+          ]);
+
+          if (rp?.bestFriendId || tp?.bestFriendId) {
+            await interaction.message.edit({ components: [] }).catch(() => {});
+            return interaction.reply({ embeds: [errorEmbed('Um dos usuários já tem um melhor amigo(a)!')], ephemeral: true });
+          }
+
+          await Promise.all([
+            prisma.userProfile.upsert({
+              where:  { userId: requesterId },
+              update: { bestFriendId: targetId, bestFriendName: targetName },
+              create: { userId: requesterId, bestFriendId: targetId, bestFriendName: targetName },
+            }),
+            prisma.userProfile.upsert({
+              where:  { userId: targetId },
+              update: { bestFriendId: requesterId, bestFriendName: requesterName },
+              create: { userId: targetId, bestFriendId: requesterId, bestFriendName: requesterName },
+            }),
+          ]);
+
+          const acceptEmbed = new EmbedBuilder()
+            .setColor(0xCE93D8)
+            .setTitle('💝 Amizade Confirmada!')
+            .setDescription(`**${requesterName}** e **${targetName}** agora são melhores amigos! 🎉\n\nVeja no perfil com \`/perfil\`.`);
+
+          await interaction.message.edit({ embeds: [acceptEmbed], components: [] }).catch(() => {});
+          return interaction.reply({ content: `🎉 Parabéns, <@${requesterId}> e <@${targetId}>!` });
+        }
+
         // ── TICKET: Transcript ───────────────────────────────────────────
         if (customId.startsWith('ticket_transcript_')) {
           await interaction.deferReply({ ephemeral: true });
