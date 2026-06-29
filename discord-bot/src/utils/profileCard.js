@@ -14,6 +14,7 @@ GlobalFonts.register(readFileSync(join(FONTS_DIR, 'Roboto-Bold.ttf')),    'BotFo
 const FONT = 'BotFont';
 const W = 900, H = 510;
 
+// ─── Badge definitions (mantidas intactas) ────────────────────────────────────
 export const BADGE_DEFS = [
   { key: 'vip',           defaultEmoji: '💎', name: 'VIP',           description: 'Saldo total ≥ 50.000',    color: 'rgba(88,166,255,0.85)'  },
   { key: 'rico',          defaultEmoji: '💰', name: 'Rico',          description: 'Saldo total ≥ 10.000',    color: 'rgba(253,224,71,0.85)'  },
@@ -41,13 +42,13 @@ export function computeEarnedBadgeKeys({ balance, bank, purchases, activePet, ac
 
 export function computeLevel(xp) {
   const XP_PER_LEVEL = 300;
-  const level    = Math.floor((xp ?? 0) / XP_PER_LEVEL) + 1;
-  const current  = (xp ?? 0) % XP_PER_LEVEL;
-  const needed   = XP_PER_LEVEL;
+  const level   = Math.floor((xp ?? 0) / XP_PER_LEVEL) + 1;
+  const current = (xp ?? 0) % XP_PER_LEVEL;
+  const needed  = XP_PER_LEVEL;
   return { level, current, needed };
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
@@ -119,7 +120,7 @@ function tokenizeBio(text) {
 
 async function drawBioWithEmojis(ctx, text, x, y, maxWidth, lineH, emojiSz) {
   const tokens = tokenizeBio(text);
-  const cache = new Map();
+  const cache  = new Map();
   await Promise.all(
     tokens.filter(t => t.type === 'emoji').map(async t => {
       if (cache.has(t.value)) return;
@@ -174,137 +175,24 @@ async function drawBioWithEmojis(ctx, text, x, y, maxWidth, lineH, emojiSz) {
   return y;
 }
 
-// ─── Icon drawers (new purple-themed style) ───────────────────────────────────
+// ─── Configuração dos ícones de cada stat ──────────────────────────────────────
+
+const ICON_CONFIGS = [
+  { emoji: '🪙',  c1: '#FBB040', c2: '#E67E22' }, // Coins
+  { emoji: '⭐',  c1: '#FDD835', c2: '#FFA000' }, // Nível
+  { emoji: '🏅',  c1: '#AB47BC', c2: '#7B1FA2' }, // Badges
+  { emoji: '👍',  c1: '#7986CB', c2: '#5C6BC0' }, // Reps
+  { emoji: '🕊️', c1: '#F48FB1', c2: '#E91E63' }, // Casado(a)
+  { emoji: '💝',  c1: '#CE93D8', c2: '#AB47BC' }, // Amigo(a)
+];
 
 function drawIconBg(ctx, x, y, size, c1, c2) {
   const g = ctx.createLinearGradient(x, y, x + size, y + size);
   g.addColorStop(0, c1); g.addColorStop(1, c2);
   ctx.fillStyle = g;
-  roundRect(ctx, x, y, size, size, 11);
+  roundRect(ctx, x, y, size, size, 12);
   ctx.fill();
 }
-
-// Coin icon — amber gradient bg, white coin
-function drawCoinIcon(ctx, x, y, sz) {
-  drawIconBg(ctx, x, y, sz, '#FBB040', '#E67E22');
-  const cx = x + sz / 2, cy = y + sz / 2, r = sz * 0.28;
-  ctx.save();
-  ctx.shadowColor = 'rgba(255,200,0,0.4)'; ctx.shadowBlur = 4;
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-  ctx.strokeStyle = 'rgba(180,100,10,0.35)'; ctx.lineWidth = sz * 0.04;
-  ctx.beginPath(); ctx.arc(cx, cy, r * 0.68, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = '#92400E';
-  ctx.beginPath(); ctx.arc(cx, cy, r * 0.18, 0, Math.PI * 2); ctx.fill();
-}
-
-// Level/Star icon — gold gradient bg, white star
-function drawStarIcon(ctx, x, y, sz) {
-  drawIconBg(ctx, x, y, sz, '#FDD835', '#FFA000');
-  const cx = x + sz / 2, cy = y + sz / 2;
-  const R = sz * 0.28, r2 = R * 0.44;
-  ctx.save();
-  ctx.shadowColor = 'rgba(255,255,255,0.4)'; ctx.shadowBlur = 3;
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  ctx.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const angle  = (i * Math.PI) / 5 - Math.PI / 2;
-    const radius = i % 2 === 0 ? R : r2;
-    const px = cx + radius * Math.cos(angle);
-    const py = cy + radius * Math.sin(angle);
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-  }
-  ctx.closePath(); ctx.fill();
-  ctx.restore();
-}
-
-// Badges/Medal icon — purple gradient bg, white medal
-function drawMedalIcon(ctx, x, y, sz) {
-  drawIconBg(ctx, x, y, sz, '#AB47BC', '#7B1FA2');
-  const cx = x + sz / 2, cy = y + sz / 2;
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  // Ribbon
-  ctx.beginPath();
-  ctx.moveTo(cx - sz * 0.08, cy - sz * 0.28);
-  ctx.lineTo(cx + sz * 0.08, cy - sz * 0.28);
-  ctx.lineTo(cx + sz * 0.04, cy - sz * 0.05);
-  ctx.lineTo(cx,             cy - sz * 0.10);
-  ctx.lineTo(cx - sz * 0.04, cy - sz * 0.05);
-  ctx.closePath(); ctx.fill();
-  // Circle
-  ctx.beginPath(); ctx.arc(cx, cy + sz * 0.06, sz * 0.18, 0, Math.PI * 2); ctx.fill();
-  // Inner circle accent
-  ctx.fillStyle = 'rgba(180,120,220,0.6)';
-  ctx.beginPath(); ctx.arc(cx, cy + sz * 0.06, sz * 0.10, 0, Math.PI * 2); ctx.fill();
-}
-
-// Reps/Thumbs up — indigo gradient bg, white thumb
-function drawThumbIcon(ctx, x, y, sz) {
-  drawIconBg(ctx, x, y, sz, '#7986CB', '#5C6BC0');
-  const cx = x + sz / 2, cy = y + sz / 2;
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  // Thumb body (rounded)
-  roundRect(ctx, cx - sz * 0.06, cy - sz * 0.04, sz * 0.22, sz * 0.26, sz * 0.04);
-  ctx.fill();
-  // Thumb finger (upward curve)
-  ctx.beginPath();
-  ctx.arc(cx - sz * 0.01, cy - sz * 0.18, sz * 0.13, Math.PI * 0.8, Math.PI * 1.7, false);
-  ctx.lineTo(cx - sz * 0.08, cy - sz * 0.04);
-  ctx.lineTo(cx - sz * 0.06, cy - sz * 0.04);
-  ctx.closePath(); ctx.fill();
-  // Handle
-  roundRect(ctx, cx - sz * 0.22, cy + sz * 0.00, sz * 0.16, sz * 0.26, sz * 0.04);
-  ctx.fill();
-}
-
-// Married/Dove-heart — rose gradient bg, white heart
-function drawHeartIcon(ctx, x, y, sz) {
-  drawIconBg(ctx, x, y, sz, '#F48FB1', '#E91E63');
-  const cx = x + sz / 2, cy = y + sz / 2 + sz * 0.02;
-  const hw = sz * 0.22;
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.beginPath();
-  ctx.moveTo(0, hw * 0.6);
-  ctx.bezierCurveTo(hw * 1.2, -hw * 0.2, hw * 1.2, -hw * 1.0, 0, -hw * 0.4);
-  ctx.bezierCurveTo(-hw * 1.2, -hw * 1.0, -hw * 1.2, -hw * 0.2, 0, hw * 0.6);
-  ctx.closePath(); ctx.fill();
-  ctx.restore();
-}
-
-// BestFriend — lilac gradient bg, white BFF star/heart
-function drawBffIcon(ctx, x, y, sz) {
-  drawIconBg(ctx, x, y, sz, '#CE93D8', '#AB47BC');
-  const cx = x + sz / 2, cy = y + sz / 2;
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  // Small heart left
-  ctx.save();
-  ctx.translate(cx - sz * 0.10, cy);
-  ctx.scale(0.65, 0.65);
-  const hw = sz * 0.22;
-  ctx.beginPath();
-  ctx.moveTo(0, hw * 0.6);
-  ctx.bezierCurveTo(hw * 1.2, -hw * 0.2, hw * 1.2, -hw * 1.0, 0, -hw * 0.4);
-  ctx.bezierCurveTo(-hw * 1.2, -hw * 1.0, -hw * 1.2, -hw * 0.2, 0, hw * 0.6);
-  ctx.closePath(); ctx.fill();
-  ctx.restore();
-  // Small star right
-  const rx = cx + sz * 0.10, ry = cy;
-  const R = sz * 0.14, r2 = R * 0.44;
-  ctx.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const angle  = (i * Math.PI) / 5 - Math.PI / 2;
-    const radius = i % 2 === 0 ? R : r2;
-    const px = rx + radius * Math.cos(angle);
-    const py = ry + radius * Math.sin(angle);
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-  }
-  ctx.closePath(); ctx.fill();
-}
-
-const ICON_DRAWERS = [drawCoinIcon, drawStarIcon, drawMedalIcon, drawThumbIcon, drawHeartIcon, drawBffIcon];
 
 // ─── Main card generator ───────────────────────────────────────────────────────
 
@@ -321,6 +209,11 @@ export async function generateProfileCard({
   const banner      = await resolveBanner(activeBanner, guildId);
   const { c1, c2 } = getRingColors(activeRing ?? null);
   const { level, current: xpCurrent, needed: xpNeeded } = computeLevel(xp);
+
+  // ── Pré-carrega ícones de stats ───────────────────────────────────────────────
+  const statIconImgs = await Promise.all(
+    ICON_CONFIGS.map(ic => loadEmojiImg(ic.emoji).catch(() => null)),
+  );
 
   // ── Card background ───────────────────────────────────────────────────────────
   if (cardBg1 && cardBg2) {
@@ -357,21 +250,21 @@ export async function generateProfileCard({
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, BANNER_H);
   }
 
-  // Soft fade at banner bottom
+  // Fade suave na base do banner
   const fade = ctx.createLinearGradient(0, BANNER_H - 50, 0, BANNER_H);
   fade.addColorStop(0, 'rgba(247,247,251,0)');
-  fade.addColorStop(1, 'rgba(247,247,251,0.25)');
+  fade.addColorStop(1, 'rgba(247,247,251,0.20)');
   ctx.fillStyle = fade; ctx.fillRect(0, BANNER_H - 50, W, 50);
 
   // ── Avatar ────────────────────────────────────────────────────────────────────
   const AV_CX = 718, AV_CY = BANNER_H, AV_R = 88;
 
-  // White outer border
+  // Anel branco externo
   const outerColor = ringBorderColor ?? '#ffffff';
   ctx.fillStyle = outerColor;
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 13, 0, Math.PI * 2); ctx.fill();
 
-  // Argola ring with glow
+  // Argola colorida com brilho
   const ringGrad = ctx.createLinearGradient(AV_CX - AV_R, AV_CY - AV_R, AV_CX + AV_R, AV_CY + AV_R);
   ringGrad.addColorStop(0, c1); ringGrad.addColorStop(1, c2);
   ctx.save();
@@ -380,7 +273,7 @@ export async function generateProfileCard({
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 7, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
 
-  // Avatar image
+  // Imagem do avatar
   ctx.save();
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R, 0, Math.PI * 2); ctx.clip();
   try {
@@ -391,7 +284,7 @@ export async function generateProfileCard({
   }
   ctx.restore();
 
-  // ── Pet badge ─────────────────────────────────────────────────────────────────
+  // ── Pet badge (canto inferior do avatar) ──────────────────────────────────────
   if (activePet) {
     const petX = AV_CX + AV_R * 0.68, petY = AV_CY + AV_R * 0.68;
     ctx.fillStyle = '#fff';
@@ -404,9 +297,9 @@ export async function generateProfileCard({
     if (petImg) ctx.drawImage(petImg, petX - 13, petY - 13, 26, 26);
   }
 
-  // ── Username pill below avatar ────────────────────────────────────────────────
-  const PILL_Y   = AV_CY + AV_R + 16;
-  const PILL_H   = 38;
+  // ── Pílula do username abaixo do avatar ───────────────────────────────────────
+  const PILL_Y = AV_CY + AV_R + 16;
+  const PILL_H = 38;
   ctx.font = `bold 16px ${FONT}`;
   const nameW  = ctx.measureText(username).width;
   const PILL_W = Math.max(nameW + 40, 130);
@@ -422,7 +315,7 @@ export async function generateProfileCard({
   ctx.fillText(username, AV_CX, PILL_Y + PILL_H / 2 + 6);
   ctx.textAlign = 'left';
 
-  // ── Badge strip below username pill ──────────────────────────────────────────
+  // ── Tira de badges abaixo da pílula ───────────────────────────────────────────
   const earnedKeys = computeEarnedBadgeKeys({ balance, bank, purchases, activePet, activeBanner, activeRing });
   const BSTRIP_Y   = PILL_Y + PILL_H + 10;
   const BSTRIP_H   = 32;
@@ -450,9 +343,9 @@ export async function generateProfileCard({
     }
   }
 
-  // ── Bio text (left side) ──────────────────────────────────────────────────────
-  const LEFT_X = 28;
-  let textY    = BANNER_H + 26;
+  // ── Bio (lado esquerdo) ───────────────────────────────────────────────────────
+  const LEFT_X    = 28;
+  let textY       = BANNER_H + 26;
   const MAX_BIO_W = 555;
 
   const bioText = bio ?? 'Utilize: fallen bio para alterar esta frase.';
@@ -460,81 +353,97 @@ export async function generateProfileCard({
   ctx.fillStyle = '#555577';
   textY = await drawBioWithEmojis(ctx, bioText, LEFT_X, textY, MAX_BIO_W, 17, 15);
 
-  // ── Stats panel (2×3 grid) ────────────────────────────────────────────────────
-  const PANEL_Y = textY + 10;
-  const CELL_W  = 267;
-  const CELL_H  = 63;
-  const GAP     = 8;
-  const ICON_SZ = 42;
+  // ── Painel de stats (grid 2×3) ────────────────────────────────────────────────
+  //
+  //  Layout: container externo cinza claro → pílulas brancas internas
+  //  Cada pílula: [ícone colorido] [label bold / valor cinza]
+  //
+  const OUTER_PAD  = 10;   // padding do container externo
+  const CELL_GAP   = 7;    // espaço entre pílulas
+  const CELL_H     = 62;   // altura de cada pílula
+  const CELL_W     = 264;  // largura de cada pílula
+  const OUTER_W    = OUTER_PAD * 2 + CELL_W * 2 + CELL_GAP;
+  const OUTER_H    = OUTER_PAD * 2 + CELL_H * 3 + CELL_GAP * 2;
+  const PANEL_X    = LEFT_X;
+  const PANEL_Y    = textY + 10;
+  const ICON_SZ    = 42;   // tamanho do bloco de ícone
 
-  const darkPanel  = false;
-  const cellFill   = cardPanelColor ?? '#ffffff';
-  const valueColor = '#1a1a2e';
-  const labelColor = '#888899';
-  const cellBorder = 'rgba(0,0,0,0.07)';
+  // Container externo
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.08)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
+  ctx.fillStyle = '#ececf3';
+  roundRect(ctx, PANEL_X, PANEL_Y, OUTER_W, OUTER_H, 20);
+  ctx.fill();
+  ctx.restore();
 
   const statsData = [
-    { label: 'Coins',    value: fmtCompact(balance),                   sub: null },
-    { label: 'Nível',    value: `${level}`,                            sub: `${xpCurrent}/${xpNeeded} XP` },
-    { label: 'Badges',   value: `${earnedKeys.length}`,                sub: null },
-    { label: 'Reps',     value: `${reps}`,                             sub: null },
-    { label: 'Casado(a)',value: marriedToName ?? 'Nenhum',             sub: null },
-    { label: 'Amigo(a)', value: bestFriendName ?? 'Nenhum',            sub: null },
+    { label: 'Coins',     value: fmtCompact(balance),            sub: null },
+    { label: 'Nível',     value: `${level}`,                     sub: `${xpCurrent}/${xpNeeded}` },
+    { label: 'Badges',    value: `${earnedKeys.length}`,          sub: null },
+    { label: 'Reps',      value: `${reps}`,                      sub: null },
+    { label: 'Casado(a)', value: marriedToName  ?? 'Nenhum',     sub: null },
+    { label: 'Amigo(a)',  value: bestFriendName ?? 'Nenhum',     sub: null },
   ];
 
   for (let i = 0; i < 6; i++) {
     const col   = i % 2;
     const row   = Math.floor(i / 2);
-    const cellX = LEFT_X + col * (CELL_W + GAP);
-    const cellY = PANEL_Y + row * (CELL_H + GAP);
+    const cellX = PANEL_X + OUTER_PAD + col * (CELL_W + CELL_GAP);
+    const cellY = PANEL_Y + OUTER_PAD + row * (CELL_H + CELL_GAP);
 
-    // Cell background
-    ctx.fillStyle   = cellFill;
-    ctx.strokeStyle = cellBorder;
-    ctx.lineWidth   = 1;
+    // ── Pílula branca ────────────────────────────────────────────────────────
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.06)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 2;
-    roundRect(ctx, cellX, cellY, CELL_W, CELL_H, 14);
+    ctx.shadowColor = 'rgba(0,0,0,0.07)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2;
+    ctx.fillStyle = cardPanelColor ?? '#ffffff';
+    roundRect(ctx, cellX, cellY, CELL_W, CELL_H, CELL_H / 2);
     ctx.fill();
     ctx.restore();
-    ctx.strokeStyle = cellBorder; ctx.lineWidth = 1;
-    roundRect(ctx, cellX, cellY, CELL_W, CELL_H, 14);
-    ctx.stroke();
 
-    // Icon
-    const iconX = cellX + 10;
-    const iconY = cellY + (CELL_H - ICON_SZ) / 2;
-    ICON_DRAWERS[i](ctx, iconX, iconY, ICON_SZ);
+    // ── Ícone (fundo colorido arredondado + emoji) ────────────────────────────
+    const iconCfg = ICON_CONFIGS[i];
+    const iconX   = cellX + 10;
+    const iconY   = cellY + (CELL_H - ICON_SZ) / 2;
 
-    // Text
-    const textX = iconX + ICON_SZ + 12;
-    const midY  = cellY + CELL_H / 2;
+    drawIconBg(ctx, iconX, iconY, ICON_SZ, iconCfg.c1, iconCfg.c2);
 
-    if (statsData[i].sub) {
-      ctx.fillStyle = valueColor;
-      ctx.font      = `bold 17px ${FONT}`;
-      ctx.fillText(statsData[i].label + ': ' + statsData[i].value, textX, midY - 4);
-      ctx.fillStyle = labelColor;
-      ctx.font      = `13px ${FONT}`;
-      ctx.fillText(statsData[i].sub, textX, midY + 13);
-    } else {
-      ctx.fillStyle = valueColor;
-      ctx.font      = `bold 16px ${FONT}`;
-      const labelStr = statsData[i].label;
-      ctx.fillText(labelStr, textX, midY - 4);
-      ctx.fillStyle = labelColor;
-      ctx.font      = `13px ${FONT}`;
-      // Truncate value if too long
-      let valStr = statsData[i].value;
-      const maxValW = CELL_W - ICON_SZ - 34;
-      while (valStr.length > 0 && ctx.measureText(valStr).width > maxValW) {
-        valStr = valStr.slice(0, -1);
-      }
-      ctx.fillText(valStr, textX, midY + 13);
+    const iconImg = statIconImgs[i];
+    if (iconImg) {
+      const pad = ICON_SZ * 0.18;
+      ctx.drawImage(iconImg, iconX + pad, iconY + pad, ICON_SZ - pad * 2, ICON_SZ - pad * 2);
     }
+
+    // ── Textos (label bold / valor cinza) ────────────────────────────────────
+    const textX = iconX + ICON_SZ + 13;
+    const midY  = cellY + CELL_H / 2;
+    const stat  = statsData[i];
+
+    // Texto topo (bold, escuro) — label ou "Label: valor"
+    ctx.font      = `bold 15px ${FONT}`;
+    ctx.fillStyle = '#1a1a2e';
+    let topText;
+    if (stat.sub !== null) {
+      topText = `${stat.label}: ${stat.value}`;
+    } else {
+      topText = stat.label;
+    }
+    // Truncar se necessário
+    const maxTW = CELL_W - ICON_SZ - 38;
+    while (topText.length > 0 && ctx.measureText(topText).width > maxTW) {
+      topText = topText.slice(0, -1);
+    }
+    ctx.fillText(topText, textX, midY - 5);
+
+    // Texto baixo (menor, cinza) — valor ou XP
+    ctx.font      = `13px ${FONT}`;
+    ctx.fillStyle = '#888899';
+    let botText = stat.sub !== null ? stat.sub : stat.value;
+    while (botText.length > 0 && ctx.measureText(botText).width > maxTW) {
+      botText = botText.slice(0, -1);
+    }
+    ctx.fillText(botText, textX, midY + 13);
   }
 
-  // ── Footer ────────────────────────────────────────────────────────────────────
+  // ── Rodapé ────────────────────────────────────────────────────────────────────
   ctx.fillStyle = 'rgba(0,0,0,0.20)';
   ctx.font      = `11px ${FONT}`;
   ctx.textAlign = 'right';
