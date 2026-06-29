@@ -12,18 +12,18 @@ GlobalFonts.register(readFileSync(join(FONTS_DIR, 'Roboto-Regular.ttf')), 'BotFo
 GlobalFonts.register(readFileSync(join(FONTS_DIR, 'Roboto-Bold.ttf')),    'BotFont');
 
 const FONT = 'BotFont';
-const W = 900, H = 510;
+const W = 900, H = 520;
 
-// ─── Badge definitions (mantidas intactas) ────────────────────────────────────
+// ─── Badge definitions ────────────────────────────────────────────────────────
 export const BADGE_DEFS = [
-  { key: 'vip',           defaultEmoji: '💎', name: 'VIP',           description: 'Saldo total ≥ 50.000',    color: 'rgba(88,166,255,0.85)'  },
-  { key: 'rico',          defaultEmoji: '💰', name: 'Rico',          description: 'Saldo total ≥ 10.000',    color: 'rgba(253,224,71,0.85)'  },
-  { key: 'poupador',      defaultEmoji: '🪙', name: 'Poupador',      description: 'Saldo total ≥ 5.000',     color: 'rgba(200,180,60,0.80)'  },
-  { key: 'colecionador',  defaultEmoji: '🏆', name: 'Colecionador',  description: '10+ itens comprados',     color: 'rgba(157,78,221,0.85)'  },
-  { key: 'comprador',     defaultEmoji: '🛍️', name: 'Comprador',     description: '5+ itens comprados',      color: 'rgba(130,60,200,0.80)'  },
-  { key: 'mascote',       defaultEmoji: '🐾', name: 'Mascote',       description: 'Pet ativo equipado',      color: 'rgba(87,242,135,0.80)'  },
-  { key: 'estiloso',      defaultEmoji: '🎨', name: 'Estiloso',      description: 'Banner equipado',         color: 'rgba(255,107,107,0.80)' },
-  { key: 'personalizado', defaultEmoji: '💠', name: 'Personalizado', description: 'Argola personalizada',    color: 'rgba(100,200,220,0.80)' },
+  { key: 'vip',           defaultEmoji: '💎', name: 'VIP',           description: 'Saldo total ≥ 50.000',  color: 'rgba(88,166,255,0.85)'  },
+  { key: 'rico',          defaultEmoji: '💰', name: 'Rico',          description: 'Saldo total ≥ 10.000',  color: 'rgba(253,224,71,0.85)'  },
+  { key: 'poupador',      defaultEmoji: '🪙', name: 'Poupador',      description: 'Saldo total ≥ 5.000',   color: 'rgba(200,180,60,0.80)'  },
+  { key: 'colecionador',  defaultEmoji: '🏆', name: 'Colecionador',  description: '10+ itens comprados',   color: 'rgba(157,78,221,0.85)'  },
+  { key: 'comprador',     defaultEmoji: '🛍️', name: 'Comprador',     description: '5+ itens comprados',    color: 'rgba(130,60,200,0.80)'  },
+  { key: 'mascote',       defaultEmoji: '🐾', name: 'Mascote',       description: 'Pet ativo equipado',    color: 'rgba(87,242,135,0.80)'  },
+  { key: 'estiloso',      defaultEmoji: '🎨', name: 'Estiloso',      description: 'Banner equipado',       color: 'rgba(255,107,107,0.80)' },
+  { key: 'personalizado', defaultEmoji: '💠', name: 'Personalizado', description: 'Argola personalizada',  color: 'rgba(100,200,220,0.80)' },
 ];
 
 export function computeEarnedBadgeKeys({ balance, bank, purchases, activePet, activeBanner, activeRing }) {
@@ -44,8 +44,7 @@ export function computeLevel(xp) {
   const XP_PER_LEVEL = 300;
   const level   = Math.floor((xp ?? 0) / XP_PER_LEVEL) + 1;
   const current = (xp ?? 0) % XP_PER_LEVEL;
-  const needed  = XP_PER_LEVEL;
-  return { level, current, needed };
+  return { level, current, needed: XP_PER_LEVEL };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -71,44 +70,36 @@ function fmtCompact(n) {
 }
 
 async function loadUrl(url, timeoutMs = 8000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const ctrl  = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const resp = await fetch(url, { signal: controller.signal });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const buf = Buffer.from(await resp.arrayBuffer());
-    return loadImage(buf);
-  } finally {
-    clearTimeout(timer);
-  }
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return loadImage(Buffer.from(await r.arrayBuffer()));
+  } finally { clearTimeout(timer); }
 }
 
-function parseCustomEmoji(emoji) {
-  const match = emoji?.match(/<a?:\w+:(\d{10,20})>/);
-  return match ? `https://cdn.discordapp.com/emojis/${match[1]}.png` : null;
+function parseCustomEmoji(e) {
+  const m = e?.match(/<a?:\w+:(\d{10,20})>/);
+  return m ? `https://cdn.discordapp.com/emojis/${m[1]}.png` : null;
 }
 
 function twemojiUrl(emoji) {
-  const codepoints = [...emoji]
-    .map(ch => ch.codePointAt(0).toString(16).toLowerCase())
-    .filter(cp => cp !== 'fe0f');
-  return `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${codepoints.join('-')}.png`;
+  const cp = [...emoji].map(c => c.codePointAt(0).toString(16)).filter(c => c !== 'fe0f');
+  return `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${cp.join('-')}.png`;
 }
 
-async function loadEmojiImg(emojiOrImg) {
-  if (!emojiOrImg || emojiOrImg === '__coin__') return null;
-  const customUrl = parseCustomEmoji(emojiOrImg);
-  if (customUrl) {
-    try { return await loadUrl(customUrl); } catch {}
-  }
-  try { return await loadUrl(twemojiUrl(emojiOrImg)); } catch {}
+async function loadEmojiImg(e) {
+  if (!e) return null;
+  const cu = parseCustomEmoji(e);
+  if (cu) try { return await loadUrl(cu); } catch {}
+  try { return await loadUrl(twemojiUrl(e)); } catch {}
   return null;
 }
 
 function tokenizeBio(text) {
   const re = /<a?:\w+:\d{10,20}>|(?:\p{Emoji_Presentation}|\p{Extended_Pictographic})\uFE0F?(?:\u200D(?:\p{Emoji_Presentation}|\p{Extended_Pictographic})\uFE0F?)*/gu;
-  const tokens = [];
-  let last = 0;
+  const tokens = []; let last = 0;
   for (const m of text.matchAll(re)) {
     if (m.index > last) tokens.push({ type: 'text', value: text.slice(last, m.index) });
     tokens.push({ type: 'emoji', value: m[0] });
@@ -118,43 +109,34 @@ function tokenizeBio(text) {
   return tokens;
 }
 
-async function drawBioWithEmojis(ctx, text, x, y, maxWidth, lineH, emojiSz) {
+async function drawBioWithEmojis(ctx, text, x, y, maxW, lineH, emojiSz) {
   const tokens = tokenizeBio(text);
   const cache  = new Map();
-  await Promise.all(
-    tokens.filter(t => t.type === 'emoji').map(async t => {
-      if (cache.has(t.value)) return;
-      const img = await loadEmojiImg(t.value).catch(() => null);
-      if (img) cache.set(t.value, img);
-    }),
-  );
-  const SPACE_W = ctx.measureText(' ').width;
+  await Promise.all(tokens.filter(t => t.type === 'emoji').map(async t => {
+    const img = await loadEmojiImg(t.value).catch(() => null);
+    if (img) cache.set(t.value, img);
+  }));
+  const SW = ctx.measureText(' ').width;
   const items = [];
   for (const tok of tokens) {
-    if (tok.type === 'emoji') {
-      items.push({ kind: 'emoji', value: tok.value, width: emojiSz + 2 });
-    } else {
-      for (const part of tok.value.split(/(\s+)/)) {
-        if (!part) continue;
-        if (/^\s+$/.test(part)) {
-          items.push({ kind: 'space', value: part, width: SPACE_W * part.length });
-        } else {
-          items.push({ kind: 'word', value: part, width: ctx.measureText(part).width });
-        }
-      }
+    if (tok.type === 'emoji') { items.push({ kind: 'emoji', value: tok.value, width: emojiSz + 2 }); continue; }
+    for (const p of tok.value.split(/(\s+)/)) {
+      if (!p) continue;
+      items.push(/^\s+$/.test(p)
+        ? { kind: 'space', value: p, width: SW * p.length }
+        : { kind: 'word',  value: p, width: ctx.measureText(p).width });
     }
   }
-  const lines = [];
-  let cur = [], curW = 0;
+  const lines = []; let cur = [], curW = 0;
   for (const item of items) {
     if (item.kind === 'space') { cur.push(item); curW += item.width; continue; }
-    if (curW + item.width > maxWidth && cur.length > 0) {
-      while (cur.length && cur[cur.length - 1].kind === 'space') cur.pop();
+    if (curW + item.width > maxW && cur.length) {
+      while (cur.length && cur.at(-1).kind === 'space') cur.pop();
       lines.push(cur); cur = []; curW = 0;
     }
     cur.push(item); curW += item.width;
   }
-  if (cur.length) { while (cur.length && cur[cur.length - 1].kind === 'space') cur.pop(); lines.push(cur); }
+  if (cur.length) { while (cur.length && cur.at(-1).kind === 'space') cur.pop(); lines.push(cur); }
   for (const line of lines) {
     let cx = x;
     for (const item of line) {
@@ -162,39 +144,116 @@ async function drawBioWithEmojis(ctx, text, x, y, maxWidth, lineH, emojiSz) {
         const img = cache.get(item.value);
         if (img) ctx.drawImage(img, cx, y - emojiSz + 3, emojiSz, emojiSz);
         else ctx.fillText(item.value, cx, y);
-        cx += item.width;
-      } else if (item.kind === 'space') {
-        cx += item.width;
-      } else {
-        ctx.fillText(item.value, cx, y);
-        cx += item.width;
-      }
+      } else if (item.kind !== 'space') ctx.fillText(item.value, cx, y);
+      if (item.kind !== 'space') cx += item.width; else cx += item.width;
     }
     y += lineH;
   }
   return y;
 }
 
-// ─── Configuração dos ícones de cada stat ──────────────────────────────────────
+// ─── Ícones canvas (sempre funcionam, sem CDN) ────────────────────────────────
 
-const ICON_CONFIGS = [
-  { emoji: '🪙',  c1: '#FBB040', c2: '#E67E22' }, // Coins
-  { emoji: '⭐',  c1: '#FDD835', c2: '#FFA000' }, // Nível
-  { emoji: '🏅',  c1: '#AB47BC', c2: '#7B1FA2' }, // Badges
-  { emoji: '👍',  c1: '#7986CB', c2: '#5C6BC0' }, // Reps
-  { emoji: '🕊️', c1: '#F48FB1', c2: '#E91E63' }, // Casado(a)
-  { emoji: '💝',  c1: '#CE93D8', c2: '#AB47BC' }, // Amigo(a)
-];
-
-function drawIconBg(ctx, x, y, size, c1, c2) {
-  const g = ctx.createLinearGradient(x, y, x + size, y + size);
+function iconBg(ctx, x, y, sz, c1, c2) {
+  const g = ctx.createLinearGradient(x, y, x + sz, y + sz);
   g.addColorStop(0, c1); g.addColorStop(1, c2);
   ctx.fillStyle = g;
-  roundRect(ctx, x, y, size, size, 12);
+  roundRect(ctx, x, y, sz, sz, 10);
   ctx.fill();
 }
 
-// ─── Main card generator ───────────────────────────────────────────────────────
+// 🪙 Coins — fundo âmbar + moeda branca
+function iconCoins(ctx, x, y, sz) {
+  iconBg(ctx, x, y, sz, '#FBB040', '#E67E22');
+  const cx = x + sz / 2, cy = y + sz / 2, r = sz * 0.26;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(180,100,10,0.30)'; ctx.lineWidth = sz * 0.04;
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.65, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = 'rgba(146,64,14,0.7)';
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.17, 0, Math.PI * 2); ctx.fill();
+}
+
+// ⭐ Nível — fundo dourado + estrela branca
+function iconStar(ctx, x, y, sz) {
+  iconBg(ctx, x, y, sz, '#FDD835', '#FFA000');
+  const cx = x + sz / 2, cy = y + sz / 2, R = sz * 0.27, r2 = R * 0.42;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = (i * Math.PI) / 5 - Math.PI / 2;
+    const rl = i % 2 === 0 ? R : r2;
+    i === 0 ? ctx.moveTo(cx + rl * Math.cos(a), cy + rl * Math.sin(a))
+            : ctx.lineTo(cx + rl * Math.cos(a), cy + rl * Math.sin(a));
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+// 🏅 Badges — fundo roxo + medalha branca
+function iconMedal(ctx, x, y, sz) {
+  iconBg(ctx, x, y, sz, '#AB47BC', '#7B1FA2');
+  const cx = x + sz / 2, cy = y + sz / 2;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.beginPath();
+  ctx.moveTo(cx - sz * 0.08, cy - sz * 0.28); ctx.lineTo(cx + sz * 0.08, cy - sz * 0.28);
+  ctx.lineTo(cx + sz * 0.04, cy - sz * 0.06); ctx.lineTo(cx, cy - sz * 0.10);
+  ctx.lineTo(cx - sz * 0.04, cy - sz * 0.06); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy + sz * 0.07, sz * 0.18, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(180,120,220,0.55)';
+  ctx.beginPath(); ctx.arc(cx, cy + sz * 0.07, sz * 0.09, 0, Math.PI * 2); ctx.fill();
+}
+
+// 👍 Reps — fundo índigo + polegar branco
+function iconThumb(ctx, x, y, sz) {
+  iconBg(ctx, x, y, sz, '#7986CB', '#5C6BC0');
+  const cx = x + sz / 2, cy = y + sz / 2;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  roundRect(ctx, cx - sz * 0.06, cy - sz * 0.03, sz * 0.22, sz * 0.25, sz * 0.04); ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx - sz * 0.01, cy - sz * 0.18, sz * 0.12, Math.PI * 0.8, Math.PI * 1.7, false);
+  ctx.lineTo(cx - sz * 0.08, cy - sz * 0.03); ctx.lineTo(cx - sz * 0.06, cy - sz * 0.03);
+  ctx.closePath(); ctx.fill();
+  roundRect(ctx, cx - sz * 0.22, cy + sz * 0.01, sz * 0.16, sz * 0.25, sz * 0.04); ctx.fill();
+}
+
+// 💕 Casado — fundo rosa + coração branco
+function iconHeart(ctx, x, y, sz) {
+  iconBg(ctx, x, y, sz, '#F48FB1', '#E91E63');
+  const cx = x + sz / 2, cy = y + sz / 2 + sz * 0.02, hw = sz * 0.22;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.save(); ctx.translate(cx, cy);
+  ctx.beginPath();
+  ctx.moveTo(0, hw * 0.6);
+  ctx.bezierCurveTo(hw * 1.2, -hw * 0.2, hw * 1.2, -hw * 1.0, 0, -hw * 0.4);
+  ctx.bezierCurveTo(-hw * 1.2, -hw * 1.0, -hw * 1.2, -hw * 0.2, 0, hw * 0.6);
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+
+// 💝 Amigo — fundo lilás + coração+estrela brancos
+function iconBff(ctx, x, y, sz) {
+  iconBg(ctx, x, y, sz, '#CE93D8', '#AB47BC');
+  const cx = x + sz / 2, cy = y + sz / 2;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.save(); ctx.translate(cx - sz * 0.10, cy); ctx.scale(0.62, 0.62);
+  const hw = sz * 0.22;
+  ctx.beginPath();
+  ctx.moveTo(0, hw * 0.6);
+  ctx.bezierCurveTo(hw * 1.2, -hw * 0.2, hw * 1.2, -hw * 1.0, 0, -hw * 0.4);
+  ctx.bezierCurveTo(-hw * 1.2, -hw * 1.0, -hw * 1.2, -hw * 0.2, 0, hw * 0.6);
+  ctx.closePath(); ctx.fill(); ctx.restore();
+  const rx = cx + sz * 0.10, ry = cy, Rs = sz * 0.13, rs = Rs * 0.44;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = (i * Math.PI) / 5 - Math.PI / 2, rl = i % 2 === 0 ? Rs : rs;
+    i === 0 ? ctx.moveTo(rx + rl * Math.cos(a), ry + rl * Math.sin(a))
+            : ctx.lineTo(rx + rl * Math.cos(a), ry + rl * Math.sin(a));
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+const ICON_FNS = [iconCoins, iconStar, iconMedal, iconThumb, iconHeart, iconBff];
+
+// ─── Gerador principal ────────────────────────────────────────────────────────
 
 export async function generateProfileCard({
   username, avatarUrl, balance, bank, activeBanner, purchases,
@@ -206,28 +265,21 @@ export async function generateProfileCard({
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
-  const banner      = await resolveBanner(activeBanner, guildId);
-  const { c1, c2 } = getRingColors(activeRing ?? null);
+  const banner = await resolveBanner(activeBanner, guildId);
+  const { c1: rc1, c2: rc2 } = getRingColors(activeRing ?? null);
   const { level, current: xpCurrent, needed: xpNeeded } = computeLevel(xp);
 
-  // ── Pré-carrega ícones de stats ───────────────────────────────────────────────
-  const statIconImgs = await Promise.all(
-    ICON_CONFIGS.map(ic => loadEmojiImg(ic.emoji).catch(() => null)),
-  );
-
-  // ── Card background ───────────────────────────────────────────────────────────
+  // ── Fundo do card ──────────────────────────────────────────────────────────
   if (cardBg1 && cardBg2) {
     const g = ctx.createLinearGradient(0, 0, W, H);
     g.addColorStop(0, cardBg1); g.addColorStop(1, cardBg2);
     ctx.fillStyle = g;
-  } else if (cardBg1) {
-    ctx.fillStyle = cardBg1;
   } else {
-    ctx.fillStyle = '#f7f7fb';
+    ctx.fillStyle = cardBg1 ?? '#ffffff';
   }
   ctx.fillRect(0, 0, W, H);
 
-  // ── Banner ────────────────────────────────────────────────────────────────────
+  // ── Banner ─────────────────────────────────────────────────────────────────
   const BANNER_H = 220;
   if (banner) {
     try {
@@ -250,203 +302,155 @@ export async function generateProfileCard({
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, BANNER_H);
   }
 
-  // Fade suave na base do banner
-  const fade = ctx.createLinearGradient(0, BANNER_H - 50, 0, BANNER_H);
-  fade.addColorStop(0, 'rgba(247,247,251,0)');
-  fade.addColorStop(1, 'rgba(247,247,251,0.20)');
-  ctx.fillStyle = fade; ctx.fillRect(0, BANNER_H - 50, W, 50);
+  // Fade suave base do banner
+  const fade = ctx.createLinearGradient(0, BANNER_H - 60, 0, BANNER_H);
+  fade.addColorStop(0, 'rgba(255,255,255,0)');
+  fade.addColorStop(1, 'rgba(255,255,255,0.18)');
+  ctx.fillStyle = fade; ctx.fillRect(0, BANNER_H - 60, W, 60);
 
-  // ── Avatar ────────────────────────────────────────────────────────────────────
+  // ── Avatar (lado direito, sobrepondo o banner) ─────────────────────────────
   const AV_CX = 718, AV_CY = BANNER_H, AV_R = 88;
 
-  // Anel branco externo
-  const outerColor = ringBorderColor ?? '#ffffff';
-  ctx.fillStyle = outerColor;
-  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 13, 0, Math.PI * 2); ctx.fill();
+  // Borda branca externa
+  ctx.fillStyle = ringBorderColor ?? '#ffffff';
+  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 14, 0, Math.PI * 2); ctx.fill();
 
   // Argola colorida com brilho
-  const ringGrad = ctx.createLinearGradient(AV_CX - AV_R, AV_CY - AV_R, AV_CX + AV_R, AV_CY + AV_R);
-  ringGrad.addColorStop(0, c1); ringGrad.addColorStop(1, c2);
+  const rg = ctx.createLinearGradient(AV_CX - AV_R, AV_CY - AV_R, AV_CX + AV_R, AV_CY + AV_R);
+  rg.addColorStop(0, rc1); rg.addColorStop(1, rc2);
   ctx.save();
-  ctx.shadowColor = c1; ctx.shadowBlur = 14;
-  ctx.strokeStyle = ringGrad; ctx.lineWidth = 9;
-  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 7, 0, Math.PI * 2); ctx.stroke();
+  ctx.shadowColor = rc1; ctx.shadowBlur = 16;
+  ctx.strokeStyle = rg; ctx.lineWidth = 9;
+  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 8, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
 
-  // Imagem do avatar
+  // Foto do avatar
   ctx.save();
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R, 0, Math.PI * 2); ctx.clip();
   try {
-    const img = await loadUrl(avatarUrl);
-    ctx.drawImage(img, AV_CX - AV_R, AV_CY - AV_R, AV_R * 2, AV_R * 2);
+    ctx.drawImage(await loadUrl(avatarUrl), AV_CX - AV_R, AV_CY - AV_R, AV_R * 2, AV_R * 2);
   } catch {
     ctx.fillStyle = '#8e44ad'; ctx.fillRect(AV_CX - AV_R, AV_CY - AV_R, AV_R * 2, AV_R * 2);
   }
   ctx.restore();
 
-  // ── Pet badge (canto inferior do avatar) ──────────────────────────────────────
+  // Pet badge
   if (activePet) {
-    const petX = AV_CX + AV_R * 0.68, petY = AV_CY + AV_R * 0.68;
+    const px = AV_CX + AV_R * 0.68, py = AV_CY + AV_R * 0.68;
     ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(petX, petY, 22, 0, Math.PI * 2); ctx.fill();
-    const g2 = ctx.createLinearGradient(petX - 20, petY - 20, petX + 20, petY + 20);
-    g2.addColorStop(0, c1); g2.addColorStop(1, c2);
-    ctx.strokeStyle = g2; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.arc(petX, petY, 20, 0, Math.PI * 2); ctx.stroke();
-    const petImg = await loadEmojiImg(activePet);
-    if (petImg) ctx.drawImage(petImg, petX - 13, petY - 13, 26, 26);
+    ctx.beginPath(); ctx.arc(px, py, 22, 0, Math.PI * 2); ctx.fill();
+    const pg = ctx.createLinearGradient(px - 20, py - 20, px + 20, py + 20);
+    pg.addColorStop(0, rc1); pg.addColorStop(1, rc2);
+    ctx.strokeStyle = pg; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(px, py, 20, 0, Math.PI * 2); ctx.stroke();
+    const pi = await loadEmojiImg(activePet);
+    if (pi) ctx.drawImage(pi, px - 13, py - 13, 26, 26);
   }
 
-  // ── Pílula do username abaixo do avatar ───────────────────────────────────────
-  const PILL_Y = AV_CY + AV_R + 16;
-  const PILL_H = 38;
+  // ── Pílula do username ─────────────────────────────────────────────────────
+  const PY = AV_CY + AV_R + 16, PH = 38;
   ctx.font = `bold 16px ${FONT}`;
-  const nameW  = ctx.measureText(username).width;
-  const PILL_W = Math.max(nameW + 40, 130);
-  const PILL_X = AV_CX - PILL_W / 2;
+  const nw  = ctx.measureText(username).width;
+  const PW  = Math.max(nw + 44, 130);
+  const PX  = AV_CX - PW / 2;
+  ctx.fillStyle = '#e8e8f0'; ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 1;
+  roundRect(ctx, PX, PY, PW, PH, PH / 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#2c2c54'; ctx.textAlign = 'center';
+  ctx.fillText(username, AV_CX, PY + PH / 2 + 6); ctx.textAlign = 'left';
 
-  ctx.fillStyle   = '#e8e8f0';
-  ctx.strokeStyle = 'rgba(0,0,0,0.08)';
-  ctx.lineWidth   = 1;
-  roundRect(ctx, PILL_X, PILL_Y, PILL_W, PILL_H, PILL_H / 2);
-  ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#2c2c54';
-  ctx.textAlign = 'center';
-  ctx.fillText(username, AV_CX, PILL_Y + PILL_H / 2 + 6);
-  ctx.textAlign = 'left';
-
-  // ── Tira de badges abaixo da pílula ───────────────────────────────────────────
+  // ── Tira de conquistas/badges ──────────────────────────────────────────────
   const earnedKeys = computeEarnedBadgeKeys({ balance, bank, purchases, activePet, activeBanner, activeRing });
-  const BSTRIP_Y   = PILL_Y + PILL_H + 10;
-  const BSTRIP_H   = 32;
-  const BSTRIP_W   = 210;
-
-  ctx.fillStyle   = '#f0f0f8';
-  ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-  ctx.lineWidth   = 1;
-  roundRect(ctx, AV_CX - BSTRIP_W / 2, BSTRIP_Y, BSTRIP_W, BSTRIP_H, BSTRIP_H / 2);
-  ctx.fill(); ctx.stroke();
-
-  const EMOJI_SZ = 20;
-  const maxSlots = Math.min(earnedKeys.length, 7);
+  const BSY = PY + PH + 10, BSH = 32, BSW = 210;
+  ctx.fillStyle = '#f0f0f8'; ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 1;
+  roundRect(ctx, AV_CX - BSW / 2, BSY, BSW, BSH, BSH / 2); ctx.fill(); ctx.stroke();
+  const ESZI = 20, maxSlots = Math.min(earnedKeys.length, 7);
   if (maxSlots > 0) {
-    const totalW = maxSlots * EMOJI_SZ + (maxSlots - 1) * 5;
-    let bx = AV_CX - totalW / 2;
-    const by = BSTRIP_Y + (BSTRIP_H - EMOJI_SZ) / 2;
+    const tw = maxSlots * ESZI + (maxSlots - 1) * 5;
+    let bx = AV_CX - tw / 2;
+    const by = BSY + (BSH - ESZI) / 2;
     for (let i = 0; i < maxSlots; i++) {
-      const key      = earnedKeys[i];
-      const def      = BADGE_DEFS.find(b => b.key === key);
-      const emojiRaw = guildBadgeEmojis[key] ?? def?.defaultEmoji ?? '🏅';
-      const img      = await loadEmojiImg(emojiRaw);
-      if (img) ctx.drawImage(img, bx, by, EMOJI_SZ, EMOJI_SZ);
-      bx += EMOJI_SZ + 5;
+      const key = earnedKeys[i];
+      const def = BADGE_DEFS.find(b => b.key === key);
+      const img = await loadEmojiImg(guildBadgeEmojis[key] ?? def?.defaultEmoji ?? '🏅');
+      if (img) ctx.drawImage(img, bx, by, ESZI, ESZI);
+      bx += ESZI + 5;
     }
   }
 
-  // ── Bio (lado esquerdo) ───────────────────────────────────────────────────────
-  const LEFT_X    = 28;
-  let textY       = BANNER_H + 26;
-  const MAX_BIO_W = 555;
-
+  // ── Bio (esquerda) ─────────────────────────────────────────────────────────
+  const LEFT_X = 28;
+  let textY    = BANNER_H + 26;
   const bioText = bio ?? 'Utilize: fallen bio para alterar esta frase.';
-  ctx.font      = `bold 13px ${FONT}`;
-  ctx.fillStyle = '#555577';
-  textY = await drawBioWithEmojis(ctx, bioText, LEFT_X, textY, MAX_BIO_W, 17, 15);
+  ctx.font = `bold 13px ${FONT}`; ctx.fillStyle = '#44446a';
+  textY = await drawBioWithEmojis(ctx, bioText, LEFT_X, textY, 555, 18, 15);
 
-  // ── Painel de stats (grid 2×3) ────────────────────────────────────────────────
-  //
-  //  Layout: container externo cinza claro → pílulas brancas internas
-  //  Cada pílula: [ícone colorido] [label bold / valor cinza]
-  //
-  const OUTER_PAD  = 10;   // padding do container externo
-  const CELL_GAP   = 7;    // espaço entre pílulas
-  const CELL_H     = 62;   // altura de cada pílula
-  const CELL_W     = 264;  // largura de cada pílula
-  const OUTER_W    = OUTER_PAD * 2 + CELL_W * 2 + CELL_GAP;
-  const OUTER_H    = OUTER_PAD * 2 + CELL_H * 3 + CELL_GAP * 2;
-  const PANEL_X    = LEFT_X;
-  const PANEL_Y    = textY + 10;
-  const ICON_SZ    = 42;   // tamanho do bloco de ícone
+  // ── Painel de stats ────────────────────────────────────────────────────────
+  //  Container externo cinza-claro → 3 linhas de 2 pílulas brancas cada
+  const OP   = 10;  // outer padding
+  const CG   = 8;   // cell gap
+  const CH   = 66;  // cell height
+  const CW   = 262; // cell width  (2 colunas)
+  const OW   = OP * 2 + CW * 2 + CG;
+  const OH   = OP * 2 + CH * 3 + CG * 2;
+  const PNX  = LEFT_X;
+  const PNY  = textY + 10;
+  const ISZ  = 46;  // ícone tamanho
 
   // Container externo
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.08)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
-  ctx.fillStyle = '#ececf3';
-  roundRect(ctx, PANEL_X, PANEL_Y, OUTER_W, OUTER_H, 20);
-  ctx.fill();
+  ctx.shadowColor = 'rgba(0,0,0,0.10)'; ctx.shadowBlur = 12; ctx.shadowOffsetY = 3;
+  ctx.fillStyle = '#e2e2ed';
+  roundRect(ctx, PNX, PNY, OW, OH, 22); ctx.fill();
   ctx.restore();
 
   const statsData = [
-    { label: 'Coins',     value: fmtCompact(balance),            sub: null },
-    { label: 'Nível',     value: `${level}`,                     sub: `${xpCurrent}/${xpNeeded}` },
-    { label: 'Badges',    value: `${earnedKeys.length}`,          sub: null },
-    { label: 'Reps',      value: `${reps}`,                      sub: null },
-    { label: 'Casado(a)', value: marriedToName  ?? 'Nenhum',     sub: null },
-    { label: 'Amigo(a)',  value: bestFriendName ?? 'Nenhum',     sub: null },
+    { label: 'Coins',     topText: fmtCompact(balance),          botText: 'Coins'        },
+    { label: 'Nível',     topText: `Nível: ${level}`,             botText: `${xpCurrent}/${xpNeeded}` },
+    { label: 'Badges',    topText: 'Badges',                      botText: `${earnedKeys.length}`      },
+    { label: 'Reps',      topText: 'Reps',                        botText: `${reps}`                   },
+    { label: 'Casado(a)', topText: 'Casado(a)',                   botText: marriedToName  ?? 'Nenhum'  },
+    { label: 'Amigo(a)',  topText: 'Amigo(a)',                    botText: bestFriendName ?? 'Nenhum'  },
   ];
 
   for (let i = 0; i < 6; i++) {
-    const col   = i % 2;
-    const row   = Math.floor(i / 2);
-    const cellX = PANEL_X + OUTER_PAD + col * (CELL_W + CELL_GAP);
-    const cellY = PANEL_Y + OUTER_PAD + row * (CELL_H + CELL_GAP);
+    const col  = i % 2;
+    const row  = Math.floor(i / 2);
+    const cX   = PNX + OP + col * (CW + CG);
+    const cY   = PNY + OP + row * (CH + CG);
 
-    // ── Pílula branca ────────────────────────────────────────────────────────
+    // Pílula branca (radius = CH/2 → forma de pílula real)
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.07)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2;
+    ctx.shadowColor = 'rgba(0,0,0,0.08)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
     ctx.fillStyle = cardPanelColor ?? '#ffffff';
-    roundRect(ctx, cellX, cellY, CELL_W, CELL_H, CELL_H / 2);
-    ctx.fill();
+    roundRect(ctx, cX, cY, CW, CH, CH / 2); ctx.fill();
     ctx.restore();
 
-    // ── Ícone (fundo colorido arredondado + emoji) ────────────────────────────
-    const iconCfg = ICON_CONFIGS[i];
-    const iconX   = cellX + 10;
-    const iconY   = cellY + (CELL_H - ICON_SZ) / 2;
+    // Ícone: fundo colorido arredondado + shape branca desenhada
+    const iX = cX + 11;
+    const iY = cY + (CH - ISZ) / 2;
+    ICON_FNS[i](ctx, iX, iY, ISZ);
 
-    drawIconBg(ctx, iconX, iconY, ICON_SZ, iconCfg.c1, iconCfg.c2);
+    // Textos: topText (bold/escuro) acima, botText (cinza) abaixo
+    const tX   = iX + ISZ + 13;
+    const midY = cY + CH / 2;
+    const maxW = CW - ISZ - 38;
 
-    const iconImg = statIconImgs[i];
-    if (iconImg) {
-      const pad = ICON_SZ * 0.18;
-      ctx.drawImage(iconImg, iconX + pad, iconY + pad, ICON_SZ - pad * 2, ICON_SZ - pad * 2);
-    }
-
-    // ── Textos (label bold / valor cinza) ────────────────────────────────────
-    const textX = iconX + ICON_SZ + 13;
-    const midY  = cellY + CELL_H / 2;
-    const stat  = statsData[i];
-
-    // Texto topo (bold, escuro) — label ou "Label: valor"
-    ctx.font      = `bold 15px ${FONT}`;
+    ctx.font      = `bold 16px ${FONT}`;
     ctx.fillStyle = '#1a1a2e';
-    let topText;
-    if (stat.sub !== null) {
-      topText = `${stat.label}: ${stat.value}`;
-    } else {
-      topText = stat.label;
-    }
-    // Truncar se necessário
-    const maxTW = CELL_W - ICON_SZ - 38;
-    while (topText.length > 0 && ctx.measureText(topText).width > maxTW) {
-      topText = topText.slice(0, -1);
-    }
-    ctx.fillText(topText, textX, midY - 5);
+    let top = statsData[i].topText;
+    while (top.length > 1 && ctx.measureText(top).width > maxW) top = top.slice(0, -1);
+    ctx.fillText(top, tX, midY - 5);
 
-    // Texto baixo (menor, cinza) — valor ou XP
     ctx.font      = `13px ${FONT}`;
     ctx.fillStyle = '#888899';
-    let botText = stat.sub !== null ? stat.sub : stat.value;
-    while (botText.length > 0 && ctx.measureText(botText).width > maxTW) {
-      botText = botText.slice(0, -1);
-    }
-    ctx.fillText(botText, textX, midY + 13);
+    let bot = statsData[i].botText;
+    while (bot.length > 1 && ctx.measureText(bot).width > maxW) bot = bot.slice(0, -1);
+    ctx.fillText(bot, tX, midY + 13);
   }
 
-  // ── Rodapé ────────────────────────────────────────────────────────────────────
-  ctx.fillStyle = 'rgba(0,0,0,0.20)';
-  ctx.font      = `11px ${FONT}`;
-  ctx.textAlign = 'right';
+  // ── Rodapé ─────────────────────────────────────────────────────────────────
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.font = `11px ${FONT}`; ctx.textAlign = 'right';
   ctx.fillText('Fallen Bot \u2022 Perfil', W - 14, H - 10);
   ctx.textAlign = 'left';
 
