@@ -73,6 +73,48 @@ export const BANNERS = [
   },
 ];
 
+// ── Discord CDN URL refresh ─────────────────────────────────────────────────
+// URLs do Discord CDN expiram (parâmetro ?ex=HEX_TIMESTAMP).
+// URLs antigas (sem ?ex) também são revogadas pelo Discord.
+// Esta função renova via API oficial: POST /attachments/refresh-urls
+
+function isDiscordAttachmentUrl(url) {
+  return typeof url === 'string' && url.includes('cdn.discordapp.com/attachments/');
+}
+
+function isExpiredOrStale(url) {
+  try {
+    const ex = new URL(url).searchParams.get('ex');
+    if (!ex) return true; // formato antigo sem expiração = provavelmente quebrado
+    const expiryMs = parseInt(ex, 16) * 1000;
+    return Date.now() > expiryMs - 5 * 60 * 1000; // renova se expira em <5 min
+  } catch { return true; }
+}
+
+async function refreshDiscordUrl(url) {
+  const token = process.env.DISCORD_TOKEN;
+  if (!token) return url;
+  try {
+    const res = await fetch('https://discord.com/api/v10/attachments/refresh-urls', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bot ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ attachment_urls: [url] }),
+    });
+    if (!res.ok) {
+      console.warn(`[banner] refresh-urls HTTP ${res.status}`);
+      return url;
+    }
+    const data = await res.json();
+    return data.refreshed_urls?.[0]?.refreshed ?? url;
+  } catch (e) {
+    console.warn('[banner] refresh-urls erro:', e.message);
+    return url;
+  }
+}
+
 // ── Banner URL helpers ──────────────────────────────────────────────────────
 // Always rebuild from the CURRENT domain so stale stored URLs never break.
 function getBannerBaseUrl() {
@@ -135,17 +177,39 @@ export async function resolveBanner(key, guildId) {
     const { default: prisma } = await import('../database/client.js');
     const custom = await prisma.customBanner.findFirst({ where: { key, guildId, active: true } });
     if (!custom) return null;
+
+    let imageUrl = buildBannerUrl(custom.imageUrl);
+
+    // Renova URLs do Discord CDN que expiraram ou usam formato antigo
+    if (isDiscordAttachmentUrl(imageUrl) && isExpiredOrStale(imageUrl)) {
+      const refreshed = await refreshDiscordUrl(imageUrl);
+      if (refreshed && refreshed !== imageUrl) {
+        // Salva URL renovada no BD para evitar chamada extra da próxima vez
+        try {
+          await prisma.customBanner.update({
+            where: { id: custom.id },
+            data:  { imageUrl: refreshed },
+          });
+        } catch {}
+        imageUrl = refreshed;
+        console.log(`[banner] URL renovada: ${custom.key}`);
+      }
+    }
+
     return {
       key:         custom.key,
       name:        custom.name,
       description: custom.description ?? '',
       price:       custom.price,
-      imageUrl:    buildBannerUrl(custom.imageUrl),
+      imageUrl,
       gradient:    [custom.gradient1, custom.gradient2],
       emoji:       custom.emoji,
       isCustom:    true,
     };
-  } catch { return null; }
+  } catch (e) {
+    console.error('[banner] resolveBanner erro:', e.message);
+    return null;
+  }
 }
 
 export const RING_PRESETS = [
