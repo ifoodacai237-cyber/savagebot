@@ -1,6 +1,8 @@
 import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
-import { generateProfileCard } from '../../utils/profileCard.js';
+import { generateProfileCard }         from '../../utils/profileCard.js';
+import { generateAnimatedProfileCard, isGifUrl } from '../../utils/animatedProfileCard.js';
+import { resolveBanner }               from '../../utils/shopData.js';
 
 async function getGuildBadgeEmojis(guildId) {
   const overrides = await prisma.guildBadgeEmoji.findMany({ where: { guildId } }).catch(() => []);
@@ -39,32 +41,42 @@ export default {
       activePetEmoji = pet?.emoji ?? null;
     }
 
-    const username = member?.displayName ?? target.username;
-    const avatarUrl = target.displayAvatarURL({ extension: 'png', size: 256 });
-
-    const buf = await generateProfileCard({
-      username,
-      avatarUrl,
-      balance:        eco?.balance         ?? 0,
-      bank:           eco?.bank            ?? 0,
-      xp:             eco?.xp              ?? 0,
-      activeBanner:   profile?.activeBanner  ?? null,
-      activeRing:     profile?.activeRing    ?? null,
+    const cardParams = {
+      username:        member?.displayName ?? target.username,
+      avatarUrl:       target.displayAvatarURL({ extension: 'png', size: 256 }),
+      balance:         eco?.balance          ?? 0,
+      bank:            eco?.bank             ?? 0,
+      xp:              eco?.xp               ?? 0,
+      activeBanner:    profile?.activeBanner  ?? null,
+      activeRing:      profile?.activeRing    ?? null,
       ringBorderColor: profile?.ringBorderColor ?? null,
-      activePet:      activePetEmoji,
-      marriedToName:  profile?.marriedToName  ?? null,
-      bestFriendName: profile?.bestFriendName ?? null,
-      reps:           profile?.reps           ?? 0,
-      bio:            profile?.bio            ?? null,
-      cardBg1:        profile?.cardBg1        ?? null,
-      cardBg2:        profile?.cardBg2        ?? null,
-      cardPanelColor: profile?.cardPanelColor ?? null,
+      activePet:       activePetEmoji,
+      marriedToName:   profile?.marriedToName  ?? null,
+      bestFriendName:  profile?.bestFriendName ?? null,
+      reps:            profile?.reps           ?? 0,
+      bio:             profile?.bio            ?? null,
+      cardBg1:         profile?.cardBg1        ?? null,
+      cardBg2:         profile?.cardBg2        ?? null,
+      cardPanelColor:  profile?.cardPanelColor ?? null,
       purchases,
       guildBadgeEmojis,
       guildId: interaction.guildId,
-    });
+    };
 
-    const attachment = new AttachmentBuilder(buf, { name: 'perfil.png' });
+    // Detecta se o banner ativo é um GIF para gerar card animado
+    const bannerObj  = await resolveBanner(cardParams.activeBanner, interaction.guildId);
+    const bannerIsGif = bannerObj?.imageUrl ? await isGifUrl(bannerObj.imageUrl) : false;
+
+    let buf, filename;
+    if (bannerIsGif) {
+      buf      = await generateAnimatedProfileCard(cardParams);
+      filename = 'perfil.gif';
+    } else {
+      buf      = await generateProfileCard(cardParams);
+      filename = 'perfil.png';
+    }
+
+    const attachment = new AttachmentBuilder(buf, { name: filename });
 
     const row1 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -117,31 +129,40 @@ export default {
       activePetEmoji = pet?.emoji ?? null;
     }
 
-    const username = member?.displayName ?? target.username;
-    const avatarUrl = target.displayAvatarURL({ extension: 'png', size: 256 });
-
-    const buf = await generateProfileCard({
-      username,
-      avatarUrl,
-      balance:        eco?.balance         ?? 0,
-      bank:           eco?.bank            ?? 0,
-      xp:             eco?.xp              ?? 0,
-      activeBanner:   profile?.activeBanner  ?? null,
-      activeRing:     profile?.activeRing    ?? null,
+    const cardParams = {
+      username:        member?.displayName ?? target.username,
+      avatarUrl:       target.displayAvatarURL({ extension: 'png', size: 256 }),
+      balance:         eco?.balance          ?? 0,
+      bank:            eco?.bank             ?? 0,
+      xp:              eco?.xp               ?? 0,
+      activeBanner:    profile?.activeBanner  ?? null,
+      activeRing:      profile?.activeRing    ?? null,
       ringBorderColor: profile?.ringBorderColor ?? null,
-      activePet:      activePetEmoji,
-      marriedToName:  profile?.marriedToName  ?? null,
-      bestFriendName: profile?.bestFriendName ?? null,
-      reps:           profile?.reps           ?? 0,
-      bio:            profile?.bio            ?? null,
-      cardBg1:        profile?.cardBg1        ?? null,
-      cardBg2:        profile?.cardBg2        ?? null,
-      cardPanelColor: profile?.cardPanelColor ?? null,
+      activePet:       activePetEmoji,
+      marriedToName:   profile?.marriedToName  ?? null,
+      bestFriendName:  profile?.bestFriendName ?? null,
+      reps:            profile?.reps           ?? 0,
+      bio:             profile?.bio            ?? null,
+      cardBg1:         profile?.cardBg1        ?? null,
+      cardBg2:         profile?.cardBg2        ?? null,
+      cardPanelColor:  profile?.cardPanelColor ?? null,
       purchases,
       guildBadgeEmojis,
       guildId: message.guildId,
-    });
+    };
 
-    return message.reply({ files: [new AttachmentBuilder(buf, { name: 'perfil.png' })] });
+    const bannerObj   = await resolveBanner(cardParams.activeBanner, message.guildId);
+    const bannerIsGif = bannerObj?.imageUrl ? await isGifUrl(bannerObj.imageUrl) : false;
+
+    let buf, filename;
+    if (bannerIsGif) {
+      buf      = await generateAnimatedProfileCard(cardParams);
+      filename = 'perfil.gif';
+    } else {
+      buf      = await generateProfileCard(cardParams);
+      filename = 'perfil.png';
+    }
+
+    return message.reply({ files: [new AttachmentBuilder(buf, { name: filename })] });
   },
 };

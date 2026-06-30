@@ -96,13 +96,24 @@ function isColorDark(color) {
   } catch { return false; }
 }
 
+// ── Cache de imagens (evita re-fetch para frames de GIF animado) ─────────────
+const _imgCache = new Map(); // url → Image
+const _IMG_CACHE_MAX = 120;
+
 async function loadUrl(url, timeoutMs = 7000) {
+  if (_imgCache.has(url)) return _imgCache.get(url);
   const ctrl  = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const r = await fetch(url, { signal: ctrl.signal });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return loadImage(Buffer.from(await r.arrayBuffer()));
+    const img = await loadImage(Buffer.from(await r.arrayBuffer()));
+    if (_imgCache.size >= _IMG_CACHE_MAX) {
+      // Remove o mais antigo
+      _imgCache.delete(_imgCache.keys().next().value);
+    }
+    _imgCache.set(url, img);
+    return img;
   } finally { clearTimeout(timer); }
 }
 
@@ -328,11 +339,14 @@ export async function generateProfileCard({
   marriedToName = null, bestFriendName = null, bio = null,
   cardBg1 = null, cardBg2 = null, cardPanelColor = null,
   xp = 0, reps = 0,
+  // Parâmetros internos para geração de GIF animado:
+  _bannerImage = null,   // Image já carregada — pula o loadUrl do banner
+  _returnCanvas = false, // se true, retorna o canvas em vez de PNG buffer
 }) {
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
-  const banner = await resolveBanner(activeBanner, guildId);
+  const banner = _bannerImage ? null : await resolveBanner(activeBanner, guildId);
   const { c1: rc1, c2: rc2 } = getRingColors(activeRing ?? null);
   const { level, current: xpCurrent, needed: xpNeeded } = computeLevel(xp);
 
@@ -366,15 +380,21 @@ export async function generateProfileCard({
 
   // ── Banner ─────────────────────────────────────────────────────────────────
   const BANNER_H = 230;
-  if (banner) {
+  const drawBannerImage = (img) => {
+    const scale = Math.max(W / img.width, BANNER_H / img.height);
+    const sw = img.width * scale, sh = img.height * scale;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, W, BANNER_H); ctx.clip();
+    ctx.drawImage(img, (W - sw) / 2, (BANNER_H - sh) / 2, sw, sh);
+    ctx.restore();
+  };
+
+  if (_bannerImage) {
+    // Frame pré-carregado (modo GIF animado)
+    drawBannerImage(_bannerImage);
+  } else if (banner) {
     try {
-      const img   = await loadUrl(banner.imageUrl);
-      const scale = Math.max(W / img.width, BANNER_H / img.height);
-      const sw = img.width * scale, sh = img.height * scale;
-      ctx.save();
-      ctx.beginPath(); ctx.rect(0, 0, W, BANNER_H); ctx.clip();
-      ctx.drawImage(img, (W - sw) / 2, (BANNER_H - sh) / 2, sw, sh);
-      ctx.restore();
+      drawBannerImage(await loadUrl(banner.imageUrl));
     } catch {
       const [bg1, bg2] = banner.gradient ?? ['#6a1b9a', '#9c27b0'];
       const g = ctx.createLinearGradient(0, 0, W, BANNER_H);
@@ -562,5 +582,6 @@ export async function generateProfileCard({
   ctx.fillText('Fallen Bot \u2022 Perfil', W - 16, H - 10);
   ctx.textAlign = 'left';
 
+  if (_returnCanvas) return canvas;
   return canvas.toBuffer('image/png');
 }
