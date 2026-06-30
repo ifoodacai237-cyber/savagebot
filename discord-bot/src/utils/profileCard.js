@@ -65,6 +65,25 @@ function fmtCompact(n) {
   return String(n);
 }
 
+// Retorna true se a cor hex for escura (luminância < 128)
+function isColorDark(color) {
+  if (!color) return false;
+  try {
+    const hex = color.replace(/^#/, '');
+    let r, g, b;
+    if (hex.length === 3) {
+      r = parseInt(hex[0] + hex[0], 16);
+      g = parseInt(hex[1] + hex[1], 16);
+      b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length === 6) {
+      r = parseInt(hex.slice(0, 2), 16);
+      g = parseInt(hex.slice(2, 4), 16);
+      b = parseInt(hex.slice(4, 6), 16);
+    } else { return false; }
+    return (0.299 * r + 0.587 * g + 0.114 * b) < 128;
+  } catch { return false; }
+}
+
 async function loadUrl(url, timeoutMs = 7000) {
   const ctrl  = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -305,6 +324,10 @@ export async function generateProfileCard({
   const { c1: rc1, c2: rc2 } = getRingColors(activeRing ?? null);
   const { level, current: xpCurrent, needed: xpNeeded } = computeLevel(xp);
 
+  // Detecta fundos escuros para adaptar cores de texto
+  const darkCard  = isColorDark(cardBg1);
+  const darkPanel = isColorDark(cardPanelColor);
+
   // Pré-carrega ícones dos stats (em paralelo)
   const statIconImgs = await Promise.all(
     STAT_ICON_CONFIGS.map(ic => loadEmojiImg(ic.emoji).catch(() => null)),
@@ -426,7 +449,8 @@ export async function generateProfileCard({
   const LEFT_X = 30;
   let textY    = BANNER_H + 28;
   const bioText = bio ?? 'Utilize: fallen bio para alterar esta frase.';
-  ctx.font = `bold 14px ${FONT}`; ctx.fillStyle = '#2c2c54';
+  ctx.font = `bold 14px ${FONT}`;
+  ctx.fillStyle = darkCard ? '#ffffff' : '#2c2c54';
   textY = await drawBioWithEmojis(ctx, bioText, LEFT_X, textY, 575, 20, 16);
 
   // ── Painel de stats ────────────────────────────────────────────────────────
@@ -497,26 +521,31 @@ export async function generateProfileCard({
       ctx.save(); icCfg.fallback(ctx, iX, iY, ISZ); ctx.restore();
     }
 
-    // Texto
+    // Texto — cores adaptáveis ao painel (escuro → branco)
     const tX   = iX + ISZ + 14;
     const midY = cY + CH / 2;
     const maxW = CW - ISZ - 40;
+    const topColor = darkPanel ? '#ffffff'                : '#1a1a2e';
+    const botColor = darkPanel ? 'rgba(255,255,255,0.92)' : '#888899';
 
-    // Linha de cima: bold, escuro
-    ctx.font = `bold 18px ${FONT}`; ctx.fillStyle = '#1a1a2e';
+    // Linha de cima: bold
+    ctx.save();
+    if (darkPanel) { ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 3; }
+    ctx.font = `bold 18px ${FONT}`; ctx.fillStyle = topColor;
     let top = statsData[i].topText;
     while (top.length > 1 && ctx.measureText(top).width > maxW) top = top.slice(0, -1);
     ctx.fillText(top, tX, midY - 5);
 
-    // Linha de baixo: regular, cinza
-    ctx.font = `14px ${FONT}`; ctx.fillStyle = '#888899';
+    // Linha de baixo: regular
+    ctx.font = `14px ${FONT}`; ctx.fillStyle = botColor;
     let bot = statsData[i].botText;
     while (bot.length > 1 && ctx.measureText(bot).width > maxW) bot = bot.slice(0, -1);
     ctx.fillText(bot, tX, midY + 15);
+    ctx.restore();
   }
 
   // ── Rodapé ─────────────────────────────────────────────────────────────────
-  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.fillStyle = darkCard ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.18)';
   ctx.font = `11px ${FONT}`; ctx.textAlign = 'right';
   ctx.fillText('Fallen Bot \u2022 Perfil', W - 16, H - 10);
   ctx.textAlign = 'left';
