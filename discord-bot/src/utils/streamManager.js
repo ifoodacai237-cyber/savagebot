@@ -19,125 +19,91 @@ function formatDuration(secs) {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
   const s = String(secs % 60).padStart(2, '0');
-  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+  return h > 0 ? `${h}h${String(m).padStart(2, '0')}m${s}s` : `${m}:${s}`;
 }
 
-// ─── Detecta plataforma ───────────────────────────────────────────────────────
+// ─── Detecta tipo da query ────────────────────────────────────────────────────
 export function resolveStreamQuery(input) {
-  if (/youtube\.com|youtu\.be/i.test(input))  return { platform: 'youtube',    isSearch: false };
+  if (/youtube\.com|youtu\.be/i.test(input))  return { platform: 'youtube',  isSearch: false };
   if (/soundcloud\.com/i.test(input))          return { platform: 'soundcloud', isSearch: false };
-  if (/spotify\.com/i.test(input))             return { platform: 'spotify',    isSearch: false };
-  return { platform: 'search', isSearch: true };
+  if (/spotify\.com/i.test(input))             return { platform: 'spotify',  isSearch: false };
+  if (/^https?:\/\//i.test(input))             return { platform: 'direct',   isSearch: false };
+  return { platform: 'youtube', isSearch: true };
 }
 
-// ─── Extrai título de YouTube via oEmbed ─────────────────────────────────────
-async function youtubeTitleFromOembed(url) {
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
-    const r = await fetch(
-      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
-      { signal: ctrl.signal }
-    );
-    clearTimeout(t);
-    if (!r.ok) return null;
-    const d = await r.json();
-    return d?.title ?? null;
-  } catch { return null; }
-}
-
-// ─── Busca no SoundCloud via play-dl ─────────────────────────────────────────
-let _scReady = false;
-let playdl = null;
-
-async function ensureSoundCloud() {
-  if (!playdl) {
-    const mod = await import('play-dl');
-    playdl = mod.default;
-  }
-  if (_scReady) return;
-  const id = await playdl.getFreeClientID();
-  await playdl.setToken({ soundcloud: { client_id: id } });
-  _scReady = true;
-}
-
-async function searchSoundCloud(query) {
-  await ensureSoundCloud();
-  const results = await playdl.search(query, {
-    source: { soundcloud: 'tracks' },
-    limit: 1,
-  });
-  if (!results || results.length === 0) throw new Error('Sem resultados para: ' + query);
-  return results[0];
-}
-
-function scToInfo(sc) {
-  return {
-    title:    sc.name,
-    duration: formatDuration(sc.durationInMs ? Math.round(sc.durationInMs / 1000) : 0),
-    uploader: sc.user?.name ?? 'SoundCloud',
-    thumbnail: sc.thumbnail ?? null,
-    url:      sc.permalink,
-    platform: 'soundcloud',
-  };
-}
-
-// ─── Resolve query → info da faixa ───────────────────────────────────────────
+// ─── Busca/resolve info via yt-dlp (não bloqueia Railway) ────────────────────
 export async function getStreamTrackInfo(rawQuery) {
-  const { platform, isSearch } = resolveStreamQuery(rawQuery);
+  const { isSearch } = resolveStreamQuery(rawQuery);
+
+  const args = [
+    '--no-warnings',
+    '--skip-download',
+    '--print', '%(title)s\n%(uploader)s\n%(duration)s\n%(thumbnail)s\n%(webpage_url)s',
+    '--no-playlist',
+    '--socket-timeout', '20',
+  ];
 
   if (isSearch) {
-    const sc = await searchSoundCloud(rawQuery);
-    return scToInfo(sc);
+    // Pesquisa no YouTube — pega o primeiro resultado
+    args.push(`ytsearch1:${rawQuery}`);
+  } else {
+    args.push(rawQuery);
   }
 
-  if (platform === 'soundcloud') {
-    await ensureSoundCloud();
-    const info = await playdl.soundcloud(rawQuery);
-    return {
-      title:    info.name,
-      duration: formatDuration(info.durationInMs ? Math.round(info.durationInMs / 1000) : 0),
-      uploader: info.user?.name ?? 'SoundCloud',
-      thumbnail: info.thumbnail ?? null,
-      url:      rawQuery,
-      platform: 'soundcloud',
-    };
-  }
+  return new Promise((resolve, reject) => {
+    const proc = spawn('yt-dlp', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    let err = '';
 
-  if (platform === 'youtube') {
-    const title = await youtubeTitleFromOembed(rawQuery);
-    if (!title) throw new Error('Não foi possível carregar este vídeo do YouTube. Tente pesquisar pelo nome.');
-    const sc = await searchSoundCloud(title);
-    return scToInfo(sc);
-  }
+    proc.stdout.on('data', d => { out += d.toString(); });
+    proc.stderr.on('data', d => { err += d.toString(); });
 
-  if (platform === 'spotify') {
-    try {
-      const r = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(rawQuery)}`);
-      const d = await r.json();
-      if (!d?.title) throw new Error('Link do Spotify inválido ou privado.');
-      const sc = await searchSoundCloud(d.title);
-      return scToInfo(sc);
-    } catch (e) { throw new Error('Link do Spotify inválido ou privado.'); }
-  }
+    const timeout = setTimeout(() => {
+      try { proc.kill('SIGKILL'); } catch {}
+      reject(new Error('Tempo limite atingido ao buscar informações. Tente novamente.'));
+    }, 30_000);
 
-  throw new Error('Formato não suportado.');
+    proc.on('close', code => {
+      clearTimeout(timeout);
+      if (code !== 0) {
+        const errMsg = err.toLowerCase();
+        if (errMsg.includes('private')) return reject(new Error('Vídeo privado ou indisponível.'));
+        if (errMsg.includes('age')) return reject(new Error('Conteúdo com restrição de idade.'));
+        if (errMsg.includes('not available')) return reject(new Error('Conteúdo não disponível na sua região.'));
+        return reject(new Error(`Não foi possível carregar o conteúdo. (código ${code})`));
+      }
+
+      const lines = out.trim().split('\n');
+      if (lines.length < 5) return reject(new Error('Nenhum resultado encontrado para esta busca.'));
+
+      const [title, uploader, durationRaw, thumbnail, url] = lines;
+      const duration = formatDuration(parseInt(durationRaw, 10));
+
+      resolve({ title, uploader, duration, thumbnail, url, platform: 'youtube' });
+    });
+  });
 }
 
-// ─── Stream via yt-dlp → ffmpeg ───────────────────────────────────────────────
+// ─── Stream via yt-dlp → ffmpeg (áudio no canal de voz) ─────────────────────
+// Discord bots transmitem ÁUDIO via @discordjs/voice.
+// Para vídeo no Go Live, seria necessário uma conta de usuário (selfbot),
+// o que viola os Termos de Serviço do Discord.
 function buildStreamResource(url) {
   const ytdlp = spawn('yt-dlp', [
     '--no-playlist',
     '--no-warnings',
     '--socket-timeout', '20',
-    '--format', 'bestaudio/best',
+    '--format', 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best',
+    '--retries', '5',
+    '--fragment-retries', '5',
+    '--extractor-retries', '3',
     '-o', '-',
     url,
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
   ytdlp.stderr.on('data', chunk => {
     const line = chunk.toString().trim();
-    if (line && !line.startsWith('[download]') && !line.startsWith('[soundcloud]'))
+    if (line && !line.startsWith('[download]') && !line.startsWith('[youtube]') && !line.startsWith('[info]'))
       console.error('[STREAM yt-dlp]', line.slice(0, 200));
   });
   ytdlp.on('error', err => console.error('[STREAM yt-dlp spawn]', err.message));
@@ -147,7 +113,7 @@ function buildStreamResource(url) {
     '-i', 'pipe:0',
     '-vn',
     '-c:a', 'libopus',
-    '-b:a', '128k',
+    '-b:a', '192k',
     '-ar', '48000',
     '-ac', '2',
     '-f', 'ogg',
@@ -180,6 +146,8 @@ export class StreamSession {
     this.controlMessage = null;
     this.trackInfo      = null;
     this._stopped       = false;
+    this._ytdlp         = null;
+    this._ffmpeg        = null;
 
     connection.subscribe(this.player);
 
@@ -201,7 +169,7 @@ export class StreamSession {
     try {
       const resource = buildStreamResource(url);
       this.player.play(resource);
-      console.log('[STREAM] Transmitindo:', info.title, '|', info.url);
+      console.log('[STREAM] Transmitindo:', info.title, '|', url);
       return true;
     } catch (err) {
       console.error('[STREAM] play() falhou:', err.message);

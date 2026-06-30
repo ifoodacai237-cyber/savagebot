@@ -6,35 +6,44 @@ import {
   ButtonStyle,
   ChannelType,
 } from 'discord.js';
-import { getStreamTrackInfo, createStreamSession, streamSessions, resolveStreamQuery } from '../../utils/streamManager.js';
+import {
+  getStreamTrackInfo,
+  createStreamSession,
+  streamSessions,
+  resolveStreamQuery,
+} from '../../utils/streamManager.js';
 
 const STREAM_COLOR = 0xFF6B35;
 
 const PLATFORM_ICONS = {
   youtube:    '▶️ YouTube',
   soundcloud: '🟠 SoundCloud',
-  spotify:    '💚 Spotify → SoundCloud',
+  spotify:    '💚 Spotify',
+  direct:     '🔗 Link direto',
   default:    '🎬 Transmissão',
 };
 
 export function buildStreamPanel(session) {
-  const info = session.trackInfo;
-  const platformLabel = PLATFORM_ICONS[info.platform] ?? PLATFORM_ICONS.default;
+  const info          = session.trackInfo;
+  const platformLabel = PLATFORM_ICONS[info?.platform] ?? PLATFORM_ICONS.default;
+  const title         = info?.title    ?? 'Desconhecido';
+  const uploader      = info?.uploader ?? 'Desconhecido';
+  const duration      = info?.duration ?? '—';
 
   const embed = new EmbedBuilder()
     .setColor(STREAM_COLOR)
     .setTitle('🎬 Transmitindo Agora')
-    .setDescription(`**${info.title}**`)
+    .setDescription(`**${title}**`)
     .addFields(
-      { name: '👤 Canal / Artista', value: info.uploader || 'Desconhecido',                                inline: true },
-      { name: '⏱️ Duração',        value: `\`${info.duration}\``,                                          inline: true },
-      { name: '📢 Status',         value: session.paused ? '⏸️ Pausado' : '▶️ Transmitindo',               inline: true },
-      { name: '🔗 Fonte',          value: platformLabel,                                                   inline: true },
+      { name: '👤 Canal',    value: uploader,                                             inline: true },
+      { name: '⏱️ Duração',  value: `\`${duration}\``,                                    inline: true },
+      { name: '📢 Status',   value: session.paused ? '⏸️ Pausado' : '▶️ Transmitindo',    inline: true },
+      { name: '🔗 Fonte',    value: platformLabel,                                        inline: true },
     )
-    .setFooter({ text: '🎌 Sistema de Transmissão — Animes, Filmes, Desenhos e mais' })
+    .setFooter({ text: '🎌 Sistema de Transmissão — Animes · Filmes · Desenhos' })
     .setTimestamp();
 
-  if (info.thumbnail) embed.setThumbnail(info.thumbnail);
+  if (info?.thumbnail) embed.setThumbnail(info.thumbnail);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -55,21 +64,21 @@ export function buildStreamPanel(session) {
 export default {
   data: new SlashCommandBuilder()
     .setName('transmissao')
-    .setDescription('Sistema de transmissão — entra no canal de voz e transmite áudio de animes, filmes, desenhos etc.')
+    .setDescription('Entra no canal de voz e transmite áudio de animes, filmes, desenhos etc.')
     .addSubcommand(sub =>
       sub
         .setName('tocar')
-        .setDescription('Entra no canal de voz e começa a transmissão')
+        .setDescription('Inicia a transmissão no canal de voz')
         .addStringOption(opt =>
           opt
             .setName('conteudo')
-            .setDescription('Link do YouTube/SoundCloud/Spotify ou nome do anime/filme/desenho para pesquisar')
+            .setDescription('Nome do anime/filme/desenho ou link do YouTube')
             .setRequired(true)
         )
         .addChannelOption(opt =>
           opt
             .setName('canal')
-            .setDescription('Canal de voz (deixe vazio para entrar no seu canal atual)')
+            .setDescription('Canal de voz (deixe vazio para usar o seu canal atual)')
             .addChannelTypes(ChannelType.GuildVoice, ChannelType.GuildStageVoice)
             .setRequired(false)
         )
@@ -85,6 +94,7 @@ export default {
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
 
+    // ── PARAR ──────────────────────────────────────────────────────────────────
     if (sub === 'parar') {
       const session = streamSessions.get(interaction.guildId);
       if (!session) {
@@ -105,6 +115,7 @@ export default {
       });
     }
 
+    // ── PAINEL ─────────────────────────────────────────────────────────────────
     if (sub === 'painel') {
       const session = streamSessions.get(interaction.guildId);
       if (!session) {
@@ -116,7 +127,7 @@ export default {
       return interaction.reply(buildStreamPanel(session));
     }
 
-    // ── TOCAR ─────────────────────────────────────────────────────────────────
+    // ── TOCAR ──────────────────────────────────────────────────────────────────
     const conteudo = interaction.options.getString('conteudo');
 
     let voiceChannel = interaction.options.getChannel('canal');
@@ -144,37 +155,34 @@ export default {
 
     await interaction.deferReply();
 
-    const { isSearch, platform } = resolveStreamQuery(conteudo);
-    const buscandoMsg = isSearch
-      ? `🔍 Pesquisando **"${conteudo}"**...`
-      : platform === 'spotify'
-        ? '💚 Convertendo link do Spotify...'
-        : '⏳ Carregando conteúdo...';
+    const { isSearch } = resolveStreamQuery(conteudo);
 
     await interaction.editReply({
-      embeds: [new EmbedBuilder().setColor(STREAM_COLOR).setDescription(buscandoMsg)],
+      embeds: [
+        new EmbedBuilder()
+          .setColor(STREAM_COLOR)
+          .setDescription(
+            isSearch
+              ? `🔍 Pesquisando no YouTube: **"${conteudo}"**...`
+              : `⏳ Carregando conteúdo...`
+          ),
+      ],
     });
 
+    // Busca info via yt-dlp
     let info;
     try {
       info = await getStreamTrackInfo(conteudo);
     } catch (err) {
       console.error('[TRANSMISSAO] getStreamTrackInfo falhou:', err.message);
-
-      let errText = '❌ Não foi possível carregar esse conteúdo.';
-      if (err.message.includes('not available on this app')) {
-        errText = '❌ Este conteúdo não está disponível. Tente pesquisar pelo nome do anime/filme.';
-      } else if (err.message.includes('Private video')) {
-        errText = '❌ Este vídeo é privado.';
-      } else if (err.message.includes('age-restricted') || err.message.includes('age restricted')) {
-        errText = '❌ Este conteúdo tem restrição de idade.';
-      }
-
       return interaction.editReply({
-        embeds: [errEmbed(errText + '\n\n💡 **Dica:** Pesquise pelo nome do anime ou filme, ex: `naruto op 1` ou `spirited away soundtrack`')],
+        embeds: [errEmbed(
+          `❌ ${err.message}\n\n💡 **Dica:** Use o nome do anime/episódio como pesquisa, ex:\n\`naruto abertura 1\`, \`attack on titan ost\`, \`studio ghibli music\``
+        )],
       });
     }
 
+    // Conecta ao canal de voz
     const session = await createStreamSession({ guild: interaction.guild, channelId: voiceChannel.id });
     if (!session) {
       return interaction.editReply({
@@ -182,6 +190,7 @@ export default {
       });
     }
 
+    // Inicia o stream
     const ok = await session.play(info.url, info).catch(err => {
       console.error('[TRANSMISSAO] play() falhou:', err.message);
       return false;
@@ -190,12 +199,12 @@ export default {
     if (!ok) {
       session.stop();
       return interaction.editReply({
-        embeds: [errEmbed('❌ Não foi possível transmitir esse conteúdo. Tente outro link ou pesquise pelo nome.')],
+        embeds: [errEmbed('❌ Não foi possível transmitir esse conteúdo. Tente outro link ou pesquisa.')],
       });
     }
 
     const panel = buildStreamPanel(session);
-    const msg = await interaction.editReply(panel);
+    const msg   = await interaction.editReply(panel);
     session.controlMessage = { channelId: msg.channelId, messageId: msg.id };
   },
 
@@ -204,7 +213,17 @@ export default {
       embeds: [
         new EmbedBuilder()
           .setColor(STREAM_COLOR)
-          .setDescription('🎬 Use `/transmissao tocar <nome ou link>` para iniciar uma transmissão.\nExemplos:\n• `/transmissao tocar naruto op 1`\n• `/transmissao tocar link do youtube`'),
+          .setTitle('🎬 Sistema de Transmissão')
+          .setDescription(
+            'Use os comandos abaixo:\n\n' +
+            '`/transmissao tocar <nome ou link>` — Inicia a transmissão\n' +
+            '`/transmissao parar` — Para a transmissão\n' +
+            '`/transmissao painel` — Reenvia o painel\n\n' +
+            '**Exemplos:**\n' +
+            '• `/transmissao tocar naruto abertura 1`\n' +
+            '• `/transmissao tocar attack on titan ost`\n' +
+            '• `/transmissao tocar https://youtube.com/...`'
+          ),
       ],
     });
   },
