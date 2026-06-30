@@ -78,6 +78,45 @@ async function loadUrl(url, timeoutMs = 12000) {
   } finally { clearTimeout(timer); }
 }
 
+// Renova URLs do CDN do Discord (expiram após ~24h)
+function isDiscordCdnUrl(url) {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    return (u.hostname === 'cdn.discordapp.com' || u.hostname === 'media.discordapp.net')
+      && u.pathname.startsWith('/attachments/');
+  } catch { return false; }
+}
+
+async function refreshDiscordUrl(url) {
+  const token = process.env.DISCORD_TOKEN;
+  if (!token) return url;
+  try {
+    const res = await fetch('https://discord.com/api/v10/attachments/refresh-urls', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bot ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ attachment_urls: [url] }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      console.error(`[refreshDiscordUrl] falha HTTP ${res.status} ao renovar URL do CDN`);
+      return url;
+    }
+    const data = await res.json();
+    const fresh = data?.refreshed_urls?.[0]?.refreshed;
+    if (fresh) {
+      console.log(`[refreshDiscordUrl] URL renovada com sucesso`);
+      return fresh;
+    }
+  } catch (err) {
+    console.error(`[refreshDiscordUrl] erro ao renovar URL: ${err?.message}`);
+  }
+  return url;
+}
+
 function parseCustomEmoji(e) {
   const m = e?.match(/<a?:\w+:(\d{10,20})>/);
   return m ? `https://cdn.discordapp.com/emojis/${m[1]}.png` : null;
@@ -339,7 +378,11 @@ export async function generateProfileCard({
       console.error(`[profileCard] banner "${banner.key}" has no imageUrl after buildBannerUrl — check RAILWAY_PUBLIC_DOMAIN or API_BASE_URL env var`);
     }
     try {
-      const img   = await loadUrl(banner.imageUrl);
+      // Renova URLs do CDN do Discord automaticamente antes de tentar carregar
+      const imageUrl = isDiscordCdnUrl(banner.imageUrl)
+        ? await refreshDiscordUrl(banner.imageUrl)
+        : banner.imageUrl;
+      const img   = await loadUrl(imageUrl);
       const scale = Math.max(W / img.width, BANNER_H / img.height);
       const sw = img.width * scale, sh = img.height * scale;
       ctx.save();
