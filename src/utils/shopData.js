@@ -139,18 +139,30 @@ export async function resolveBanner(key, guildId) {
     if (!custom) {
       custom = await prisma.customBanner.findFirst({ where: { key, active: true } });
     }
-    if (!custom) return null;
+    if (!custom) {
+      console.error(`[resolveBanner] banner "${key}" NÃO encontrado no DB (guildId=${guildId})`);
+      return null;
+    }
+    const imageUrl = buildBannerUrl(custom.imageUrl);
+    if (!imageUrl) {
+      console.error(`[resolveBanner] banner "${key}" encontrado mas buildBannerUrl retornou null — imageUrl raw: "${custom.imageUrl}". Verifique RAILWAY_PUBLIC_DOMAIN ou API_BASE_URL`);
+    } else {
+      console.log(`[resolveBanner] banner "${key}" encontrado — imageUrl: ${imageUrl}`);
+    }
     return {
       key:         custom.key,
       name:        custom.name,
       description: custom.description ?? '',
       price:       custom.price,
-      imageUrl:    buildBannerUrl(custom.imageUrl),
+      imageUrl,
       gradient:    [custom.gradient1, custom.gradient2],
       emoji:       custom.emoji,
       isCustom:    true,
     };
-  } catch { return null; }
+  } catch (err) {
+    console.error(`[resolveBanner] erro ao buscar banner "${key}": ${err?.message}`);
+    return null;
+  }
 }
 
 export const RING_PRESETS = [

@@ -65,11 +65,14 @@ function fmtCompact(n) {
   return String(n);
 }
 
-async function loadUrl(url, timeoutMs = 7000) {
+async function loadUrl(url, timeoutMs = 12000) {
   const ctrl  = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const r = await fetch(url, { signal: ctrl.signal });
+    const r = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DiscordBot; +https://discord.com)' },
+    });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return loadImage(Buffer.from(await r.arrayBuffer()));
   } finally { clearTimeout(timer); }
