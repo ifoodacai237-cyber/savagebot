@@ -65,17 +65,29 @@ function fmtCompact(n) {
   return String(n);
 }
 
-// Retorna true se a cor hex for escura (luminância < 128)
+// Retorna true se a cor for escura (luminância < 128)
+// Suporta: hex (#000, #000000, #00000088), rgb(...), rgba(...), named (black/white)
 function isColorDark(color) {
   if (!color) return false;
   try {
-    const hex = color.replace(/^#/, '');
+    const s = String(color).trim().toLowerCase();
+    // Named colors
+    if (s === 'black' || s === 'transparent') return true;
+    if (s === 'white') return false;
     let r, g, b;
+    // rgb() / rgba()
+    const rgbM = s.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (rgbM) {
+      [r, g, b] = [Number(rgbM[1]), Number(rgbM[2]), Number(rgbM[3])];
+      return (0.299 * r + 0.587 * g + 0.114 * b) < 128;
+    }
+    // Hex
+    const hex = s.replace(/^#/, '');
     if (hex.length === 3) {
       r = parseInt(hex[0] + hex[0], 16);
       g = parseInt(hex[1] + hex[1], 16);
       b = parseInt(hex[2] + hex[2], 16);
-    } else if (hex.length === 6) {
+    } else if (hex.length === 6 || hex.length === 8) {
       r = parseInt(hex.slice(0, 2), 16);
       g = parseInt(hex.slice(2, 4), 16);
       b = parseInt(hex.slice(4, 6), 16);
@@ -545,7 +557,7 @@ export async function generateProfileCard({
   }
 
   // ── Rodapé ─────────────────────────────────────────────────────────────────
-  ctx.fillStyle = darkCard ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.18)';
+  ctx.fillStyle = darkCard ? 'rgba(255,255,255,0.70)' : 'rgba(0,0,0,0.18)';
   ctx.font = `11px ${FONT}`; ctx.textAlign = 'right';
   ctx.fillText('Fallen Bot \u2022 Perfil', W - 16, H - 10);
   ctx.textAlign = 'left';
