@@ -12,9 +12,9 @@ GlobalFonts.register(readFileSync(join(FONTS_DIR, 'Roboto-Regular.ttf')), 'BotFo
 GlobalFonts.register(readFileSync(join(FONTS_DIR, 'Roboto-Bold.ttf')),    'BotFont');
 
 const FONT = 'BotFont';
-const W = 900, H = 520;
+const W = 950, H = 555;
 
-// ─── Badge definitions ────────────────────────────────────────────────────────
+// ─── Badges ───────────────────────────────────────────────────────────────────
 export const BADGE_DEFS = [
   { key: 'vip',           defaultEmoji: '💎', name: 'VIP',           description: 'Saldo total ≥ 50.000',  color: 'rgba(88,166,255,0.85)'  },
   { key: 'rico',          defaultEmoji: '💰', name: 'Rico',          description: 'Saldo total ≥ 10.000',  color: 'rgba(253,224,71,0.85)'  },
@@ -51,15 +51,11 @@ export function computeLevel(xp) {
 
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
+  ctx.moveTo(x + r, y);          ctx.lineTo(x + w - r, y);
   ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.lineTo(x + w, y + h - r);  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);          ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.closePath();
 }
 
@@ -69,7 +65,7 @@ function fmtCompact(n) {
   return String(n);
 }
 
-async function loadUrl(url, timeoutMs = 8000) {
+async function loadUrl(url, timeoutMs = 7000) {
   const ctrl  = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -84,16 +80,19 @@ function parseCustomEmoji(e) {
   return m ? `https://cdn.discordapp.com/emojis/${m[1]}.png` : null;
 }
 
-function twemojiUrl(emoji) {
-  const cp = [...emoji].map(c => c.codePointAt(0).toString(16)).filter(c => c !== 'fe0f');
-  return `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${cp.join('-')}.png`;
-}
-
-async function loadEmojiImg(e) {
-  if (!e) return null;
-  const cu = parseCustomEmoji(e);
-  if (cu) try { return await loadUrl(cu); } catch {}
-  try { return await loadUrl(twemojiUrl(e)); } catch {}
+// Tenta múltiplos CDNs para máxima confiabilidade
+async function loadEmojiImg(emoji) {
+  if (!emoji) return null;
+  const cu = parseCustomEmoji(emoji);
+  if (cu) try { return await loadUrl(cu, 5000); } catch {}
+  const cp = [...emoji].map(c => c.codePointAt(0).toString(16)).filter(c => c !== 'fe0f').join('-');
+  const cdns = [
+    `https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/${cp}.png`,
+    `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${cp}.png`,
+  ];
+  for (const url of cdns) {
+    try { return await loadUrl(url, 5000); } catch {}
+  }
   return null;
 }
 
@@ -144,41 +143,45 @@ async function drawBioWithEmojis(ctx, text, x, y, maxW, lineH, emojiSz) {
         const img = cache.get(item.value);
         if (img) ctx.drawImage(img, cx, y - emojiSz + 3, emojiSz, emojiSz);
         else ctx.fillText(item.value, cx, y);
-      } else if (item.kind !== 'space') ctx.fillText(item.value, cx, y);
-      if (item.kind !== 'space') cx += item.width; else cx += item.width;
+        cx += item.width;
+      } else if (item.kind === 'space') { cx += item.width; }
+      else { ctx.fillText(item.value, cx, y); cx += item.width; }
     }
     y += lineH;
   }
   return y;
 }
 
-// ─── Ícones canvas (sempre funcionam, sem CDN) ────────────────────────────────
+// ─── Ícone: fundo gradiente + emoji por cima ──────────────────────────────────
 
-function iconBg(ctx, x, y, sz, c1, c2) {
+function drawIconBg(ctx, x, y, sz, c1, c2) {
   const g = ctx.createLinearGradient(x, y, x + sz, y + sz);
   g.addColorStop(0, c1); g.addColorStop(1, c2);
   ctx.fillStyle = g;
-  roundRect(ctx, x, y, sz, sz, 10);
+  roundRect(ctx, x, y, sz, sz, 12);
   ctx.fill();
 }
 
-// 🪙 Coins — fundo âmbar + moeda branca
-function iconCoins(ctx, x, y, sz) {
-  iconBg(ctx, x, y, sz, '#FBB040', '#E67E22');
-  const cx = x + sz / 2, cy = y + sz / 2, r = sz * 0.26;
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(180,100,10,0.30)'; ctx.lineWidth = sz * 0.04;
-  ctx.beginPath(); ctx.arc(cx, cy, r * 0.65, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = 'rgba(146,64,14,0.7)';
-  ctx.beginPath(); ctx.arc(cx, cy, r * 0.17, 0, Math.PI * 2); ctx.fill();
+// Ícones canvas de fallback (usados se o emoji não carregar)
+function fallbackCoin(ctx, x, y, sz) {
+  const cx = x + sz / 2, cy = y + sz / 2;
+  for (let i = 2; i >= 0; i--) {
+    const off = i * sz * 0.06;
+    ctx.fillStyle = i === 0 ? '#FFD700' : `rgba(255,200,50,${0.6 + i * 0.15})`;
+    ctx.beginPath(); ctx.ellipse(cx, cy - off, sz * 0.28, sz * 0.10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(180,130,0,0.4)'; ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.font = `bold ${Math.floor(sz * 0.32)}px BotFont`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('$', cx, cy + sz * 0.06);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
 }
 
-// ⭐ Nível — fundo dourado + estrela branca
-function iconStar(ctx, x, y, sz) {
-  iconBg(ctx, x, y, sz, '#FDD835', '#FFA000');
-  const cx = x + sz / 2, cy = y + sz / 2, R = sz * 0.27, r2 = R * 0.42;
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+function fallbackStar(ctx, x, y, sz) {
+  const cx = x + sz / 2, cy = y + sz / 2, R = sz * 0.30, r2 = R * 0.42;
+  ctx.fillStyle = '#FFD700';
   ctx.beginPath();
   for (let i = 0; i < 10; i++) {
     const a = (i * Math.PI) / 5 - Math.PI / 2;
@@ -187,71 +190,104 @@ function iconStar(ctx, x, y, sz) {
             : ctx.lineTo(cx + rl * Math.cos(a), cy + rl * Math.sin(a));
   }
   ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(220,160,0,0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
 }
 
-// 🏅 Badges — fundo roxo + medalha branca
-function iconMedal(ctx, x, y, sz) {
-  iconBg(ctx, x, y, sz, '#AB47BC', '#7B1FA2');
+function fallbackMedal(ctx, x, y, sz) {
   const cx = x + sz / 2, cy = y + sz / 2;
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  // Ribbon
+  ctx.fillStyle = '#FF6B6B';
   ctx.beginPath();
-  ctx.moveTo(cx - sz * 0.08, cy - sz * 0.28); ctx.lineTo(cx + sz * 0.08, cy - sz * 0.28);
-  ctx.lineTo(cx + sz * 0.04, cy - sz * 0.06); ctx.lineTo(cx, cy - sz * 0.10);
-  ctx.lineTo(cx - sz * 0.04, cy - sz * 0.06); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.arc(cx, cy + sz * 0.07, sz * 0.18, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(180,120,220,0.55)';
-  ctx.beginPath(); ctx.arc(cx, cy + sz * 0.07, sz * 0.09, 0, Math.PI * 2); ctx.fill();
-}
-
-// 👍 Reps — fundo índigo + polegar branco
-function iconThumb(ctx, x, y, sz) {
-  iconBg(ctx, x, y, sz, '#7986CB', '#5C6BC0');
-  const cx = x + sz / 2, cy = y + sz / 2;
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  roundRect(ctx, cx - sz * 0.06, cy - sz * 0.03, sz * 0.22, sz * 0.25, sz * 0.04); ctx.fill();
-  ctx.beginPath();
-  ctx.arc(cx - sz * 0.01, cy - sz * 0.18, sz * 0.12, Math.PI * 0.8, Math.PI * 1.7, false);
-  ctx.lineTo(cx - sz * 0.08, cy - sz * 0.03); ctx.lineTo(cx - sz * 0.06, cy - sz * 0.03);
+  ctx.moveTo(cx - sz * 0.10, cy - sz * 0.30);
+  ctx.lineTo(cx + sz * 0.10, cy - sz * 0.30);
+  ctx.lineTo(cx + sz * 0.06, cy - sz * 0.04);
+  ctx.lineTo(cx, cy - sz * 0.10);
+  ctx.lineTo(cx - sz * 0.06, cy - sz * 0.04);
   ctx.closePath(); ctx.fill();
-  roundRect(ctx, cx - sz * 0.22, cy + sz * 0.01, sz * 0.16, sz * 0.25, sz * 0.04); ctx.fill();
+  // Gold circle
+  const grad = ctx.createRadialGradient(cx, cy + sz * 0.08, 0, cx, cy + sz * 0.08, sz * 0.20);
+  grad.addColorStop(0, '#FFD700'); grad.addColorStop(1, '#F59E0B');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(cx, cy + sz * 0.08, sz * 0.20, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = `bold ${Math.floor(sz * 0.22)}px BotFont`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('★', cx, cy + sz * 0.08);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
 }
 
-// 💕 Casado — fundo rosa + coração branco
-function iconHeart(ctx, x, y, sz) {
-  iconBg(ctx, x, y, sz, '#F48FB1', '#E91E63');
-  const cx = x + sz / 2, cy = y + sz / 2 + sz * 0.02, hw = sz * 0.22;
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  ctx.save(); ctx.translate(cx, cy);
-  ctx.beginPath();
-  ctx.moveTo(0, hw * 0.6);
-  ctx.bezierCurveTo(hw * 1.2, -hw * 0.2, hw * 1.2, -hw * 1.0, 0, -hw * 0.4);
-  ctx.bezierCurveTo(-hw * 1.2, -hw * 1.0, -hw * 1.2, -hw * 0.2, 0, hw * 0.6);
-  ctx.closePath(); ctx.fill(); ctx.restore();
-}
-
-// 💝 Amigo — fundo lilás + coração+estrela brancos
-function iconBff(ctx, x, y, sz) {
-  iconBg(ctx, x, y, sz, '#CE93D8', '#AB47BC');
+function fallbackThumb(ctx, x, y, sz) {
   const cx = x + sz / 2, cy = y + sz / 2;
   ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  ctx.save(); ctx.translate(cx - sz * 0.10, cy); ctx.scale(0.62, 0.62);
-  const hw = sz * 0.22;
+  roundRect(ctx, cx - sz * 0.06, cy - sz * 0.04, sz * 0.24, sz * 0.26, sz * 0.05); ctx.fill();
   ctx.beginPath();
-  ctx.moveTo(0, hw * 0.6);
-  ctx.bezierCurveTo(hw * 1.2, -hw * 0.2, hw * 1.2, -hw * 1.0, 0, -hw * 0.4);
-  ctx.bezierCurveTo(-hw * 1.2, -hw * 1.0, -hw * 1.2, -hw * 0.2, 0, hw * 0.6);
-  ctx.closePath(); ctx.fill(); ctx.restore();
-  const rx = cx + sz * 0.10, ry = cy, Rs = sz * 0.13, rs = Rs * 0.44;
-  ctx.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const a = (i * Math.PI) / 5 - Math.PI / 2, rl = i % 2 === 0 ? Rs : rs;
-    i === 0 ? ctx.moveTo(rx + rl * Math.cos(a), ry + rl * Math.sin(a))
-            : ctx.lineTo(rx + rl * Math.cos(a), ry + rl * Math.sin(a));
+  ctx.arc(cx, cy - sz * 0.17, sz * 0.14, Math.PI * 0.75, Math.PI * 1.75);
+  ctx.lineTo(cx - sz * 0.08, cy - sz * 0.04); ctx.lineTo(cx - sz * 0.06, cy - sz * 0.04);
+  ctx.closePath(); ctx.fill();
+  roundRect(ctx, cx - sz * 0.24, cy + sz * 0.02, sz * 0.18, sz * 0.24, sz * 0.04); ctx.fill();
+  // Stars
+  ctx.fillStyle = '#FFD700';
+  for (let i = 0; i < 3; i++) {
+    const sx = cx - sz * 0.15 + i * sz * 0.14, sy = cy - sz * 0.32;
+    ctx.font = `${Math.floor(sz * 0.18)}px BotFont`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('★', sx, sy);
   }
-  ctx.closePath(); ctx.fill();
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
 }
 
-const ICON_FNS = [iconCoins, iconStar, iconMedal, iconThumb, iconHeart, iconBff];
+function fallbackDove(ctx, x, y, sz) {
+  const cx = x + sz / 2, cy = y + sz / 2;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  // Body
+  ctx.beginPath(); ctx.ellipse(cx - sz * 0.04, cy + sz * 0.05, sz * 0.22, sz * 0.14, -0.2, 0, Math.PI * 2); ctx.fill();
+  // Wing
+  ctx.beginPath();
+  ctx.moveTo(cx - sz * 0.20, cy);
+  ctx.bezierCurveTo(cx - sz * 0.10, cy - sz * 0.28, cx + sz * 0.18, cy - sz * 0.22, cx + sz * 0.12, cy + sz * 0.02);
+  ctx.closePath(); ctx.fill();
+  // Head
+  ctx.beginPath(); ctx.arc(cx + sz * 0.14, cy - sz * 0.04, sz * 0.09, 0, Math.PI * 2); ctx.fill();
+  // Heart
+  ctx.fillStyle = '#FF6B9D';
+  ctx.font = `${Math.floor(sz * 0.22)}px BotFont`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('♥', cx - sz * 0.06, cy + sz * 0.30);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+}
+
+function fallbackBff(ctx, x, y, sz) {
+  const cx = x + sz / 2, cy = y + sz / 2;
+  // BFF charm/pendant
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy - sz * 0.12, sz * 0.10, 0, Math.PI * 2); ctx.stroke();
+  // Chain
+  ctx.beginPath(); ctx.moveTo(cx, cy - sz * 0.22); ctx.lineTo(cx, cy - sz * 0.30); ctx.stroke();
+  // Heart
+  const hw = sz * 0.19;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.save(); ctx.translate(cx, cy + sz * 0.10);
+  ctx.beginPath();
+  ctx.moveTo(0, hw * 0.6);
+  ctx.bezierCurveTo(hw * 1.1, -hw * 0.2, hw * 1.1, -hw * 0.9, 0, -hw * 0.35);
+  ctx.bezierCurveTo(-hw * 1.1, -hw * 0.9, -hw * 1.1, -hw * 0.2, 0, hw * 0.6);
+  ctx.closePath(); ctx.fill(); ctx.restore();
+  ctx.fillStyle = '#CE93D8';
+  ctx.font = `bold ${Math.floor(sz * 0.14)}px BotFont`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('BF', cx, cy + sz * 0.10);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+}
+
+// Config de cada stat: emoji para tentar carregar + cores do bg + fallback canvas
+const STAT_ICON_CONFIGS = [
+  { emoji: '💰', c1: '#F59E0B', c2: '#D97706', fallback: fallbackCoin   }, // Coins
+  { emoji: '⭐', c1: '#9333EA', c2: '#7C3AED', fallback: fallbackStar   }, // Nível
+  { emoji: '🏅', c1: '#F59E0B', c2: '#D97706', fallback: fallbackMedal  }, // Badges
+  { emoji: '👍', c1: '#9333EA', c2: '#7C3AED', fallback: fallbackThumb  }, // Reps
+  { emoji: '🕊️', c1: '#EC4899', c2: '#9333EA', fallback: fallbackDove   }, // Casado
+  { emoji: '💝', c1: '#9333EA', c2: '#7C3AED', fallback: fallbackBff    }, // Amigo
+];
 
 // ─── Gerador principal ────────────────────────────────────────────────────────
 
@@ -269,6 +305,11 @@ export async function generateProfileCard({
   const { c1: rc1, c2: rc2 } = getRingColors(activeRing ?? null);
   const { level, current: xpCurrent, needed: xpNeeded } = computeLevel(xp);
 
+  // Pré-carrega ícones dos stats (em paralelo)
+  const statIconImgs = await Promise.all(
+    STAT_ICON_CONFIGS.map(ic => loadEmojiImg(ic.emoji).catch(() => null)),
+  );
+
   // ── Fundo do card ──────────────────────────────────────────────────────────
   if (cardBg1 && cardBg2) {
     const g = ctx.createLinearGradient(0, 0, W, H);
@@ -279,18 +320,17 @@ export async function generateProfileCard({
     ctx.fillStyle = cardBg1;
     ctx.fillRect(0, 0, W, H);
   } else {
-    // Fundo branco com micro-gradiente lilás
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, W, H);
-    const bodyTint = ctx.createLinearGradient(0, 220, 0, H);
-    bodyTint.addColorStop(0, 'rgba(245,242,255,0.55)');
-    bodyTint.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = bodyTint;
-    ctx.fillRect(0, 220, W, H - 220);
+    // Micro-tint lilás suave no corpo
+    const tint = ctx.createLinearGradient(0, 220, 0, H);
+    tint.addColorStop(0, 'rgba(240,235,255,0.50)');
+    tint.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = tint; ctx.fillRect(0, 220, W, H - 220);
   }
 
   // ── Banner ─────────────────────────────────────────────────────────────────
-  const BANNER_H = 220;
+  const BANNER_H = 230;
   if (banner) {
     try {
       const img   = await loadUrl(banner.imageUrl);
@@ -301,8 +341,8 @@ export async function generateProfileCard({
       ctx.drawImage(img, (W - sw) / 2, (BANNER_H - sh) / 2, sw, sh);
       ctx.restore();
     } catch {
-      const g = ctx.createLinearGradient(0, 0, W, BANNER_H);
       const [bg1, bg2] = banner.gradient ?? ['#6a1b9a', '#9c27b0'];
+      const g = ctx.createLinearGradient(0, 0, W, BANNER_H);
       g.addColorStop(0, bg1); g.addColorStop(1, bg2);
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, BANNER_H);
     }
@@ -311,30 +351,26 @@ export async function generateProfileCard({
     g.addColorStop(0, '#6a1b9a'); g.addColorStop(1, '#ce93d8');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, BANNER_H);
   }
-
-  // Fade suave base do banner
+  // Fade base
   const fade = ctx.createLinearGradient(0, BANNER_H - 60, 0, BANNER_H);
   fade.addColorStop(0, 'rgba(255,255,255,0)');
-  fade.addColorStop(1, 'rgba(255,255,255,0.18)');
+  fade.addColorStop(1, 'rgba(255,255,255,0.15)');
   ctx.fillStyle = fade; ctx.fillRect(0, BANNER_H - 60, W, 60);
 
-  // ── Avatar (lado direito, sobrepondo o banner) ─────────────────────────────
-  const AV_CX = 718, AV_CY = BANNER_H, AV_R = 88;
+  // ── Avatar (direita, sobrepondo o banner) ──────────────────────────────────
+  const AV_CX = 755, AV_CY = BANNER_H, AV_R = 92;
 
-  // Borda branca externa
   ctx.fillStyle = ringBorderColor ?? '#ffffff';
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 14, 0, Math.PI * 2); ctx.fill();
 
-  // Argola colorida com brilho
   const rg = ctx.createLinearGradient(AV_CX - AV_R, AV_CY - AV_R, AV_CX + AV_R, AV_CY + AV_R);
   rg.addColorStop(0, rc1); rg.addColorStop(1, rc2);
   ctx.save();
-  ctx.shadowColor = rc1; ctx.shadowBlur = 16;
+  ctx.shadowColor = rc1; ctx.shadowBlur = 18;
   ctx.strokeStyle = rg; ctx.lineWidth = 9;
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 8, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
 
-  // Foto do avatar
   ctx.save();
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R, 0, Math.PI * 2); ctx.clip();
   try {
@@ -344,7 +380,7 @@ export async function generateProfileCard({
   }
   ctx.restore();
 
-  // Pet badge
+  // Pet
   if (activePet) {
     const px = AV_CX + AV_R * 0.68, py = AV_CY + AV_R * 0.68;
     ctx.fillStyle = '#fff';
@@ -357,23 +393,22 @@ export async function generateProfileCard({
     if (pi) ctx.drawImage(pi, px - 13, py - 13, 26, 26);
   }
 
-  // ── Pílula do username ─────────────────────────────────────────────────────
-  const PY = AV_CY + AV_R + 16, PH = 38;
-  ctx.font = `bold 16px ${FONT}`;
-  const nw  = ctx.measureText(username).width;
-  const PW  = Math.max(nw + 44, 130);
-  const PX  = AV_CX - PW / 2;
-  ctx.fillStyle = '#e8e8f0'; ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 1;
+  // ── Username pill ──────────────────────────────────────────────────────────
+  const PY = AV_CY + AV_R + 18, PH = 42;
+  ctx.font = `bold 18px ${FONT}`;
+  const nw = ctx.measureText(username).width;
+  const PW = Math.max(nw + 50, 140), PX = AV_CX - PW / 2;
+  ctx.fillStyle = '#e8e8f0'; ctx.strokeStyle = 'rgba(0,0,0,0.07)'; ctx.lineWidth = 1;
   roundRect(ctx, PX, PY, PW, PH, PH / 2); ctx.fill(); ctx.stroke();
   ctx.fillStyle = '#2c2c54'; ctx.textAlign = 'center';
-  ctx.fillText(username, AV_CX, PY + PH / 2 + 6); ctx.textAlign = 'left';
+  ctx.fillText(username, AV_CX, PY + PH / 2 + 7); ctx.textAlign = 'left';
 
-  // ── Tira de conquistas/badges ──────────────────────────────────────────────
+  // ── Badge strip ────────────────────────────────────────────────────────────
   const earnedKeys = computeEarnedBadgeKeys({ balance, bank, purchases, activePet, activeBanner, activeRing });
-  const BSY = PY + PH + 10, BSH = 32, BSW = 210;
-  ctx.fillStyle = '#f0f0f8'; ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 1;
+  const BSY = PY + PH + 10, BSH = 34, BSW = 220;
+  ctx.fillStyle = '#f2f2f8'; ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.lineWidth = 1;
   roundRect(ctx, AV_CX - BSW / 2, BSY, BSW, BSH, BSH / 2); ctx.fill(); ctx.stroke();
-  const ESZI = 20, maxSlots = Math.min(earnedKeys.length, 7);
+  const ESZI = 22, maxSlots = Math.min(earnedKeys.length, 7);
   if (maxSlots > 0) {
     const tw = maxSlots * ESZI + (maxSlots - 1) * 5;
     let bx = AV_CX - tw / 2;
@@ -387,86 +422,103 @@ export async function generateProfileCard({
     }
   }
 
-  // ── Bio (esquerda) ─────────────────────────────────────────────────────────
-  const LEFT_X = 28;
-  let textY    = BANNER_H + 26;
+  // ── Bio ────────────────────────────────────────────────────────────────────
+  const LEFT_X = 30;
+  let textY    = BANNER_H + 28;
   const bioText = bio ?? 'Utilize: fallen bio para alterar esta frase.';
-  ctx.font = `bold 14px ${FONT}`; ctx.fillStyle = '#3a3a5c';
-  textY = await drawBioWithEmojis(ctx, bioText, LEFT_X, textY, 555, 19, 16);
+  ctx.font = `bold 14px ${FONT}`; ctx.fillStyle = '#2c2c54';
+  textY = await drawBioWithEmojis(ctx, bioText, LEFT_X, textY, 575, 20, 16);
 
   // ── Painel de stats ────────────────────────────────────────────────────────
-  //  Container externo cinza-claro → 3 linhas de 2 pílulas brancas cada
-  const OP   = 10;  // outer padding
-  const CG   = 8;   // cell gap
-  const CH   = 66;  // cell height
-  const CW   = 262; // cell width  (2 colunas)
+  //  ┌─────────────────── container ─────────────────────┐
+  //  │  ╭──── pill ────╮  ╭──── pill ────╮             │
+  //  │  │ [icon] texto │  │ [icon] texto │             │
+  //  │  ╰──────────────╯  ╰──────────────╯             │
+  //  └───────────────────────────────────────────────────┘
+  const OP   = 14;   // padding externo
+  const CG   = 8;    // gap entre células
+  const CH   = 70;   // altura da pílula
+  const CW   = 268;  // largura da pílula
   const OW   = OP * 2 + CW * 2 + CG;
   const OH   = OP * 2 + CH * 3 + CG * 2;
   const PNX  = LEFT_X;
   const PNY  = textY + 10;
-  const ISZ  = 46;  // ícone tamanho
+  const ISZ  = 50;   // tamanho do ícone
 
-  // Container externo — gradiente sutil + borda fina
+  // Container externo
   ctx.save();
-  ctx.shadowColor = 'rgba(100,80,160,0.13)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
+  ctx.shadowColor = 'rgba(100,80,160,0.12)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
   const outerG = ctx.createLinearGradient(PNX, PNY, PNX, PNY + OH);
-  outerG.addColorStop(0, '#e8e6f2');
-  outerG.addColorStop(1, '#dddbe8');
+  outerG.addColorStop(0, '#eceaf4');
+  outerG.addColorStop(1, '#e2e0ec');
   ctx.fillStyle = outerG;
-  roundRect(ctx, PNX, PNY, OW, OH, 22); ctx.fill();
+  roundRect(ctx, PNX, PNY, OW, OH, 24); ctx.fill();
   ctx.restore();
-  ctx.strokeStyle = 'rgba(180,170,210,0.50)'; ctx.lineWidth = 1;
-  roundRect(ctx, PNX, PNY, OW, OH, 22); ctx.stroke();
+  ctx.strokeStyle = 'rgba(170,160,205,0.45)'; ctx.lineWidth = 1;
+  roundRect(ctx, PNX, PNY, OW, OH, 24); ctx.stroke();
 
   const statsData = [
-    { label: 'Coins',     topText: fmtCompact(balance),          botText: 'Coins'        },
-    { label: 'Nível',     topText: `Nível: ${level}`,             botText: `${xpCurrent}/${xpNeeded}` },
-    { label: 'Badges',    topText: 'Badges',                      botText: `${earnedKeys.length}`      },
-    { label: 'Reps',      topText: 'Reps',                        botText: `${reps}`                   },
-    { label: 'Casado(a)', topText: 'Casado(a)',                   botText: marriedToName  ?? 'Nenhum'  },
-    { label: 'Amigo(a)',  topText: 'Amigo(a)',                    botText: bestFriendName ?? 'Nenhum'  },
+    { topText: fmtCompact(balance),         botText: 'Coins'                          },
+    { topText: `Nível: ${level}`,            botText: `${xpCurrent}/${xpNeeded}`       },
+    { topText: 'Badges',                     botText: String(earnedKeys.length)         },
+    { topText: 'Reps',                       botText: String(reps)                      },
+    { topText: 'Casado(a)',                  botText: marriedToName  ?? 'Nenhum'        },
+    { topText: 'Amigo(a)',                   botText: bestFriendName ?? 'Nenhum'        },
   ];
 
   for (let i = 0; i < 6; i++) {
-    const col  = i % 2;
-    const row  = Math.floor(i / 2);
-    const cX   = PNX + OP + col * (CW + CG);
-    const cY   = PNY + OP + row * (CH + CG);
+    const col = i % 2, row = Math.floor(i / 2);
+    const cX  = PNX + OP + col * (CW + CG);
+    const cY  = PNY + OP + row * (CH + CG);
 
-    // Pílula branca (radius = CH/2 → forma de pílula real)
+    // Pílula branca (radius = CH/2 → forma de pílula perfeita)
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.08)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+    ctx.shadowColor = 'rgba(0,0,0,0.07)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
     ctx.fillStyle = cardPanelColor ?? '#ffffff';
     roundRect(ctx, cX, cY, CW, CH, CH / 2); ctx.fill();
     ctx.restore();
 
-    // Ícone: fundo colorido arredondado + shape branca desenhada
-    const iX = cX + 11;
-    const iY = cY + (CH - ISZ) / 2;
-    ICON_FNS[i](ctx, iX, iY, ISZ);
+    // Ícone: bg colorido + emoji (ou fallback canvas)
+    const icCfg  = STAT_ICON_CONFIGS[i];
+    const iX     = cX + 12;
+    const iY     = cY + (CH - ISZ) / 2;
+    drawIconBg(ctx, iX, iY, ISZ, icCfg.c1, icCfg.c2);
 
-    // Textos: topText (bold/escuro) acima, botText (cinza) abaixo
-    const tX   = iX + ISZ + 13;
+    const emojiImg = statIconImgs[i];
+    if (emojiImg) {
+      // Emoji carregou — exibe na área do ícone com clip para não vazar
+      ctx.save();
+      roundRect(ctx, iX, iY, ISZ, ISZ, 12); ctx.clip();
+      const pad = ISZ * 0.12;
+      ctx.drawImage(emojiImg, iX + pad, iY + pad, ISZ - pad * 2, ISZ - pad * 2);
+      ctx.restore();
+    } else {
+      // Fallback: ícone desenhado em canvas
+      ctx.save(); icCfg.fallback(ctx, iX, iY, ISZ); ctx.restore();
+    }
+
+    // Texto
+    const tX   = iX + ISZ + 14;
     const midY = cY + CH / 2;
-    const maxW = CW - ISZ - 38;
+    const maxW = CW - ISZ - 40;
 
-    ctx.font      = `bold 16px ${FONT}`;
-    ctx.fillStyle = '#1a1a2e';
+    // Linha de cima: bold, escuro
+    ctx.font = `bold 18px ${FONT}`; ctx.fillStyle = '#1a1a2e';
     let top = statsData[i].topText;
     while (top.length > 1 && ctx.measureText(top).width > maxW) top = top.slice(0, -1);
     ctx.fillText(top, tX, midY - 5);
 
-    ctx.font      = `13px ${FONT}`;
-    ctx.fillStyle = '#888899';
+    // Linha de baixo: regular, cinza
+    ctx.font = `14px ${FONT}`; ctx.fillStyle = '#888899';
     let bot = statsData[i].botText;
     while (bot.length > 1 && ctx.measureText(bot).width > maxW) bot = bot.slice(0, -1);
-    ctx.fillText(bot, tX, midY + 13);
+    ctx.fillText(bot, tX, midY + 15);
   }
 
   // ── Rodapé ─────────────────────────────────────────────────────────────────
   ctx.fillStyle = 'rgba(0,0,0,0.18)';
   ctx.font = `11px ${FONT}`; ctx.textAlign = 'right';
-  ctx.fillText('Fallen Bot \u2022 Perfil', W - 14, H - 10);
+  ctx.fillText('Fallen Bot \u2022 Perfil', W - 16, H - 10);
   ctx.textAlign = 'left';
 
   return canvas.toBuffer('image/png');
