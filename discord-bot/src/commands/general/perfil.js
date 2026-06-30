@@ -106,7 +106,8 @@ export default {
   },
 
   async executePrefix(message) {
-    const target = message.author;
+    // Se mencionar alguém, mostra o perfil dessa pessoa
+    const target = message.mentions.users.first() ?? message.author;
     const member = await message.guild.members.fetch(target.id).catch(() => null);
     const { eco, profile, purchases, guildBadgeEmojis } = await fetchProfileData(target.id, message.guildId);
 
