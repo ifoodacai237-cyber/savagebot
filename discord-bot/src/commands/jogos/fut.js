@@ -188,6 +188,7 @@ function buildFormacaoMessage(currentFormation) {
 
 // ─── Comando principal ────────────────────────────────────────────────────────
 export default {
+  name: 'fut',
   data: new SlashCommandBuilder()
     .setName('fut')
     .setDescription('Sistema de cartas estilo FIFA/eFootball')
