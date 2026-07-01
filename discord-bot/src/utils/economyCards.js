@@ -508,7 +508,7 @@ export function generateMinesCard({ grid, revealed, bombs, bet, payout, memberNa
 // Uses the two template images (green = win/playing, red = loss/bust) as
 // backgrounds, then draws live cards and values on top.
 
-export async function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal, won, tie, bust, bet, payout, hideDealer = false }) {
+export async function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal, won, tie, bust, hideDealer = false }) {
   const W = 820, H = 500;
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
@@ -518,67 +518,52 @@ export async function generateBlackjackCard({ playerCards, dealerCards, pTotal, 
   const bgImg  = await loadImage(join(_bjDir, isLoss ? 'bj_bg_lose.png' : 'bj_bg_win.png'));
   ctx.drawImage(bgImg, 0, 0, W, H);
 
-  // ── Layout constants (calibrated to 820×500 scaling of the template images) ──
-  // Images are approximately 1120×630; scale: X=0.732, Y=0.794
-  const panelX = 28, panelW = 764;
-  const dPanelY = 74,  dPanelH = 143;
-  const pPanelY = 238, pPanelH = 143;
-  const panelFill = isLoss ? '#C23535' : '#4AA850';
-  const CARD_H = 108, CARD_W = 78;
+  // ── Badge positions (measured on 820×500 scaled template) ────────────────────
+  // Dealer badge: top-right of upper panel
+  const dBadge = { x: 712, y: 84, w: 98, h: 32 };
+  // Player badge: top-right of lower panel
+  const pBadge = { x: 712, y: 246, w: 98, h: 32 };
+  // Title band: full-width top strip
+  const titleH = 56;
 
-  // ── Helper: cover panel interior, redraw label + badge ───────────────────────
-  function drawPanel(panelY, panelH, label, valueText) {
-    ctx.fillStyle = panelFill;
-    roundRect(ctx, panelX + 3, panelY + 3, panelW - 6, panelH - 6, 10);
-    ctx.fill();
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold 15px ${FONT}`;
-    ctx.textAlign = 'left';
-    ctx.fillText(label, panelX + 18, panelY + 24);
-
-    const bW = 106, bH = 26;
-    const bX = panelX + panelW - bW - 12;
-    const bY = panelY + 8;
-    ctx.fillStyle = 'rgba(0,0,0,0.38)';
-    roundRect(ctx, bX, bY, bW, bH, 13); ctx.fill();
+  // ── Helper: redraw a rounded badge ───────────────────────────────────────────
+  function drawBadge(b, text) {
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    roundRect(ctx, b.x, b.y, b.w, b.h, 14); ctx.fill();
     ctx.fillStyle = '#FFFFFF';
     ctx.font = `bold 13px ${FONT}`;
     ctx.textAlign = 'center';
-    ctx.fillText(valueText, bX + bW / 2, bY + 18);
+    ctx.fillText(text, b.x + b.w / 2, b.y + 22);
   }
 
-  drawPanel(dPanelY, dPanelH, 'Mão do Dealer', hideDealer ? 'Valor: ?' : `Valor: ${dTotal}`);
-  drawPanel(pPanelY, pPanelH, 'Sua Mão', `Valor: ${pTotal}${bust ? ' X' : ''}`);
-
-  // ── Dealer cards ─────────────────────────────────────────────────────────────
-  const dCardY  = dPanelY + Math.round((dPanelH - CARD_H) / 2);
-  const dCount  = hideDealer ? 2 : dealerCards.length;
-  const dGap    = Math.min(88, (panelW - 60) / Math.max(dCount, 1));
-  const dStart  = panelX + panelW / 2 - ((dCount - 1) * dGap) / 2 - CARD_W / 2;
+  // ── Title banner ─────────────────────────────────────────────────────────────
+  let titleText, titleColor;
   if (hideDealer) {
-    drawCard(ctx, dStart,        dCardY, dealerCards[0].rank, dealerCards[0].suit);
-    drawCardBack(ctx, dStart + dGap, dCardY);
+    titleText = 'EM JOGO';
+    titleColor = 'rgba(46,130,50,0.92)';
+  } else if (won) {
+    titleText = 'VITORIA!';
+    titleColor = 'rgba(74,168,80,0.92)';
+  } else if (tie) {
+    titleText = 'EMPATE';
+    titleColor = 'rgba(59,130,150,0.92)';
+  } else if (bust) {
+    titleText = 'BUST!';
+    titleColor = 'rgba(194,53,53,0.92)';
   } else {
-    dealerCards.forEach((c, i) => drawCard(ctx, dStart + i * dGap, dCardY, c.rank, c.suit));
+    titleText = 'DERROTA';
+    titleColor = 'rgba(194,53,53,0.92)';
   }
+  ctx.fillStyle = titleColor;
+  ctx.fillRect(0, 0, W, titleH);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = `bold 32px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.fillText(titleText, W / 2, 40);
 
-  // ── Player cards ─────────────────────────────────────────────────────────────
-  const pCardY  = pPanelY + Math.round((pPanelH - CARD_H) / 2);
-  const pCount  = playerCards.length;
-  const pGap    = Math.min(88, (panelW - 60) / Math.max(pCount, 1));
-  const pStart  = panelX + panelW / 2 - ((pCount - 1) * pGap) / 2 - CARD_W / 2;
-  playerCards.forEach((c, i) => drawCard(ctx, pStart + i * pGap, pCardY, c.rank, c.suit));
-
-  // ── Playing state: overlay the title area with "EM JOGO" ─────────────────────
-  if (hideDealer) {
-    ctx.fillStyle = 'rgba(46,130,50,0.92)';
-    ctx.fillRect(0, 0, W, dPanelY - 3);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold 34px ${FONT}`;
-    ctx.textAlign = 'center';
-    ctx.fillText('EM JOGO', W / 2, 46);
-  }
+  // ── Update value badges only (cards stay as decorative background) ──────────
+  drawBadge(dBadge, hideDealer ? 'Valor: ?' : `Valor: ${dTotal}`);
+  drawBadge(pBadge, `Valor: ${pTotal}${bust ? ' X' : ''}`);
 
   return canvas.toBuffer('image/png');
 }
