@@ -381,32 +381,32 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
 
   // ── Background ──────────────────────────────────────────────────────────────
   const bg = ctx.createLinearGradient(0, 0, W, H);
-  bg.addColorStop(0, '#0F0A2A');
-  bg.addColorStop(0.5, '#1E1040');
-  bg.addColorStop(1, '#0F0A2A');
+  bg.addColorStop(0, '#080808');
+  bg.addColorStop(0.5, '#111111');
+  bg.addColorStop(1, '#080808');
   ctx.fillStyle = bg;
   roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
 
   // Centre radial glow
   const cg = ctx.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, W * 0.55);
-  cg.addColorStop(0, 'rgba(139,92,246,0.18)');
-  cg.addColorStop(1, 'rgba(139,92,246,0)');
+  cg.addColorStop(0, 'rgba(212,175,55,0.12)');
+  cg.addColorStop(1, 'rgba(212,175,55,0)');
   ctx.fillStyle = cg; roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
 
   // Sparkles
   const sp = [[42,34],[W-42,32],[36,H-36],[W-38,H-34],[W/2,22],[W/2-130,H-28],[W/2+125,H-26],[60,H/2-10],[W-55,H/2+8]];
-  for (const [sx,sy] of sp) drawSparkle(ctx, sx, sy, 8, 'rgba(196,181,253,0.55)');
+  for (const [sx,sy] of sp) drawSparkle(ctx, sx, sy, 8, 'rgba(212,175,55,0.45)');
 
   // ── Header ──────────────────────────────────────────────────────────────────
   const headerG = ctx.createLinearGradient(0, 0, W, 52);
-  headerG.addColorStop(0, '#2E1065'); headerG.addColorStop(1, '#1E0A40');
+  headerG.addColorStop(0, '#1A1A1A'); headerG.addColorStop(1, '#0D0D0D');
   ctx.fillStyle = headerG;
   roundRect(ctx, 0, 0, W, 52, 24); ctx.fill();
   ctx.fillRect(0, 28, W, 24);
-  ctx.strokeStyle = 'rgba(167,139,250,0.3)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(212,175,55,0.35)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, 52); ctx.lineTo(W, 52); ctx.stroke();
 
-  ctx.fillStyle = '#E9D5FF'; ctx.font = `bold 19px ${FONT}`; ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFD700'; ctx.font = `bold 19px ${FONT}`; ctx.textAlign = 'center';
   ctx.fillText('🃏  BLACKJACK  🃏', W / 2, 34);
 
   // ── Helper: score badge ──────────────────────────────────────────────────────
@@ -414,25 +414,25 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
     ctx.font = `bold 12px ${FONT}`;
     const tw = ctx.measureText(text).width;
     const pw = tw + 28, ph = 24;
-    ctx.fillStyle = 'rgba(139,92,246,0.55)';
+    ctx.fillStyle = 'rgba(212,175,55,0.25)';
     roundRect(ctx, bx - pw / 2, by, pw, ph, 12); ctx.fill();
-    ctx.strokeStyle = 'rgba(196,181,253,0.5)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(212,175,55,0.7)'; ctx.lineWidth = 1;
     roundRect(ctx, bx - pw / 2, by, pw, ph, 12); ctx.stroke();
-    ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#FFD700'; ctx.textAlign = 'center';
     ctx.fillText(text, bx, by + 16);
   }
 
   // ── Section label ─────────────────────────────────────────────────────────
   function sectionLabel(text, x, y) {
-    ctx.fillStyle = 'rgba(196,181,253,0.55)'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(212,175,55,0.7)'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'left';
     ctx.fillText(text, x, y);
   }
 
   // ── Dealer panel ────────────────────────────────────────────────────────────
   const dPanelY = 62, dPanelH = 178;
-  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
   roundRect(ctx, 20, dPanelY, W - 40, dPanelH, 16); ctx.fill();
-  ctx.strokeStyle = 'rgba(167,139,250,0.2)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(212,175,55,0.2)'; ctx.lineWidth = 1;
   roundRect(ctx, 20, dPanelY, W - 40, dPanelH, 16); ctx.stroke();
 
   sectionLabel('DEALER', 36, dPanelY + 18);
@@ -463,7 +463,7 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
     ctx.fillStyle = '#FFFFFF'; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center';
     ctx.fillText(rText, W / 2, midY + 24);
   } else {
-    ctx.strokeStyle = 'rgba(139,92,246,0.25)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(212,175,55,0.25)'; ctx.lineWidth = 1;
     ctx.setLineDash([6, 4]);
     ctx.beginPath(); ctx.moveTo(40, midY + 18); ctx.lineTo(W - 40, midY + 18); ctx.stroke();
     ctx.setLineDash([]);
@@ -471,9 +471,9 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
 
   // ── Player panel ────────────────────────────────────────────────────────────
   const pPanelY = midY + 46, pPanelH = 178;
-  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
   roundRect(ctx, 20, pPanelY, W - 40, pPanelH, 16); ctx.fill();
-  ctx.strokeStyle = 'rgba(167,139,250,0.2)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(212,175,55,0.2)'; ctx.lineWidth = 1;
   roundRect(ctx, 20, pPanelY, W - 40, pPanelH, 16); ctx.stroke();
 
   sectionLabel('VOCÊ', 36, pPanelY + 18);
@@ -487,9 +487,11 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
 
   // ── Footer stat bar ──────────────────────────────────────────────────────────
   const fY = pPanelY + pPanelH + 10;
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillStyle = 'rgba(212,175,55,0.1)';
   roundRect(ctx, 20, fY, W - 40, 34, 17); ctx.fill();
-  ctx.fillStyle = 'rgba(196,181,253,0.75)'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center';
+  ctx.strokeStyle = 'rgba(212,175,55,0.25)'; ctx.lineWidth = 1;
+  roundRect(ctx, 20, fY, W - 40, 34, 17); ctx.stroke();
+  ctx.fillStyle = 'rgba(212,175,55,0.85)'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center';
   if (hideDealer) {
     ctx.fillText(`Aposta: ${fmt(bet)} 💰  •  Possível ganho: ${fmt(bet * 2)} 💰`, W / 2, fY + 22);
   } else {
