@@ -35,13 +35,72 @@ function drawSparkle(ctx, x, y, size, color) {
 
 // ─── Playing card (clean realistic style matching reference) ─────────────────
 
+// ─── Suit shape drawn with canvas paths (no Unicode dependency) ───────────────
+function drawSuit(ctx, cx, cy, suit, size, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+
+  if (suit === '♥') {
+    const s = size * 0.52;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + s * 0.9);
+    ctx.bezierCurveTo(cx - s * 1.5, cy, cx - s * 1.5, cy - s * 1.1, cx, cy - s * 0.3);
+    ctx.bezierCurveTo(cx + s * 1.5, cy - s * 1.1, cx + s * 1.5, cy, cx, cy + s * 0.9);
+    ctx.fill();
+  } else if (suit === '♦') {
+    const s = size * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - s);
+    ctx.lineTo(cx + s * 0.65, cy);
+    ctx.lineTo(cx, cy + s);
+    ctx.lineTo(cx - s * 0.65, cy);
+    ctx.closePath();
+    ctx.fill();
+  } else if (suit === '♠') {
+    const s = size * 0.48;
+    // Inverted heart (top bulb)
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + s * 0.4);
+    ctx.bezierCurveTo(cx - s * 1.5, cy - s * 0.3, cx - s * 1.5, cy - s * 1.4, cx, cy - s * 0.6);
+    ctx.bezierCurveTo(cx + s * 1.5, cy - s * 1.4, cx + s * 1.5, cy - s * 0.3, cx, cy + s * 0.4);
+    ctx.fill();
+    // Stem + base
+    const stemW = s * 0.25, stemH = s * 0.65;
+    ctx.fillRect(cx - stemW / 2, cy + s * 0.4, stemW, stemH);
+    ctx.beginPath();
+    ctx.moveTo(cx - s * 0.7, cy + s * 0.4 + stemH);
+    ctx.lineTo(cx + s * 0.7, cy + s * 0.4 + stemH);
+    ctx.lineTo(cx, cy + s * 0.4 + stemH - s * 0.2);
+    ctx.closePath();
+    ctx.fill();
+  } else if (suit === '♣') {
+    const r = size * 0.3;
+    // Three circles
+    ctx.beginPath(); ctx.arc(cx, cy - r * 0.85, r, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx - r * 0.9, cy + r * 0.3, r, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + r * 0.9, cy + r * 0.3, r, 0, Math.PI * 2); ctx.fill();
+    // Stem
+    const sw = r * 0.38;
+    ctx.fillRect(cx - sw / 2, cy + r * 0.6, sw, r * 0.85);
+    ctx.beginPath();
+    ctx.moveTo(cx - r * 0.7, cy + r * 1.45);
+    ctx.lineTo(cx + r * 0.7, cy + r * 1.45);
+    ctx.lineTo(cx, cy + r * 1.1);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 function drawCard(ctx, x, y, rank, suit, scale = 1) {
   const cw = Math.round(78 * scale), ch = Math.round(108 * scale), cr = Math.round(10 * scale);
   const isRed = suit === '♥' || suit === '♦';
   const col   = isRed ? '#CC2222' : '#111111';
 
   // Drop shadow
-  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 10;
+  ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 10;
   ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 4;
 
   // White card body
@@ -56,29 +115,25 @@ function drawCard(ctx, x, y, rank, suit, scale = 1) {
   roundRect(ctx, x, y, cw, ch, cr); ctx.stroke();
 
   const fs = Math.round(15 * scale);
-  ctx.fillStyle = col;
 
   // Top-left rank
+  ctx.fillStyle = col;
   ctx.font = `bold ${fs}px ${FONT}`; ctx.textAlign = 'left';
-  ctx.fillText(rank, x + Math.round(7 * scale), y + Math.round(20 * scale));
-  // Top-left suit (smaller)
-  ctx.font = `${Math.round(12 * scale)}px ${FONT}`;
-  ctx.fillText(suit, x + Math.round(7 * scale), y + Math.round(34 * scale));
+  ctx.fillText(rank, x + Math.round(6 * scale), y + Math.round(18 * scale));
+  // Top-left suit (small path)
+  drawSuit(ctx, x + Math.round(10 * scale), y + Math.round(28 * scale), suit, Math.round(7 * scale), col);
 
   // Center large suit
-  ctx.font = `${Math.round(40 * scale)}px ${FONT}`;
-  ctx.textAlign = 'center';
-  ctx.fillText(suit, x + cw / 2, y + ch / 2 + Math.round(14 * scale));
+  drawSuit(ctx, x + cw / 2, y + ch / 2, suit, Math.round(22 * scale), col);
 
-  // Bottom-right (rotated)
+  // Bottom-right (rotated 180°)
   ctx.save();
   ctx.translate(x + cw, y + ch);
   ctx.rotate(Math.PI);
   ctx.fillStyle = col;
   ctx.font = `bold ${fs}px ${FONT}`; ctx.textAlign = 'left';
-  ctx.fillText(rank, Math.round(7 * scale), Math.round(20 * scale));
-  ctx.font = `${Math.round(12 * scale)}px ${FONT}`;
-  ctx.fillText(suit, Math.round(7 * scale), Math.round(34 * scale));
+  ctx.fillText(rank, Math.round(6 * scale), Math.round(18 * scale));
+  drawSuit(ctx, Math.round(10 * scale), Math.round(28 * scale), suit, Math.round(7 * scale), col);
   ctx.restore();
 }
 
@@ -407,7 +462,7 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
   ctx.beginPath(); ctx.moveTo(0, 52); ctx.lineTo(W, 52); ctx.stroke();
 
   ctx.fillStyle = '#FFD700'; ctx.font = `bold 19px ${FONT}`; ctx.textAlign = 'center';
-  ctx.fillText('🃏  BLACKJACK  🃏', W / 2, 34);
+  ctx.fillText('* BLACKJACK *', W / 2, 34);
 
   // ── Helper: score badge ──────────────────────────────────────────────────────
   function scoreBadge(text, bx, by) {
@@ -452,10 +507,10 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
   const midY = dPanelY + dPanelH + 10;
   if (!hideDealer) {
     let rFrom, rTo, rText;
-    if (won)       { rFrom = '#064E3B'; rTo = '#059669'; rText = '✨  VITÓRIA!'; }
-    else if (tie)  { rFrom = '#1E3A5F'; rTo = '#2563EB'; rText = '🤝  EMPATE'; }
-    else if (bust) { rFrom = '#7F1D1D'; rTo = '#DC2626'; rText = '💥  BUST!'; }
-    else           { rFrom = '#7F1D1D'; rTo = '#B91C1C'; rText = '❌  DERROTA'; }
+    if (won)       { rFrom = '#064E3B'; rTo = '#059669'; rText = 'VITORIA!'; }
+    else if (tie)  { rFrom = '#1E3A5F'; rTo = '#2563EB'; rText = 'EMPATE'; }
+    else if (bust) { rFrom = '#7F1D1D'; rTo = '#DC2626'; rText = 'BUST!'; }
+    else           { rFrom = '#7F1D1D'; rTo = '#B91C1C'; rText = 'DERROTA'; }
     const rg = ctx.createLinearGradient(W * 0.2, midY, W * 0.8, midY + 36);
     rg.addColorStop(0, rFrom); rg.addColorStop(1, rTo);
     ctx.fillStyle = rg;
@@ -477,7 +532,7 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
   roundRect(ctx, 20, pPanelY, W - 40, pPanelH, 16); ctx.stroke();
 
   sectionLabel('VOCÊ', 36, pPanelY + 18);
-  const bustLabel = bust ? ' 💥' : '';
+  const bustLabel = bust ? ' X' : '';
   scoreBadge(`${pTotal}${bustLabel}`, W - 80, pPanelY + 6);
 
   const pCount = playerCards.length;
@@ -493,11 +548,11 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
   roundRect(ctx, 20, fY, W - 40, 34, 17); ctx.stroke();
   ctx.fillStyle = 'rgba(212,175,55,0.85)'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center';
   if (hideDealer) {
-    ctx.fillText(`Aposta: ${fmt(bet)} 💰  •  Possível ganho: ${fmt(bet * 2)} 💰`, W / 2, fY + 22);
+    ctx.fillText(`Aposta: ${fmt(bet)}  |  Possivel ganho: ${fmt(bet * 2)}`, W / 2, fY + 22);
   } else {
-    const sign   = won ? '+' : tie ? '±' : '-';
+    const sign   = won ? '+' : tie ? '+-' : '-';
     const change = tie ? 0 : won ? payout - bet : bet;
-    ctx.fillText(`${sign}${fmt(change)} 💰   Aposta: ${fmt(bet)} 💰`, W / 2, fY + 22);
+    ctx.fillText(`${sign}${fmt(change)}   Aposta: ${fmt(bet)}`, W / 2, fY + 22);
   }
 
   return canvas.toBuffer('image/png');
