@@ -16,6 +16,7 @@ import { fileURLToPath } from 'url';
 import prisma from '../database/client.js';
 import { getEmoji } from './emojiManager.js';
 import { generateDarkMinesGrid } from './darkMinesGrid.js';
+import { generateBlackjackCard } from './economyCards.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, '../../public/games');
@@ -71,16 +72,28 @@ function v2Payload(container, files, ...extras) {
   return payload;
 }
 
-// ─── Blackjack static image ───────────────────────────────────────────────────
+// ─── Blackjack canvas image (dynamic — unique filename evita cache do Discord) ─
 
-let bjImgBuf = null;
-function getBJAttachment() {
-  try {
-    if (!bjImgBuf) bjImgBuf = readFileSync(join(PUBLIC_DIR, 'blackjack.png'));
-    return new AttachmentBuilder(bjImgBuf, { name: 'blackjack.png' });
-  } catch {
-    return null;
-  }
+function buildBJAttachment(state, hideDealer) {
+  const pTotal  = handTotal(state.player);
+  const dTotal  = handTotal(state.dealer);
+  const payout  = state.won ? state.bet * 2 : state.tie ? state.bet : 0;
+
+  const buf = generateBlackjackCard({
+    playerCards: state.player,
+    dealerCards:  state.dealer,
+    pTotal, dTotal,
+    won:    state.won,
+    tie:    state.tie,
+    bust:   state.bust,
+    bet:    state.bet,
+    payout,
+    hideDealer,
+  });
+
+  // Filename único por update — impede Discord de exibir a imagem cacheada
+  const fname = `bj_${state.userId}_${Date.now()}.png`;
+  return new AttachmentBuilder(buf, { name: fname });
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -113,59 +126,21 @@ function fmtCard(c) { return `\`${c.rank}${c.suit}\``; }
 function fmtHand(cards) { return cards.map(fmtCard).join(' '); }
 
 function buildBJContainer(state, hideDealer = false) {
-  const pTotal = handTotal(state.player);
-  const dTotal = handTotal(state.dealer);
-  const isPlaying = state.status === 'playing';
+  const attachment = buildBJAttachment(state, hideDealer);
+  const fname      = attachment.name;
 
-  const dealerShow = hideDealer
-    ? [state.dealer[0], { rank: '?', suit: '' }]
-    : state.dealer;
-  const dealerVal = hideDealer ? '?' : String(dTotal);
-  const dealerLine = dealerShow.map(c => c.rank === '?' ? '`🂠`' : fmtCard(c)).join(' ');
-
-  let resultLine = '';
-  if (!isPlaying) {
-    if (state.bust)     resultLine = `\n💥 **Estourou!** Você perdeu **${fmtNum(state.bet)} ${COIN}**`;
-    else if (state.won) resultLine = `\n✅ **Ganhou!** +**${fmtNum(state.bet * 2)} ${COIN}**`;
-    else if (state.tie) resultLine = `\n🔁 **Empate!** Aposta devolvida`;
-    else                resultLine = `\n❌ **Dealer ganhou** com ${dTotal}`;
-  }
-
-  const accentColor = isPlaying
+  const accentColor = state.status === 'playing'
     ? 0x5865F2
     : state.won || state.tie ? 0x57F287 : 0xED4245;
 
-  const footerLine = isPlaying
-    ? `💰 Aposta: **${fmtNum(state.bet)} ${COIN}** — Possível ganho: **${fmtNum(state.bet * 2)} ${COIN}**`
-    : '';
-
-  const text = [
-    `## 🃏 BLACKJACK`,
-    ``,
-    `**Mão do Dealer** — Valor: ${dealerVal}`,
-    dealerLine,
-    ``,
-    `**Sua Mão** — Valor: ${pTotal}${state.bust ? ' 💥' : ''}`,
-    fmtHand(state.player),
-    resultLine,
-    footerLine ? `\n-# ${footerLine}` : '',
-  ].filter(l => l !== undefined).join('\n');
-
   const container = new ContainerBuilder().setAccentColor(accentColor);
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+  container.addMediaGalleryComponents(
+    new MediaGalleryBuilder().addItems(
+      new MediaGalleryItemBuilder().setURL(`attachment://${fname}`),
+    ),
+  );
 
-  const attachment = getBJAttachment();
-  const files = [];
-  if (attachment) {
-    container.addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(
-        new MediaGalleryItemBuilder().setURL('attachment://blackjack.png'),
-      ),
-    );
-    files.push(attachment);
-  }
-
-  return { container, files };
+  return { container, files: [attachment] };
 }
 
 function buildBJComponents(state) {
