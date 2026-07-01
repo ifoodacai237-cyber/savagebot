@@ -170,39 +170,50 @@ function trunc(str, max) {
 // ─── Photo cache ───────────────────────────────────────────────────────────────
 const _photoCache = new Map();
 
-// ─── Fetch player photo ───────────────────────────────────────────────────────
-async function fetchPlayerPhoto(sofascoreId) {
-  if (!sofascoreId) return null;
-  if (_photoCache.has(sofascoreId)) return _photoCache.get(sofascoreId);
+// ─── Fetch player photo (SofaScore primary, Futbin CDN fallback) ──────────────
+async function fetchPlayerPhoto(sofascoreId, eaId) {
+  const cacheKey = `ss:${sofascoreId ?? 'x'}:ea:${eaId ?? 'x'}`;
+  if (_photoCache.has(cacheKey)) return _photoCache.get(cacheKey);
 
-  for (let attempt = 0; attempt < 3; attempt++) {
+  async function tryUrl(url, headers = {}) {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
     try {
-      const ctrl  = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 8000);
-      const res   = await fetch(
-        `https://api.sofascore.com/api/v1/player/${sofascoreId}/image`,
-        {
-          signal: ctrl.signal,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Referer':    'https://www.sofascore.com/',
-            'Accept':     'image/webp,image/png,image/*',
-          },
-        }
-      );
+      const res = await fetch(url, {
+        signal: ctrl.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          ...headers,
+        },
+      });
       clearTimeout(timer);
-      if (!res.ok) { _photoCache.set(sofascoreId, null); return null; }
+      if (!res.ok) return null;
       const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length < 1000) { _photoCache.set(sofascoreId, null); return null; }
-      const img = await loadImage(buf);
-      _photoCache.set(sofascoreId, img);
-      return img;
+      if (buf.length < 1000) return null;
+      return await loadImage(buf);
     } catch {
-      if (attempt < 2) await new Promise(r => setTimeout(r, 700 * (attempt + 1)));
+      clearTimeout(timer);
+      return null;
     }
   }
-  _photoCache.set(sofascoreId, null);
-  return null;
+
+  let img = null;
+
+  // 1️⃣ SofaScore API (works on Railway, may be blocked on Replit)
+  if (sofascoreId) {
+    img = await tryUrl(
+      `https://api.sofascore.com/api/v1/player/${sofascoreId}/image`,
+      { 'Referer': 'https://www.sofascore.com/', 'Accept': 'image/webp,image/png,image/*' }
+    );
+  }
+
+  // 2️⃣ Futbin CDN fallback (EA ID required)
+  if (!img && eaId) {
+    img = await tryUrl(`https://cdn.futbin.com/content/fifa25/img/players/${eaId}.png`);
+  }
+
+  _photoCache.set(cacheKey, img);
+  return img;
 }
 
 // ─── Fetch flag ───────────────────────────────────────────────────────────────
@@ -227,8 +238,9 @@ async function batchFetchPhotos(players) {
   for (let i = 0; i < players.length; i++) {
     const entry = players[i];
     const p     = entry?.player ?? entry;
-    const id    = p?.sofascoreId ?? null;
-    out.push(id ? await fetchPlayerPhoto(id) : null);
+    const ssId  = p?.sofascoreId ?? null;
+    const eaId  = p?.eaId ?? null;
+    out.push((ssId || eaId) ? await fetchPlayerPhoto(ssId, eaId) : null);
     if (i < players.length - 1) {
       await new Promise(r => setTimeout(r, 380 + Math.floor(Math.random() * 140)));
     }
@@ -833,12 +845,17 @@ export async function generateCollectionImage(playerCards) {
 
 // ─── Loja banner (Futecord style) ─────────────────────────────────────────────
 export async function generateLojaImage(balance) {
-  // Try to fetch representative player photos for each pack type
-  // Sofascoreids: Hakimi(LD/DEF), Pedri(MC/MEI), Haaland(CA/ATK), Alisson(GOL)
-  const repIds = [7157, 889012, 839956, 178294]; // DEF, MEI, ATK, GOL
+  // Representative player photos: [ssId, eaId] pairs
+  // Lewandowski(DEF), Pedri(MEI), Haaland(ATK), Vinicius(PE)
+  const repPairs = [
+    [7157,    188545], // Lewandowski
+    [889012,  231677], // Pedri
+    [839956,  239085], // Haaland
+    [878986,  238794], // Vinicius Jr
+  ];
   const repPhotos = [];
-  for (const id of repIds) {
-    repPhotos.push(await fetchPlayerPhoto(id));
+  for (const [ssId, eaId] of repPairs) {
+    repPhotos.push(await fetchPlayerPhoto(ssId, eaId));
     await new Promise(r => setTimeout(r, 300));
   }
 
@@ -892,12 +909,17 @@ export async function generateLojaImage(balance) {
 
 // ─── Pacotes banner (Futecord style) ──────────────────────────────────────────
 export async function generatePacksImage() {
-  // Representative photos for 5 pack types
-  // IDs: Van Dijk(DEF/ouro), Messi(black/premium), Haaland(copa), Bellingham(europa), Mbappé(padrão)
-  const repIds = [200644, 17892, 839956, 1101557, 342229];
+  // Representative photos for 5 pack types: [ssId, eaId]
+  const repPairs = [
+    [200644,  203376], // Van Dijk  (ouro)
+    [17892,   158023], // Messi     (premium/black)
+    [839956,  239085], // Haaland   (copa)
+    [1101557, 246669], // Bellingham(europa)
+    [342229,  231747], // Mbappé    (padrão)
+  ];
   const repPhotos = [];
-  for (const id of repIds) {
-    repPhotos.push(await fetchPlayerPhoto(id));
+  for (const [ssId, eaId] of repPairs) {
+    repPhotos.push(await fetchPlayerPhoto(ssId, eaId));
     await new Promise(r => setTimeout(r, 300));
   }
 
@@ -1092,11 +1114,14 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
   const seen     = new Set();
   const photoMap = new Map();
   for (const l of lineup) {
-    const id = l.player?.sofascoreId;
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
-    const img = await fetchPlayerPhoto(id);
-    if (img) photoMap.set(id, img);
+    const player = l.player;
+    const ssId   = player?.sofascoreId;
+    const eaId   = player?.eaId;
+    const cacheKey = `ss:${ssId ?? 'x'}:ea:${eaId ?? 'x'}`;
+    if ((!ssId && !eaId) || seen.has(cacheKey)) continue;
+    seen.add(cacheKey);
+    const img = await fetchPlayerPhoto(ssId, eaId);
+    if (img) photoMap.set(cacheKey, img);
     await new Promise(r => setTimeout(r, 120));
   }
 
@@ -1148,8 +1173,11 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
   for (let i = 0; i < slots.length; i++) {
     const s      = slots[i];
     const entry  = lineup.find(l => l.slot === i+1);
-    const player = entry?.player ?? null;
-    const photo  = player?.sofascoreId ? (photoMap.get(player.sofascoreId) ?? null) : null;
+    const player   = entry?.player ?? null;
+    const _ssId    = player?.sofascoreId;
+    const _eaId    = player?.eaId;
+    const _ck      = `ss:${_ssId ?? 'x'}:ea:${_eaId ?? 'x'}`;
+    const photo    = (_ssId || _eaId) ? (photoMap.get(_ck) ?? null) : null;
     drawFieldCard(ctx, Math.round(fx + s.x * fw), Math.round(fy + s.y * fh), player, s.pos, photo);
   }
 
