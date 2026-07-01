@@ -248,54 +248,76 @@ async function batchFetchPhotos(players) {
   return out;
 }
 
-// ─── Draw player silhouette ────────────────────────────────────────────────────
-function drawPlayerSilhouette(ctx, x, y, w, h, t) {
-  const bg = ctx.createLinearGradient(x, y, x, y + h);
-  bg.addColorStop(0, t.cardBg1 ?? t.grad[0]);
+// ─── Draw player avatar (initials-based — guaranteed fallback) ────────────────
+function drawPlayerAvatar(ctx, x, y, w, h, t, name) {
+  // Themed background
+  const bg = ctx.createLinearGradient(x, y, x + w, y + h);
+  bg.addColorStop(0,   t.cardBg1 ?? t.grad[0]);
   bg.addColorStop(0.5, t.cardBg2 ?? t.grad[1]);
-  bg.addColorStop(1, t.cardBg3 ?? t.grad[2]);
+  bg.addColorStop(1,   t.cardBg3 ?? t.grad[2]);
   ctx.fillStyle = bg;
   ctx.fillRect(x, y, w, h);
 
-  const cx  = x + w / 2;
-  const sc  = w / 200;
-  const by  = y + h;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const r  = Math.min(w, h) * 0.36;
 
+  // Subtle diagonal lines pattern
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.4)';
-  ctx.shadowBlur  = 10;
-  const silColor = 'rgba(0,0,0,0.28)';
+  ctx.globalAlpha = 0.06;
+  ctx.strokeStyle = t.accent ?? '#ffffff';
+  ctx.lineWidth   = 1;
+  for (let i = -h; i < w + h; i += 14) {
+    ctx.beginPath();
+    ctx.moveTo(x + i, y);
+    ctx.lineTo(x + i + h, y + h);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
 
-  const headR  = 22 * sc;
-  const headCY = by - h * 0.72;
-  ctx.fillStyle = silColor;
-  ctx.beginPath(); ctx.arc(cx, headCY, headR, 0, Math.PI * 2); ctx.fill();
-  ctx.fillRect(cx - 8 * sc, headCY + headR * 0.8, 16 * sc, 14 * sc);
+  // Outer glow ring
+  ctx.save();
+  const ring = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, r * 1.15);
+  ring.addColorStop(0, 'transparent');
+  ring.addColorStop(1, `${t.accent ?? '#ffffff'}44`);
+  ctx.fillStyle = ring;
+  ctx.beginPath(); ctx.arc(cx, cy, r * 1.15, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 
-  const shoulderY = headCY + headR + 14 * sc;
-  ctx.beginPath();
-  ctx.moveTo(cx - 55 * sc, by - h * 0.15);
-  ctx.lineTo(cx - 38 * sc, shoulderY);
-  ctx.bezierCurveTo(cx - 22 * sc, shoulderY - 6 * sc, cx - 8 * sc, shoulderY - 10 * sc, cx, shoulderY - 10 * sc);
-  ctx.bezierCurveTo(cx + 8 * sc, shoulderY - 10 * sc, cx + 22 * sc, shoulderY - 6 * sc, cx + 38 * sc, shoulderY);
-  ctx.lineTo(cx + 55 * sc, by - h * 0.15);
-  ctx.closePath(); ctx.fill();
+  // Circle background
+  ctx.save();
+  const circleBg = ctx.createRadialGradient(cx - r * 0.2, cy - r * 0.2, r * 0.1, cx, cy, r);
+  circleBg.addColorStop(0, `${t.accent ?? '#ffffff'}33`);
+  circleBg.addColorStop(1, 'rgba(0,0,0,0.35)');
+  ctx.fillStyle = circleBg;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
 
-  ctx.beginPath();
-  ctx.moveTo(cx - 38 * sc, shoulderY);
-  ctx.lineTo(cx - 60 * sc, shoulderY + 40 * sc);
-  ctx.lineTo(cx - 52 * sc, by - h * 0.15);
-  ctx.closePath(); ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(cx + 38 * sc, shoulderY);
-  ctx.lineTo(cx + 60 * sc, shoulderY + 40 * sc);
-  ctx.lineTo(cx + 52 * sc, by - h * 0.15);
-  ctx.closePath(); ctx.fill();
+  // Circle border
+  ctx.strokeStyle = `${t.accent ?? '#ffffff'}99`;
+  ctx.lineWidth   = Math.max(1.5, w * 0.018);
+  ctx.stroke();
+  ctx.restore();
+
+  // Initials text
+  const parts    = (name ?? '?').trim().split(/\s+/);
+  const initials = parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : (parts[0] ?? '?').slice(0, 2).toUpperCase();
+  const fontSize = Math.round(r * 1.05);
+  ctx.save();
+  ctx.shadowColor  = 'rgba(0,0,0,0.85)';
+  ctx.shadowBlur   = 10;
+  ctx.fillStyle    = t.ovrColor === '#ffffff' ? '#ffffff' : (t.statValue ?? '#ffffff');
+  ctx.font         = `bold ${fontSize}px Roboto`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(initials, cx, cy);
   ctx.restore();
 }
 
-// ─── Draw photo or silhouette ─────────────────────────────────────────────────
-function drawPhotoZone(ctx, photo, x, y, w, h, t) {
+// ─── Draw photo or avatar (100% coverage) ────────────────────────────────────
+function drawPhotoZone(ctx, photo, x, y, w, h, t, name) {
   if (photo) {
     const bg = ctx.createLinearGradient(x, y, x, y + h);
     bg.addColorStop(0, t.cardBg1 ?? t.grad[0]);
@@ -309,7 +331,7 @@ function drawPhotoZone(ctx, photo, x, y, w, h, t) {
     ctx.drawImage(photo, x, drawY, w, drawH);
     ctx.restore();
   } else {
-    drawPlayerSilhouette(ctx, x, y, w, h, t);
+    drawPlayerAvatar(ctx, x, y, w, h, t, name);
   }
 }
 
@@ -578,9 +600,8 @@ function drawFCPack(ctx, x, y, w, h, label, playerPhoto) {
     fade.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = fade; ctx.fillRect(x, photoTop, w, photoH * 0.25);
   } else {
-    // Minimal silhouette placeholder
     const silH = h - (photoTop - y);
-    drawPlayerSilhouette(ctx, x, photoTop, w, silH, THEME.gold);
+    drawPlayerAvatar(ctx, x, photoTop, w, silH, THEME.gold, label);
   }
 
   // ── Bottom strip ──────────────────────────────────────────────────────────
@@ -656,7 +677,7 @@ function drawPackCard(ctx, x, y, w, h, ph, nh, sh, player, photo, flag) {
 
   // Photo zone (clipped)
   roundRect(ctx, x, y, w, ph + R, R); ctx.clip();
-  drawPhotoZone(ctx, photo, x, y, w, ph, t);
+  drawPhotoZone(ctx, photo, x, y, w, ph, t, player.name);
   ctx.restore();
 
   // Photo bottom fade
@@ -1047,7 +1068,7 @@ function drawFieldCard(ctx, cx, cy, player, slotPos, photo) {
     const dy    = dh < PH ? y + (PH - dh) / 2 : y;
     ctx.drawImage(photo, x, dy, CARD_W, dh);
   } else {
-    drawPlayerSilhouette(ctx, x, y, CARD_W, PH, t);
+    drawPlayerAvatar(ctx, x, y, CARD_W, PH, t, player.name);
   }
   ctx.restore();
 
