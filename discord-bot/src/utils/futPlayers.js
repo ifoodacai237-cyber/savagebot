@@ -12,8 +12,8 @@ export const FUT_PLAYERS = [
   // ═══════════════════════════════════════════════════════════════
 
   // GOL — Black
-  { id: 1,  name: 'Courtois',      pos: 'GOL', ovr: 91, pac: 50, fin: 11, pas: 80, dri: 74, def: 91, fis: 89, nat: 'BEL', club: 'Real Madrid',  rarity: 'black', series: 'europe2526', sofascoreId: 95934 },
-  { id: 2,  name: 'Alisson',       pos: 'GOL', ovr: 90, pac: 51, fin: 14, pas: 78, dri: 73, def: 90, fis: 85, nat: 'BRA', club: 'Liverpool',     rarity: 'black', series: 'europe2526', sofascoreId: 178294 },
+  { id: 1,  name: 'Courtois',      pos: 'GOL', ovr: 91, pac: 50, fin: 11, pas: 80, dri: 74, def: 91, fis: 89, nat: 'BEL', club: 'Real Madrid',  rarity: 'black', series: 'europe2526', sofascoreId: 95934,   eaId: 192448 },
+  { id: 2,  name: 'Alisson',       pos: 'GOL', ovr: 90, pac: 51, fin: 14, pas: 78, dri: 73, def: 90, fis: 85, nat: 'BRA', club: 'Liverpool',     rarity: 'black', series: 'europe2526', sofascoreId: 178294,  eaId: 193238 },
   { id: 3,  name: 'Neuer',         pos: 'GOL', ovr: 87, pac: 52, fin: 10, pas: 76, dri: 70, def: 87, fis: 82, nat: 'ALE', club: 'Bayern Munich', rarity: 'black', series: 'europe2526', sofascoreId: 12011 },
 
   // ZAG — Black
