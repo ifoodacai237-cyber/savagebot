@@ -207,9 +207,24 @@ async function fetchPlayerPhoto(sofascoreId, eaId) {
     );
   }
 
-  // 2️⃣ Futbin CDN fallback (EA ID required)
+  // 1b️⃣ SofaScore B-CDN (alternative endpoint, same IDs)
+  if (!img && sofascoreId) {
+    img = await tryUrl(
+      `https://sofascore.b-cdn.net/api/v1/player/${sofascoreId}/image`,
+      { 'Referer': 'https://www.sofascore.com/' }
+    );
+  }
+
+  // 2️⃣ Futbin CDN (EA player ID)
   if (!img && eaId) {
     img = await tryUrl(`https://cdn.futbin.com/content/fifa25/img/players/${eaId}.png`);
+  }
+
+  // 3️⃣ EA Sports content CDN (EA player ID)
+  if (!img && eaId) {
+    img = await tryUrl(
+      `https://media.contentapi.ea.com/content/dam/ea/fifa/fc-25/ratings/player-portraits/${eaId}.jpg`
+    );
   }
 
   _photoCache.set(cacheKey, img);
@@ -248,76 +263,112 @@ async function batchFetchPhotos(players) {
   return out;
 }
 
-// ─── Draw player avatar (initials-based — guaranteed fallback) ────────────────
-function drawPlayerAvatar(ctx, x, y, w, h, t, name) {
-  // Themed background
-  const bg = ctx.createLinearGradient(x, y, x + w, y + h);
+// ─── Draw player avatar (premium FUT-style fallback) ─────────────────────────
+function drawPlayerAvatar(ctx, x, y, w, h, t, name, pos) {
+  const accent = t.accent ?? '#ffd700';
+
+  // 1. Background gradient
+  const bg = ctx.createLinearGradient(x, y, x + w * 0.8, y + h);
   bg.addColorStop(0,   t.cardBg1 ?? t.grad[0]);
   bg.addColorStop(0.5, t.cardBg2 ?? t.grad[1]);
   bg.addColorStop(1,   t.cardBg3 ?? t.grad[2]);
   ctx.fillStyle = bg;
   ctx.fillRect(x, y, w, h);
 
-  const cx = x + w / 2;
-  const cy = y + h / 2;
-  const r  = Math.min(w, h) * 0.36;
-
-  // Subtle diagonal lines pattern
+  // 2. Diagonal stripe pattern (subtle)
   ctx.save();
-  ctx.globalAlpha = 0.06;
-  ctx.strokeStyle = t.accent ?? '#ffffff';
-  ctx.lineWidth   = 1;
-  for (let i = -h; i < w + h; i += 14) {
+  ctx.globalAlpha = 0.045;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth   = 1.5;
+  const gap = Math.max(10, w * 0.10);
+  for (let i = -h; i < w + h; i += gap) {
     ctx.beginPath();
     ctx.moveTo(x + i, y);
-    ctx.lineTo(x + i + h, y + h);
+    ctx.lineTo(x + i + h * 1.1, y + h);
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
   ctx.restore();
 
-  // Outer glow ring
-  ctx.save();
-  const ring = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, r * 1.15);
-  ring.addColorStop(0, 'transparent');
-  ring.addColorStop(1, `${t.accent ?? '#ffffff'}44`);
-  ctx.fillStyle = ring;
-  ctx.beginPath(); ctx.arc(cx, cy, r * 1.15, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
+  // 3. Top-right corner glow (accent color)
+  const glow = ctx.createRadialGradient(x + w, y, 0, x + w, y, w * 0.9);
+  glow.addColorStop(0, `${accent}20`);
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.fillRect(x, y, w, h);
 
-  // Circle background
-  ctx.save();
-  const circleBg = ctx.createRadialGradient(cx - r * 0.2, cy - r * 0.2, r * 0.1, cx, cy, r);
-  circleBg.addColorStop(0, `${t.accent ?? '#ffffff'}33`);
-  circleBg.addColorStop(1, 'rgba(0,0,0,0.35)');
-  ctx.fillStyle = circleBg;
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  // 4. Position watermark (large, rotated, very transparent)
+  const posLabel = pos ?? '';
+  if (posLabel) {
+    ctx.save();
+    ctx.globalAlpha = 0.052;
+    ctx.fillStyle   = '#ffffff';
+    const pSize = Math.round(h * 0.70);
+    ctx.font         = `900 ${pSize}px Roboto`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.translate(x + w / 2, y + h * 0.50);
+    ctx.rotate(-0.20);
+    ctx.fillText(posLabel.toUpperCase(), 0, 0);
+    ctx.restore();
+  }
 
-  // Circle border
-  ctx.strokeStyle = `${t.accent ?? '#ffffff'}99`;
-  ctx.lineWidth   = Math.max(1.5, w * 0.018);
+  // 5. Thin accent line at 60% height
+  const lineY = y + h * 0.62;
+  const lineW = w * 0.72;
+  const lineX = x + (w - lineW) / 2;
+  ctx.save();
+  ctx.globalAlpha    = 0.55;
+  ctx.strokeStyle    = accent;
+  ctx.lineWidth      = Math.max(1, h * 0.007);
+  ctx.shadowColor    = accent;
+  ctx.shadowBlur     = 4;
+  ctx.beginPath();
+  ctx.moveTo(lineX, lineY);
+  ctx.lineTo(lineX + lineW, lineY);
   ctx.stroke();
+  ctx.globalAlpha = 1;
   ctx.restore();
 
-  // Initials text
+  // 6. Player initials — big, bold, clean
   const parts    = (name ?? '?').trim().split(/\s+/);
   const initials = parts.length >= 2
     ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
     : (parts[0] ?? '?').slice(0, 2).toUpperCase();
-  const fontSize = Math.round(r * 1.05);
+
+  const fSize = Math.round(Math.min(w * 0.56, h * 0.40));
+  const tx    = x + w / 2;
+  const ty    = y + h * 0.46;
+
   ctx.save();
-  ctx.shadowColor  = 'rgba(0,0,0,0.85)';
-  ctx.shadowBlur   = 10;
-  ctx.fillStyle    = t.ovrColor === '#ffffff' ? '#ffffff' : (t.statValue ?? '#ffffff');
-  ctx.font         = `bold ${fontSize}px Roboto`;
-  ctx.textAlign    = 'center';
+  ctx.font      = `bold ${fSize}px Roboto`;
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(initials, cx, cy);
+
+  // Dark outline for contrast
+  ctx.lineWidth   = fSize * 0.10;
+  ctx.strokeStyle = 'rgba(0,0,0,0.70)';
+  ctx.lineJoin    = 'round';
+  ctx.shadowColor = 'rgba(0,0,0,0.0)';
+  ctx.strokeText(initials, tx, ty);
+
+  // White fill + glow
+  ctx.shadowColor = `${accent}88`;
+  ctx.shadowBlur  = 18;
+  ctx.fillStyle   = '#ffffff';
+  ctx.fillText(initials, tx, ty);
   ctx.restore();
+
+  // 7. Bottom fade into card info zone
+  const fade = ctx.createLinearGradient(x, y + h * 0.68, x, y + h);
+  fade.addColorStop(0, 'rgba(0,0,0,0)');
+  fade.addColorStop(1, 'rgba(0,0,0,0.62)');
+  ctx.fillStyle = fade;
+  ctx.fillRect(x, y + h * 0.68, w, h * 0.32);
 }
 
 // ─── Draw photo or avatar (100% coverage) ────────────────────────────────────
-function drawPhotoZone(ctx, photo, x, y, w, h, t, name) {
+function drawPhotoZone(ctx, photo, x, y, w, h, t, name, pos) {
   if (photo) {
     const bg = ctx.createLinearGradient(x, y, x, y + h);
     bg.addColorStop(0, t.cardBg1 ?? t.grad[0]);
@@ -331,7 +382,7 @@ function drawPhotoZone(ctx, photo, x, y, w, h, t, name) {
     ctx.drawImage(photo, x, drawY, w, drawH);
     ctx.restore();
   } else {
-    drawPlayerAvatar(ctx, x, y, w, h, t, name);
+    drawPlayerAvatar(ctx, x, y, w, h, t, name, pos);
   }
 }
 
@@ -601,7 +652,7 @@ function drawFCPack(ctx, x, y, w, h, label, playerPhoto) {
     ctx.fillStyle = fade; ctx.fillRect(x, photoTop, w, photoH * 0.25);
   } else {
     const silH = h - (photoTop - y);
-    drawPlayerAvatar(ctx, x, photoTop, w, silH, THEME.gold, label);
+    drawPlayerAvatar(ctx, x, photoTop, w, silH, THEME.gold, label, label);
   }
 
   // ── Bottom strip ──────────────────────────────────────────────────────────
@@ -677,7 +728,7 @@ function drawPackCard(ctx, x, y, w, h, ph, nh, sh, player, photo, flag) {
 
   // Photo zone (clipped)
   roundRect(ctx, x, y, w, ph + R, R); ctx.clip();
-  drawPhotoZone(ctx, photo, x, y, w, ph, t, player.name);
+  drawPhotoZone(ctx, photo, x, y, w, ph, t, player.name, player.pos);
   ctx.restore();
 
   // Photo bottom fade
@@ -866,13 +917,12 @@ export async function generateCollectionImage(playerCards) {
 
 // ─── Loja banner (Futecord style) ─────────────────────────────────────────────
 export async function generateLojaImage(balance) {
-  // Representative player photos: [ssId, eaId] pairs
-  // Lewandowski(DEF), Pedri(MEI), Haaland(ATK), Vinicius(PE)
+  // Representative player photos: [ssId, eaId] pairs — one per pack category
   const repPairs = [
-    [7157,    188545], // Lewandowski
-    [889012,  231677], // Pedri
-    [839956,  239085], // Haaland
-    [878986,  238794], // Vinicius Jr
+    [200644, 203376], // Van Dijk     → DEFENSORES
+    [889012, 231677], // Pedri        → MEIAS
+    [839956, 239085], // Haaland      → ATACANTES
+    [375778, 215914], // Ederson      → GOLEIROS
   ];
   const repPhotos = [];
   for (const [ssId, eaId] of repPairs) {
@@ -1068,7 +1118,7 @@ function drawFieldCard(ctx, cx, cy, player, slotPos, photo) {
     const dy    = dh < PH ? y + (PH - dh) / 2 : y;
     ctx.drawImage(photo, x, dy, CARD_W, dh);
   } else {
-    drawPlayerAvatar(ctx, x, y, CARD_W, PH, t, player.name);
+    drawPlayerAvatar(ctx, x, y, CARD_W, PH, t, player.name, player.pos);
   }
   ctx.restore();
 
