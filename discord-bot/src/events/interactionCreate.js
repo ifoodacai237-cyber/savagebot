@@ -77,7 +77,7 @@ import {
   getOrCreateTeam, openPack, simulateMatch, changeFormation, autoLineup,
   PACKS, FORMATION_POSITIONS,
 } from '../utils/futManager.js';
-import { generatePackRevealImage } from '../utils/futCanvas.js';
+import { generatePackRevealImage, generatePartidaImage } from '../utils/futCanvas.js';
 
 // ─── Emoji resolver ───────────────────────────────────────────────────────────
 
@@ -763,37 +763,44 @@ export default {
 
           if (customId === 'fut_loja') {
             const msg = await buildShopMessage(userId, guildId);
-            return interaction.editReply({ content: null, ...msg, files: [] });
+            return interaction.editReply({ content: null, ...msg });
           }
 
           if (customId === 'fut_pacotes') {
             const msg = await buildPacksMessage(userId, guildId);
-            return interaction.editReply({ content: null, ...msg, files: [] });
+            return interaction.editReply({ content: null, ...msg });
           }
 
           if (customId === 'fut_partida') {
             const result = await simulateMatch(userId, guildId);
-            const { EmbedBuilder: EB, ActionRowBuilder: ARB, ButtonBuilder: BB, ButtonStyle: BS } = await import('discord.js');
+            const { EmbedBuilder: EB, ActionRowBuilder: ARB, ButtonBuilder: BB, ButtonStyle: BS, AttachmentBuilder: AB } = await import('discord.js');
             if (!result.success) {
               return interaction.editReply({ content: `⚠️ ${result.message}`, embeds: [], components: [], files: [] });
             }
-            const emoji = result.result === 'win' ? '✅' : result.result === 'draw' ? '🤝' : '❌';
             const eloText = result.eloChange >= 0 ? `+${result.eloChange}` : `${result.eloChange}`;
+            const imgBuf = await generatePartidaImage({
+              result:    result.result,
+              myScore:   result.myScore,
+              oppScore:  result.oppScore,
+              myOvr:     result.myOvr,
+              oppOvr:    result.oppOvr,
+              oppName:   result.oppName,
+              eloChange: result.eloChange,
+              newElo:    result.newElo,
+            });
+            const attach = new AB(imgBuf, { name: 'partida.png' });
             const embed = new EB()
               .setColor(result.result === 'win' ? 0x2ecc71 : result.result === 'draw' ? 0xf39c12 : 0xe74c3c)
-              .setTitle(`${emoji} Partida Ranqueada — ${result.result === 'win' ? 'Vitória!' : result.result === 'draw' ? 'Empate!' : 'Derrota!'}`)
+              .setImage('attachment://partida.png')
               .addFields(
-                { name: 'Placar',     value: `**${result.myScore} × ${result.oppScore}** vs ${result.oppName}`, inline: false },
-                { name: 'Seu OVR',    value: `**${result.myOvr}**`, inline: true },
-                { name: 'OVR Adv.',   value: `**${result.oppOvr}**`, inline: true },
-                { name: 'ELO',        value: `${result.newElo} (${eloText})`, inline: true },
-                { name: 'Histórico',  value: `✅ ${result.wins}V · 🤝 ${result.draws}E · ❌ ${result.losses}D`, inline: false },
-              );
+                { name: 'Histórico', value: `✅ ${result.wins}V · 🤝 ${result.draws}E · ❌ ${result.losses}D`, inline: false },
+              )
+              .setFooter({ text: `ELO: ${result.newElo} (${eloText})` });
             const row = new ARB().addComponents(
               new BB().setCustomId('fut_partida').setLabel('Jogar Novamente').setStyle(BS.Success).setEmoji('⚽'),
               new BB().setCustomId('fut_time').setLabel('🏟️ Meu Time').setStyle(BS.Primary),
             );
-            return interaction.editReply({ embeds: [embed], components: [row], content: null, files: [] });
+            return interaction.editReply({ embeds: [embed], components: [row], files: [attach], content: null });
           }
 
           if (customId === 'fut_formacao') {
