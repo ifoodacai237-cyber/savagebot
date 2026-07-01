@@ -18,7 +18,7 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-// ─── Sparkle decoration ───────────────────────────────────────────────────────
+// ─── Sparkle / star decoration ────────────────────────────────────────────────
 
 function drawSparkle(ctx, x, y, size, color) {
   ctx.save();
@@ -31,6 +31,80 @@ function drawSparkle(ctx, x, y, size, color) {
     ctx.fill();
   }
   ctx.restore();
+}
+
+// ─── Angel feather ────────────────────────────────────────────────────────────
+function drawFeather(ctx, x, y, dir, alpha = 0.18) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const quillLen = 80;
+  const barbs    = 12;
+  ctx.strokeStyle = '#D4AF37';
+  ctx.lineWidth   = 1;
+  // Central quill
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + dir * 14, y + quillLen);
+  ctx.stroke();
+  for (let i = 1; i <= barbs; i++) {
+    const t  = i / barbs;
+    const qx = x + dir * 14 * t;
+    const qy = y + quillLen * t;
+    const sp = 6 + t * 22;
+    // Leading barb
+    ctx.beginPath();
+    ctx.moveTo(qx, qy);
+    ctx.quadraticCurveTo(qx + dir * sp * 0.7, qy - 4, qx + dir * sp, qy + 4);
+    ctx.stroke();
+    // Trailing barb (shorter)
+    ctx.beginPath();
+    ctx.moveTo(qx, qy);
+    ctx.quadraticCurveTo(qx - dir * sp * 0.3, qy - 3, qx - dir * sp * 0.45, qy + 3);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ─── Divine light rays from top ───────────────────────────────────────────────
+function drawDivineRays(ctx, W, H) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const cx = W / 2, cy = -30;
+  const rays = 10;
+  for (let i = 0; i < rays; i++) {
+    const angle  = -Math.PI / 2 + (i - (rays - 1) / 2) * 0.19;
+    const spread = 0.045;
+    const grad   = ctx.createLinearGradient(cx, cy, cx + Math.cos(angle) * H * 1.8, cy + Math.sin(angle) * H * 1.8);
+    grad.addColorStop(0,   'rgba(200,185,255,0.18)');
+    grad.addColorStop(0.5, 'rgba(160,130,230,0.06)');
+    grad.addColorStop(1,   'rgba(100,80,200,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle - spread) * H * 2.2, cy + Math.sin(angle - spread) * H * 2.2);
+    ctx.lineTo(cx + Math.cos(angle + spread) * H * 2.2, cy + Math.sin(angle + spread) * H * 2.2);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.restore();
+}
+
+// ─── Tiny stars ───────────────────────────────────────────────────────────────
+function drawStars(ctx, W, H) {
+  const stars = [
+    [55,28],[W-50,22],[80,H-30],[W-70,H-28],[W/2+160,18],[W/2-155,20],
+    [W/2,15],[30,H/2-40],[W-30,H/2+20],[W/2+280,H-22],[W/2-260,H-18],
+    [140,38],[W-140,35],[W/2+80,H-12],[W/2-90,H-14]
+  ];
+  for (const [sx, sy] of stars) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(220,210,255,0.55)';
+    ctx.beginPath();
+    ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 }
 
 // ─── Playing card (clean realistic style matching reference) ─────────────────
@@ -434,34 +508,49 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
-  // ── Background ──────────────────────────────────────────────────────────────
-  const bg = ctx.createLinearGradient(0, 0, W, H);
-  bg.addColorStop(0, '#080808');
-  bg.addColorStop(0.5, '#111111');
-  bg.addColorStop(1, '#080808');
+  // ── Background — Fallen Angels theme ────────────────────────────────────────
+  // Deep midnight sky
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0,   '#08061A');
+  bg.addColorStop(0.45,'#0D0B22');
+  bg.addColorStop(1,   '#060410');
   ctx.fillStyle = bg;
   roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
 
-  // Centre radial glow
-  const cg = ctx.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, W * 0.55);
-  cg.addColorStop(0, 'rgba(212,175,55,0.12)');
-  cg.addColorStop(1, 'rgba(212,175,55,0)');
-  ctx.fillStyle = cg; roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
+  // Divine rays from top-center
+  drawDivineRays(ctx, W, H);
 
-  // Sparkles
-  const sp = [[42,34],[W-42,32],[36,H-36],[W-38,H-34],[W/2,22],[W/2-130,H-28],[W/2+125,H-26],[60,H/2-10],[W-55,H/2+8]];
-  for (const [sx,sy] of sp) drawSparkle(ctx, sx, sy, 8, 'rgba(212,175,55,0.45)');
+  // Subtle violet radial halo in center
+  const halo = ctx.createRadialGradient(W / 2, H * 0.45, 10, W / 2, H * 0.45, W * 0.5);
+  halo.addColorStop(0,   'rgba(130,90,220,0.12)');
+  halo.addColorStop(0.6, 'rgba(90,60,160,0.04)');
+  halo.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = halo; roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
+
+  // Feathers at four corners
+  drawFeather(ctx, 34,  18, +1, 0.20);
+  drawFeather(ctx, W-34, 18, -1, 0.20);
+  drawFeather(ctx, 44,  H - 100, +1, 0.15);
+  drawFeather(ctx, W-44, H - 100, -1, 0.15);
+
+  // Stars scattered around
+  drawStars(ctx, W, H);
+
+  // Thin gold border around whole canvas
+  ctx.strokeStyle = 'rgba(212,175,55,0.30)'; ctx.lineWidth = 1.5;
+  roundRect(ctx, 1, 1, W - 2, H - 2, 24); ctx.stroke();
 
   // ── Header ──────────────────────────────────────────────────────────────────
   const headerG = ctx.createLinearGradient(0, 0, W, 52);
-  headerG.addColorStop(0, '#1A1A1A'); headerG.addColorStop(1, '#0D0D0D');
+  headerG.addColorStop(0, 'rgba(20,14,50,0.95)');
+  headerG.addColorStop(1, 'rgba(10,8,30,0.95)');
   ctx.fillStyle = headerG;
   roundRect(ctx, 0, 0, W, 52, 24); ctx.fill();
   ctx.fillRect(0, 28, W, 24);
-  ctx.strokeStyle = 'rgba(212,175,55,0.35)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(180,140,255,0.30)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, 52); ctx.lineTo(W, 52); ctx.stroke();
 
-  ctx.fillStyle = '#FFD700'; ctx.font = `bold 19px ${FONT}`; ctx.textAlign = 'center';
+  ctx.fillStyle = '#C8A8FF'; ctx.font = `bold 19px ${FONT}`; ctx.textAlign = 'center';
   ctx.fillText('* BLACKJACK *', W / 2, 34);
 
   // ── Helper: score badge ──────────────────────────────────────────────────────
@@ -469,25 +558,25 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
     ctx.font = `bold 12px ${FONT}`;
     const tw = ctx.measureText(text).width;
     const pw = tw + 28, ph = 24;
-    ctx.fillStyle = 'rgba(212,175,55,0.25)';
+    ctx.fillStyle = 'rgba(140,100,255,0.20)';
     roundRect(ctx, bx - pw / 2, by, pw, ph, 12); ctx.fill();
-    ctx.strokeStyle = 'rgba(212,175,55,0.7)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(180,140,255,0.70)'; ctx.lineWidth = 1;
     roundRect(ctx, bx - pw / 2, by, pw, ph, 12); ctx.stroke();
-    ctx.fillStyle = '#FFD700'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#C8A8FF'; ctx.textAlign = 'center';
     ctx.fillText(text, bx, by + 16);
   }
 
   // ── Section label ─────────────────────────────────────────────────────────
   function sectionLabel(text, x, y) {
-    ctx.fillStyle = 'rgba(212,175,55,0.7)'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(200,168,255,0.75)'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'left';
     ctx.fillText(text, x, y);
   }
 
   // ── Dealer panel ────────────────────────────────────────────────────────────
   const dPanelY = 62, dPanelH = 178;
-  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.fillStyle = 'rgba(120,80,220,0.07)';
   roundRect(ctx, 20, dPanelY, W - 40, dPanelH, 16); ctx.fill();
-  ctx.strokeStyle = 'rgba(212,175,55,0.2)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(160,120,255,0.22)'; ctx.lineWidth = 1;
   roundRect(ctx, 20, dPanelY, W - 40, dPanelH, 16); ctx.stroke();
 
   sectionLabel('DEALER', 36, dPanelY + 18);
@@ -518,7 +607,7 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
     ctx.fillStyle = '#FFFFFF'; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center';
     ctx.fillText(rText, W / 2, midY + 24);
   } else {
-    ctx.strokeStyle = 'rgba(212,175,55,0.25)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(160,120,255,0.25)'; ctx.lineWidth = 1;
     ctx.setLineDash([6, 4]);
     ctx.beginPath(); ctx.moveTo(40, midY + 18); ctx.lineTo(W - 40, midY + 18); ctx.stroke();
     ctx.setLineDash([]);
@@ -526,9 +615,9 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
 
   // ── Player panel ────────────────────────────────────────────────────────────
   const pPanelY = midY + 46, pPanelH = 178;
-  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.fillStyle = 'rgba(120,80,220,0.07)';
   roundRect(ctx, 20, pPanelY, W - 40, pPanelH, 16); ctx.fill();
-  ctx.strokeStyle = 'rgba(212,175,55,0.2)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(160,120,255,0.22)'; ctx.lineWidth = 1;
   roundRect(ctx, 20, pPanelY, W - 40, pPanelH, 16); ctx.stroke();
 
   sectionLabel('VOCÊ', 36, pPanelY + 18);
@@ -542,11 +631,11 @@ export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal
 
   // ── Footer stat bar ──────────────────────────────────────────────────────────
   const fY = pPanelY + pPanelH + 10;
-  ctx.fillStyle = 'rgba(212,175,55,0.1)';
+  ctx.fillStyle = 'rgba(100,70,180,0.12)';
   roundRect(ctx, 20, fY, W - 40, 34, 17); ctx.fill();
-  ctx.strokeStyle = 'rgba(212,175,55,0.25)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(160,120,255,0.28)'; ctx.lineWidth = 1;
   roundRect(ctx, 20, fY, W - 40, 34, 17); ctx.stroke();
-  ctx.fillStyle = 'rgba(212,175,55,0.85)'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(200,168,255,0.85)'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center';
   if (hideDealer) {
     ctx.fillText(`Aposta: ${fmt(bet)}  |  Possivel ganho: ${fmt(bet * 2)}`, W / 2, fY + 22);
   } else {
