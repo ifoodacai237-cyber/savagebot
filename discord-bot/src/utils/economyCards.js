@@ -1,4 +1,7 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+const _bjDir = join(dirname(fileURLToPath(import.meta.url)), '../assets');
 
 const FONT = '"Noto Sans", "DejaVu Sans", Arial, sans-serif';
 
@@ -502,146 +505,79 @@ export function generateMinesCard({ grid, revealed, bombs, bet, payout, memberNa
 }
 
 // ─── Blackjack card ───────────────────────────────────────────────────────────
+// Uses the two template images (green = win/playing, red = loss/bust) as
+// backgrounds, then draws live cards and values on top.
 
-export function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal, won, tie, bust, bet, payout, userBalance, hideDealer = false }) {
+export async function generateBlackjackCard({ playerCards, dealerCards, pTotal, dTotal, won, tie, bust, bet, payout, hideDealer = false }) {
   const W = 820, H = 500;
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
-  // ── Background — Fallen Angels theme ────────────────────────────────────────
-  // Deep midnight sky
-  const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0,   '#08061A');
-  bg.addColorStop(0.45,'#0D0B22');
-  bg.addColorStop(1,   '#060410');
-  ctx.fillStyle = bg;
-  roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
+  // ── Choose and draw background image ─────────────────────────────────────────
+  const isLoss = !won && !tie && !hideDealer;
+  const bgImg  = await loadImage(join(_bjDir, isLoss ? 'bj_bg_lose.png' : 'bj_bg_win.png'));
+  ctx.drawImage(bgImg, 0, 0, W, H);
 
-  // Divine rays from top-center
-  drawDivineRays(ctx, W, H);
+  // ── Layout constants (calibrated to 820×500 scaling of the template images) ──
+  // Images are approximately 1120×630; scale: X=0.732, Y=0.794
+  const panelX = 28, panelW = 764;
+  const dPanelY = 74,  dPanelH = 143;
+  const pPanelY = 238, pPanelH = 143;
+  const panelFill = isLoss ? '#C23535' : '#4AA850';
+  const CARD_H = 108, CARD_W = 78;
 
-  // Subtle violet radial halo in center
-  const halo = ctx.createRadialGradient(W / 2, H * 0.45, 10, W / 2, H * 0.45, W * 0.5);
-  halo.addColorStop(0,   'rgba(130,90,220,0.12)');
-  halo.addColorStop(0.6, 'rgba(90,60,160,0.04)');
-  halo.addColorStop(1,   'rgba(0,0,0,0)');
-  ctx.fillStyle = halo; roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
+  // ── Helper: cover panel interior, redraw label + badge ───────────────────────
+  function drawPanel(panelY, panelH, label, valueText) {
+    ctx.fillStyle = panelFill;
+    roundRect(ctx, panelX + 3, panelY + 3, panelW - 6, panelH - 6, 10);
+    ctx.fill();
 
-  // Feathers at four corners
-  drawFeather(ctx, 34,  18, +1, 0.20);
-  drawFeather(ctx, W-34, 18, -1, 0.20);
-  drawFeather(ctx, 44,  H - 100, +1, 0.15);
-  drawFeather(ctx, W-44, H - 100, -1, 0.15);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = `bold 15px ${FONT}`;
+    ctx.textAlign = 'left';
+    ctx.fillText(label, panelX + 18, panelY + 24);
 
-  // Stars scattered around
-  drawStars(ctx, W, H);
-
-  // Thin gold border around whole canvas
-  ctx.strokeStyle = 'rgba(212,175,55,0.30)'; ctx.lineWidth = 1.5;
-  roundRect(ctx, 1, 1, W - 2, H - 2, 24); ctx.stroke();
-
-  // ── Header ──────────────────────────────────────────────────────────────────
-  const headerG = ctx.createLinearGradient(0, 0, W, 52);
-  headerG.addColorStop(0, 'rgba(20,14,50,0.95)');
-  headerG.addColorStop(1, 'rgba(10,8,30,0.95)');
-  ctx.fillStyle = headerG;
-  roundRect(ctx, 0, 0, W, 52, 24); ctx.fill();
-  ctx.fillRect(0, 28, W, 24);
-  ctx.strokeStyle = 'rgba(180,140,255,0.30)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, 52); ctx.lineTo(W, 52); ctx.stroke();
-
-  ctx.fillStyle = '#C8A8FF'; ctx.font = `bold 19px ${FONT}`; ctx.textAlign = 'center';
-  ctx.fillText('* BLACKJACK *', W / 2, 34);
-
-  // ── Helper: score badge ──────────────────────────────────────────────────────
-  function scoreBadge(text, bx, by) {
-    ctx.font = `bold 12px ${FONT}`;
-    const tw = ctx.measureText(text).width;
-    const pw = tw + 28, ph = 24;
-    ctx.fillStyle = 'rgba(140,100,255,0.20)';
-    roundRect(ctx, bx - pw / 2, by, pw, ph, 12); ctx.fill();
-    ctx.strokeStyle = 'rgba(180,140,255,0.70)'; ctx.lineWidth = 1;
-    roundRect(ctx, bx - pw / 2, by, pw, ph, 12); ctx.stroke();
-    ctx.fillStyle = '#C8A8FF'; ctx.textAlign = 'center';
-    ctx.fillText(text, bx, by + 16);
+    const bW = 106, bH = 26;
+    const bX = panelX + panelW - bW - 12;
+    const bY = panelY + 8;
+    ctx.fillStyle = 'rgba(0,0,0,0.38)';
+    roundRect(ctx, bX, bY, bW, bH, 13); ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = `bold 13px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(valueText, bX + bW / 2, bY + 18);
   }
 
-  // ── Section label ─────────────────────────────────────────────────────────
-  function sectionLabel(text, x, y) {
-    ctx.fillStyle = 'rgba(200,168,255,0.75)'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'left';
-    ctx.fillText(text, x, y);
-  }
+  drawPanel(dPanelY, dPanelH, 'Mão do Dealer', hideDealer ? 'Valor: ?' : `Valor: ${dTotal}`);
+  drawPanel(pPanelY, pPanelH, 'Sua Mão', `Valor: ${pTotal}${bust ? ' X' : ''}`);
 
-  // ── Dealer panel ────────────────────────────────────────────────────────────
-  const dPanelY = 62, dPanelH = 178;
-  ctx.fillStyle = 'rgba(120,80,220,0.07)';
-  roundRect(ctx, 20, dPanelY, W - 40, dPanelH, 16); ctx.fill();
-  ctx.strokeStyle = 'rgba(160,120,255,0.22)'; ctx.lineWidth = 1;
-  roundRect(ctx, 20, dPanelY, W - 40, dPanelH, 16); ctx.stroke();
-
-  sectionLabel('DEALER', 36, dPanelY + 18);
-  scoreBadge(hideDealer ? '?' : String(dTotal), W - 80, dPanelY + 6);
-
+  // ── Dealer cards ─────────────────────────────────────────────────────────────
+  const dCardY  = dPanelY + Math.round((dPanelH - CARD_H) / 2);
   const dCount  = hideDealer ? 2 : dealerCards.length;
-  const dGap    = Math.min(82, (W - 120) / dCount);
-  const dStart  = W / 2 - ((dCount - 1) * dGap) / 2 - 35;
+  const dGap    = Math.min(88, (panelW - 60) / Math.max(dCount, 1));
+  const dStart  = panelX + panelW / 2 - ((dCount - 1) * dGap) / 2 - CARD_W / 2;
   if (hideDealer) {
-    drawCard(ctx, dStart, dPanelY + 30, dealerCards[0].rank, dealerCards[0].suit);
-    drawCardBack(ctx, dStart + dGap, dPanelY + 30);
+    drawCard(ctx, dStart,        dCardY, dealerCards[0].rank, dealerCards[0].suit);
+    drawCardBack(ctx, dStart + dGap, dCardY);
   } else {
-    dealerCards.forEach((c, i) => drawCard(ctx, dStart + i * dGap, dPanelY + 30, c.rank, c.suit));
+    dealerCards.forEach((c, i) => drawCard(ctx, dStart + i * dGap, dCardY, c.rank, c.suit));
   }
 
-  // ── Divider / result banner ──────────────────────────────────────────────────
-  const midY = dPanelY + dPanelH + 10;
-  if (!hideDealer) {
-    let rFrom, rTo, rText;
-    if (won)       { rFrom = '#064E3B'; rTo = '#059669'; rText = 'VITORIA!'; }
-    else if (tie)  { rFrom = '#1E3A5F'; rTo = '#2563EB'; rText = 'EMPATE'; }
-    else if (bust) { rFrom = '#7F1D1D'; rTo = '#DC2626'; rText = 'BUST!'; }
-    else           { rFrom = '#7F1D1D'; rTo = '#B91C1C'; rText = 'DERROTA'; }
-    const rg = ctx.createLinearGradient(W * 0.2, midY, W * 0.8, midY + 36);
-    rg.addColorStop(0, rFrom); rg.addColorStop(1, rTo);
-    ctx.fillStyle = rg;
-    roundRect(ctx, W * 0.2, midY, W * 0.6, 36, 18); ctx.fill();
-    ctx.fillStyle = '#FFFFFF'; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center';
-    ctx.fillText(rText, W / 2, midY + 24);
-  } else {
-    ctx.strokeStyle = 'rgba(160,120,255,0.25)'; ctx.lineWidth = 1;
-    ctx.setLineDash([6, 4]);
-    ctx.beginPath(); ctx.moveTo(40, midY + 18); ctx.lineTo(W - 40, midY + 18); ctx.stroke();
-    ctx.setLineDash([]);
-  }
+  // ── Player cards ─────────────────────────────────────────────────────────────
+  const pCardY  = pPanelY + Math.round((pPanelH - CARD_H) / 2);
+  const pCount  = playerCards.length;
+  const pGap    = Math.min(88, (panelW - 60) / Math.max(pCount, 1));
+  const pStart  = panelX + panelW / 2 - ((pCount - 1) * pGap) / 2 - CARD_W / 2;
+  playerCards.forEach((c, i) => drawCard(ctx, pStart + i * pGap, pCardY, c.rank, c.suit));
 
-  // ── Player panel ────────────────────────────────────────────────────────────
-  const pPanelY = midY + 46, pPanelH = 178;
-  ctx.fillStyle = 'rgba(120,80,220,0.07)';
-  roundRect(ctx, 20, pPanelY, W - 40, pPanelH, 16); ctx.fill();
-  ctx.strokeStyle = 'rgba(160,120,255,0.22)'; ctx.lineWidth = 1;
-  roundRect(ctx, 20, pPanelY, W - 40, pPanelH, 16); ctx.stroke();
-
-  sectionLabel('VOCÊ', 36, pPanelY + 18);
-  const bustLabel = bust ? ' X' : '';
-  scoreBadge(`${pTotal}${bustLabel}`, W - 80, pPanelY + 6);
-
-  const pCount = playerCards.length;
-  const pGap   = Math.min(82, (W - 120) / pCount);
-  const pStart = W / 2 - ((pCount - 1) * pGap) / 2 - 35;
-  playerCards.forEach((c, i) => drawCard(ctx, pStart + i * pGap, pPanelY + 30, c.rank, c.suit));
-
-  // ── Footer stat bar ──────────────────────────────────────────────────────────
-  const fY = pPanelY + pPanelH + 10;
-  ctx.fillStyle = 'rgba(100,70,180,0.12)';
-  roundRect(ctx, 20, fY, W - 40, 34, 17); ctx.fill();
-  ctx.strokeStyle = 'rgba(160,120,255,0.28)'; ctx.lineWidth = 1;
-  roundRect(ctx, 20, fY, W - 40, 34, 17); ctx.stroke();
-  ctx.fillStyle = 'rgba(200,168,255,0.85)'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center';
+  // ── Playing state: overlay the title area with "EM JOGO" ─────────────────────
   if (hideDealer) {
-    ctx.fillText(`Aposta: ${fmt(bet)}  |  Possivel ganho: ${fmt(bet * 2)}`, W / 2, fY + 22);
-  } else {
-    const sign   = won ? '+' : tie ? '+-' : '-';
-    const change = tie ? 0 : won ? payout - bet : bet;
-    ctx.fillText(`${sign}${fmt(change)}   Aposta: ${fmt(bet)}`, W / 2, fY + 22);
+    ctx.fillStyle = 'rgba(46,130,50,0.92)';
+    ctx.fillRect(0, 0, W, dPanelY - 3);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = `bold 34px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.fillText('EM JOGO', W / 2, 46);
   }
 
   return canvas.toBuffer('image/png');
