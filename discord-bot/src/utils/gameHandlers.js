@@ -74,12 +74,12 @@ function v2Payload(container, files, ...extras) {
 
 // ─── Blackjack canvas image (dynamic — unique filename evita cache do Discord) ─
 
-function buildBJAttachment(state, hideDealer) {
+async function buildBJAttachment(state, hideDealer) {
   const pTotal  = handTotal(state.player);
   const dTotal  = handTotal(state.dealer);
   const payout  = state.won ? state.bet * 2 : state.tie ? state.bet : 0;
 
-  const buf = generateBlackjackCard({
+  const buf = await generateBlackjackCard({
     playerCards: state.player,
     dealerCards:  state.dealer,
     pTotal, dTotal,
@@ -125,8 +125,8 @@ function handTotal(cards) {
 function fmtCard(c) { return `\`${c.rank}${c.suit}\``; }
 function fmtHand(cards) { return cards.map(fmtCard).join(' '); }
 
-function buildBJContainer(state, hideDealer = false) {
-  const attachment = buildBJAttachment(state, hideDealer);
+async function buildBJContainer(state, hideDealer = false) {
+  const attachment = await buildBJAttachment(state, hideDealer);
   const fname      = attachment.name;
 
   const container = new ContainerBuilder();
@@ -173,7 +173,7 @@ async function finalizeBJ(state, interaction) {
   if (payout > 0) await addWin(state.userId, state.guildId, payout);
   blackjackGames.delete(state.userId);
 
-  const { container, files } = buildBJContainer(state);
+  const { container, files } = await buildBJContainer(state);
   return interaction.update(v2Payload(container, files));
 }
 
@@ -207,7 +207,7 @@ export async function startBlackjack(ctx, bet, sendFn) {
     const payout = won ? Math.floor(bet * 2.5) : bet;
     await addWin(userId, guildId, payout);
     blackjackGames.delete(userId);
-    const { container, files } = buildBJContainer(state);
+    const { container, files } = await buildBJContainer(state);
     return sendFn(v2Payload(container, files));
   }
 
@@ -220,7 +220,7 @@ export async function startBlackjack(ctx, bet, sendFn) {
     }
   }, 120_000);
 
-  const { container, files } = buildBJContainer(state, true);
+  const { container, files } = await buildBJContainer(state, true);
   return sendFn(v2Payload(container, files, ...buildBJComponents(state)));
 }
 
@@ -238,12 +238,12 @@ export async function handleBJHit(interaction, targetId) {
     state.status = 'done';
     state.bust = true;
     blackjackGames.delete(targetId);
-    const { container, files } = buildBJContainer(state);
+    const { container, files } = await buildBJContainer(state);
     return interaction.update(v2Payload(container, files));
   }
   if (total === 21) return finalizeBJ(state, interaction);
 
-  const { container, files } = buildBJContainer(state, true);
+  const { container, files } = await buildBJContainer(state, true);
   return interaction.update(v2Payload(container, files, ...buildBJComponents(state)));
 }
 
