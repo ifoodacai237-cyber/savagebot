@@ -129,11 +129,7 @@ function buildBJContainer(state, hideDealer = false) {
   const attachment = buildBJAttachment(state, hideDealer);
   const fname      = attachment.name;
 
-  const accentColor = state.status === 'playing'
-    ? 0x5865F2
-    : state.won || state.tie ? 0x57F287 : 0xED4245;
-
-  const container = new ContainerBuilder().setAccentColor(accentColor);
+  const container = new ContainerBuilder();
   container.addMediaGalleryComponents(
     new MediaGalleryBuilder().addItems(
       new MediaGalleryItemBuilder().setURL(`attachment://${fname}`),
