@@ -45,8 +45,6 @@ import { radioSessions, createRadioSession } from '../utils/radioManager.js';
 import { buildControlPanel as buildRadioPanel } from '../commands/general/radio.js';
 import { musicSessions } from '../utils/musicManager.js';
 import { buildMusicPanel } from '../commands/general/musica.js';
-import { streamSessions } from '../utils/streamManager.js';
-import { buildStreamPanel } from '../commands/general/transmissao.js';
 import {
   getMsgSession,
   deleteMsgSession,
@@ -743,28 +741,6 @@ export default {
             session.stop();
             return interaction.update({
               embeds: [new EmbedBuilder().setColor(0xED4245).setTitle('⏹️ Música Encerrada').setDescription('A reprodução foi parada.')],
-              components: [],
-            });
-          }
-        }
-
-        // ── TRANSMISSÃO: Controles do player ─────────────────────────────
-        if (customId === 'stream_toggle' || customId === 'stream_stop') {
-          const session = streamSessions.get(interaction.guildId);
-          if (!session) {
-            return interaction.update({
-              embeds: [new EmbedBuilder().setColor(0xED4245).setDescription('❌ Não há nenhuma transmissão ativa.')],
-              components: [],
-            });
-          }
-
-          if (customId === 'stream_toggle') {
-            if (session.paused) session.resume(); else session.pause();
-            return interaction.update(buildStreamPanel(session));
-          } else if (customId === 'stream_stop') {
-            session.stop();
-            return interaction.update({
-              embeds: [new EmbedBuilder().setColor(0xFF6B35).setTitle('⏹️ Transmissão Encerrada').setDescription('A transmissão foi parada.')],
               components: [],
             });
           }
