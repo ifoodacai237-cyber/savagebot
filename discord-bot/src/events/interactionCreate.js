@@ -69,6 +69,14 @@ import {
   RP_COLOR_MAP,
 } from '../utils/rolePanelSessions.js';
 import { handleCopaInteraction, handleCopaModal, handleCopaChannelSelect } from '../utils/copaHandlers.js';
+import {
+  buildTeamMessage, buildCollectionMessage, buildShopMessage,
+  buildPacksMessage,
+} from '../commands/jogos/fut.js';
+import {
+  getOrCreateTeam, openPack, simulateMatch, changeFormation, autoLineup,
+  PACKS, FORMATION_POSITIONS,
+} from '../utils/futManager.js';
 
 // ─── Emoji resolver ───────────────────────────────────────────────────────────
 
@@ -669,12 +677,170 @@ export default {
           return interaction.update({ ...payload, content: null });
         }
 
+        // ── FUT: Menus de seleção ─────────────────────────────────────────
+        if (interaction.customId === 'fut_shop_select') {
+          await interaction.deferUpdate();
+          const packKey = interaction.values[0];
+          const pack    = PACKS[packKey];
+          if (!pack) return;
+          const { ActionRowBuilder: ARB, ButtonBuilder: BB, ButtonStyle: BS, EmbedBuilder: EB } = await import('discord.js');
+          const embed = new EB()
+            .setColor(0xf4a261)
+            .setTitle(`${pack.emoji} ${pack.name}`)
+            .setDescription(pack.description)
+            .addFields(
+              { name: '💰 Preço',   value: `**${pack.price.toLocaleString('pt-BR')}** moedas`, inline: true },
+              { name: '📦 Cartas',  value: `**${pack.cards}** cartas`, inline: true },
+            );
+          const row = new ARB().addComponents(
+            new BB().setCustomId(`fut_buy_${packKey}`).setLabel(`Comprar — ${pack.price.toLocaleString('pt-BR')} 🪙`).setStyle(BS.Success).setEmoji('✅'),
+            new BB().setCustomId('fut_loja').setLabel('Voltar à Loja').setStyle(BS.Secondary).setEmoji('◀️'),
+          );
+          return interaction.editReply({ embeds: [embed], components: [row], files: [] });
+        }
+
+        if (interaction.customId === 'fut_pack_select') {
+          await interaction.deferUpdate();
+          const packKey = interaction.values[0];
+          const userId  = interaction.user.id;
+          const guildId = interaction.guildId;
+          const result  = await openPack(packKey, userId, guildId);
+
+          const { EmbedBuilder: EB, ActionRowBuilder: ARB, ButtonBuilder: BB, ButtonStyle: BS } = await import('discord.js');
+          if (!result.success) {
+            const embed = new EB().setColor(0xe74c3c)
+              .setTitle('❌ Saldo Insuficiente')
+              .setDescription(`Você precisa de **${result.needed?.toLocaleString('pt-BR')}** 🪙 mas tem apenas **${result.have?.toLocaleString('pt-BR')}** 🪙`);
+            return interaction.editReply({ embeds: [embed], components: [], files: [] });
+          }
+
+          const lines = result.players.map(p => {
+            const em = p.rarity === 'black' ? '⬛' : p.rarity === 'gold' ? '🥇' : p.rarity === 'silver' ? '🥈' : '🥉';
+            return `${em} \`${p.ovr}\` **${p.name}** — ${p.pos} · ${p.nat}`;
+          });
+          const embed = new EB().setColor(0x2ecc71)
+            .setTitle(`📦 Pacote Aberto! (−${result.spent.toLocaleString('pt-BR')} 🪙)`)
+            .setDescription(`**Nova Carta adicionada à Coleção!**\n\n${lines.join('\n')}`);
+          const row = new ARB().addComponents(
+            new BB().setCustomId('fut_pacotes').setLabel('Abrir Outro').setStyle(BS.Primary).setEmoji('📦'),
+            new BB().setCustomId('fut_time').setLabel('🏟️ Meu Time').setStyle(BS.Secondary),
+          );
+          return interaction.editReply({ embeds: [embed], components: [row], files: [] });
+        }
+
+        if (interaction.customId === 'fut_formacao_select') {
+          await interaction.deferUpdate();
+          const formation = interaction.values[0];
+          const team      = await getOrCreateTeam(interaction.user.id, interaction.guildId);
+          await changeFormation(team.id, formation);
+          const msg = await buildTeamMessage(interaction.user.id, interaction.guildId, interaction.member);
+          return interaction.editReply({ content: `✅ Formação alterada para **${formation}**!`, ...msg });
+        }
+
         return;
       }
 
       // ── BUTTONS ────────────────────────────────────────────────────────────
       if (interaction.isButton()) {
         const { customId } = interaction;
+
+        // ── FUT: Botões de navegação ──────────────────────────────────────
+        if (customId.startsWith('fut_')) {
+          await interaction.deferUpdate();
+          const userId  = interaction.user.id;
+          const guildId = interaction.guildId;
+
+          if (customId === 'fut_time') {
+            const msg = await buildTeamMessage(userId, guildId, interaction.member);
+            return interaction.editReply({ content: null, ...msg });
+          }
+
+          if (customId.startsWith('fut_colecao_')) {
+            const page = parseInt(customId.replace('fut_colecao_', '')) || 1;
+            const msg  = await buildCollectionMessage(userId, guildId, page);
+            return interaction.editReply({ content: null, ...msg, files: [] });
+          }
+
+          if (customId === 'fut_loja') {
+            const msg = await buildShopMessage(userId, guildId);
+            return interaction.editReply({ content: null, ...msg, files: [] });
+          }
+
+          if (customId === 'fut_pacotes') {
+            const msg = await buildPacksMessage(userId, guildId);
+            return interaction.editReply({ content: null, ...msg, files: [] });
+          }
+
+          if (customId === 'fut_partida') {
+            const result = await simulateMatch(userId, guildId);
+            const { EmbedBuilder: EB, ActionRowBuilder: ARB, ButtonBuilder: BB, ButtonStyle: BS } = await import('discord.js');
+            if (!result.success) {
+              return interaction.editReply({ content: `⚠️ ${result.message}`, embeds: [], components: [], files: [] });
+            }
+            const emoji = result.result === 'win' ? '✅' : result.result === 'draw' ? '🤝' : '❌';
+            const eloText = result.eloChange >= 0 ? `+${result.eloChange}` : `${result.eloChange}`;
+            const embed = new EB()
+              .setColor(result.result === 'win' ? 0x2ecc71 : result.result === 'draw' ? 0xf39c12 : 0xe74c3c)
+              .setTitle(`${emoji} Partida Ranqueada — ${result.result === 'win' ? 'Vitória!' : result.result === 'draw' ? 'Empate!' : 'Derrota!'}`)
+              .addFields(
+                { name: 'Placar',     value: `**${result.myScore} × ${result.oppScore}** vs ${result.oppName}`, inline: false },
+                { name: 'Seu OVR',    value: `**${result.myOvr}**`, inline: true },
+                { name: 'OVR Adv.',   value: `**${result.oppOvr}**`, inline: true },
+                { name: 'ELO',        value: `${result.newElo} (${eloText})`, inline: true },
+                { name: 'Histórico',  value: `✅ ${result.wins}V · 🤝 ${result.draws}E · ❌ ${result.losses}D`, inline: false },
+              );
+            const row = new ARB().addComponents(
+              new BB().setCustomId('fut_partida').setLabel('Jogar Novamente').setStyle(BS.Success).setEmoji('⚽'),
+              new BB().setCustomId('fut_time').setLabel('🏟️ Meu Time').setStyle(BS.Primary),
+            );
+            return interaction.editReply({ embeds: [embed], components: [row], content: null, files: [] });
+          }
+
+          if (customId === 'fut_formacao') {
+            const team = await getOrCreateTeam(userId, guildId);
+            const formations = Object.keys(FORMATION_POSITIONS);
+            const { StringSelectMenuBuilder: SSM, ActionRowBuilder: ARB, EmbedBuilder: EB } = await import('discord.js');
+            const embed = new EB().setColor(0x3498db).setTitle('🔀 Mudar Formação')
+              .setDescription(`Formação atual: **${team.formation}**\n\nEscolha a nova formação:`);
+            const select = new SSM().setCustomId('fut_formacao_select')
+              .setPlaceholder('Selecione a formação...')
+              .addOptions(formations.map(f => ({ label: f, value: f, default: f === team.formation })));
+            const row = new ARB().addComponents(select);
+            return interaction.editReply({ embeds: [embed], components: [row], content: null, files: [] });
+          }
+
+          if (customId === 'fut_autolineup') {
+            const team = await getOrCreateTeam(userId, guildId);
+            await autoLineup(team.id, team.formation);
+            const msg = await buildTeamMessage(userId, guildId, interaction.member);
+            return interaction.editReply({ content: '✅ Escalação automática aplicada!', ...msg });
+          }
+
+          if (customId.startsWith('fut_buy_')) {
+            const packKey = customId.replace('fut_buy_', '');
+            const result  = await openPack(packKey, userId, guildId);
+            const { EmbedBuilder: EB, ActionRowBuilder: ARB, ButtonBuilder: BB, ButtonStyle: BS } = await import('discord.js');
+            if (!result.success) {
+              const embed = new EB().setColor(0xe74c3c).setTitle('❌ Saldo Insuficiente')
+                .setDescription(`Precisa de **${result.needed?.toLocaleString('pt-BR')}** 🪙, você tem **${result.have?.toLocaleString('pt-BR')}** 🪙`);
+              return interaction.editReply({ embeds: [embed], components: [], files: [], content: null });
+            }
+            const lines = result.players.map(p => {
+              const em = p.rarity === 'black' ? '⬛' : p.rarity === 'gold' ? '🥇' : p.rarity === 'silver' ? '🥈' : '🥉';
+              return `${em} \`${p.ovr}\` **${p.name}** — ${p.pos} · ${p.nat}`;
+            });
+            const embed = new EB().setColor(0x2ecc71)
+              .setTitle(`📦 Pacote Aberto! (−${result.spent.toLocaleString('pt-BR')} 🪙)`)
+              .setDescription(`**Novas cartas adicionadas à sua coleção!**\n\n${lines.join('\n')}`);
+            const row = new ARB().addComponents(
+              new BB().setCustomId('fut_loja').setLabel('🛒 Voltar à Loja').setStyle(BS.Secondary),
+              new BB().setCustomId('fut_time').setLabel('🏟️ Meu Time').setStyle(BS.Primary),
+            );
+            return interaction.editReply({ embeds: [embed], components: [row], files: [], content: null });
+          }
+
+          return;
+        }
 
         // ── COPA: Palpites e painel ──────────────────────────────────────
         if (customId.startsWith('copa_')) {
