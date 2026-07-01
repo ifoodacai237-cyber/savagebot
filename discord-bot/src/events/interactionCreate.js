@@ -77,6 +77,7 @@ import {
   getOrCreateTeam, openPack, simulateMatch, changeFormation, autoLineup,
   PACKS, FORMATION_POSITIONS,
 } from '../utils/futManager.js';
+import { generatePackRevealImage } from '../utils/futCanvas.js';
 
 // ─── Emoji resolver ───────────────────────────────────────────────────────────
 
@@ -706,7 +707,7 @@ export default {
           const guildId = interaction.guildId;
           const result  = await openPack(packKey, userId, guildId);
 
-          const { EmbedBuilder: EB, ActionRowBuilder: ARB, ButtonBuilder: BB, ButtonStyle: BS } = await import('discord.js');
+          const { EmbedBuilder: EB, ActionRowBuilder: ARB, ButtonBuilder: BB, ButtonStyle: BS, AttachmentBuilder: AB } = await import('discord.js');
           if (!result.success) {
             const embed = new EB().setColor(0xe74c3c)
               .setTitle('❌ Saldo Insuficiente')
@@ -714,18 +715,17 @@ export default {
             return interaction.editReply({ embeds: [embed], components: [], files: [] });
           }
 
-          const lines = result.players.map(p => {
-            const em = p.rarity === 'black' ? '⬛' : p.rarity === 'gold' ? '🥇' : p.rarity === 'silver' ? '🥈' : '🥉';
-            return `${em} \`${p.ovr}\` **${p.name}** — ${p.pos} · ${p.nat}`;
-          });
-          const embed = new EB().setColor(0x2ecc71)
+          const imgBuf = await generatePackRevealImage(result.players);
+          const attach = new AB(imgBuf, { name: 'pacote.png' });
+          const embed  = new EB().setColor(0x2ecc71)
             .setTitle(`📦 Pacote Aberto! (−${result.spent.toLocaleString('pt-BR')} 🪙)`)
-            .setDescription(`**Nova Carta adicionada à Coleção!**\n\n${lines.join('\n')}`);
+            .setDescription(`**${result.players.length} novas cartas adicionadas à sua coleção!**`)
+            .setImage('attachment://pacote.png');
           const row = new ARB().addComponents(
             new BB().setCustomId('fut_pacotes').setLabel('Abrir Outro').setStyle(BS.Primary).setEmoji('📦'),
             new BB().setCustomId('fut_time').setLabel('🏟️ Meu Time').setStyle(BS.Secondary),
           );
-          return interaction.editReply({ embeds: [embed], components: [row], files: [] });
+          return interaction.editReply({ embeds: [embed], components: [row], files: [attach] });
         }
 
         if (interaction.customId === 'fut_formacao_select') {
@@ -819,24 +819,24 @@ export default {
           if (customId.startsWith('fut_buy_')) {
             const packKey = customId.replace('fut_buy_', '');
             const result  = await openPack(packKey, userId, guildId);
-            const { EmbedBuilder: EB, ActionRowBuilder: ARB, ButtonBuilder: BB, ButtonStyle: BS } = await import('discord.js');
+            const { EmbedBuilder: EB, ActionRowBuilder: ARB, ButtonBuilder: BB, ButtonStyle: BS, AttachmentBuilder: AB } = await import('discord.js');
             if (!result.success) {
               const embed = new EB().setColor(0xe74c3c).setTitle('❌ Saldo Insuficiente')
                 .setDescription(`Precisa de **${result.needed?.toLocaleString('pt-BR')}** 🪙, você tem **${result.have?.toLocaleString('pt-BR')}** 🪙`);
               return interaction.editReply({ embeds: [embed], components: [], files: [], content: null });
             }
-            const lines = result.players.map(p => {
-              const em = p.rarity === 'black' ? '⬛' : p.rarity === 'gold' ? '🥇' : p.rarity === 'silver' ? '🥈' : '🥉';
-              return `${em} \`${p.ovr}\` **${p.name}** — ${p.pos} · ${p.nat}`;
-            });
-            const embed = new EB().setColor(0x2ecc71)
+            const imgBuf = await generatePackRevealImage(result.players);
+            const attach = new AB(imgBuf, { name: 'pacote.png' });
+            const embed  = new EB().setColor(0x2ecc71)
               .setTitle(`📦 Pacote Aberto! (−${result.spent.toLocaleString('pt-BR')} 🪙)`)
-              .setDescription(`**Novas cartas adicionadas à sua coleção!**\n\n${lines.join('\n')}`);
+              .setDescription(`**${result.players.length} novas cartas adicionadas à sua coleção!**`)
+              .setImage('attachment://pacote.png');
             const row = new ARB().addComponents(
-              new BB().setCustomId('fut_loja').setLabel('🛒 Voltar à Loja').setStyle(BS.Secondary),
-              new BB().setCustomId('fut_time').setLabel('🏟️ Meu Time').setStyle(BS.Primary),
+              new BB().setCustomId('fut_loja').setLabel('🛒 Loja').setStyle(BS.Secondary),
+              new BB().setCustomId('fut_pacotes').setLabel('📦 Abrir Outro').setStyle(BS.Primary),
+              new BB().setCustomId('fut_time').setLabel('🏟️ Meu Time').setStyle(BS.Secondary),
             );
-            return interaction.editReply({ embeds: [embed], components: [row], files: [], content: null });
+            return interaction.editReply({ embeds: [embed], components: [row], files: [attach], content: null });
           }
 
           return;

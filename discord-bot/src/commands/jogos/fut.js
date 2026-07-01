@@ -14,7 +14,7 @@ import {
   getTeamOvr, getCollection, changeFormation, changeTeamName,
   simulateMatch, getUserBalance, PACKS, FORMATION_POSITIONS,
 } from '../../utils/futManager.js';
-import { generateFieldImage } from '../../utils/futCanvas.js';
+import { generateFieldImage, generateCollectionImage } from '../../utils/futCanvas.js';
 import { rarityLabel } from '../../utils/futPlayers.js';
 
 // ─── Helpers de UI ────────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ export async function buildTeamMessage(userId, guildId, member) {
 
 export async function buildCollectionMessage(userId, guildId, page = 1) {
   const team = await getOrCreateTeam(userId, guildId);
-  const data  = await getCollection(team.id, page, 12);
+  const data  = await getCollection(team.id, page, 8);
 
   const rarityOrder = { black: 0, gold: 1, silver: 2, bronze: 3 };
   const sorted = [...data.cards].sort((a, b) =>
@@ -82,27 +82,26 @@ export async function buildCollectionMessage(userId, guildId, page = 1) {
     (b.player?.ovr ?? 0) - (a.player?.ovr ?? 0)
   );
 
-  const lines = sorted.map(c => {
-    if (!c.player) return '`?` Carta desconhecida';
-    return `${rarityEmoji(c.player.rarity)} \`${c.player.ovr}\` **${c.player.name}** — ${c.player.pos} · ${c.player.nat}`;
-  });
+  const imageBuffer = await generateCollectionImage(sorted);
+  const attachment  = new AttachmentBuilder(imageBuffer, { name: 'colecao.png' });
 
   const embed = new EmbedBuilder()
     .setColor(0x6a0dad)
     .setTitle('📋 Sua Coleção')
-    .setDescription(lines.length ? lines.join('\n') : 'Nenhuma carta ainda! Abra pacotes na loja.')
-    .setFooter({ text: `Página ${data.page}/${data.pages || 1} · ${data.total} cartas no total` });
+    .setDescription(`**${data.total}** cartas no total`)
+    .setImage('attachment://colecao.png')
+    .setFooter({ text: `Página ${data.page}/${data.pages || 1}` });
 
   const prevDisabled = page <= 1;
   const nextDisabled = page >= (data.pages || 1);
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`fut_colecao_${page - 1}`).setLabel('◀ Anterior').setStyle(ButtonStyle.Secondary).setDisabled(prevDisabled),
+    new ButtonBuilder().setCustomId(`fut_colecao_${page - 1}`).setLabel('◀').setStyle(ButtonStyle.Secondary).setDisabled(prevDisabled),
     new ButtonBuilder().setCustomId('fut_time').setLabel('🏟️ Ver Time').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(`fut_colecao_${page + 1}`).setLabel('Próxima ▶').setStyle(ButtonStyle.Secondary).setDisabled(nextDisabled),
+    new ButtonBuilder().setCustomId(`fut_colecao_${page + 1}`).setLabel('▶').setStyle(ButtonStyle.Secondary).setDisabled(nextDisabled),
   );
 
-  return { embeds: [embed], components: [row] };
+  return { embeds: [embed], files: [attachment], components: [row] };
 }
 
 export async function buildShopMessage(userId, guildId) {
