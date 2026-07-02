@@ -73,7 +73,7 @@ export const FUT_PLAYERS = [
   { id: 37, name: 'Koulibaly',      pos: 'ZAG', ovr: 83, pac: 76, fin: 36, pas: 62, dri: 70, def: 84, fis: 86, nat: 'SEN', club: 'Al-Hilal',      rarity: 'gold', series: 'base',         sofascoreId: 74044,   futggId: 195722 },
   { id: 38, name: 'Laporte',        pos: 'ZAG', ovr: 83, pac: 72, fin: 40, pas: 70, dri: 72, def: 84, fis: 78, nat: 'FRA', club: 'Al-Nassr',      rarity: 'gold', series: 'base',         sofascoreId: 298097,  futggId: 218353 },
   { id: 39, name: 'Bremer',         pos: 'ZAG', ovr: 82, pac: 74, fin: 38, pas: 65, dri: 70, def: 83, fis: 84, nat: 'BRA', club: 'Juventus',      rarity: 'gold', series: 'europe2526',   sofascoreId: 717419,  futggId: 226177 },
-  { id: 40, name: 'Thiago Silva',   pos: 'ZAG', ovr: 81, pac: 68, fin: 35, pas: 68, dri: 70, def: 83, fis: 74, nat: 'BRA', club: 'Fluminense',    rarity: 'gold', series: 'brasileirao26', sofascoreId: 3660 },
+  { id: 40, name: 'Thiago Silva',   pos: 'ZAG', ovr: 81, pac: 68, fin: 35, pas: 68, dri: 70, def: 83, fis: 74, nat: 'BRA', club: 'Fluminense',    rarity: 'gold', series: 'brasileirao26', sofascoreId: 3660, futggId: 164240 },
   { id: 41, name: 'Alaba',          pos: 'ZAG', ovr: 82, pac: 76, fin: 45, pas: 74, dri: 76, def: 82, fis: 78, nat: 'AUT', club: 'Real Madrid',   rarity: 'gold', series: 'europe2526',   sofascoreId: 49321,   futggId: 195864 },
   { id: 42, name: 'Magalhães',      pos: 'ZAG', ovr: 80, pac: 73, fin: 38, pas: 64, dri: 70, def: 81, fis: 80, nat: 'BRA', club: 'Arsenal',       rarity: 'gold', series: 'europe2526',   sofascoreId: 825048,  futggId: 248392 },
   { id: 43, name: 'Bastoni',        pos: 'ZAG', ovr: 82, pac: 74, fin: 40, pas: 72, dri: 74, def: 83, fis: 78, nat: 'ITA', club: 'Inter',         rarity: 'gold', series: 'europe2526',   sofascoreId: 709533,  futggId: 238902 },
@@ -102,7 +102,7 @@ export const FUT_PLAYERS = [
   { id: 58, name: 'Bruno Fernandes',pos: 'MEI', ovr: 84, pac: 74, fin: 82, pas: 86, dri: 82, def: 60, fis: 74, nat: 'POR', club: 'Man United',   rarity: 'gold', series: 'europe2526',   sofascoreId: 469003,  futggId: 212831 },
   { id: 59, name: 'Phil Foden',     pos: 'MEI', ovr: 84, pac: 82, fin: 82, pas: 84, dri: 88, def: 60, fis: 72, nat: 'ING', club: 'Man City',      rarity: 'gold', series: 'europe2526',   sofascoreId: 729426,  futggId: 237692 },
   { id: 60, name: 'Dybala',         pos: 'MEI', ovr: 82, pac: 80, fin: 82, pas: 80, dri: 88, def: 38, fis: 68, nat: 'ARG', club: 'Roma',          rarity: 'gold', series: 'europe2526',   sofascoreId: 219091,  futggId: 200145 },
-  { id: 61, name: 'Isco',           pos: 'MEI', ovr: 80, pac: 74, fin: 76, pas: 84, dri: 88, def: 44, fis: 68, nat: 'ESP', club: 'Sevilla',       rarity: 'gold', series: 'europe2526',   sofascoreId: 15990 },
+  { id: 61, name: 'Isco',           pos: 'MEI', ovr: 80, pac: 74, fin: 76, pas: 84, dri: 88, def: 44, fis: 68, nat: 'ESP', club: 'Sevilla',       rarity: 'gold', series: 'europe2526',   sofascoreId: 15990, futggId: 197781 },
 
   // PE — Gold
   { id: 62, name: 'Leroy Sané',     pos: 'PE',  ovr: 84, pac: 93, fin: 82, pas: 78, dri: 88, def: 40, fis: 70, nat: 'ALE', club: 'Bayern Munich', rarity: 'gold', series: 'europe2526',   sofascoreId: 290498,  futggId: 224218 },
@@ -125,14 +125,14 @@ export const FUT_PLAYERS = [
 
   // Brasileirão — Gold
   { id: 75, name: 'Arrascaeta',     pos: 'MEI', ovr: 83, pac: 78, fin: 80, pas: 84, dri: 86, def: 44, fis: 68, nat: 'URU', club: 'Flamengo',      rarity: 'gold', series: 'brasileirao26', sofascoreId: 130819,  futggId: 220429 },
-  { id: 76, name: 'Pedro',          pos: 'CA',  ovr: 83, pac: 76, fin: 86, pas: 68, dri: 78, def: 36, fis: 82, nat: 'BRA', club: 'Flamengo',      rarity: 'gold', series: 'brasileirao26', sofascoreId: 748068 },
-  { id: 77, name: 'Raphael Veiga',  pos: 'MEI', ovr: 82, pac: 76, fin: 82, pas: 82, dri: 84, def: 48, fis: 70, nat: 'BRA', club: 'Palmeiras',     rarity: 'gold', series: 'brasileirao26', sofascoreId: 490489 },
-  { id: 78, name: 'Gabigol',        pos: 'CA',  ovr: 82, pac: 80, fin: 86, pas: 66, dri: 82, def: 28, fis: 74, nat: 'BRA', club: 'Cruzeiro',      rarity: 'gold', series: 'brasileirao26', sofascoreId: 219164 },
+  { id: 76, name: 'Pedro',          pos: 'CA',  ovr: 83, pac: 76, fin: 86, pas: 68, dri: 78, def: 36, fis: 82, nat: 'BRA', club: 'Flamengo',      rarity: 'gold', series: 'brasileirao26', sofascoreId: 748068, futggId: 189505 },
+  { id: 77, name: 'Raphael Veiga',  pos: 'MEI', ovr: 82, pac: 76, fin: 82, pas: 82, dri: 84, def: 48, fis: 70, nat: 'BRA', club: 'Palmeiras',     rarity: 'gold', series: 'brasileirao26', sofascoreId: 490489, futggId: 250009 },
+  { id: 78, name: 'Gabigol',        pos: 'CA',  ovr: 82, pac: 80, fin: 86, pas: 66, dri: 82, def: 28, fis: 74, nat: 'BRA', club: 'Cruzeiro',      rarity: 'gold', series: 'brasileirao26', sofascoreId: 219164, futggId: 212823 },
   { id: 79, name: 'Endrick',        pos: 'CA',  ovr: 80, pac: 84, fin: 82, pas: 66, dri: 82, def: 28, fis: 76, nat: 'BRA', club: 'Real Madrid',   rarity: 'gold', series: 'brasileirao26', sofascoreId: 1133590, futggId: 261141 },
-  { id: 80, name: 'Dudu',           pos: 'PE',  ovr: 80, pac: 84, fin: 78, pas: 74, dri: 84, def: 36, fis: 70, nat: 'BRA', club: 'Palmeiras',     rarity: 'gold', series: 'brasileirao26', sofascoreId: 82399 },
+  { id: 80, name: 'Dudu',           pos: 'PE',  ovr: 80, pac: 84, fin: 78, pas: 74, dri: 84, def: 36, fis: 70, nat: 'BRA', club: 'Palmeiras',     rarity: 'gold', series: 'brasileirao26', sofascoreId: 82399, futggId: 258085 },
   { id: 81, name: 'Hulk',           pos: 'CA',  ovr: 80, pac: 78, fin: 84, pas: 64, dri: 76, def: 32, fis: 88, nat: 'BRA', club: 'Atlético-MG',   rarity: 'gold', series: 'brasileirao26', sofascoreId: 34021,   futggId: 177003 },
-  { id: 82, name: 'Luciano',        pos: 'CA',  ovr: 79, pac: 82, fin: 82, pas: 68, dri: 80, def: 30, fis: 76, nat: 'BRA', club: 'São Paulo',     rarity: 'gold', series: 'brasileirao26', sofascoreId: 175741 },
-  { id: 83, name: 'Tiquinho Soares',pos: 'CA',  ovr: 78, pac: 80, fin: 80, pas: 65, dri: 78, def: 28, fis: 78, nat: 'BRA', club: 'Botafogo',      rarity: 'gold', series: 'brasileirao26', sofascoreId: 80547 },
+  { id: 82, name: 'Luciano',        pos: 'CA',  ovr: 79, pac: 82, fin: 82, pas: 68, dri: 80, def: 30, fis: 76, nat: 'BRA', club: 'São Paulo',     rarity: 'gold', series: 'brasileirao26', sofascoreId: 175741, futggId: 230601 },
+  { id: 83, name: 'Tiquinho Soares',pos: 'CA',  ovr: 78, pac: 80, fin: 80, pas: 65, dri: 78, def: 28, fis: 78, nat: 'BRA', club: 'Botafogo',      rarity: 'gold', series: 'brasileirao26', sofascoreId: 80547, futggId: 227476 },
 
   // Copa 2026 — Gold
   { id: 84, name: 'Pedri Copa',     pos: 'MC',  ovr: 84, pac: 80, fin: 74, pas: 88, dri: 90, def: 72, fis: 70, nat: 'ESP', club: 'Barcelona',     rarity: 'gold', series: 'copa2026',     sofascoreId: 889012,  futggId: 231677 },
@@ -146,12 +146,12 @@ export const FUT_PLAYERS = [
   // ═══════════════════════════════════════════════════════════════
 
   { id: 90,  name: 'Kepa',           pos: 'GOL', ovr: 74, pac: 48, fin: 10, pas: 64, dri: 60, def: 74, fis: 70, nat: 'ESP', club: 'Real Madrid',  rarity: 'silver', series: 'europe2526',   sofascoreId: 273779,  futggId: 226012 },
-  { id: 91,  name: 'Fabiański',      pos: 'GOL', ovr: 70, pac: 46, fin: 10, pas: 62, dri: 58, def: 70, fis: 68, nat: 'POL', club: 'West Ham',      rarity: 'silver', series: 'europe2526',   sofascoreId: 46460 },
+  { id: 91,  name: 'Fabiański',      pos: 'GOL', ovr: 70, pac: 46, fin: 10, pas: 62, dri: 58, def: 70, fis: 68, nat: 'POL', club: 'West Ham',      rarity: 'silver', series: 'europe2526',   sofascoreId: 46460, futggId: 164835 },
   { id: 92,  name: 'D. Henderson',   pos: 'GOL', ovr: 68, pac: 52, fin: 10, pas: 60, dri: 56, def: 68, fis: 66, nat: 'ING', club: 'Nottm Forest',  rarity: 'silver', series: 'europe2526',   sofascoreId: 197040,  futggId: 233684 },
-  { id: 93,  name: 'Lenglet',        pos: 'ZAG', ovr: 72, pac: 68, fin: 32, pas: 60, dri: 64, def: 74, fis: 72, nat: 'FRA', club: 'Aston Villa',   rarity: 'silver', series: 'europe2526',   sofascoreId: 240064 },
-  { id: 94,  name: 'Ndicka',         pos: 'ZAG', ovr: 73, pac: 74, fin: 30, pas: 60, dri: 64, def: 74, fis: 76, nat: 'FRA', club: 'Roma',          rarity: 'silver', series: 'europe2526',   sofascoreId: 880218 },
+  { id: 93,  name: 'Lenglet',        pos: 'ZAG', ovr: 72, pac: 68, fin: 32, pas: 60, dri: 64, def: 74, fis: 72, nat: 'FRA', club: 'Aston Villa',   rarity: 'silver', series: 'europe2526',   sofascoreId: 240064, futggId: 220440 },
+  { id: 94,  name: 'Ndicka',         pos: 'ZAG', ovr: 73, pac: 74, fin: 30, pas: 60, dri: 64, def: 74, fis: 76, nat: 'FRA', club: 'Roma',          rarity: 'silver', series: 'europe2526',   sofascoreId: 880218, futggId: 236403 },
   { id: 95,  name: 'Todibo',         pos: 'ZAG', ovr: 72, pac: 72, fin: 28, pas: 60, dri: 64, def: 74, fis: 74, nat: 'FRA', club: 'West Ham',      rarity: 'silver', series: 'europe2526',   sofascoreId: 824086,  futggId: 243173 },
-  { id: 96,  name: 'Javier Guerra',  pos: 'MC',  ovr: 72, pac: 70, fin: 60, pas: 74, dri: 74, def: 60, fis: 68, nat: 'ESP', club: 'Villarreal',    rarity: 'silver', series: 'europe2526',   sofascoreId: 975009 },
+  { id: 96,  name: 'Javier Guerra',  pos: 'MC',  ovr: 72, pac: 70, fin: 60, pas: 74, dri: 74, def: 60, fis: 68, nat: 'ESP', club: 'Villarreal',    rarity: 'silver', series: 'europe2526',   sofascoreId: 975009, futggId: 266436 },
   { id: 97,  name: 'Witsel',         pos: 'MC',  ovr: 73, pac: 64, fin: 58, pas: 74, dri: 72, def: 74, fis: 76, nat: 'BEL', club: 'Atlético',      rarity: 'silver', series: 'europe2526',   sofascoreId: 41099,   futggId: 183277 },
   { id: 98,  name: 'Wijnaldum',      pos: 'MC',  ovr: 72, pac: 74, fin: 60, pas: 74, dri: 76, def: 66, fis: 74, nat: 'HOL', club: 'Al-Ettifaq',    rarity: 'silver', series: 'base',         sofascoreId: 168248,  futggId: 210257 },
   { id: 99,  name: 'Aouar',          pos: 'MEI', ovr: 74, pac: 76, fin: 72, pas: 78, dri: 80, def: 50, fis: 66, nat: 'FRA', club: 'Bétis',         rarity: 'silver', series: 'europe2526',   sofascoreId: 580063,  futggId: 238190 },
@@ -171,21 +171,21 @@ export const FUT_PLAYERS = [
   // ═══════════════════════════════════════════════════════════════
 
   { id: 120, name: 'Carabott',       pos: 'GOL', ovr: 62, pac: 44, fin: 8,  pas: 56, dri: 50, def: 62, fis: 60, nat: 'MLT', club: 'Hibernians',    rarity: 'bronze', series: 'base' },
-  { id: 121, name: 'Flores',         pos: 'GOL', ovr: 60, pac: 42, fin: 8,  pas: 54, dri: 48, def: 60, fis: 58, nat: 'CHI', club: 'Univ. Chile',   rarity: 'bronze', series: 'base',         sofascoreId: 205428 },
+  { id: 121, name: 'Flores',         pos: 'GOL', ovr: 60, pac: 42, fin: 8,  pas: 54, dri: 48, def: 60, fis: 58, nat: 'CHI', club: 'Univ. Chile',   rarity: 'bronze', series: 'base',         sofascoreId: 205428, futggId: 259717 },
   { id: 122, name: 'Araújo Jr',      pos: 'ZAG', ovr: 63, pac: 65, fin: 26, pas: 52, dri: 58, def: 64, fis: 66, nat: 'BRA', club: 'Madureira',     rarity: 'bronze', series: 'brasileirao26' },
   { id: 123, name: 'Ferreira',       pos: 'ZAG', ovr: 61, pac: 62, fin: 24, pas: 50, dri: 56, def: 62, fis: 64, nat: 'BRA', club: 'Criciúma',      rarity: 'bronze', series: 'brasileirao26' },
-  { id: 124, name: 'Palmieri',       pos: 'LE',  ovr: 64, pac: 72, fin: 50, pas: 64, dri: 66, def: 60, fis: 68, nat: 'ITA', club: 'Lyon',          rarity: 'bronze', series: 'europe2526',   sofascoreId: 241695 },
-  { id: 125, name: 'Lodi',           pos: 'LE',  ovr: 63, pac: 74, fin: 48, pas: 62, dri: 64, def: 58, fis: 66, nat: 'BRA', club: 'Atlético-MG',   rarity: 'bronze', series: 'brasileirao26', sofascoreId: 757717 },
+  { id: 124, name: 'Palmieri',       pos: 'LE',  ovr: 64, pac: 72, fin: 50, pas: 64, dri: 66, def: 60, fis: 68, nat: 'ITA', club: 'Lyon',          rarity: 'bronze', series: 'europe2526',   sofascoreId: 241695, futggId: 210736 },
+  { id: 125, name: 'Lodi',           pos: 'LE',  ovr: 63, pac: 74, fin: 48, pas: 62, dri: 64, def: 58, fis: 66, nat: 'BRA', club: 'Atlético-MG',   rarity: 'bronze', series: 'brasileirao26', sofascoreId: 757717, futggId: 251573 },
   { id: 126, name: 'Gomes',          pos: 'MC',  ovr: 63, pac: 68, fin: 54, pas: 66, dri: 68, def: 58, fis: 64, nat: 'POR', club: 'Everton',       rarity: 'bronze', series: 'europe2526',   sofascoreId: 294088,  futggId: 226325 },
-  { id: 127, name: 'Neves Jr',       pos: 'MC',  ovr: 62, pac: 70, fin: 54, pas: 66, dri: 68, def: 56, fis: 62, nat: 'BRA', club: 'Juventude',     rarity: 'bronze', series: 'brasileirao26' },
-  { id: 128, name: 'Volland',        pos: 'CA',  ovr: 64, pac: 76, fin: 68, pas: 62, dri: 72, def: 28, fis: 70, nat: 'ALE', club: 'Monaco',        rarity: 'bronze', series: 'europe2526',   sofascoreId: 185271 },
+  { id: 127, name: 'Neves Jr',       pos: 'MC',  ovr: 62, pac: 70, fin: 54, pas: 66, dri: 68, def: 56, fis: 62, nat: 'BRA', club: 'Juventude',     rarity: 'bronze', series: 'brasileirao26', futggId: 272834 },
+  { id: 128, name: 'Volland',        pos: 'CA',  ovr: 64, pac: 76, fin: 68, pas: 62, dri: 72, def: 28, fis: 70, nat: 'ALE', club: 'Monaco',        rarity: 'bronze', series: 'europe2526',   sofascoreId: 185271, futggId: 200610 },
   { id: 129, name: 'Okafor',         pos: 'CA',  ovr: 63, pac: 82, fin: 66, pas: 60, dri: 70, def: 26, fis: 70, nat: 'SUI', club: 'AC Milan',      rarity: 'bronze', series: 'europe2526',   sofascoreId: 877019,  futggId: 256392 },
-  { id: 130, name: 'Soteldo',        pos: 'PE',  ovr: 63, pac: 72, fin: 66, pas: 58, dri: 74, def: 22, fis: 62, nat: 'VEN', club: 'Santos',        rarity: 'bronze', series: 'brasileirao26', sofascoreId: 846162 },
+  { id: 130, name: 'Soteldo',        pos: 'PE',  ovr: 63, pac: 72, fin: 66, pas: 58, dri: 74, def: 22, fis: 62, nat: 'VEN', club: 'Santos',        rarity: 'bronze', series: 'brasileirao26', sofascoreId: 846162, futggId: 233531 },
   { id: 131, name: 'Luiz Henrique',  pos: 'PE',  ovr: 64, pac: 82, fin: 64, pas: 62, dri: 72, def: 28, fis: 62, nat: 'BRA', club: 'Botafogo',      rarity: 'bronze', series: 'brasileirao26', sofascoreId: 832049,  futggId: 258219 },
-  { id: 132, name: 'Zé Rafael',      pos: 'MC',  ovr: 63, pac: 68, fin: 56, pas: 68, dri: 68, def: 62, fis: 70, nat: 'BRA', club: 'Bahia',         rarity: 'bronze', series: 'brasileirao26', sofascoreId: 310143 },
-  { id: 133, name: 'Léo Pereira',    pos: 'ZAG', ovr: 64, pac: 70, fin: 30, pas: 56, dri: 60, def: 66, fis: 70, nat: 'BRA', club: 'Flamengo',      rarity: 'bronze', series: 'brasileirao26', sofascoreId: 602987 },
-  { id: 134, name: 'Piquerez',       pos: 'LE',  ovr: 64, pac: 78, fin: 52, pas: 64, dri: 66, def: 62, fis: 68, nat: 'URU', club: 'Palmeiras',     rarity: 'bronze', series: 'brasileirao26', sofascoreId: 821060 },
-  { id: 135, name: 'Patrick',        pos: 'MC',  ovr: 62, pac: 70, fin: 56, pas: 64, dri: 66, def: 58, fis: 68, nat: 'BRA', club: 'Atlético-GO',   rarity: 'bronze', series: 'brasileirao26' },
+  { id: 132, name: 'Zé Rafael',      pos: 'MC',  ovr: 63, pac: 68, fin: 56, pas: 68, dri: 68, def: 62, fis: 70, nat: 'BRA', club: 'Bahia',         rarity: 'bronze', series: 'brasileirao26', sofascoreId: 310143, futggId: 221933 },
+  { id: 133, name: 'Léo Pereira',    pos: 'ZAG', ovr: 64, pac: 70, fin: 30, pas: 56, dri: 60, def: 66, fis: 70, nat: 'BRA', club: 'Flamengo',      rarity: 'bronze', series: 'brasileirao26', sofascoreId: 602987, futggId: 250001 },
+  { id: 134, name: 'Piquerez',       pos: 'LE',  ovr: 64, pac: 78, fin: 52, pas: 64, dri: 66, def: 62, fis: 68, nat: 'URU', club: 'Palmeiras',     rarity: 'bronze', series: 'brasileirao26', sofascoreId: 821060, futggId: 239476 },
+  { id: 135, name: 'Patrick',        pos: 'MC',  ovr: 62, pac: 70, fin: 56, pas: 64, dri: 66, def: 58, fis: 68, nat: 'BRA', club: 'Atlético-GO',   rarity: 'bronze', series: 'brasileirao26', futggId: 242180 },
   { id: 136, name: 'Reinaldo',       pos: 'LD',  ovr: 62, pac: 70, fin: 48, pas: 60, dri: 62, def: 60, fis: 64, nat: 'BRA', club: 'Grêmio',        rarity: 'bronze', series: 'brasileirao26', sofascoreId: 123768 },
 ];
 
