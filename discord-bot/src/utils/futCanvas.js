@@ -706,7 +706,10 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
   for (const l of lineup) {
     const p    = l.player;
     if (!p) continue;
-    const key  = `futbin:${p.eaId ?? 0}`;
+    // Chave única: eaId quando disponível, caso contrário nome|clube
+    const key  = p.eaId
+      ? `futbin:${p.eaId}`
+      : `tsdb:${_normName(p.name)}|${_normName(p.club)}`;
     if (seen.has(key)) continue;
     seen.add(key);
     const img = await fetchPlayerPhoto(p.eaId, p.name, p.club);
@@ -771,7 +774,9 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
     const s   = slots[i];
     const ent = lineup.find(l => l.slot === i + 1);
     const p   = ent?.player ?? null;
-    const key = p ? `futbin:${p.eaId ?? 0}` : null;
+    const key = p
+      ? (p.eaId ? `futbin:${p.eaId}` : `tsdb:${_normName(p.name)}|${_normName(p.club)}`)
+      : null;
     const photo = key ? (photoMap.get(key) ?? null) : null;
     const flag  = p ? (flagMap.get(p.nat) ?? null) : null;
     drawFieldCard(
