@@ -43,15 +43,20 @@ IA com OVR ± 7 do usuário. ELO padrão K=32. Placar gerado por OVR diff + rand
 - Adicionar troca de cartas entre usuários: nova rota no futManager.js
 - Mercado de transferências: modelo FutTransfer no schema
 
+## Sistema de fotos — FUT.GG CDN (chave primária: futggId)
+`futggId` é o único ID de carta — o mesmo número serve para buscar foto e dados (sem queries separadas).
+- Foto: `cdn.futgg.com/images/players/{futggId}.png`
+- Cache local: `src/assets/players/{futggId}.png`
+- Sync script: `scripts/sync-futgg.js` (baixa fotos que faltam; `--force` re-baixa tudo)
+- Rótulos de stats: PAS DRI DEF FIN VEL RES (linha) | ANT DEF TAT AER DIS EXP (goleiro)
+- Jogadores sem futggId mostram avatar com iniciais (comportamento esperado)
+
+**Why:** FutBin CDN bloqueava e retornava silhuetas genéricas; eaId foi renomeado para futggId
+para deixar claro que a fonte é o FUT.GG. Um único ID por carta = sem cruzamento de fontes.
+
 ## Painel admin de override manual (nome/foto por carta)
-Como fallback para quando a foto automática (FutBin CDN por eaId) vem errada/trocada, existe
 `FutPlayerOverride` (Prisma, playerId único) + `src/utils/futOverrides.js` (cache em memória +
-CRUD) + comando `/fut-painel-fotos` (admin) com botões que abrem modais para editar/resetar/listar.
+CRUD). Override aplica `customPhotoUrl` (URL direta) que `fetchPlayerPhoto` prioriza antes do CDN.
 
-**Why:** correção automática por eaId nem sempre resolve (fotos trocadas entre jogadores parecidos,
-CDN sem imagem); admin precisa de um jeito manual e imediato sem depender de nova sessão de agente.
-
-**Como aplica:** `getPlayerById` em `futManager.js` (não em `futPlayers.js`) já aplica o override
-automaticamente — qualquer novo código que resolva jogador por ID deve usar essa versão (async) e
-não a de `futPlayers.js` diretamente, senão o override é ignorado. Fotos customizadas usam
-`player.customPhotoUrl` (URL direta, sem depender de eaId) — `fetchPlayerPhoto` prioriza isso antes do CDN.
+**Como aplica:** sempre usar `getPlayerById` de `futManager.js` (não de `futPlayers.js`) para
+que o override seja aplicado automaticamente — senão o override é ignorado.
