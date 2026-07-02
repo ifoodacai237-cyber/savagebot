@@ -24,3 +24,9 @@ id = "IKVnxj74hTMdQ1zmGAZbk"
 uri = "file://perfil_preview.png"
 type = "image"
 title = "Preview final — Roboto funcionando 100%"
+
+[[outputs]]
+id = "FkpsFvkcm-VzPVD5GHIss"
+uri = "file://attached_assets/generated/preview_cards.png"
+type = "image"
+title = "Estado atual das fotos dos jogadores"
