@@ -209,10 +209,10 @@ const _photoCache = new Map();
 const _flagCache  = new Map();
 
 // ─── Buscar foto: local → FutBin FC25 → FutBin FC26 (apenas FutBin) ──────────
-// Threshold: 40000 bytes
-// FIFA25 CDN tem fotos reais (70-90KB). FIFA26 CDN retorna silhueta genérica (~9-11KB)
-// para a maioria dos jogadores — só usa FC26 se FC25 não tiver (ex: novos no jogo).
-const PHOTO_MIN_BYTES = 40000;
+// FIFA25 CDN tem fotos reais (15-90KB). FIFA26 CDN retorna silhueta genérica (~7-9KB).
+// Silhuetas têm 7-9KB; fotos reais menores têm 15-24KB; fotos HD têm 70-90KB.
+// Threshold de 12KB rejeita silhuetas e aceita todas as fotos reais.
+const PHOTO_MIN_BYTES = 12000;
 
 async function fetchPlayerPhoto(eaId) {
   if (!eaId) return null;
