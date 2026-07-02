@@ -237,3 +237,17 @@ export function positionFull(pos) {
   };
   return map[pos] ?? pos;
 }
+
+// Compatibilidade de posições para a auto-escalação:
+// define quais posições de jogador podem preencher cada slot de formação.
+export const POSITION_COMPAT = {
+  GOL: ['GOL'],
+  ZAG: ['ZAG'],
+  LD:  ['LD', 'LE'],
+  LE:  ['LE', 'LD'],
+  MC:  ['MC', 'MEI'],
+  MEI: ['MEI', 'MC'],
+  PE:  ['PE', 'PD', 'CA'],
+  PD:  ['PD', 'PE', 'CA'],
+  CA:  ['CA', 'PE', 'PD'],
+};
