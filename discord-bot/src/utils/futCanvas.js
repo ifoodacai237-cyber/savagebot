@@ -209,11 +209,10 @@ function drawDiagonalPattern(ctx, x, y, w, h, color) {
 const _photoCache = new Map();
 const _flagCache  = new Map();
 
-// ─── Buscar foto: local → FutBin FC25 → FutBin FC26 (apenas FutBin) ──────────
-// FIFA25 CDN tem fotos reais (15-90KB). FIFA26 CDN retorna silhueta genérica (~7-9KB).
-// Silhuetas têm 7-9KB; fotos reais menores têm 15-24KB; fotos HD têm 70-90KB.
-// Threshold de 12KB rejeita silhuetas e aceita todas as fotos reais.
-const PHOTO_MIN_BYTES = 12000;
+// ─── Buscar foto: local → FUT.GG CDN ─────────────────────────────────────────
+// FUT.GG CDN fornece foto e dados do jogador da mesma carta (futggId = chave primária).
+// Fotos reais têm >= 5KB. Silhuetas/placeholders têm < 2KB.
+const PHOTO_MIN_BYTES = 5000;
 
 // Foto customizada via painel admin (URL direta) — sempre prioritária.
 async function fetchCustomPhoto(url) {
@@ -238,22 +237,20 @@ async function fetchCustomPhoto(url) {
   return null;
 }
 
-async function fetchPlayerPhoto(eaId, customPhotoUrl, staticPhotoUrl) {
-  // Prioridade: 1) override manual do painel admin  2) foto verificada (Wikipedia, vinculada por ID)  3) CDN FutBin por eaId
+// Busca foto pelo futggId (chave única FUT.GG).
+// Prioridade: 1) override do painel admin  2) arquivo local  3) FUT.GG CDN
+// Uma única fonte de verdade por carta — sem buscas separadas de foto e nome.
+async function fetchPlayerPhoto(futggId, customPhotoUrl) {
   if (customPhotoUrl) {
     const custom = await fetchCustomPhoto(customPhotoUrl);
     if (custom) return custom;
   }
-  if (staticPhotoUrl) {
-    const verified = await fetchCustomPhoto(staticPhotoUrl);
-    if (verified) return verified;
-  }
-  if (!eaId) return null;
-  const cacheKey = `ea:${eaId}`;
+  if (!futggId) return null;
+  const cacheKey = `futgg:${futggId}`;
   if (_photoCache.has(cacheKey)) return _photoCache.get(cacheKey);
 
   // ── 1. Arquivo local (mais rápido e confiável) ─────────────────────────────
-  const localPath = join(playDir, `${eaId}.png`);
+  const localPath = join(playDir, `${futggId}.png`);
   if (existsSync(localPath)) {
     try {
       const buf = await readFile(localPath);
@@ -267,40 +264,38 @@ async function fetchPlayerPhoto(eaId, customPhotoUrl, staticPhotoUrl) {
     } catch { /* continua */ }
   }
 
-  // ── 2. FutBin CDN FC25 → FC26 (FC25 tem fotos reais; FC26 só para jogadores novos) ──
-  for (const ver of ['fifa25', 'fifa26']) {
-    try {
-      const url  = `https://cdn.futbin.com/content/${ver}/img/players/${eaId}.png`;
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 8000);
-      const res  = await fetch(url, {
-        signal: ctrl.signal,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-          'Referer': 'https://www.futbin.com/',
-          'Accept': 'image/png,image/webp,*/*',
-        },
-      });
-      clearTimeout(timer);
-      if (res.ok) {
-        const buf = Buffer.from(await res.arrayBuffer());
-        if (buf.length >= PHOTO_MIN_BYTES) {
-          const img = await loadImage(buf);
-          if (img.width >= 20 && img.height >= 20) {
-            // Cache local para próximas execuções
-            try {
-              const { writeFile } = await import('fs/promises');
-              await writeFile(localPath, buf);
-            } catch { /* sem erro */ }
-            _photoCache.set(cacheKey, img);
-            return img;
-          }
+  // ── 2. FUT.GG CDN — mesma fonte dos dados da carta ────────────────────────
+  try {
+    const url  = `https://cdn.futgg.com/images/players/${futggId}.png`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    const res  = await fetch(url, {
+      signal: ctrl.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://www.fut.gg/',
+        'Accept': 'image/png,image/webp,*/*',
+      },
+    });
+    clearTimeout(timer);
+    if (res.ok) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length >= PHOTO_MIN_BYTES) {
+        const img = await loadImage(buf);
+        if (img.width >= 20 && img.height >= 20) {
+          // Salva localmente para próximas execuções
+          try {
+            const { writeFile } = await import('fs/promises');
+            await writeFile(localPath, buf);
+          } catch { /* sem erro */ }
+          _photoCache.set(cacheKey, img);
+          return img;
         }
       }
-    } catch { /* continua */ }
-  }
+    }
+  } catch { /* continua */ }
 
-  // Sem foto no FutBin → exibe avatar com iniciais
+  // Sem foto disponível → exibe avatar com iniciais
   _photoCache.set(cacheKey, null);
   return null;
 }
@@ -331,12 +326,12 @@ function cardDisplayName(name) {
   return (name ?? '').replace(/\s+(Copa|Base|Europeu|BRL|UCL)\s*$/i, '').trim();
 }
 
-// ─── Batch fetch fotos (apenas FutBin CDN) ────────────────────────────────────
+// ─── Batch fetch fotos (FUT.GG CDN, por futggId) ──────────────────────────────
 async function batchFetchPhotos(players) {
   const out = [];
   for (let i = 0; i < players.length; i++) {
     const p    = players[i]?.player ?? players[i];
-    out.push(await fetchPlayerPhoto(p?.eaId ?? null, p?.customPhotoUrl ?? null, p?.photo ?? null));
+    out.push(await fetchPlayerPhoto(p?.futggId ?? null, p?.customPhotoUrl ?? null));
     if (i < players.length - 1) await new Promise(r => setTimeout(r, 60));
   }
   return out;
@@ -564,14 +559,25 @@ function drawEACard(ctx, x, y, w, h, player, photo, flag) {
 
   // ── 5. Barra de stats ─────────────────────────────────────────────────────
   const sy    = ny + NAME_H;
-  const stats = [
-    { l:'PAC', v: player.pac },
-    { l:'FIN', v: player.fin },
-    { l:'PAS', v: player.pas },
-    { l:'DRI', v: player.dri },
-    { l:'DEF', v: player.def },
-    { l:'FIS', v: player.fis },
-  ];
+  // Goleiros: ANT DEF TAT AER DIS EXP  |  Linha: PAS DRI DEF FIN VEL RES
+  const isGK  = player.pos === 'GOL';
+  const stats = isGK
+    ? [
+        { l:'ANT', v: player.pac },
+        { l:'DEF', v: player.def },
+        { l:'TAT', v: player.pas },
+        { l:'AER', v: player.dri },
+        { l:'DIS', v: player.fin },
+        { l:'EXP', v: player.fis },
+      ]
+    : [
+        { l:'PAS', v: player.pas },
+        { l:'DRI', v: player.dri },
+        { l:'DEF', v: player.def },
+        { l:'FIN', v: player.fin },
+        { l:'VEL', v: player.pac },
+        { l:'RES', v: player.fis },
+      ];
 
   ctx.save();
   roundRect(ctx, x, y, w, h, R); ctx.clip();
@@ -762,11 +768,11 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
 
   for (const l of lineup) {
     const p    = l.player;
-    if (!p || (!p.eaId && !p.customPhotoUrl)) continue;
+    if (!p || (!p.futggId && !p.customPhotoUrl)) continue;
     const key  = `id:${p.id}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const img = await fetchPlayerPhoto(p.eaId, p.customPhotoUrl, p.photo);
+    const img = await fetchPlayerPhoto(p.futggId, p.customPhotoUrl);
     if (img) photoMap.set(key, img);
     const flag = await fetchFlag(p.nat);
     if (flag) flagMap.set(p.nat, flag);
@@ -1121,7 +1127,7 @@ export async function generateLojaImage(balance) {
   const photos = [];
   for (const d of packDefs) {
     const pl = getPlayerById(d.playerId);
-    photos.push(await fetchPlayerPhoto(pl?.eaId ?? null, null, pl?.photo ?? null));
+    photos.push(await fetchPlayerPhoto(pl?.futggId ?? null, null));
     await new Promise(r => setTimeout(r, 100));
   }
 
@@ -1170,7 +1176,7 @@ export async function generatePacksImage(packsInfo) {
   const photos = [];
   for (const d of defs) {
     const pl = d.playerId != null ? getPlayerById(d.playerId) : null;
-    photos.push(await fetchPlayerPhoto(pl?.eaId ?? d.eaId ?? null, null, pl?.photo ?? null));
+    photos.push(await fetchPlayerPhoto(pl?.futggId ?? d.futggId ?? null, null));
     await new Promise(r => setTimeout(r, 100));
   }
 
