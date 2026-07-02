@@ -1,10 +1,15 @@
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { existsSync } from 'fs';
+import { readFile } from 'fs/promises';
 
 // ─── Fontes ───────────────────────────────────────────────────────────────────
 const __dir   = dirname(fileURLToPath(import.meta.url));
 const fontDir = join(__dir, '..', '..', 'fonts');
+const assDir  = join(__dir, '..', 'assets');
+const playDir = join(assDir, 'players');
+
 try {
   GlobalFonts.registerFromPath(join(fontDir, 'Roboto-Bold.ttf'),    'Roboto');
   GlobalFonts.registerFromPath(join(fontDir, 'Roboto-Regular.ttf'), 'RobotoReg');
@@ -13,80 +18,88 @@ try {
 // ─── Dimensões do campo ───────────────────────────────────────────────────────
 const FIELD_W  = 760;
 const FIELD_H  = 960;
-const CARD_W   = 98;     // campo: card width
-const CARD_H   = 132;    // campo: card height
+const CARD_W   = 100;
+const CARD_H   = 136;
 
 // ─── Dimensões cards ──────────────────────────────────────────────────────────
-const PC_W = 200;  // pack reveal
-const PC_H = 272;
-const CC_W = 160;  // collection
-const CC_H = 216;
+const PC_W = 210;   // pack reveal
+const PC_H = 286;
+const CC_W = 168;   // collection
+const CC_H = 228;
 
-// ─── Raridades EA FC 26 — cores autênticas ────────────────────────────────────
+// ─── Raridades EA FC 26 — cores autênticas FutBin ────────────────────────────
 const RARITY = {
-  // Carta Preta/Especial (85-99): fundo escuro roxo/preto
   black: {
-    bg1: '#1c0040', bg2: '#0c0020', bg3: '#060010',
-    leftBg: 'rgba(30,0,70,0.88)',
+    bg1: '#1a0035', bg2: '#0d0022', bg3: '#060010',
+    cardGrad1: '#2a0055', cardGrad2: '#150030',
+    leftBg: 'rgba(30,0,70,0.85)',
     accent: '#c040ff',
-    ovr: '#ffffff',
-    pos: '#dd99ff',
-    statVal: '#ffffff',
-    statLab: '#cc88ff',
-    nameBg: 'rgba(10,0,30,0.95)',
-    statBg: 'rgba(14,0,40,0.98)',
-    border: '#9922cc',
-    glow: 22,
-    strip: '#8822bb',
-    shimmer: 'rgba(160,60,255,0.15)',
+    ovrColor: '#ffffff',
+    posColor: '#ee99ff',
+    nameBg: 'rgba(12,0,35,0.96)',
+    statBg: 'rgba(10,0,30,0.98)',
+    border1: '#bb44ff',
+    border2: '#7711bb',
+    glow: 20,
+    strip: '#9922cc',
+    shimmer: 'rgba(180,80,255,0.12)',
+    pattern: 'rgba(180,80,255,0.06)',
+    badge: '#c040ff',
+    badgeText: '#ffffff',
   },
-  // Carta Ouro (75-84): fundo dourado autêntico EA FC
   gold: {
     bg1: '#c8920a', bg2: '#8a6000', bg3: '#503800',
-    leftBg: 'rgba(100,60,0,0.82)',
+    cardGrad1: '#d4a020', cardGrad2: '#7a5000',
+    leftBg: 'rgba(100,60,0,0.80)',
     accent: '#ffd700',
-    ovr: '#1a0a00',
-    pos: '#3a1a00',
-    statVal: '#1a0a00',
-    statLab: '#5a3000',
-    nameBg: 'rgba(12,6,0,0.95)',
-    statBg: 'rgba(20,10,0,0.98)',
-    border: '#e0c000',
+    ovrColor: '#1a0a00',
+    posColor: '#2a1200',
+    nameBg: 'rgba(14,8,0,0.96)',
+    statBg: 'rgba(20,12,0,0.98)',
+    border1: '#ffe566',
+    border2: '#cc9900',
     glow: 14,
     strip: '#d4aa00',
-    shimmer: 'rgba(255,220,40,0.18)',
+    shimmer: 'rgba(255,220,50,0.15)',
+    pattern: 'rgba(255,210,0,0.07)',
+    badge: '#ffd700',
+    badgeText: '#1a0a00',
   },
-  // Carta Prata (65-74): azul-acinzentado
   silver: {
     bg1: '#7890b0', bg2: '#3a4e6a', bg3: '#1e2e40',
-    leftBg: 'rgba(30,44,65,0.85)',
-    accent: '#aabbcc',
-    ovr: '#0a1422',
-    pos: '#1a2a3a',
-    statVal: '#ffffff',
-    statLab: '#8899aa',
-    nameBg: 'rgba(8,14,24,0.96)',
-    statBg: 'rgba(12,20,32,0.98)',
-    border: '#7898b8',
+    cardGrad1: '#8098b8', cardGrad2: '#2a3a50',
+    leftBg: 'rgba(30,44,65,0.82)',
+    accent: '#c0ccdd',
+    ovrColor: '#080e18',
+    posColor: '#10202e',
+    nameBg: 'rgba(8,14,24,0.97)',
+    statBg: 'rgba(10,18,30,0.98)',
+    border1: '#99aacc',
+    border2: '#556688',
     glow: 10,
     strip: '#6688aa',
-    shimmer: 'rgba(150,180,220,0.14)',
+    shimmer: 'rgba(160,190,230,0.12)',
+    pattern: 'rgba(150,180,220,0.06)',
+    badge: '#aabbcc',
+    badgeText: '#080e18',
   },
-  // Carta Bronze (55-64): cobre/marrom quente
   bronze: {
     bg1: '#c07838', bg2: '#804a18', bg3: '#4a2400',
-    leftBg: 'rgba(70,36,0,0.85)',
+    cardGrad1: '#cc8040', cardGrad2: '#703808',
+    leftBg: 'rgba(70,36,0,0.83)',
     accent: '#e09040',
-    ovr: '#1a0800',
-    pos: '#3a1400',
-    statVal: '#ffffff',
-    statLab: '#cc8040',
-    nameBg: 'rgba(12,4,0,0.96)',
-    statBg: 'rgba(18,8,0,0.98)',
-    border: '#cc7028',
+    ovrColor: '#1a0800',
+    posColor: '#2a1000',
+    nameBg: 'rgba(12,4,0,0.97)',
+    statBg: 'rgba(16,6,0,0.98)',
+    border1: '#dd8833',
+    border2: '#995522',
     glow: 8,
     strip: '#b06020',
-    shimmer: 'rgba(200,120,40,0.15)',
+    shimmer: 'rgba(200,120,40,0.13)',
+    pattern: 'rgba(200,110,30,0.06)',
+    badge: '#e09040',
+    badgeText: '#1a0800',
   },
 };
 
@@ -144,6 +157,14 @@ const NAT_ISO = {
   MLT:'mt',IRL:'ie',AUS:'au',GUI:'gn',SER:'rs',SUI:'ch',VEN:'ve',CIV:'ci',
 };
 
+// ─── Série → label para o card ─────────────────────────────────────────────────
+const SERIES_LABEL = {
+  copa2026:      'COPA 26',
+  europe2526:    'UEFA',
+  brasileirao26: 'BRAS',
+  base:          'BASE',
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function roundRect(ctx, x, y, w, h, r) {
   r = Math.min(r, Math.abs(w / 2), Math.abs(h / 2));
@@ -161,11 +182,26 @@ function trunc(str, max) {
 }
 
 function statColor(val) {
-  if (val >= 85) return '#00cc44';
-  if (val >= 70) return '#88cc00';
-  if (val >= 55) return '#ffcc00';
-  if (val >= 40) return '#ff8800';
-  return '#ee2222';
+  if (val >= 85) return '#22e855';
+  if (val >= 75) return '#aadd00';
+  if (val >= 65) return '#ffcc00';
+  if (val >= 50) return '#ff8800';
+  return '#ff3333';
+}
+
+// ─── Padrão diagonal tipo FutBin ─────────────────────────────────────────────
+function drawDiagonalPattern(ctx, x, y, w, h, color) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = 0.7;
+  const spacing = 10;
+  for (let i = -h; i < w + h; i += spacing) {
+    ctx.beginPath();
+    ctx.moveTo(x + i, y);
+    ctx.lineTo(x + i + h, y + h);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 // ─── Cache de fotos e bandeiras ────────────────────────────────────────────────
@@ -191,11 +227,18 @@ const TSDB_NAME_MAP = {
   'Bellingham':  'Jude Bellingham', 'Salah': 'Mohamed Salah',
   'Hakimi':      'Achraf Hakimi',   'Haaland': 'Erling Haaland',
   'Benzema':     'Karim Benzema',   'Modric': 'Luka Modric',
+  'Modrić':      'Luka Modric',
   'Griezmann':   'Antoine Griezmann', 'Bastoni': 'Alessandro Bastoni',
-  'Kanté':       'N\'Golo Kante',   'Kante': 'N\'Golo Kante',
+  'Kanté':       "N'Golo Kante",    'Kante': "N'Golo Kante",
   'Marquinhos':  'Marquinhos',      'Theo Hernández': 'Theo Hernandez',
   'Osimhen':     'Victor Osimhen',  'Lewandowski': 'Robert Lewandowski',
   'Theo Hernandez': 'Theo Hernandez',
+  'Trent A-A':   'Trent Alexander-Arnold',
+  'Phil Foden':  'Phil Foden',      'Frenkie De Jong': 'Frenkie de Jong',
+  'Bruno Fernandes': 'Bruno Fernandes',
+  'Lamine Yamal': 'Lamine Yamal',
+  'Leroy Sané':  'Leroy Sane',      'Leroy Sane': 'Leroy Sane',
+  'Luis Díaz':   'Luis Diaz',       'Doku': 'Jeremy Doku',
 };
 
 const CLUB_ALIASES = {
@@ -203,28 +246,21 @@ const CLUB_ALIASES = {
   'Inter':    'Inter Milan',     'PSG': 'Paris',
   'Al-Ittihad': 'Al-Ittihad',   'Al Ittihad': 'Al-Ittihad',
   'Al-Nassr': 'Al-Nassr',       'Al Nassr': 'Al-Nassr',
-  'Atletico': 'Atletico',
+  'Atletico': 'Atletico',       'Atlético': 'Atletico',
+  'Aston Villa': 'Aston Villa', 'Bayern Munich': 'Bayern Munich',
 };
 
-// ─── Buscar foto: FUTBIN (primário, eaId) → TheSportsDB (fallback, nome) ─────
+// ─── Buscar foto: local → FUTBIN FC26 → FUTBIN FC25 → TheSportsDB ────────────
 async function fetchPlayerPhoto(eaId, name = null, club = null) {
-  const cacheKey = eaId ? `futbin:${eaId}` : `tsdb:${_normName(name)}|${_normName(club)}`;
+  const cacheKey = eaId ? `local:${eaId}` : `tsdb:${_normName(name)}|${_normName(club)}`;
   if (_photoCache.has(cacheKey)) return _photoCache.get(cacheKey);
 
-  // ── 1. FUTBIN CDN por eaId ──────────────────────────────────────────────────
+  // ── 1. Arquivo local (mais rápido e confiável) ─────────────────────────────
   if (eaId) {
-    const url = `https://cdn.futbin.com/content/fifa25/img/players/${eaId}.png`;
-    try {
-      const ctrl  = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 7000);
-      const res   = await fetch(url, {
-        signal: ctrl.signal,
-        headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.futbin.com/' },
-      });
-      clearTimeout(timer);
-      if (res.ok) {
-        const buf = Buffer.from(await res.arrayBuffer());
-        // Placeholder do FUTBIN tem < 40KB; fotos reais têm ≥ 60KB
+    const localPath = join(playDir, `${eaId}.png`);
+    if (existsSync(localPath)) {
+      try {
+        const buf = await readFile(localPath);
         if (buf.length >= 40000) {
           const img = await loadImage(buf);
           if (img.width >= 20 && img.height >= 20) {
@@ -232,14 +268,41 @@ async function fetchPlayerPhoto(eaId, name = null, club = null) {
             return img;
           }
         }
-      }
-    } catch { /* cai no fallback */ }
+      } catch { /* continua */ }
+    }
   }
 
-  // ── 2. TheSportsDB por nome+clube (fallback quando FUTBIN não tem foto) ─────
+  // ── 2. FUTBIN CDN FC26 ─────────────────────────────────────────────────────
+  if (eaId) {
+    for (const ver of ['fifa26', 'fifa25']) {
+      try {
+        const url  = `https://cdn.futbin.com/content/${ver}/img/players/${eaId}.png`;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        const res  = await fetch(url, {
+          signal: ctrl.signal,
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Referer': 'https://www.futbin.com/' },
+        });
+        clearTimeout(timer);
+        if (res.ok) {
+          const buf = Buffer.from(await res.arrayBuffer());
+          if (buf.length >= 40000) {
+            const img = await loadImage(buf);
+            if (img.width >= 20 && img.height >= 20) {
+              // Salva localmente para próximas vezes
+              try { const { writeFile } = await import('fs/promises'); await writeFile(join(playDir, `${eaId}.png`), buf); } catch {}
+              _photoCache.set(cacheKey, img);
+              return img;
+            }
+          }
+        }
+      } catch { /* continua */ }
+    }
+  }
+
+  // ── 3. TheSportsDB por nome+clube (fallback) ──────────────────────────────
   if (name) {
-    // Remove sufixos de série (ex: "Bellingham Copa" → "Bellingham")
-    const cleanName = name.replace(/\s+(Copa|Base|Europeu|BRL|UCL)\s*$/i, '').trim();
+    const cleanName  = name.replace(/\s+(Copa|Base|Europeu|BRL|UCL)\s*$/i, '').trim();
     const searchName = TSDB_NAME_MAP[cleanName] ?? cleanName;
     const clubStr    = CLUB_ALIASES[club ?? ''] ?? (club ?? '');
     const img = await _fetchTheSportsDB(searchName, clubStr);
@@ -309,7 +372,7 @@ async function fetchFlag(nat) {
   if (!iso) { _flagCache.set(nat, null); return null; }
   try {
     const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const timer = setTimeout(() => ctrl.abort(), 5000);
     const res   = await fetch(`https://flagcdn.com/w40/${iso}.png`, {
       signal: ctrl.signal, headers: { 'User-Agent': 'Mozilla/5.0' },
     });
@@ -323,7 +386,7 @@ async function fetchFlag(nat) {
   } catch { _flagCache.set(nat, null); return null; }
 }
 
-// ─── Nome limpo para exibição (remove sufixos de série do card) ──────────────
+// ─── Nome limpo para exibição ─────────────────────────────────────────────────
 function cardDisplayName(name) {
   return (name ?? '').replace(/\s+(Copa|Base|Europeu|BRL|UCL)\s*$/i, '').trim();
 }
@@ -337,159 +400,177 @@ async function batchFetchPhotos(players) {
     const name = p?.name ?? null;
     const club = p?.club ?? null;
     out.push(await fetchPlayerPhoto(eaId, name, club));
-    if (i < players.length - 1) await new Promise(r => setTimeout(r, 120));
+    if (i < players.length - 1) await new Promise(r => setTimeout(r, 60));
   }
   return out;
 }
 
 // ─── Silhueta / avatar fallback ───────────────────────────────────────────────
 function drawAvatar(ctx, x, y, w, h, r, name) {
-  // Fundo gradiente sólido (cor da raridade)
   const bg = ctx.createLinearGradient(x, y, x + w, y + h);
   bg.addColorStop(0, r.bg1); bg.addColorStop(0.6, r.bg2); bg.addColorStop(1, r.bg3);
   ctx.fillStyle = bg; ctx.fillRect(x, y, w, h);
 
-  // Iniciais do jogador
+  // Silhueta genérica (círculo + corpo)
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  const headR = Math.round(Math.min(w, h) * 0.22);
+  const headX = Math.round(x + w * 0.55);
+  const headY = Math.round(y + h * 0.30);
+  ctx.beginPath(); ctx.arc(headX, headY, headR, 0, Math.PI * 2); ctx.fill();
+  // Corpo
+  ctx.beginPath();
+  ctx.ellipse(headX, y + h * 0.70, headR * 1.2, headR * 1.6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Iniciais no canto esquerdo
   const parts    = (name ?? '?').trim().split(/\s+/);
   const initials = parts.length >= 2
     ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase()
     : (parts[0]??'?').slice(0,2).toUpperCase();
-
-  const fs = Math.round(Math.min(w * 0.45, h * 0.38));
+  const fs = Math.round(Math.min(w * 0.32, h * 0.28));
   ctx.save();
   ctx.font         = `bold ${fs}px Roboto`;
-  ctx.textAlign    = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.strokeStyle  = 'rgba(0,0,0,0.60)';
-  ctx.lineWidth    = fs * 0.08;
-  ctx.lineJoin     = 'round';
-  ctx.strokeText(initials, x + w * 0.62, y + h * 0.44);
-  ctx.fillStyle = 'rgba(255,255,255,0.90)';
-  ctx.fillText(initials, x + w * 0.62, y + h * 0.44);
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle    = 'rgba(255,255,255,0.55)';
+  ctx.fillText(initials, x + 8, y + 8);
   ctx.restore();
 }
 
-// ─── CARD EA FC 26 — design autêntico ─────────────────────────────────────────
-// Layout:
-//   ┌──────────────────────────────┐
-//   │ [OVR] │  foto preenche fundo │
-//   │ [POS] │                      │
-//   │ [NAT] │                      │
-//   │───────────────────────────── │
-//   │         NOME JOGADOR         │
-//   │ PAC  SHO  PAS  DRI  DEF  PHY │
-//   └──────────────────────────────┘
+// ─── CARD EA FC 26 — design autêntico FutBin ──────────────────────────────────
+//
+//  ┌────────────────────────────────────┐  ← borda brilhante
+//  │ ░░░░ padrão diagonal ░░░░░░░░░░░░░ │
+//  │  [OVR]  foto do jogador            │
+//  │  [POS]                             │
+//  │  [FLG]      (photo full-bleed)     │
+//  │                                    │
+//  │─── linha accent ───────────────────│
+//  │       NOME JOGADOR                 │
+//  │────────────────────────────────────│
+//  │ PAC  SHO  PAS  DRI  DEF  PHY      │
+//  └────────────────────────────────────┘
 function drawEACard(ctx, x, y, w, h, player, photo, flag) {
-  const R   = Math.round(w * 0.075);
-  const r   = RARITY[player.rarity] ?? RARITY.bronze;
+  const R  = Math.round(w * 0.07);
+  const r  = RARITY[player.rarity] ?? RARITY.bronze;
 
-  // ── 1. Sombra ──────────────────────────────────────────────────────────────
+  const STATS_H = Math.round(h * 0.21);
+  const NAME_H  = Math.round(h * 0.11);
+  const photoH  = h - STATS_H - NAME_H;
+
+  // ── 1. Sombra exterior ─────────────────────────────────────────────────────
   ctx.save();
-  ctx.shadowColor   = 'rgba(0,0,0,0.92)';
-  ctx.shadowBlur    = 18;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 6;
-  const bgGrad = ctx.createLinearGradient(x, y, x + w * 0.7, y + h);
-  bgGrad.addColorStop(0, r.bg1); bgGrad.addColorStop(0.55, r.bg2); bgGrad.addColorStop(1, r.bg3);
+  ctx.shadowColor   = r.border2;
+  ctx.shadowBlur    = r.glow + 4;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 3;
+  const bgGrad = ctx.createLinearGradient(x, y, x + w, y + h);
+  bgGrad.addColorStop(0, r.cardGrad1);
+  bgGrad.addColorStop(0.5, r.bg2);
+  bgGrad.addColorStop(1, r.bg3);
   ctx.fillStyle = bgGrad;
   roundRect(ctx, x, y, w, h, R); ctx.fill();
   ctx.restore();
 
-  // ── 2. Foto como fundo (clipped) ──────────────────────────────────────────
-  const STATS_H = Math.round(h * 0.215);
-  const NAME_H  = Math.round(h * 0.115);
-  const photoH  = h - STATS_H - NAME_H;
-  const photoX  = x;
-  const photoY  = y;
-
+  // ── 2. Foto e efeitos visuais (clipped) ───────────────────────────────────
   ctx.save();
   roundRect(ctx, x, y, w, h, R); ctx.clip();
 
   if (photo) {
-    // Renderiza foto ocupando toda a parte superior
-    const scale  = Math.max(w / photo.width, photoH / photo.height);
-    const drawW  = photo.width  * scale;
-    const drawH  = photo.height * scale;
-    const drawX  = photoX + (w - drawW) / 2;
-    const drawY  = photoY;
+    // Foto preenche a área de foto com crop inteligente
+    const scale = Math.max(w / photo.width, (photoH * 1.05) / photo.height);
+    const drawW = photo.width  * scale;
+    const drawH = photo.height * scale;
+    // Centraliza horizontalmente, alinha pelo topo da foto (não corta a cabeça)
+    const drawX = x + (w - drawW) / 2;
+    const drawY = y - drawH * 0.04; // sobe ligeiramente para mostrar o rosto
     ctx.drawImage(photo, drawX, drawY, drawW, drawH);
   } else {
-    drawAvatar(ctx, photoX, photoY, w, photoH, r, player.name);
+    drawAvatar(ctx, x, y, w, photoH, r, player.name);
   }
 
-  // Fade inferior da foto para barra de nome
-  const fadeBot = ctx.createLinearGradient(x, photoY + photoH * 0.55, x, photoY + photoH);
-  fadeBot.addColorStop(0, 'rgba(0,0,0,0)');
-  fadeBot.addColorStop(1, 'rgba(0,0,0,0.72)');
-  ctx.fillStyle = fadeBot; ctx.fillRect(x, photoY + photoH * 0.55, w, photoH * 0.45);
+  // Padrão diagonal (efeito FutBin) sobre a foto
+  drawDiagonalPattern(ctx, x, y, w, photoH, r.pattern);
 
   // Shimmer diagonal
   const shim = ctx.createLinearGradient(x, y + h, x + w, y);
-  shim.addColorStop(0, 'transparent'); shim.addColorStop(0.4, r.shimmer);
-  shim.addColorStop(0.6, r.shimmer); shim.addColorStop(1, 'transparent');
+  shim.addColorStop(0, 'transparent');
+  shim.addColorStop(0.35, r.shimmer);
+  shim.addColorStop(0.65, r.shimmer);
+  shim.addColorStop(1, 'transparent');
   ctx.fillStyle = shim; ctx.fillRect(x, y, w, h);
+
+  // Fade inferior da foto (smooth transition para o nome)
+  const fadeH = photoH * 0.42;
+  const fade  = ctx.createLinearGradient(x, y + photoH - fadeH, x, y + photoH);
+  fade.addColorStop(0, 'rgba(0,0,0,0)');
+  fade.addColorStop(1, 'rgba(0,0,0,0.68)');
+  ctx.fillStyle = fade; ctx.fillRect(x, y + photoH - fadeH, w, fadeH);
 
   ctx.restore();
 
-  // ── 3. Painel esquerdo: OVR / POS / Bandeira ─────────────────────────────
-  const PANEL_W = Math.round(w * 0.38);
+  // ── 3. Painel esquerdo: OVR / POS / Bandeira ──────────────────────────────
+  const PANEL_W = Math.round(w * 0.42);
+  const padL    = Math.round(w * 0.07);
+  const topPad  = Math.round(h * 0.04);
 
   ctx.save();
   roundRect(ctx, x, y, w, h, R); ctx.clip();
 
-  // Gradiente do painel esquerdo
-  const panelGrad = ctx.createLinearGradient(x, y, x + PANEL_W * 1.5, y);
+  // Gradiente semi-transparente no painel esquerdo
+  const panelGrad = ctx.createLinearGradient(x, y, x + PANEL_W, y);
   panelGrad.addColorStop(0,   r.leftBg);
-  panelGrad.addColorStop(0.70,'rgba(0,0,0,0.25)');
+  panelGrad.addColorStop(0.65,'rgba(0,0,0,0.18)');
   panelGrad.addColorStop(1,   'rgba(0,0,0,0)');
-  ctx.fillStyle = panelGrad; ctx.fillRect(x, y, PANEL_W * 1.5, photoH);
-
+  ctx.fillStyle = panelGrad; ctx.fillRect(x, y, PANEL_W, photoH);
   ctx.restore();
 
-  // OVR number
-  const padL    = Math.round(w * 0.065);
-  const ovrSize = Math.round(h * 0.165);
+  // OVR (grande, em cima)
+  const ovrSize = Math.round(h * 0.175);
   ctx.save();
-  ctx.shadowColor  = 'rgba(0,0,0,0.95)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
-  ctx.fillStyle    = r.ovr;
+  ctx.shadowColor  = 'rgba(0,0,0,0.98)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 2;
+  ctx.fillStyle    = r.ovrColor;
   ctx.font         = `bold ${ovrSize}px Roboto`;
   ctx.textAlign    = 'left';
   ctx.textBaseline = 'top';
-  ctx.fillText(String(player.ovr), x + padL, y + Math.round(h * 0.044));
+  ctx.fillText(String(player.ovr), x + padL, y + topPad);
   ctx.restore();
 
-  // Position
-  const posSize = Math.round(h * 0.077);
+  // Posição
+  const posSize = Math.round(h * 0.075);
   ctx.save();
-  ctx.shadowColor  = 'rgba(0,0,0,0.90)'; ctx.shadowBlur = 6;
-  ctx.fillStyle    = r.pos;
+  ctx.shadowColor  = 'rgba(0,0,0,0.95)'; ctx.shadowBlur = 6;
+  ctx.fillStyle    = r.posColor;
   ctx.font         = `bold ${posSize}px Roboto`;
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillText(player.pos, x + padL + ovrSize * 0.44, y + Math.round(h * 0.044) + ovrSize + 1);
+  const posX = x + padL + Math.round(ovrSize * 0.40);
+  ctx.fillText(player.pos, posX, y + topPad + ovrSize + 1);
   ctx.restore();
 
   // Bandeira
-  const flagY = y + Math.round(h * 0.044) + ovrSize + posSize + 6;
-  const flagW = Math.round(w * 0.22);
-  const flagH = Math.round(flagW * 0.63);
+  const flagY = y + topPad + ovrSize + posSize + 5;
+  const flagW = Math.round(w * 0.24);
+  const flagH = Math.round(flagW * 0.62);
   const flagX = x + padL - 1;
 
   if (flag) {
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.80)'; ctx.shadowBlur = 4;
+    ctx.shadowColor = 'rgba(0,0,0,0.85)'; ctx.shadowBlur = 4;
     roundRect(ctx, flagX, flagY, flagW, flagH, 2); ctx.clip();
     ctx.drawImage(flag, flagX, flagY, flagW, flagH);
     ctx.restore();
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.40)'; ctx.lineWidth = 0.8;
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 0.8;
     roundRect(ctx, flagX, flagY, flagW, flagH, 2); ctx.stroke();
     ctx.restore();
   } else {
     ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillStyle = 'rgba(0,0,0,0.50)';
     roundRect(ctx, flagX, flagY, flagW, flagH, 2); ctx.fill();
-    ctx.fillStyle    = 'rgba(255,255,255,0.90)';
+    ctx.fillStyle    = 'rgba(255,255,255,0.88)';
     ctx.font         = `bold ${Math.round(flagH * 0.55)}px Roboto`;
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
@@ -497,80 +578,123 @@ function drawEACard(ctx, x, y, w, h, player, photo, flag) {
     ctx.restore();
   }
 
+  // Badge de série (canto superior direito)
+  const serLabel = SERIES_LABEL[player.series ?? ''] ?? '';
+  if (serLabel) {
+    const bdgW = Math.round(w * 0.34);
+    const bdgH = Math.round(h * 0.056);
+    const bdgX = x + w - bdgW - Math.round(w * 0.06);
+    const bdgY = y + Math.round(h * 0.03);
+    ctx.save();
+    ctx.fillStyle = r.badge + 'cc';
+    roundRect(ctx, bdgX, bdgY, bdgW, bdgH, 3); ctx.fill();
+    ctx.fillStyle    = r.badgeText;
+    ctx.font         = `bold ${Math.round(bdgH * 0.60)}px Roboto`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(serLabel, bdgX + bdgW / 2, bdgY + bdgH / 2);
+    ctx.restore();
+  }
+
   // ── 4. Barra de nome ──────────────────────────────────────────────────────
   const ny = y + photoH;
   ctx.save();
   roundRect(ctx, x, y, w, h, R); ctx.clip();
+
+  // Fundo do nome
   ctx.fillStyle = r.nameBg; ctx.fillRect(x, ny, w, NAME_H);
 
-  // Linha accent no topo
+  // Linha de accent colorida no topo do nome
   const accG = ctx.createLinearGradient(x, ny, x + w, ny);
-  accG.addColorStop(0, 'transparent'); accG.addColorStop(0.15, r.accent);
-  accG.addColorStop(0.85, r.accent); accG.addColorStop(1, 'transparent');
-  ctx.fillStyle = accG; ctx.fillRect(x, ny, w, 1.5);
+  accG.addColorStop(0, 'transparent');
+  accG.addColorStop(0.08, r.accent);
+  accG.addColorStop(0.92, r.accent);
+  accG.addColorStop(1, 'transparent');
+  ctx.fillStyle = accG; ctx.fillRect(x, ny, w, 2);
 
-  const nameSize = Math.max(8, Math.round(w * 0.094));
-  ctx.shadowColor = 'rgba(0,0,0,0.95)'; ctx.shadowBlur = 5;
+  const nameStr  = trunc(cardDisplayName(player.name).toUpperCase(), 12);
+  const nameSize = Math.max(8, Math.round(w * 0.093));
+  ctx.save();
+  ctx.shadowColor  = 'rgba(0,0,0,0.98)'; ctx.shadowBlur = 5;
   ctx.fillStyle    = '#ffffff';
   ctx.font         = `bold ${nameSize}px Roboto`;
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(trunc(cardDisplayName(player.name).toUpperCase(), 12), x + w / 2, ny + NAME_H / 2);
+  ctx.fillText(nameStr, x + w / 2, ny + NAME_H / 2);
+  ctx.restore();
+
   ctx.restore();
 
   // ── 5. Barra de stats ─────────────────────────────────────────────────────
-  // Stats EA FC 26: PAC SHO PAS DRI DEF PHY
-  const sy  = ny + NAME_H;
+  const sy    = ny + NAME_H;
   const stats = [
     { l:'PAC', v: player.pac },
-    { l:'SHO', v: player.fin },
+    { l:'FIN', v: player.fin },
     { l:'PAS', v: player.pas },
     { l:'DRI', v: player.dri },
     { l:'DEF', v: player.def },
-    { l:'PHY', v: player.fis },
+    { l:'FIS', v: player.fis },
   ];
 
   ctx.save();
   roundRect(ctx, x, y, w, h, R); ctx.clip();
   ctx.fillStyle = r.statBg; ctx.fillRect(x, sy, w, STATS_H);
 
+  // Linha accent no topo dos stats
+  const statLineG = ctx.createLinearGradient(x, sy, x + w, sy);
+  statLineG.addColorStop(0, 'transparent');
+  statLineG.addColorStop(0.08, r.border2 + '80');
+  statLineG.addColorStop(0.92, r.border2 + '80');
+  statLineG.addColorStop(1, 'transparent');
+  ctx.fillStyle = statLineG; ctx.fillRect(x, sy, w, 1);
+
   const cellW  = w / 6;
-  const labSz  = Math.max(5, Math.round(w * 0.049));
-  const valSz  = Math.max(7, Math.round(w * 0.082));
+  const labSz  = Math.max(5, Math.round(w * 0.048));
+  const valSz  = Math.max(7, Math.round(w * 0.085));
+  const valY   = sy + STATS_H * 0.52;
+  const labY   = sy + STATS_H * 0.88;
 
   for (let i = 0; i < 6; i++) {
     const cx = x + cellW * i + cellW / 2;
 
     // Separador vertical
     if (i > 0) {
-      ctx.fillStyle = 'rgba(255,255,255,0.08)';
-      ctx.fillRect(x + cellW * i, sy + STATS_H * 0.15, 1, STATS_H * 0.70);
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillRect(x + cellW * i, sy + STATS_H * 0.12, 1, STATS_H * 0.76);
     }
 
-    // Valor (em cima, colorido por performance)
+    // Valor numérico (colorido por performance)
     ctx.fillStyle    = statColor(stats[i].v ?? 0);
     ctx.font         = `bold ${valSz}px Roboto`;
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(String(stats[i].v ?? 0), cx, sy + STATS_H * 0.60);
+    ctx.fillText(String(stats[i].v ?? 0), cx, valY);
 
-    // Label (embaixo, muted)
-    ctx.fillStyle    = r.statLab;
+    // Label (abaixo, muted)
+    ctx.fillStyle    = 'rgba(200,200,200,0.55)';
     ctx.font         = `${labSz}px RobotoReg`;
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(stats[i].l, cx, sy + STATS_H * 0.93);
+    ctx.fillText(stats[i].l, cx, labY);
   }
 
-  // Tira inferior colorida
+  // Tira inferior colorida (ID da raridade)
   ctx.fillStyle = r.strip;
   ctx.fillRect(x + R, y + h - 2.5, w - R * 2, 2.5);
   ctx.restore();
 
-  // ── 6. Borda brilhante ────────────────────────────────────────────────────
+  // ── 6. Borda brilhante dupla ──────────────────────────────────────────────
+  // Borda interna
   ctx.save();
-  ctx.shadowColor = r.border; ctx.shadowBlur = r.glow;
-  ctx.strokeStyle = r.border;
-  ctx.lineWidth   = r.glow >= 20 ? 2.0 : 1.5;
+  ctx.strokeStyle = r.border1 + '55';
+  ctx.lineWidth   = 1;
+  roundRect(ctx, x + 1.5, y + 1.5, w - 3, h - 3, R - 1); ctx.stroke();
+  ctx.restore();
+  // Borda externa com glow
+  ctx.save();
+  ctx.shadowColor = r.border1;
+  ctx.shadowBlur  = r.glow;
+  ctx.strokeStyle = r.border1;
+  ctx.lineWidth   = 1.5;
   roundRect(ctx, x, y, w, h, R); ctx.stroke();
   ctx.restore();
 }
@@ -582,34 +706,31 @@ function drawEmptySlot(ctx, cx, cy, slotPos) {
   const R = 7;
 
   ctx.save();
-  ctx.globalAlpha = 0.55;
+  ctx.globalAlpha = 0.50;
 
-  // Fundo sólido semi-transparente
-  ctx.fillStyle = 'rgba(0,0,0,0.30)';
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
   roundRect(ctx, x, y, CARD_W, CARD_H, R); ctx.fill();
 
-  // Borda pontilhada
   ctx.setLineDash([4, 3]);
-  ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1.2;
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1.2;
   roundRect(ctx, x, y, CARD_W, CARD_H, R); ctx.stroke();
   ctx.setLineDash([]);
 
-  // Ícone + e posição
-  ctx.fillStyle    = 'rgba(255,255,255,0.50)';
+  ctx.fillStyle    = 'rgba(255,255,255,0.45)';
   ctx.font         = `bold ${Math.round(CARD_H * 0.24)}px Roboto`;
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('+', cx, cy - CARD_H * 0.10);
 
-  ctx.font         = `bold ${Math.round(CARD_H * 0.08)}px Roboto`;
-  ctx.fillStyle    = 'rgba(255,255,255,0.40)';
+  ctx.font      = `bold ${Math.round(CARD_H * 0.08)}px Roboto`;
+  ctx.fillStyle = 'rgba(255,255,255,0.38)';
   ctx.fillText(slotPos, cx, cy + CARD_H * 0.20);
 
   ctx.globalAlpha = 1;
   ctx.restore();
 }
 
-// ─── Card no campo (versão compacta do EACard) ────────────────────────────────
+// ─── Card no campo (versão compacta) ─────────────────────────────────────────
 function drawFieldCard(ctx, cx, cy, player, slotPos, photo, flag) {
   if (!player) { drawEmptySlot(ctx, cx, cy, slotPos); return; }
 
@@ -618,15 +739,15 @@ function drawFieldCard(ctx, cx, cy, player, slotPos, photo, flag) {
   drawEACard(ctx, x, y, CARD_W, CARD_H, player, photo, flag);
 
   // Label da posição do slot abaixo do card
-  const lblW  = Math.round(CARD_W * 0.60);
+  const lblW  = Math.round(CARD_W * 0.58);
   const lblH  = 13;
   const lblY  = y + CARD_H + 2;
   const match = player.pos === slotPos;
 
   ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,0.80)';
+  ctx.fillStyle = 'rgba(0,0,0,0.85)';
   roundRect(ctx, cx - lblW/2, lblY, lblW, lblH, 3); ctx.fill();
-  ctx.fillStyle    = match ? '#44ff88' : '#ffcc44';
+  ctx.fillStyle    = match ? '#33ff77' : '#ffcc33';
   ctx.font         = 'bold 7px Roboto';
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
@@ -636,61 +757,61 @@ function drawFieldCard(ctx, cx, cy, player, slotPos, photo, flag) {
 
 // ─── Fundo de campo futebol ───────────────────────────────────────────────────
 function drawPitch(ctx, fx, fy, fw, fh) {
-  // Grama com gradiente radial
-  const grass = ctx.createRadialGradient(fx+fw/2, fy+fh/2, 60, fx+fw/2, fy+fh/2, fh*0.85);
-  grass.addColorStop(0,    '#2e9a32');
-  grass.addColorStop(0.38, '#1e7020');
-  grass.addColorStop(1,    '#0c3a10');
+  // Grama com gradiente e listras alternadas
+  const grass = ctx.createLinearGradient(fx, fy, fx, fy + fh);
+  grass.addColorStop(0,    '#2d9630');
+  grass.addColorStop(0.25, '#268928');
+  grass.addColorStop(0.50, '#1e7020');
+  grass.addColorStop(0.75, '#268928');
+  grass.addColorStop(1,    '#1e7020');
   ctx.fillStyle = grass;
   roundRect(ctx, fx, fy, fw, fh, 12); ctx.fill();
 
-  // Listras de grama
+  // Listras horizontais de grama
   ctx.save();
   roundRect(ctx, fx, fy, fw, fh, 12); ctx.clip();
-  const strH = fh / 11;
-  for (let i = 0; i < 11; i++) {
-    ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.03)';
+  const strH = fh / 10;
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.09)' : 'rgba(255,255,255,0.04)';
     ctx.fillRect(fx, fy + i * strH, fw, strH);
   }
-  // Vignette no campo
-  const vig = ctx.createRadialGradient(fx+fw/2, fy+fh/2, fh*0.12, fx+fw/2, fy+fh/2, fh*0.90);
-  vig.addColorStop(0, 'transparent'); vig.addColorStop(1, 'rgba(0,0,0,0.42)');
+  // Vignette radial
+  const vig = ctx.createRadialGradient(fx+fw/2, fy+fh/2, fh*0.10, fx+fw/2, fy+fh/2, fh*0.92);
+  vig.addColorStop(0, 'transparent'); vig.addColorStop(1, 'rgba(0,0,0,0.38)');
   ctx.fillStyle = vig; ctx.fillRect(fx, fy, fw, fh);
   ctx.restore();
 
-  // Linhas do campo
+  // Linhas brancas do campo
   ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.32)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
   ctx.lineWidth   = 1.8;
 
-  // Borda
-  roundRect(ctx, fx, fy, fw, fh, 12); ctx.stroke();
-
-  // Linha do meio
+  roundRect(ctx, fx + 4, fy + 4, fw - 8, fh - 8, 10); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(fx, fy+fh/2); ctx.lineTo(fx+fw, fy+fh/2); ctx.stroke();
 
   // Círculo central
   ctx.beginPath(); ctx.arc(fx+fw/2, fy+fh/2, 54, 0, Math.PI*2); ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillStyle = 'rgba(255,255,255,0.60)';
   ctx.beginPath(); ctx.arc(fx+fw/2, fy+fh/2, 3.5, 0, Math.PI*2); ctx.fill();
 
-  // Áreas
-  const pW = fw * 0.52, pH = fh * 0.165;
-  const gW = fw * 0.24, gH = fh * 0.060;
-  ctx.strokeRect(fx+(fw-pW)/2, fy, pW, pH);
-  ctx.strokeRect(fx+(fw-gW)/2, fy, gW, gH);
-  ctx.strokeRect(fx+(fw-pW)/2, fy+fh-pH, pW, pH);
-  ctx.strokeRect(fx+(fw-gW)/2, fy+fh-gH, gW, gH);
+  // Área grande superior e inferior
+  const pW = fw * 0.54, pH = fh * 0.165;
+  const gW = fw * 0.25, gH = fh * 0.062;
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.strokeRect(fx+(fw-pW)/2, fy+4, pW, pH);
+  ctx.strokeRect(fx+(fw-gW)/2, fy+4, gW, gH);
+  ctx.strokeRect(fx+(fw-pW)/2, fy+fh-pH-4, pW, pH);
+  ctx.strokeRect(fx+(fw-gW)/2, fy+fh-gH-4, gW, gH);
 
-  // Pontos de penalty
-  ctx.fillStyle = 'rgba(255,255,255,0.42)';
+  // Pontos de pênalti
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
   [fh*0.132, fh*0.868].forEach(yo => {
-    ctx.beginPath(); ctx.arc(fx+fw/2, fy+yo, 3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(fx+fw/2, fy+yo, 3.2, 0, Math.PI*2); ctx.fill();
   });
 
   // Arcos de canto
   const cr = 12;
-  [[fx,fy,0,Math.PI/2],[fx+fw,fy,Math.PI/2,Math.PI],[fx,fy+fh,3*Math.PI/2,2*Math.PI],[fx+fw,fy+fh,Math.PI,3*Math.PI/2]].forEach(([ax,ay,sa,ea]) => {
+  [[fx+4,fy+4,0,Math.PI/2],[fx+fw-4,fy+4,Math.PI/2,Math.PI],[fx+4,fy+fh-4,3*Math.PI/2,2*Math.PI],[fx+fw-4,fy+fh-4,Math.PI,3*Math.PI/2]].forEach(([ax,ay,sa,ea]) => {
     ctx.beginPath(); ctx.arc(ax, ay, cr, sa, ea); ctx.stroke();
   });
   ctx.restore();
@@ -698,7 +819,6 @@ function drawPitch(ctx, fx, fy, fw, fh) {
 
 // ─── Imagem do campo (visão do time) ─────────────────────────────────────────
 export async function generateFieldImage({ lineup, formation, teamName, elo }) {
-  // Fetch fotos únicas
   const seen     = new Set();
   const photoMap = new Map();
   const flagMap  = new Map();
@@ -706,36 +826,45 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
   for (const l of lineup) {
     const p    = l.player;
     if (!p) continue;
-    // Chave única: eaId quando disponível, caso contrário nome|clube
-    const key  = p.eaId
-      ? `futbin:${p.eaId}`
-      : `tsdb:${_normName(p.name)}|${_normName(p.club)}`;
+    const key  = p.eaId ? `local:${p.eaId}` : `tsdb:${_normName(p.name)}|${_normName(p.club)}`;
     if (seen.has(key)) continue;
     seen.add(key);
     const img = await fetchPlayerPhoto(p.eaId, p.name, p.club);
     if (img) photoMap.set(key, img);
     const flag = await fetchFlag(p.nat);
     if (flag) flagMap.set(p.nat, flag);
-    await new Promise(r => setTimeout(r, 60));
+    await new Promise(r => setTimeout(r, 40));
   }
 
   const canvas = createCanvas(FIELD_W, FIELD_H);
   const ctx    = canvas.getContext('2d');
 
-  // Fundo escuro do estádio
+  // Fundo escuro estilo estádio
   const bg = ctx.createLinearGradient(0, 0, 0, FIELD_H);
   bg.addColorStop(0, '#040810'); bg.addColorStop(1, '#040a06');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, FIELD_W, FIELD_H);
 
   // ── Header bar ───────────────────────────────────────────────────────────
-  const HDR_H = 60;
-  const hdrBg = ctx.createLinearGradient(0, 0, 0, HDR_H + 8);
-  hdrBg.addColorStop(0, 'rgba(0,0,0,0.98)'); hdrBg.addColorStop(1, 'rgba(0,0,0,0.80)');
+  const HDR_H = 62;
+  const hdrBg = ctx.createLinearGradient(0, 0, FIELD_W, HDR_H);
+  hdrBg.addColorStop(0, 'rgba(0,0,0,0.98)');
+  hdrBg.addColorStop(1, 'rgba(10,10,20,0.92)');
   ctx.fillStyle = hdrBg;
-  roundRect(ctx, 16, 4, FIELD_W - 32, HDR_H, 10); ctx.fill();
+  roundRect(ctx, 14, 4, FIELD_W - 28, HDR_H, 10); ctx.fill();
 
-  // Linha verde à esquerda
-  ctx.fillStyle = '#2ecc40'; ctx.fillRect(16, 4, 4, HDR_H);
+  // Linha verde (estilo FutBin) à esquerda
+  const barG = ctx.createLinearGradient(14, 4, 14, 4 + HDR_H);
+  barG.addColorStop(0, '#22dd55'); barG.addColorStop(1, '#11aa33');
+  ctx.fillStyle = barG; ctx.fillRect(14, 4, 4, HDR_H);
+
+  // Logo "EA FC 26" à esquerda
+  ctx.save();
+  ctx.fillStyle   = '#22dd55';
+  ctx.font        = 'bold 11px Roboto';
+  ctx.textAlign   = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText('EA FC 26', 26, 8);
+  ctx.restore();
 
   // Nome do time
   ctx.save();
@@ -744,17 +873,17 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
   ctx.font        = 'bold 22px Roboto';
   ctx.textAlign   = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(trunc(teamName ?? 'Meu Time', 24), 32, 4 + HDR_H / 2);
+  ctx.fillText(trunc(teamName ?? 'Meu Time', 24), 26, 4 + HDR_H * 0.65);
   ctx.restore();
 
   // ELO (direita, dourado)
   ctx.save();
-  ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 14;
+  ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 12;
   ctx.fillStyle   = '#FFD700';
   ctx.font        = 'bold 17px Roboto';
   ctx.textAlign   = 'right';
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText(`${elo ?? 0} ELO`, FIELD_W - 26, 4 + HDR_H * 0.50);
+  ctx.textBaseline = 'top';
+  ctx.fillText(`${elo ?? 0} ELO`, FIELD_W - 24, 10);
   ctx.restore();
 
   // Formação (direita, menor)
@@ -762,10 +891,10 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
   ctx.font         = '13px RobotoReg';
   ctx.textAlign    = 'right';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText(formation ?? '4-3-3', FIELD_W - 26, 4 + HDR_H * 0.80);
+  ctx.fillText(formation ?? '4-3-3', FIELD_W - 24, 4 + HDR_H - 10);
 
   // ── Campo de futebol ─────────────────────────────────────────────────────
-  const FX = 18, FY = 70, FW = FIELD_W - 36, FH = FIELD_H - 110;
+  const FX = 18, FY = 72, FW = FIELD_W - 36, FH = FIELD_H - 115;
   drawPitch(ctx, FX, FY, FW, FH);
 
   // ── Cards dos jogadores ──────────────────────────────────────────────────
@@ -775,7 +904,7 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
     const ent = lineup.find(l => l.slot === i + 1);
     const p   = ent?.player ?? null;
     const key = p
-      ? (p.eaId ? `futbin:${p.eaId}` : `tsdb:${_normName(p.name)}|${_normName(p.club)}`)
+      ? (p.eaId ? `local:${p.eaId}` : `tsdb:${_normName(p.name)}|${_normName(p.club)}`)
       : null;
     const photo = key ? (photoMap.get(key) ?? null) : null;
     const flag  = p ? (flagMap.get(p.nat) ?? null) : null;
@@ -790,9 +919,7 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
   // ── Footer ────────────────────────────────────────────────────────────────
   const footY = FY + FH + 4;
   const footH = FIELD_H - footY - 4;
-  const ftG   = ctx.createLinearGradient(FX, footY, FX, footY + footH);
-  ftG.addColorStop(0, 'rgba(0,0,0,0.96)'); ftG.addColorStop(1, 'rgba(0,0,0,0.78)');
-  ctx.fillStyle = ftG;
+  ctx.fillStyle = 'rgba(0,0,0,0.96)';
   roundRect(ctx, FX, footY, FW, footH, 8); ctx.fill();
 
   const validOvrs = lineup.map(l => l.player?.ovr ?? 0).filter(v => v > 0);
@@ -800,13 +927,13 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
     ? (validOvrs.reduce((a, b) => a + b, 0) / validOvrs.length).toFixed(1)
     : '--';
 
-  ctx.fillStyle    = '#ffffff';
+  ctx.fillStyle    = '#22dd55';
   ctx.font         = 'bold 13px Roboto';
   ctx.textAlign    = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(`OVR Médio: ${avgOvr}`, FX + 14, footY + footH / 2);
+  ctx.fillText(`⚽ OVR Médio: ${avgOvr}`, FX + 14, footY + footH / 2);
 
-  ctx.fillStyle    = 'rgba(255,255,255,0.48)';
+  ctx.fillStyle    = 'rgba(255,255,255,0.45)';
   ctx.font         = '12px RobotoReg';
   ctx.textAlign    = 'right';
   ctx.textBaseline = 'middle';
@@ -826,37 +953,44 @@ export async function generatePackRevealImage(players) {
     cx.fillText('Nenhuma carta encontrada!', 200, 50);
     return c.toBuffer('image/png');
   }
-  const GAP  = 14;
-  const PAD  = 18;
+
+  const GAP  = 16;
+  const PAD  = 20;
   const COLS = Math.min(players.length, 4);
   const ROWS = Math.ceil(players.length / COLS);
   const CW   = PAD * 2 + COLS * PC_W + (COLS - 1) * GAP;
-  const CH   = 56 + PAD + ROWS * PC_H + (ROWS - 1) * GAP + PAD;
+  const CH   = 60 + PAD + ROWS * PC_H + (ROWS - 1) * GAP + PAD;
 
   const canvas = createCanvas(CW, CH);
   const ctx    = canvas.getContext('2d');
 
-  // Fundo escuro com gradiente roxo
+  // Fundo escuro
   const bg = ctx.createLinearGradient(0, 0, CW, CH);
-  bg.addColorStop(0, '#08081a'); bg.addColorStop(1, '#040410');
+  bg.addColorStop(0, '#07071a'); bg.addColorStop(1, '#04040e');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, CW, CH);
 
-  // Header
+  // Header FutBin-style
   const hG = ctx.createLinearGradient(0, 0, CW, 0);
-  hG.addColorStop(0, 'rgba(40,10,90,0.95)'); hG.addColorStop(0.5, 'rgba(90,25,170,0.95)'); hG.addColorStop(1, 'rgba(40,10,90,0.95)');
-  ctx.fillStyle = hG; ctx.fillRect(0, 0, CW, 52);
+  hG.addColorStop(0, 'rgba(30,8,80,0.98)');
+  hG.addColorStop(0.5, 'rgba(70,20,140,0.98)');
+  hG.addColorStop(1, 'rgba(30,8,80,0.98)');
+  ctx.fillStyle = hG; ctx.fillRect(0, 0, CW, 56);
 
-  const hLine = ctx.createLinearGradient(0, 50, CW, 50);
-  hLine.addColorStop(0, 'transparent'); hLine.addColorStop(0.3, '#aa44ff'); hLine.addColorStop(0.7, '#aa44ff'); hLine.addColorStop(1, 'transparent');
-  ctx.fillStyle = hLine; ctx.fillRect(0, 50, CW, 2);
+  // Linha accent
+  const hLine = ctx.createLinearGradient(0, 54, CW, 54);
+  hLine.addColorStop(0, 'transparent');
+  hLine.addColorStop(0.15, '#aa44ff');
+  hLine.addColorStop(0.85, '#aa44ff');
+  hLine.addColorStop(1, 'transparent');
+  ctx.fillStyle = hLine; ctx.fillRect(0, 54, CW, 2);
 
   ctx.save();
   ctx.shadowColor = '#cc77ff'; ctx.shadowBlur = 18;
   ctx.fillStyle   = '#ffffff';
-  ctx.font        = 'bold 24px Roboto';
+  ctx.font        = 'bold 22px Roboto';
   ctx.textAlign   = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('⚽  NOVAS CARTAS', CW / 2, 28);
+  ctx.fillText('⚽  NOVAS CARTAS', CW / 2, 30);
   ctx.restore();
 
   const photos = await batchFetchPhotos(players);
@@ -867,7 +1001,7 @@ export async function generatePackRevealImage(players) {
     drawEACard(
       ctx,
       PAD + col * (PC_W + GAP),
-      56 + PAD + row * (PC_H + GAP),
+      60 + PAD + row * (PC_H + GAP),
       PC_W, PC_H,
       players[i], photos[i], flags[i],
     );
@@ -878,7 +1012,7 @@ export async function generatePackRevealImage(players) {
 
 // ─── Collection image ─────────────────────────────────────────────────────────
 export async function generateCollectionImage(playerCards) {
-  const COLS = 4, GAP = 12, PAD = 14;
+  const COLS = 4, GAP = 14, PAD = 16;
   const rows = Math.ceil(playerCards.length / COLS) || 1;
   const CW   = PAD * 2 + COLS * CC_W + (COLS - 1) * GAP;
   const CH   = PAD * 2 + rows * CC_H + (rows - 1) * GAP;
@@ -886,19 +1020,18 @@ export async function generateCollectionImage(playerCards) {
   const canvas = createCanvas(CW, CH);
   const ctx    = canvas.getContext('2d');
 
-  // Fundo verde escuro
+  // Fundo verde escuro estilo campo
   const field = ctx.createLinearGradient(0, 0, 0, CH);
-  field.addColorStop(0, '#163818'); field.addColorStop(0.5, '#0e2810'); field.addColorStop(1, '#071408');
+  field.addColorStop(0, '#142e16'); field.addColorStop(0.5, '#0c1e0e'); field.addColorStop(1, '#060c06');
   ctx.fillStyle = field; ctx.fillRect(0, 0, CW, CH);
 
-  const stripeH = 26;
+  const stripeH = 24;
   for (let i = 0; i < Math.ceil(CH / stripeH); i++) {
-    ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.09)' : 'rgba(255,255,255,0.02)';
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.02)';
     ctx.fillRect(0, i * stripeH, CW, stripeH);
   }
-
-  const vig = ctx.createRadialGradient(CW/2, CH/2, CH*0.10, CW/2, CH/2, CH*0.75);
-  vig.addColorStop(0, 'transparent'); vig.addColorStop(1, 'rgba(0,0,0,0.36)');
+  const vig = ctx.createRadialGradient(CW/2, CH/2, CH*0.08, CW/2, CH/2, CH*0.72);
+  vig.addColorStop(0, 'transparent'); vig.addColorStop(1, 'rgba(0,0,0,0.40)');
   ctx.fillStyle = vig; ctx.fillRect(0, 0, CW, CH);
 
   if (!playerCards.length) {
@@ -933,9 +1066,9 @@ function drawPitchBg(ctx, w, h) {
   const base = ctx.createLinearGradient(0, 0, 0, h);
   base.addColorStop(0, '#0e2410'); base.addColorStop(0.5, '#091808'); base.addColorStop(1, '#040e04');
   ctx.fillStyle = base; ctx.fillRect(0, 0, w, h);
-  for (let i = 0; i < Math.ceil(h / 28); i++) {
+  for (let i = 0; i < Math.ceil(h / 26); i++) {
     ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.025)';
-    ctx.fillRect(0, i * 28, w, 28);
+    ctx.fillRect(0, i * 26, w, 26);
   }
   const vig = ctx.createRadialGradient(w/2, h/2, h*0.10, w/2, h/2, h*0.88);
   vig.addColorStop(0, 'transparent'); vig.addColorStop(1, 'rgba(0,0,0,0.55)');
@@ -944,9 +1077,9 @@ function drawPitchBg(ctx, w, h) {
 
 // ─── Pack card (visual de pacote fechado) ─────────────────────────────────────
 function drawPackCard(ctx, x, y, w, h, packName, price, photo, guaranteed) {
-  const topIn = w * 0.12, botIn = w * 0.05;
+  const topIn = w * 0.10, botIn = w * 0.05;
 
-  function path() {
+  function packPath() {
     const tl = x + topIn, tr = x + w - topIn;
     ctx.beginPath();
     ctx.moveTo(tl + 4, y); ctx.lineTo(tr - 4, y);
@@ -961,28 +1094,30 @@ function drawPackCard(ctx, x, y, w, h, packName, price, photo, guaranteed) {
 
   const rarColors = {
     gold:   { g1:'#c8920a', g2:'#7a5a00', g3:'#3a2800', accent:'#ffd700', shadow:'rgba(255,200,0,0.55)' },
-    black:  { g1:'#2a0060', g2:'#140030', g3:'#080018', accent:'#aa44ff', shadow:'rgba(150,40,255,0.60)' },
+    black:  { g1:'#2a0060', g2:'#140030', g3:'#080018', accent:'#aa44ff', shadow:'rgba(150,40,255,0.62)' },
     silver: { g1:'#6888a8', g2:'#384868', g3:'#182838', accent:'#aabbd0', shadow:'rgba(150,180,220,0.40)' },
     bronze: { g1:'#c07838', g2:'#7a4818', g3:'#3a2008', accent:'#e09040', shadow:'rgba(200,120,40,0.45)' },
   };
   const rc = rarColors[guaranteed] ?? rarColors.gold;
 
-  // Sombra + corpo
   ctx.save();
-  ctx.shadowColor = rc.shadow; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
+  ctx.shadowColor = rc.shadow; ctx.shadowBlur = 20; ctx.shadowOffsetY = 6;
   const bodyG = ctx.createLinearGradient(x, y, x+w, y+h);
   bodyG.addColorStop(0, rc.g1); bodyG.addColorStop(0.45, rc.g2); bodyG.addColorStop(1, rc.g3);
-  ctx.fillStyle = bodyG; path(); ctx.fill();
+  ctx.fillStyle = bodyG; packPath(); ctx.fill();
   ctx.restore();
 
-  ctx.save(); path(); ctx.clip();
+  ctx.save(); packPath(); ctx.clip();
+
+  // Padrão diagonal
+  drawDiagonalPattern(ctx, x, y, w, h, 'rgba(255,255,255,0.05)');
 
   // Brilho lateral esquerdo
-  const shine = ctx.createLinearGradient(x, y, x+w*0.35, y);
+  const shine = ctx.createLinearGradient(x, y, x+w*0.38, y);
   shine.addColorStop(0, 'rgba(255,255,255,0.28)'); shine.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = shine; ctx.fillRect(x, y, w*0.35, h);
+  ctx.fillStyle = shine; ctx.fillRect(x, y, w*0.38, h);
 
-  // Foto do jogador representativo
+  // Foto do jogador
   const photoTop = y + h * 0.20;
   const photoH2  = h * 0.52;
   if (photo) {
@@ -991,42 +1126,40 @@ function drawPackCard(ctx, x, y, w, h, packName, price, photo, guaranteed) {
     ctx.save(); ctx.rect(x, photoTop, w, photoH2); ctx.clip();
     ctx.drawImage(photo, x + (w-dw)/2, photoTop, dw, dh);
     const fadeT = ctx.createLinearGradient(x, photoTop, x, photoTop+photoH2*0.28);
-    fadeT.addColorStop(0, 'rgba(0,0,0,0.70)'); fadeT.addColorStop(1, 'rgba(0,0,0,0)');
+    fadeT.addColorStop(0, 'rgba(0,0,0,0.75)'); fadeT.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = fadeT; ctx.fillRect(x, photoTop, w, photoH2*0.30);
-    const fadeB = ctx.createLinearGradient(x, photoTop+photoH2*0.60, x, photoTop+photoH2);
-    fadeB.addColorStop(0, 'rgba(0,0,0,0)'); fadeB.addColorStop(1, 'rgba(0,0,0,0.82)');
-    ctx.fillStyle = fadeB; ctx.fillRect(x, photoTop+photoH2*0.60, w, photoH2*0.40);
+    const fadeB = ctx.createLinearGradient(x, photoTop+photoH2*0.58, x, photoTop+photoH2);
+    fadeB.addColorStop(0, 'rgba(0,0,0,0)'); fadeB.addColorStop(1, 'rgba(0,0,0,0.85)');
+    ctx.fillStyle = fadeB; ctx.fillRect(x, photoTop+photoH2*0.58, w, photoH2*0.42);
     ctx.restore();
-  } else {
-    // fundo gradiente sem foto
-    const silG = ctx.createLinearGradient(x, photoTop, x, photoTop+photoH2);
-    silG.addColorStop(0, 'rgba(255,255,255,0.05)'); silG.addColorStop(1, 'rgba(0,0,0,0.40)');
-    ctx.fillStyle = silG; ctx.fillRect(x, photoTop, w, photoH2);
   }
 
   // Barra de título
-  ctx.fillStyle = 'rgba(0,0,0,0.70)'; ctx.fillRect(x, y, w, h*0.18);
+  ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(x, y, w, h*0.18);
   const accLine = ctx.createLinearGradient(x, y, x+w, y);
-  accLine.addColorStop(0,'transparent'); accLine.addColorStop(0.25,rc.accent); accLine.addColorStop(0.75,rc.accent); accLine.addColorStop(1,'transparent');
-  ctx.fillStyle = accLine; ctx.fillRect(x, y+h*0.18-1.5, w, 1.5);
+  accLine.addColorStop(0,'transparent');
+  accLine.addColorStop(0.20,rc.accent);
+  accLine.addColorStop(0.80,rc.accent);
+  accLine.addColorStop(1,'transparent');
+  ctx.fillStyle = accLine; ctx.fillRect(x, y+h*0.18-2, w, 2);
 
   // "EA FC 26"
   ctx.fillStyle = rc.accent;
-  ctx.font      = `bold ${Math.round(w*0.14)}px Roboto`;
+  ctx.font      = `bold ${Math.round(w*0.13)}px Roboto`;
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText('EA FC 26', x + w*0.08, y + h*0.04);
 
-  // Nome do pacote (bottom)
+  // Nome do pacote
   const nameY = y + h * 0.73;
-  ctx.fillStyle = 'rgba(0,0,0,0.72)'; ctx.fillRect(x, nameY, w, h*0.14);
+  ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(x, nameY, w, h*0.14);
   ctx.fillStyle    = '#ffffff';
-  ctx.font         = `bold ${Math.round(w*0.094)}px Roboto`;
+  ctx.font         = `bold ${Math.round(w*0.093)}px Roboto`;
   ctx.textAlign    = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(packName.toUpperCase(), x+w/2, nameY+h*0.07);
 
   // Preço
   const priceY = nameY + h * 0.14;
-  ctx.fillStyle = 'rgba(0,0,0,0.68)'; ctx.fillRect(x, priceY, w, h*0.13);
+  ctx.fillStyle = 'rgba(0,0,0,0.72)'; ctx.fillRect(x, priceY, w, h*0.13);
   ctx.fillStyle    = '#ffd700';
   ctx.font         = `bold ${Math.round(w*0.082)}px Roboto`;
   ctx.textAlign    = 'center'; ctx.textBaseline = 'middle';
@@ -1034,17 +1167,15 @@ function drawPackCard(ctx, x, y, w, h, packName, price, photo, guaranteed) {
 
   ctx.restore();
 
-  // Borda brilhante
   ctx.save();
-  ctx.shadowColor = rc.accent; ctx.shadowBlur = 10;
-  ctx.strokeStyle = `${rc.accent}80`; ctx.lineWidth = 1.5;
-  path(); ctx.stroke();
+  ctx.shadowColor = rc.accent; ctx.shadowBlur = 12;
+  ctx.strokeStyle = `${rc.accent}88`; ctx.lineWidth = 1.5;
+  packPath(); ctx.stroke();
   ctx.restore();
 }
 
 // ─── Loja image ────────────────────────────────────────────────────────────────
 export async function generateLojaImage(balance) {
-  // eaId dos jogadores representativos de cada pacote
   const packDefs = [
     { name:'Padrão',  eaId: 246669, price: 500,  guaranteed:'bronze' }, // Bellingham
     { name:'Ouro',    eaId: 209331, price: 2000, guaranteed:'gold'   }, // Salah
@@ -1055,31 +1186,35 @@ export async function generateLojaImage(balance) {
   const photos = [];
   for (const d of packDefs) {
     photos.push(await fetchPlayerPhoto(d.eaId));
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise(r => setTimeout(r, 100));
   }
 
-  const PW = 175, PH = 300, GAP = 16, PAD = 22;
+  const PW = 180, PH = 308, GAP = 16, PAD = 22;
   const CW = PAD*2 + packDefs.length*PW + (packDefs.length-1)*GAP;
-  const CH = PH + 80;
+  const CH = PH + 82;
 
   const canvas = createCanvas(CW, CH);
   const ctx    = canvas.getContext('2d');
   drawPitchBg(ctx, CW, CH);
 
-  // Header
-  ctx.fillStyle = 'rgba(0,0,0,0.72)';
-  roundRect(ctx, PAD, 10, CW-PAD*2, 32, 8); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  roundRect(ctx, PAD, 10, CW-PAD*2, 34, 8); ctx.fill();
+
+  const lineG = ctx.createLinearGradient(PAD, 10, PAD+4, 44);
+  lineG.addColorStop(0, '#22dd55'); lineG.addColorStop(1, '#11aa33');
+  ctx.fillStyle = lineG; ctx.fillRect(PAD, 10, 4, 34);
+
   ctx.fillStyle    = '#4ddd4d';
   ctx.font         = 'bold 16px Roboto';
   ctx.textAlign    = 'left'; ctx.textBaseline = 'middle';
-  ctx.fillText('⚽  FUT LOJA', PAD+14, 26);
+  ctx.fillText('⚽  FUT LOJA', PAD+16, 27);
   ctx.fillStyle    = '#ffd700';
   ctx.font         = 'bold 14px Roboto';
   ctx.textAlign    = 'right';
-  ctx.fillText(`🪙 ${(balance ?? 0).toLocaleString('pt-BR')} FuteCoins`, CW-PAD-14, 26);
+  ctx.fillText(`🪙 ${(balance ?? 0).toLocaleString('pt-BR')} FuteCoins`, CW-PAD-14, 27);
 
   for (let i = 0; i < packDefs.length; i++) {
-    drawPackCard(ctx, PAD+i*(PW+GAP), 50, PW, PH, packDefs[i].name, packDefs[i].price, photos[i], packDefs[i].guaranteed);
+    drawPackCard(ctx, PAD+i*(PW+GAP), 52, PW, PH, packDefs[i].name, packDefs[i].price, photos[i], packDefs[i].guaranteed);
   }
 
   return canvas.toBuffer('image/png');
@@ -1087,52 +1222,56 @@ export async function generateLojaImage(balance) {
 
 // ─── Pacotes image (seleção de pacotes) ───────────────────────────────────────
 export async function generatePacksImage(packsInfo) {
-  // packsInfo: array de { name, price, guaranteed, eaId } vindo do futManager
   const defaults = [
-    { name:'Padrão',  eaId: 246669, price: 500,  guaranteed:'bronze' }, // Bellingham
-    { name:'Ouro',    eaId: 209331, price: 2000, guaranteed:'gold'   }, // Salah
-    { name:'Premium', eaId: 231747, price: 5000, guaranteed:'black'  }, // Mbappé
-    { name:'Copa 26', eaId: 238794, price: 3000, guaranteed:'gold'   }, // Vinicius Jr
-    { name:'Europeu', eaId: 271321, price: 2800, guaranteed:'gold'   }, // Lamine Yamal
+    { name:'Padrão',  eaId: 246669, price: 500,  guaranteed:'bronze' },
+    { name:'Ouro',    eaId: 209331, price: 2000, guaranteed:'gold'   },
+    { name:'Premium', eaId: 231747, price: 5000, guaranteed:'black'  },
+    { name:'Copa 26', eaId: 238794, price: 3000, guaranteed:'gold'   },
+    { name:'Europeu', eaId: 271321, price: 2800, guaranteed:'gold'   },
   ];
   const defs = packsInfo ?? defaults;
 
   const photos = [];
   for (const d of defs) {
     photos.push(await fetchPlayerPhoto(d.eaId ?? null));
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise(r => setTimeout(r, 100));
   }
 
-  const PW = 148, PH = 262, GAP = 12, PAD = 16;
+  const PW = 152, PH = 268, GAP = 12, PAD = 16;
   const CW = PAD*2 + defs.length*PW + (defs.length-1)*GAP;
-  const CH = PH + 72;
+  const CH = PH + 74;
 
   const canvas = createCanvas(CW, CH);
   const ctx    = canvas.getContext('2d');
   drawPitchBg(ctx, CW, CH);
 
-  ctx.fillStyle = 'rgba(0,0,0,0.75)';
-  roundRect(ctx, PAD, 10, CW-PAD*2, 30, 8); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.78)';
+  roundRect(ctx, PAD, 10, CW-PAD*2, 32, 8); ctx.fill();
+
+  const lineG2 = ctx.createLinearGradient(PAD, 10, PAD+4, 42);
+  lineG2.addColorStop(0, '#22dd55'); lineG2.addColorStop(1, '#11aa33');
+  ctx.fillStyle = lineG2; ctx.fillRect(PAD, 10, 4, 32);
+
   ctx.fillStyle    = '#4ddd4d';
   ctx.font         = 'bold 15px Roboto';
   ctx.textAlign    = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('📦  PACOTES DISPONÍVEIS', CW/2, 25);
+  ctx.fillText('📦  PACOTES DISPONÍVEIS', CW/2, 26);
 
   for (let i = 0; i < defs.length; i++) {
-    drawPackCard(ctx, PAD+i*(PW+GAP), 48, PW, PH, defs[i].name, defs[i].price, photos[i], defs[i].guaranteed);
+    drawPackCard(ctx, PAD+i*(PW+GAP), 50, PW, PH, defs[i].name, defs[i].price, photos[i], defs[i].guaranteed);
   }
 
   return canvas.toBuffer('image/png');
 }
 
-// ─── Partida result image ────────────────────────────────────────────────────
+// ─── Partida result image ─────────────────────────────────────────────────────
 export async function generatePartidaImage({ result, myScore, oppScore, myOvr, oppOvr, oppName, eloChange, newElo }) {
-  const BW = 720, BH = 260;
+  const BW = 720, BH = 265;
   const canvas = createCanvas(BW, BH);
   const ctx    = canvas.getContext('2d');
 
   const isWin  = result === 'win', isDraw = result === 'draw';
-  const rc     = isWin ? '#00cc44' : isDraw ? '#ffcc00' : '#cc2200';
+  const rc     = isWin ? '#22dd55' : isDraw ? '#ffcc00' : '#dd2222';
   const dark   = isWin ? '#040f06' : isDraw ? '#101006' : '#100404';
   const deep   = isWin ? '#020804' : isDraw ? '#0a0a02' : '#0c0202';
 
@@ -1141,26 +1280,27 @@ export async function generatePartidaImage({ result, myScore, oppScore, myOvr, o
   ctx.fillStyle = bg; ctx.fillRect(0, 0, BW, BH);
 
   // Glow central
-  const glow = ctx.createRadialGradient(BW/2, BH/2, 20, BW/2, BH/2, BW*0.65);
-  glow.addColorStop(0, `${rc}22`); glow.addColorStop(1, 'transparent');
+  const glow = ctx.createRadialGradient(BW/2, BH/2, 20, BW/2, BH/2, BW*0.60);
+  glow.addColorStop(0, `${rc}1e`); glow.addColorStop(1, 'transparent');
   ctx.fillStyle = glow; ctx.fillRect(0, 0, BW, BH);
 
-  // Barra esquerda colorida
+  // Barra lateral colorida
   const barG = ctx.createLinearGradient(0, 0, 0, BH);
   barG.addColorStop(0, rc); barG.addColorStop(1, `${rc}55`);
   ctx.fillStyle = barG; ctx.fillRect(0, 0, 5, BH);
 
   // Linhas decorativas (campo)
-  ctx.save(); ctx.globalAlpha = 0.055; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+  ctx.save(); ctx.globalAlpha = 0.05; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(0, BH/2); ctx.lineTo(BW, BH/2); ctx.stroke();
   ctx.beginPath(); ctx.arc(BW/2, BH/2, 60, 0, Math.PI*2); ctx.stroke();
   ctx.globalAlpha = 1; ctx.restore();
 
+  // Resultado label
   const label = isWin ? 'VITÓRIA' : isDraw ? 'EMPATE' : 'DERROTA';
   ctx.save();
   ctx.shadowColor = rc; ctx.shadowBlur = 30;
   ctx.fillStyle   = rc;
-  ctx.font        = 'bold 58px Roboto';
+  ctx.font        = 'bold 56px Roboto';
   ctx.textAlign   = 'left'; ctx.textBaseline = 'alphabetic';
   ctx.fillText(label, 22, 78);
   ctx.restore();
@@ -1174,7 +1314,7 @@ export async function generatePartidaImage({ result, myScore, oppScore, myOvr, o
   ctx.save();
   ctx.shadowColor = rc; ctx.shadowBlur = 22;
   ctx.fillStyle   = '#ffffff';
-  ctx.font        = 'bold 82px Roboto';
+  ctx.font        = 'bold 80px Roboto';
   ctx.textAlign   = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.fillText(`${myScore}  ×  ${oppScore}`, BW/2, 158);
   ctx.restore();
@@ -1185,11 +1325,11 @@ export async function generatePartidaImage({ result, myScore, oppScore, myOvr, o
   ctx.fillText(`OVR: ${myOvr ?? '--'} vs ${oppOvr ?? '--'}`, BW/2, 178);
 
   const eloSign  = (eloChange ?? 0) >= 0 ? '+' : '';
-  const eloColor = (eloChange ?? 0) >= 0 ? '#44ee88' : '#ee4444';
+  const eloColor = (eloChange ?? 0) >= 0 ? '#33ee88' : '#ee4444';
   ctx.fillStyle    = eloColor;
-  ctx.font         = 'bold 24px Roboto';
+  ctx.font         = 'bold 23px Roboto';
   ctx.textAlign    = 'right'; ctx.textBaseline = 'alphabetic';
-  ctx.fillText(`ELO: ${newElo ?? '--'} (${eloSign}${eloChange ?? 0})`, BW-22, 74);
+  ctx.fillText(`ELO: ${newElo ?? '--'} (${eloSign}${eloChange ?? 0})`, BW-22, 72);
 
   const botG = ctx.createLinearGradient(0, BH-3, BW, BH-3);
   botG.addColorStop(0, `${rc}55`); botG.addColorStop(0.5, rc); botG.addColorStop(1, `${rc}55`);
