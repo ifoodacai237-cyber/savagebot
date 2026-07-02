@@ -1,8 +1,8 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "nodePackages.npm"]
+nixPkgs = ["nodejs_22", "nodePackages.npm"]
 
 [phases.install]
-cmds = ["npm i"]
+cmds = ["npm install --legacy-peer-deps"]
 
 [phases.build]
 cmds = ["npx prisma generate"]
