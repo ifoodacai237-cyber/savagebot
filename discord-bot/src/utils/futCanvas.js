@@ -411,7 +411,7 @@ function drawEACard(ctx, x, y, w, h, player, photo, flag) {
   ctx.font         = `bold ${nameSize}px Roboto`;
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(trunc(player.name.toUpperCase(), 12), x + w / 2, ny + NAME_H / 2);
+  ctx.fillText(trunc((player.name ?? '').toUpperCase(), 12), x + w / 2, ny + NAME_H / 2);
   ctx.restore();
 
   // ── 5. Barra de stats ─────────────────────────────────────────────────────
@@ -708,6 +708,15 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
 
 // ─── Pack reveal image ────────────────────────────────────────────────────────
 export async function generatePackRevealImage(players) {
+  if (!players?.length) {
+    const c = createCanvas(400, 100);
+    const cx = c.getContext('2d');
+    cx.fillStyle = '#111'; cx.fillRect(0,0,400,100);
+    cx.fillStyle = '#fff'; cx.font = 'bold 18px Roboto';
+    cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    cx.fillText('Nenhuma carta encontrada!', 200, 50);
+    return c.toBuffer('image/png');
+  }
   const GAP  = 14;
   const PAD  = 18;
   const COLS = Math.min(players.length, 4);
