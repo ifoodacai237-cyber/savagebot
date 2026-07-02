@@ -208,161 +208,66 @@ function drawDiagonalPattern(ctx, x, y, w, h, color) {
 const _photoCache = new Map();
 const _flagCache  = new Map();
 
-// ─── Normaliza nome para busca ────────────────────────────────────────────────
-const _normName = s => (s ?? '').toLowerCase()
-  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  .replace(/[^a-z0-9 ]/g, '').trim();
+// ─── Buscar foto: local → FutBin FC26 → FutBin FC25 (apenas FutBin) ──────────
+// Threshold: 7000 bytes (Cloudflare comprime fotos reais para ~7-30KB via cf-polish)
+const PHOTO_MIN_BYTES = 7000;
 
-// Mapa nome curto → nome completo para busca TheSportsDB
-const TSDB_NAME_MAP = {
-  'Vinícius Jr': 'Vinicius Junior', 'Vinicius Jr': 'Vinicius Junior',
-  'Alisson':     'Alisson Becker',  'Casemiro': 'Carlos Casemiro',
-  'Mbappé':      'Kylian Mbappe',   'Mbappe': 'Kylian Mbappe',
-  'De Bruyne':   'Kevin De Bruyne', 'Van Dijk': 'Virgil Van Dijk',
-  'Neuer':       'Manuel Neuer',    'Kroos': 'Toni Kroos',
-  'Ter Stegen':  'Marc-Andre Ter Stegen',
-  'Rodri':       'Rodrigo Hernandez', 'Pedri': 'Pedri Gonzalez',
-  'Gavi':        'Pablo Gavi',      'Carvajal': 'Dani Carvajal',
-  'Rúben Dias':  'Ruben Dias',      'Ruben Dias': 'Ruben Dias',
-  'Bellingham':  'Jude Bellingham', 'Salah': 'Mohamed Salah',
-  'Hakimi':      'Achraf Hakimi',   'Haaland': 'Erling Haaland',
-  'Benzema':     'Karim Benzema',   'Modric': 'Luka Modric',
-  'Modrić':      'Luka Modric',
-  'Griezmann':   'Antoine Griezmann', 'Bastoni': 'Alessandro Bastoni',
-  'Kanté':       "N'Golo Kante",    'Kante': "N'Golo Kante",
-  'Marquinhos':  'Marquinhos',      'Theo Hernández': 'Theo Hernandez',
-  'Osimhen':     'Victor Osimhen',  'Lewandowski': 'Robert Lewandowski',
-  'Theo Hernandez': 'Theo Hernandez',
-  'Trent A-A':   'Trent Alexander-Arnold',
-  'Phil Foden':  'Phil Foden',      'Frenkie De Jong': 'Frenkie de Jong',
-  'Bruno Fernandes': 'Bruno Fernandes',
-  'Lamine Yamal': 'Lamine Yamal',
-  'Leroy Sané':  'Leroy Sane',      'Leroy Sane': 'Leroy Sane',
-  'Luis Díaz':   'Luis Diaz',       'Doku': 'Jeremy Doku',
-};
-
-const CLUB_ALIASES = {
-  'Man City': 'Manchester City', 'Man United': 'Manchester United',
-  'Inter':    'Inter Milan',     'PSG': 'Paris',
-  'Al-Ittihad': 'Al-Ittihad',   'Al Ittihad': 'Al-Ittihad',
-  'Al-Nassr': 'Al-Nassr',       'Al Nassr': 'Al-Nassr',
-  'Atletico': 'Atletico',       'Atlético': 'Atletico',
-  'Aston Villa': 'Aston Villa', 'Bayern Munich': 'Bayern Munich',
-};
-
-// ─── Buscar foto: local → FUTBIN FC26 → FUTBIN FC25 → TheSportsDB ────────────
-async function fetchPlayerPhoto(eaId, name = null, club = null) {
-  const cacheKey = eaId ? `local:${eaId}` : `tsdb:${_normName(name)}|${_normName(club)}`;
+async function fetchPlayerPhoto(eaId) {
+  if (!eaId) return null;
+  const cacheKey = `ea:${eaId}`;
   if (_photoCache.has(cacheKey)) return _photoCache.get(cacheKey);
 
   // ── 1. Arquivo local (mais rápido e confiável) ─────────────────────────────
-  if (eaId) {
-    const localPath = join(playDir, `${eaId}.png`);
-    if (existsSync(localPath)) {
-      try {
-        const buf = await readFile(localPath);
-        if (buf.length >= 40000) {
+  const localPath = join(playDir, `${eaId}.png`);
+  if (existsSync(localPath)) {
+    try {
+      const buf = await readFile(localPath);
+      if (buf.length >= PHOTO_MIN_BYTES) {
+        const img = await loadImage(buf);
+        if (img.width >= 20 && img.height >= 20) {
+          _photoCache.set(cacheKey, img);
+          return img;
+        }
+      }
+    } catch { /* continua */ }
+  }
+
+  // ── 2. FutBin CDN FC26 → FC25 (único source, conforme configuração) ────────
+  for (const ver of ['fifa26', 'fifa25']) {
+    try {
+      const url  = `https://cdn.futbin.com/content/${ver}/img/players/${eaId}.png`;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      const res  = await fetch(url, {
+        signal: ctrl.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+          'Referer': 'https://www.futbin.com/',
+          'Accept': 'image/png,image/webp,*/*',
+        },
+      });
+      clearTimeout(timer);
+      if (res.ok) {
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length >= PHOTO_MIN_BYTES) {
           const img = await loadImage(buf);
           if (img.width >= 20 && img.height >= 20) {
+            // Cache local para próximas execuções
+            try {
+              const { writeFile } = await import('fs/promises');
+              await writeFile(localPath, buf);
+            } catch { /* sem erro */ }
             _photoCache.set(cacheKey, img);
             return img;
           }
         }
-      } catch { /* continua */ }
-    }
+      }
+    } catch { /* continua */ }
   }
 
-  // ── 2. FUTBIN CDN FC26 ─────────────────────────────────────────────────────
-  if (eaId) {
-    for (const ver of ['fifa26', 'fifa25']) {
-      try {
-        const url  = `https://cdn.futbin.com/content/${ver}/img/players/${eaId}.png`;
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 8000);
-        const res  = await fetch(url, {
-          signal: ctrl.signal,
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Referer': 'https://www.futbin.com/' },
-        });
-        clearTimeout(timer);
-        if (res.ok) {
-          const buf = Buffer.from(await res.arrayBuffer());
-          if (buf.length >= 40000) {
-            const img = await loadImage(buf);
-            if (img.width >= 20 && img.height >= 20) {
-              // Salva localmente para próximas vezes
-              try { const { writeFile } = await import('fs/promises'); await writeFile(join(playDir, `${eaId}.png`), buf); } catch {}
-              _photoCache.set(cacheKey, img);
-              return img;
-            }
-          }
-        }
-      } catch { /* continua */ }
-    }
-  }
-
-  // ── 3. TheSportsDB por nome+clube (fallback) ──────────────────────────────
-  if (name) {
-    const cleanName  = name.replace(/\s+(Copa|Base|Europeu|BRL|UCL)\s*$/i, '').trim();
-    const searchName = TSDB_NAME_MAP[cleanName] ?? cleanName;
-    const clubStr    = CLUB_ALIASES[club ?? ''] ?? (club ?? '');
-    const img = await _fetchTheSportsDB(searchName, clubStr);
-    _photoCache.set(cacheKey, img);
-    return img;
-  }
-
+  // Sem foto no FutBin → exibe avatar com iniciais
   _photoCache.set(cacheKey, null);
   return null;
-}
-
-async function _fetchTheSportsDB(searchName, clubStr) {
-  try {
-    const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 8000);
-    const res   = await fetch(
-      `https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(searchName)}`,
-      { signal: ctrl.signal, headers: { 'User-Agent': 'Mozilla/5.0' } }
-    );
-    clearTimeout(timer);
-    if (!res.ok) return null;
-
-    const data    = await res.json();
-    const players = data?.player ?? [];
-    if (!players.length) return null;
-
-    const normClub  = _normName(clubStr);
-    const normSrch  = _normName(searchName);
-    const clubWords = normClub.split(/\s+/).filter(w => w.length > 2);
-
-    let best = null, bestScore = -1;
-    for (const p of players) {
-      const pName = _normName(p.strPlayer ?? '');
-      const pTeam = _normName(p.strTeam  ?? '');
-      let score = 0;
-      if (pName === normSrch) score += 10;
-      else if (pName.includes(normSrch) || normSrch.includes(pName)) score += 5;
-      score += clubWords.filter(w => pTeam.includes(w)).length * 4;
-      if (p.strThumb || p.strCutout) score += 2;
-      if (score > bestScore) { bestScore = score; best = p; }
-    }
-    if (bestScore < 2 && players.length > 3) return null;
-
-    const thumbUrl = best?.strThumb || best?.strCutout;
-    if (!thumbUrl) return null;
-
-    const ctrl2  = new AbortController();
-    const timer2 = setTimeout(() => ctrl2.abort(), 10000);
-    const imgRes = await fetch(thumbUrl, {
-      signal: ctrl2.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.thesportsdb.com/' },
-    });
-    clearTimeout(timer2);
-    if (!imgRes.ok) return null;
-    const buf = Buffer.from(await imgRes.arrayBuffer());
-    if (buf.length < 8000) return null;
-    const img = await loadImage(buf);
-    if (img.width < 30 || img.height < 30) return null;
-    return img;
-  } catch { return null; }
 }
 
 // ─── Buscar bandeira ──────────────────────────────────────────────────────────
@@ -391,15 +296,13 @@ function cardDisplayName(name) {
   return (name ?? '').replace(/\s+(Copa|Base|Europeu|BRL|UCL)\s*$/i, '').trim();
 }
 
-// ─── Batch fetch fotos ────────────────────────────────────────────────────────
+// ─── Batch fetch fotos (apenas FutBin CDN) ────────────────────────────────────
 async function batchFetchPhotos(players) {
   const out = [];
   for (let i = 0; i < players.length; i++) {
     const p    = players[i]?.player ?? players[i];
     const eaId = p?.eaId ?? null;
-    const name = p?.name ?? null;
-    const club = p?.club ?? null;
-    out.push(await fetchPlayerPhoto(eaId, name, club));
+    out.push(await fetchPlayerPhoto(eaId));
     if (i < players.length - 1) await new Promise(r => setTimeout(r, 60));
   }
   return out;
@@ -825,11 +728,11 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
 
   for (const l of lineup) {
     const p    = l.player;
-    if (!p) continue;
-    const key  = p.eaId ? `local:${p.eaId}` : `tsdb:${_normName(p.name)}|${_normName(p.club)}`;
+    if (!p || !p.eaId) continue;
+    const key  = `ea:${p.eaId}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const img = await fetchPlayerPhoto(p.eaId, p.name, p.club);
+    const img = await fetchPlayerPhoto(p.eaId);
     if (img) photoMap.set(key, img);
     const flag = await fetchFlag(p.nat);
     if (flag) flagMap.set(p.nat, flag);
@@ -903,9 +806,7 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
     const s   = slots[i];
     const ent = lineup.find(l => l.slot === i + 1);
     const p   = ent?.player ?? null;
-    const key = p
-      ? (p.eaId ? `local:${p.eaId}` : `tsdb:${_normName(p.name)}|${_normName(p.club)}`)
-      : null;
+    const key   = p?.eaId ? `ea:${p.eaId}` : null;
     const photo = key ? (photoMap.get(key) ?? null) : null;
     const flag  = p ? (flagMap.get(p.nat) ?? null) : null;
     drawFieldCard(
