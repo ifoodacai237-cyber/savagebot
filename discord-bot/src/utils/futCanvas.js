@@ -559,24 +559,26 @@ function drawEACard(ctx, x, y, w, h, player, photo, flag) {
 
   // ── 5. Barra de stats ─────────────────────────────────────────────────────
   const sy    = ny + NAME_H;
-  // Goleiros: ANT DEF TAT AER DIS EXP  |  Linha: PAS DRI DEF FIN VEL RES
+  // EA FC 26 stats — mesmos rótulos do FUT.GG
+  // Linha: PAC SHO PAS DRI DEF PHY
+  // Goleiro: DIV HAN KIC REF SPD POS
   const isGK  = player.pos === 'GOL';
   const stats = isGK
     ? [
-        { l:'ANT', v: player.pac },
-        { l:'DEF', v: player.def },
-        { l:'TAT', v: player.pas },
-        { l:'AER', v: player.dri },
-        { l:'DIS', v: player.fin },
-        { l:'EXP', v: player.fis },
+        { l:'DIV', v: player.def },
+        { l:'HAN', v: player.fis },
+        { l:'KIC', v: player.pas },
+        { l:'REF', v: player.dri },
+        { l:'SPD', v: player.pac },
+        { l:'POS', v: player.fin },
       ]
     : [
+        { l:'PAC', v: player.pac },
+        { l:'SHO', v: player.fin },
         { l:'PAS', v: player.pas },
         { l:'DRI', v: player.dri },
         { l:'DEF', v: player.def },
-        { l:'FIN', v: player.fin },
-        { l:'VEL', v: player.pac },
-        { l:'RES', v: player.fis },
+        { l:'PHY', v: player.fis },
       ];
 
   ctx.save();
