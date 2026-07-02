@@ -846,3 +846,29 @@ export async function handleCopaChannelSelect(interaction) {
   });
   return interaction.update({ ...buildCopaConfigPayload(updated), content: null });
 }
+
+// ─── Scheduler ────────────────────────────────────────────────────────────────
+
+export function startCopaScheduler(client) {
+  const INTERVAL_MS = 10 * 60 * 1000; // 10 minutos
+
+  async function tick() {
+    try {
+      const cfg = await getCopaConfig();
+      if (!cfg.enabled) return;
+
+      const openMatches = await prisma.copaMatch.findMany({
+        where: { status: 'open', messageId: { not: '' } },
+      });
+
+      for (const match of openMatches) {
+        await updateMatchMessage(match.id, client);
+      }
+    } catch (err) {
+      console.error('[COPA SCHEDULER]', err?.message ?? err);
+    }
+  }
+
+  setInterval(tick, INTERVAL_MS);
+  console.log('✅ Copa scheduler iniciado (intervalo: 10min).');
+}
