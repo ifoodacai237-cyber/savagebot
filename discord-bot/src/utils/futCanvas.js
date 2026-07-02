@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
+import { getPlayerById } from './futPlayers.js';
 
 // ─── Fontes ───────────────────────────────────────────────────────────────────
 const __dir   = dirname(fileURLToPath(import.meta.url));
@@ -237,10 +238,15 @@ async function fetchCustomPhoto(url) {
   return null;
 }
 
-async function fetchPlayerPhoto(eaId, customPhotoUrl) {
+async function fetchPlayerPhoto(eaId, customPhotoUrl, staticPhotoUrl) {
+  // Prioridade: 1) override manual do painel admin  2) foto verificada (Wikipedia, vinculada por ID)  3) CDN FutBin por eaId
   if (customPhotoUrl) {
     const custom = await fetchCustomPhoto(customPhotoUrl);
     if (custom) return custom;
+  }
+  if (staticPhotoUrl) {
+    const verified = await fetchCustomPhoto(staticPhotoUrl);
+    if (verified) return verified;
   }
   if (!eaId) return null;
   const cacheKey = `ea:${eaId}`;
@@ -330,7 +336,7 @@ async function batchFetchPhotos(players) {
   const out = [];
   for (let i = 0; i < players.length; i++) {
     const p    = players[i]?.player ?? players[i];
-    out.push(await fetchPlayerPhoto(p?.eaId ?? null, p?.customPhotoUrl ?? null));
+    out.push(await fetchPlayerPhoto(p?.eaId ?? null, p?.customPhotoUrl ?? null, p?.photo ?? null));
     if (i < players.length - 1) await new Promise(r => setTimeout(r, 60));
   }
   return out;
@@ -760,7 +766,7 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
     const key  = `id:${p.id}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const img = await fetchPlayerPhoto(p.eaId, p.customPhotoUrl);
+    const img = await fetchPlayerPhoto(p.eaId, p.customPhotoUrl, p.photo);
     if (img) photoMap.set(key, img);
     const flag = await fetchFlag(p.nat);
     if (flag) flagMap.set(p.nat, flag);
@@ -1106,15 +1112,16 @@ function drawPackCard(ctx, x, y, w, h, packName, price, photo, guaranteed) {
 // ─── Loja image ────────────────────────────────────────────────────────────────
 export async function generateLojaImage(balance) {
   const packDefs = [
-    { name:'Padrão',  eaId: 246669, price: 500,  guaranteed:'bronze' }, // Bellingham
-    { name:'Ouro',    eaId: 209331, price: 2000, guaranteed:'gold'   }, // Salah
-    { name:'Premium', eaId: 231747, price: 5000, guaranteed:'black'  }, // Mbappé
-    { name:'Europeu', eaId: 271321, price: 2800, guaranteed:'gold'   }, // Lamine Yamal
+    { name:'Padrão',  playerId: 11, price: 500,  guaranteed:'bronze' }, // Bellingham
+    { name:'Ouro',    playerId: 17, price: 2000, guaranteed:'gold'   }, // Salah
+    { name:'Premium', playerId: 14, price: 5000, guaranteed:'black'  }, // Mbappé
+    { name:'Europeu', playerId: 25, price: 2800, guaranteed:'gold'   }, // Lamine Yamal
   ];
 
   const photos = [];
   for (const d of packDefs) {
-    photos.push(await fetchPlayerPhoto(d.eaId));
+    const pl = getPlayerById(d.playerId);
+    photos.push(await fetchPlayerPhoto(pl?.eaId ?? null, null, pl?.photo ?? null));
     await new Promise(r => setTimeout(r, 100));
   }
 
@@ -1152,17 +1159,18 @@ export async function generateLojaImage(balance) {
 // ─── Pacotes image (seleção de pacotes) ───────────────────────────────────────
 export async function generatePacksImage(packsInfo) {
   const defaults = [
-    { name:'Padrão',  eaId: 246669, price: 500,  guaranteed:'bronze' },
-    { name:'Ouro',    eaId: 209331, price: 2000, guaranteed:'gold'   },
-    { name:'Premium', eaId: 231747, price: 5000, guaranteed:'black'  },
-    { name:'Copa 26', eaId: 238794, price: 3000, guaranteed:'gold'   },
-    { name:'Europeu', eaId: 271321, price: 2800, guaranteed:'gold'   },
+    { name:'Padrão',  playerId: 11, price: 500,  guaranteed:'bronze' },
+    { name:'Ouro',    playerId: 17, price: 2000, guaranteed:'gold'   },
+    { name:'Premium', playerId: 14, price: 5000, guaranteed:'black'  },
+    { name:'Copa 26', playerId: 26, price: 3000, guaranteed:'gold'   },
+    { name:'Europeu', playerId: 25, price: 2800, guaranteed:'gold'   },
   ];
   const defs = packsInfo ?? defaults;
 
   const photos = [];
   for (const d of defs) {
-    photos.push(await fetchPlayerPhoto(d.eaId ?? null));
+    const pl = d.playerId != null ? getPlayerById(d.playerId) : null;
+    photos.push(await fetchPlayerPhoto(pl?.eaId ?? d.eaId ?? null, null, pl?.photo ?? null));
     await new Promise(r => setTimeout(r, 100));
   }
 
