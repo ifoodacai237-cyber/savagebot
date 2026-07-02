@@ -172,38 +172,134 @@ function statColor(val) {
 const _photoCache = new Map();
 const _flagCache  = new Map();
 
-// ─── Buscar foto do jogador via FUTBIN CDN (eaId) ────────────────────────────
-async function fetchPlayerPhoto(eaId) {
-  if (!eaId) return null;
-  const cacheKey = `futbin:${eaId}`;
+// ─── Normaliza nome para busca ────────────────────────────────────────────────
+const _normName = s => (s ?? '').toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9 ]/g, '').trim();
+
+// Mapa nome curto → nome completo para busca TheSportsDB
+const TSDB_NAME_MAP = {
+  'Vinícius Jr': 'Vinicius Junior', 'Vinicius Jr': 'Vinicius Junior',
+  'Alisson':     'Alisson Becker',  'Casemiro': 'Carlos Casemiro',
+  'Mbappé':      'Kylian Mbappe',   'Mbappe': 'Kylian Mbappe',
+  'De Bruyne':   'Kevin De Bruyne', 'Van Dijk': 'Virgil Van Dijk',
+  'Neuer':       'Manuel Neuer',    'Kroos': 'Toni Kroos',
+  'Ter Stegen':  'Marc-Andre Ter Stegen',
+  'Rodri':       'Rodrigo Hernandez', 'Pedri': 'Pedri Gonzalez',
+  'Gavi':        'Pablo Gavi',      'Carvajal': 'Dani Carvajal',
+  'Rúben Dias':  'Ruben Dias',      'Ruben Dias': 'Ruben Dias',
+  'Bellingham':  'Jude Bellingham', 'Salah': 'Mohamed Salah',
+  'Hakimi':      'Achraf Hakimi',   'Haaland': 'Erling Haaland',
+  'Benzema':     'Karim Benzema',   'Modric': 'Luka Modric',
+  'Griezmann':   'Antoine Griezmann', 'Bastoni': 'Alessandro Bastoni',
+  'Kanté':       'N\'Golo Kante',   'Kante': 'N\'Golo Kante',
+  'Marquinhos':  'Marquinhos',      'Theo Hernández': 'Theo Hernandez',
+  'Osimhen':     'Victor Osimhen',  'Lewandowski': 'Robert Lewandowski',
+  'Theo Hernandez': 'Theo Hernandez',
+};
+
+const CLUB_ALIASES = {
+  'Man City': 'Manchester City', 'Man United': 'Manchester United',
+  'Inter':    'Inter Milan',     'PSG': 'Paris',
+  'Al-Ittihad': 'Al-Ittihad',   'Al Ittihad': 'Al-Ittihad',
+  'Al-Nassr': 'Al-Nassr',       'Al Nassr': 'Al-Nassr',
+  'Atletico': 'Atletico',
+};
+
+// ─── Buscar foto: FUTBIN (primário, eaId) → TheSportsDB (fallback, nome) ─────
+async function fetchPlayerPhoto(eaId, name = null, club = null) {
+  const cacheKey = eaId ? `futbin:${eaId}` : `tsdb:${_normName(name)}|${_normName(club)}`;
   if (_photoCache.has(cacheKey)) return _photoCache.get(cacheKey);
 
-  const urls = [
-    `https://cdn.futbin.com/content/fc26/img/players/${eaId}.png`,
-    `https://cdn.futbin.com/content/fifa25/img/players/${eaId}.png`,
-  ];
-
-  for (const url of urls) {
+  // ── 1. FUTBIN CDN por eaId ──────────────────────────────────────────────────
+  if (eaId) {
+    const url = `https://cdn.futbin.com/content/fifa25/img/players/${eaId}.png`;
     try {
       const ctrl  = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 8000);
+      const timer = setTimeout(() => ctrl.abort(), 7000);
       const res   = await fetch(url, {
         signal: ctrl.signal,
         headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.futbin.com/' },
       });
       clearTimeout(timer);
-      if (!res.ok) continue;
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length < 2000) continue;
-      const img = await loadImage(buf);
-      if (img.width < 20 || img.height < 20) continue;
-      _photoCache.set(cacheKey, img);
-      return img;
-    } catch { /* tenta próxima URL */ }
+      if (res.ok) {
+        const buf = Buffer.from(await res.arrayBuffer());
+        // Placeholder do FUTBIN tem < 40KB; fotos reais têm ≥ 60KB
+        if (buf.length >= 40000) {
+          const img = await loadImage(buf);
+          if (img.width >= 20 && img.height >= 20) {
+            _photoCache.set(cacheKey, img);
+            return img;
+          }
+        }
+      }
+    } catch { /* cai no fallback */ }
+  }
+
+  // ── 2. TheSportsDB por nome+clube (fallback quando FUTBIN não tem foto) ─────
+  if (name) {
+    // Remove sufixos de série (ex: "Bellingham Copa" → "Bellingham")
+    const cleanName = name.replace(/\s+(Copa|Base|Europeu|BRL|UCL)\s*$/i, '').trim();
+    const searchName = TSDB_NAME_MAP[cleanName] ?? cleanName;
+    const clubStr    = CLUB_ALIASES[club ?? ''] ?? (club ?? '');
+    const img = await _fetchTheSportsDB(searchName, clubStr);
+    _photoCache.set(cacheKey, img);
+    return img;
   }
 
   _photoCache.set(cacheKey, null);
   return null;
+}
+
+async function _fetchTheSportsDB(searchName, clubStr) {
+  try {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    const res   = await fetch(
+      `https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(searchName)}`,
+      { signal: ctrl.signal, headers: { 'User-Agent': 'Mozilla/5.0' } }
+    );
+    clearTimeout(timer);
+    if (!res.ok) return null;
+
+    const data    = await res.json();
+    const players = data?.player ?? [];
+    if (!players.length) return null;
+
+    const normClub  = _normName(clubStr);
+    const normSrch  = _normName(searchName);
+    const clubWords = normClub.split(/\s+/).filter(w => w.length > 2);
+
+    let best = null, bestScore = -1;
+    for (const p of players) {
+      const pName = _normName(p.strPlayer ?? '');
+      const pTeam = _normName(p.strTeam  ?? '');
+      let score = 0;
+      if (pName === normSrch) score += 10;
+      else if (pName.includes(normSrch) || normSrch.includes(pName)) score += 5;
+      score += clubWords.filter(w => pTeam.includes(w)).length * 4;
+      if (p.strThumb || p.strCutout) score += 2;
+      if (score > bestScore) { bestScore = score; best = p; }
+    }
+    if (bestScore < 2 && players.length > 3) return null;
+
+    const thumbUrl = best?.strThumb || best?.strCutout;
+    if (!thumbUrl) return null;
+
+    const ctrl2  = new AbortController();
+    const timer2 = setTimeout(() => ctrl2.abort(), 10000);
+    const imgRes = await fetch(thumbUrl, {
+      signal: ctrl2.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.thesportsdb.com/' },
+    });
+    clearTimeout(timer2);
+    if (!imgRes.ok) return null;
+    const buf = Buffer.from(await imgRes.arrayBuffer());
+    if (buf.length < 8000) return null;
+    const img = await loadImage(buf);
+    if (img.width < 30 || img.height < 30) return null;
+    return img;
+  } catch { return null; }
 }
 
 // ─── Buscar bandeira ──────────────────────────────────────────────────────────
@@ -227,13 +323,20 @@ async function fetchFlag(nat) {
   } catch { _flagCache.set(nat, null); return null; }
 }
 
+// ─── Nome limpo para exibição (remove sufixos de série do card) ──────────────
+function cardDisplayName(name) {
+  return (name ?? '').replace(/\s+(Copa|Base|Europeu|BRL|UCL)\s*$/i, '').trim();
+}
+
 // ─── Batch fetch fotos ────────────────────────────────────────────────────────
 async function batchFetchPhotos(players) {
   const out = [];
   for (let i = 0; i < players.length; i++) {
-    const p     = players[i]?.player ?? players[i];
-    const eaId  = p?.eaId ?? null;
-    out.push(eaId ? await fetchPlayerPhoto(eaId) : null);
+    const p    = players[i]?.player ?? players[i];
+    const eaId = p?.eaId ?? null;
+    const name = p?.name ?? null;
+    const club = p?.club ?? null;
+    out.push(await fetchPlayerPhoto(eaId, name, club));
     if (i < players.length - 1) await new Promise(r => setTimeout(r, 120));
   }
   return out;
@@ -412,7 +515,7 @@ function drawEACard(ctx, x, y, w, h, player, photo, flag) {
   ctx.font         = `bold ${nameSize}px Roboto`;
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(trunc((player.name ?? '').toUpperCase(), 12), x + w / 2, ny + NAME_H / 2);
+  ctx.fillText(trunc(cardDisplayName(player.name).toUpperCase(), 12), x + w / 2, ny + NAME_H / 2);
   ctx.restore();
 
   // ── 5. Barra de stats ─────────────────────────────────────────────────────
@@ -606,7 +709,7 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
     const key  = `futbin:${p.eaId ?? 0}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const img = await fetchPlayerPhoto(p.eaId);
+    const img = await fetchPlayerPhoto(p.eaId, p.name, p.club);
     if (img) photoMap.set(key, img);
     const flag = await fetchFlag(p.nat);
     if (flag) flagMap.set(p.nat, flag);
