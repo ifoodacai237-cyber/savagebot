@@ -1,5 +1,8 @@
+[variables]
+NIXPACKS_NODE_VERSION = "22"
+
 [phases.setup]
-nixPkgs = ["nodejs_22", "nodePackages.npm"]
+nixPkgs = ["ffmpeg"]
 
 [phases.install]
 cmds = ["npm install --legacy-peer-deps"]
