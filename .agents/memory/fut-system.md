@@ -17,7 +17,7 @@ Player data fica em `src/utils/futPlayers.js` (array JS, não tabela Prisma). Fu
 - `FutMatch` — histórico de partidas contra IA
 
 ## Arquivos-chave
-- `src/utils/futPlayers.js` — ~140 jogadores (black/gold/silver/bronze, 4 séries)
+- `src/utils/futPlayers.js` — ~124 jogadores (black/gold/silver/bronze, 4 séries)
 - `src/utils/futManager.js` — PACKS, FORMATION_POSITIONS, openPack, autoLineup, simulateMatch, getTeamOvr
 - `src/utils/futCanvas.js` — gera imagem PNG 700x900 do campo com cartas posicionadas
 - `src/commands/jogos/fut.js` — /fut time|colecao|loja|pacotes|partida|formacao|nome + buildTeamMessage etc.
@@ -53,6 +53,16 @@ IA com OVR ± 7 do usuário. ELO padrão K=32. Placar gerado por OVR diff + rand
 
 **Why:** FutBin CDN bloqueava e retornava silhuetas genéricas; eaId foi renomeado para futggId
 para deixar claro que a fonte é o FUT.GG. Um único ID por carta = sem cruzamento de fontes.
+
+## Status dos futggId (após rebuild)
+22 jogadores receberam futggId via web search (Thiago Silva=164240, Isco=197781, Pedro=189505, Raphael Veiga=250009, Gabigol=212823, Dudu=258085, Luciano=230601, Tiquinho=227476, Fabianski=164835, Lenglet=220440, Ndicka=236403, Javier Guerra=266436, Flores=259717, Palmieri=210736, Lodi=251573, Volland=200610, Soteldo=233531, Zé Rafael=221933, Léo Pereira=250001, Piquerez=239476, Patrick=242180, Neves Jr=272834).
+
+4 ainda sem futggId (jogadores de ligas muito obscuras sem presença no EA FC 25): Carabott (MLT), Araújo Jr (Madureira/BRA), Ferreira (Criciúma/BRA), Reinaldo (Grêmio/BRA).
+
+## Como buscar futggId para novos jogadores
+- CDN fut.gg é bloqueado da rede Replit (timeout). Usar web search: `webSearch({ query: "fut.gg {nome} EA FC 25 player ID" })`
+- IDs válidos ficam na faixa 158000–275000. IDs fora desse range são suspeitos/errados.
+- futggId = EA internal resource ID (mesmo que sofifa.com usa na URL do jogador)
 
 ## Painel admin de override manual (nome/foto por carta)
 `FutPlayerOverride` (Prisma, playerId único) + `src/utils/futOverrides.js` (cache em memória +

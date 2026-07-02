@@ -126,13 +126,13 @@ export const FUT_PLAYERS = [
   // Brasileirão — Gold
   { id: 75, name: 'Arrascaeta',     pos: 'MEI', ovr: 83, pac: 78, fin: 80, pas: 84, dri: 86, def: 44, fis: 68, nat: 'URU', club: 'Flamengo',      rarity: 'gold', series: 'brasileirao26', sofascoreId: 130819,  futggId: 220429 },
   { id: 76, name: 'Pedro',          pos: 'CA',  ovr: 83, pac: 76, fin: 86, pas: 68, dri: 78, def: 36, fis: 82, nat: 'BRA', club: 'Flamengo',      rarity: 'gold', series: 'brasileirao26', sofascoreId: 748068, futggId: 189505 },
-  { id: 77, name: 'Raphael Veiga',  pos: 'MEI', ovr: 82, pac: 76, fin: 82, pas: 82, dri: 84, def: 48, fis: 70, nat: 'BRA', club: 'Palmeiras',     rarity: 'gold', series: 'brasileirao26', sofascoreId: 490489 },
-  { id: 78, name: 'Gabigol',        pos: 'CA',  ovr: 82, pac: 80, fin: 86, pas: 66, dri: 82, def: 28, fis: 74, nat: 'BRA', club: 'Cruzeiro',      rarity: 'gold', series: 'brasileirao26', sofascoreId: 219164 },
+  { id: 77, name: 'Raphael Veiga',  pos: 'MEI', ovr: 82, pac: 76, fin: 82, pas: 82, dri: 84, def: 48, fis: 70, nat: 'BRA', club: 'Palmeiras',     rarity: 'gold', series: 'brasileirao26', sofascoreId: 490489, futggId: 250009 },
+  { id: 78, name: 'Gabigol',        pos: 'CA',  ovr: 82, pac: 80, fin: 86, pas: 66, dri: 82, def: 28, fis: 74, nat: 'BRA', club: 'Cruzeiro',      rarity: 'gold', series: 'brasileirao26', sofascoreId: 219164, futggId: 212823 },
   { id: 79, name: 'Endrick',        pos: 'CA',  ovr: 80, pac: 84, fin: 82, pas: 66, dri: 82, def: 28, fis: 76, nat: 'BRA', club: 'Real Madrid',   rarity: 'gold', series: 'brasileirao26', sofascoreId: 1133590, futggId: 261141 },
   { id: 80, name: 'Dudu',           pos: 'PE',  ovr: 80, pac: 84, fin: 78, pas: 74, dri: 84, def: 36, fis: 70, nat: 'BRA', club: 'Palmeiras',     rarity: 'gold', series: 'brasileirao26', sofascoreId: 82399, futggId: 258085 },
   { id: 81, name: 'Hulk',           pos: 'CA',  ovr: 80, pac: 78, fin: 84, pas: 64, dri: 76, def: 32, fis: 88, nat: 'BRA', club: 'Atlético-MG',   rarity: 'gold', series: 'brasileirao26', sofascoreId: 34021,   futggId: 177003 },
   { id: 82, name: 'Luciano',        pos: 'CA',  ovr: 79, pac: 82, fin: 82, pas: 68, dri: 80, def: 30, fis: 76, nat: 'BRA', club: 'São Paulo',     rarity: 'gold', series: 'brasileirao26', sofascoreId: 175741, futggId: 230601 },
-  { id: 83, name: 'Tiquinho Soares',pos: 'CA',  ovr: 78, pac: 80, fin: 80, pas: 65, dri: 78, def: 28, fis: 78, nat: 'BRA', club: 'Botafogo',      rarity: 'gold', series: 'brasileirao26', sofascoreId: 80547 },
+  { id: 83, name: 'Tiquinho Soares',pos: 'CA',  ovr: 78, pac: 80, fin: 80, pas: 65, dri: 78, def: 28, fis: 78, nat: 'BRA', club: 'Botafogo',      rarity: 'gold', series: 'brasileirao26', sofascoreId: 80547, futggId: 227476 },
 
   // Copa 2026 — Gold
   { id: 84, name: 'Pedri Copa',     pos: 'MC',  ovr: 84, pac: 80, fin: 74, pas: 88, dri: 90, def: 72, fis: 70, nat: 'ESP', club: 'Barcelona',     rarity: 'gold', series: 'copa2026',     sofascoreId: 889012,  futggId: 231677 },
@@ -180,12 +180,12 @@ export const FUT_PLAYERS = [
   { id: 127, name: 'Neves Jr',       pos: 'MC',  ovr: 62, pac: 70, fin: 54, pas: 66, dri: 68, def: 56, fis: 62, nat: 'BRA', club: 'Juventude',     rarity: 'bronze', series: 'brasileirao26', futggId: 272834 },
   { id: 128, name: 'Volland',        pos: 'CA',  ovr: 64, pac: 76, fin: 68, pas: 62, dri: 72, def: 28, fis: 70, nat: 'ALE', club: 'Monaco',        rarity: 'bronze', series: 'europe2526',   sofascoreId: 185271, futggId: 200610 },
   { id: 129, name: 'Okafor',         pos: 'CA',  ovr: 63, pac: 82, fin: 66, pas: 60, dri: 70, def: 26, fis: 70, nat: 'SUI', club: 'AC Milan',      rarity: 'bronze', series: 'europe2526',   sofascoreId: 877019,  futggId: 256392 },
-  { id: 130, name: 'Soteldo',        pos: 'PE',  ovr: 63, pac: 72, fin: 66, pas: 58, dri: 74, def: 22, fis: 62, nat: 'VEN', club: 'Santos',        rarity: 'bronze', series: 'brasileirao26', sofascoreId: 846162 },
+  { id: 130, name: 'Soteldo',        pos: 'PE',  ovr: 63, pac: 72, fin: 66, pas: 58, dri: 74, def: 22, fis: 62, nat: 'VEN', club: 'Santos',        rarity: 'bronze', series: 'brasileirao26', sofascoreId: 846162, futggId: 233531 },
   { id: 131, name: 'Luiz Henrique',  pos: 'PE',  ovr: 64, pac: 82, fin: 64, pas: 62, dri: 72, def: 28, fis: 62, nat: 'BRA', club: 'Botafogo',      rarity: 'bronze', series: 'brasileirao26', sofascoreId: 832049,  futggId: 258219 },
-  { id: 132, name: 'Zé Rafael',      pos: 'MC',  ovr: 63, pac: 68, fin: 56, pas: 68, dri: 68, def: 62, fis: 70, nat: 'BRA', club: 'Bahia',         rarity: 'bronze', series: 'brasileirao26', sofascoreId: 310143 },
-  { id: 133, name: 'Léo Pereira',    pos: 'ZAG', ovr: 64, pac: 70, fin: 30, pas: 56, dri: 60, def: 66, fis: 70, nat: 'BRA', club: 'Flamengo',      rarity: 'bronze', series: 'brasileirao26', sofascoreId: 602987 },
+  { id: 132, name: 'Zé Rafael',      pos: 'MC',  ovr: 63, pac: 68, fin: 56, pas: 68, dri: 68, def: 62, fis: 70, nat: 'BRA', club: 'Bahia',         rarity: 'bronze', series: 'brasileirao26', sofascoreId: 310143, futggId: 221933 },
+  { id: 133, name: 'Léo Pereira',    pos: 'ZAG', ovr: 64, pac: 70, fin: 30, pas: 56, dri: 60, def: 66, fis: 70, nat: 'BRA', club: 'Flamengo',      rarity: 'bronze', series: 'brasileirao26', sofascoreId: 602987, futggId: 250001 },
   { id: 134, name: 'Piquerez',       pos: 'LE',  ovr: 64, pac: 78, fin: 52, pas: 64, dri: 66, def: 62, fis: 68, nat: 'URU', club: 'Palmeiras',     rarity: 'bronze', series: 'brasileirao26', sofascoreId: 821060, futggId: 239476 },
-  { id: 135, name: 'Patrick',        pos: 'MC',  ovr: 62, pac: 70, fin: 56, pas: 64, dri: 66, def: 58, fis: 68, nat: 'BRA', club: 'Atlético-GO',   rarity: 'bronze', series: 'brasileirao26' },
+  { id: 135, name: 'Patrick',        pos: 'MC',  ovr: 62, pac: 70, fin: 56, pas: 64, dri: 66, def: 58, fis: 68, nat: 'BRA', club: 'Atlético-GO',   rarity: 'bronze', series: 'brasileirao26', futggId: 242180 },
   { id: 136, name: 'Reinaldo',       pos: 'LD',  ovr: 62, pac: 70, fin: 48, pas: 60, dri: 62, def: 60, fis: 64, nat: 'BRA', club: 'Grêmio',        rarity: 'bronze', series: 'brasileirao26', sofascoreId: 123768 },
 ];
 
