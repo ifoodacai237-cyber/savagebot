@@ -1,5 +1,11 @@
 import prisma from '../database/client.js';
-import { FUT_PLAYERS, getPlayerById, getPlayersBySeries, getPlayersByPosition, POSITION_COMPAT } from './futPlayers.js';
+import { FUT_PLAYERS, getPlayerById as getRawPlayerById, getPlayersBySeries, getPlayersByPosition, POSITION_COMPAT } from './futPlayers.js';
+import { applyOverride } from './futOverrides.js';
+
+// Retorna o jogador já com nome/foto customizados (override de painel admin) aplicados.
+export async function getPlayerById(id) {
+  return applyOverride(getRawPlayerById(id));
+}
 
 // ─── Definição dos Pacotes ────────────────────────────────────────────────────
 export const PACKS = {
@@ -240,7 +246,7 @@ export async function autoLineup(teamId, formation) {
   const cards = await prisma.futUserCard.findMany({ where: { teamId } });
 
   // Mapa de playerId → player info
-  const cardsFull = cards.map(c => ({ ...c, player: getPlayerById(c.playerId) }))
+  const cardsFull = (await Promise.all(cards.map(async c => ({ ...c, player: await getPlayerById(c.playerId) }))))
     .filter(c => c.player !== null)
     .sort((a, b) => (b.player?.ovr ?? 0) - (a.player?.ovr ?? 0));
 
@@ -274,11 +280,11 @@ export async function getTeamLineup(teamId) {
     orderBy: { slot: 'asc' },
   });
 
-  return lineup.map(l => ({
+  return Promise.all(lineup.map(async l => ({
     slot:   l.slot,
     cardId: l.cardId,
-    player: getPlayerById(l.card.playerId),
-  }));
+    player: await getPlayerById(l.card.playerId),
+  })));
 }
 
 export async function getTeamOvr(teamId) {
@@ -297,7 +303,7 @@ export async function getCollection(teamId, page = 1, perPage = 10) {
     take:    perPage,
   });
 
-  const withPlayers = cards.map(c => ({ ...c, player: getPlayerById(c.playerId) }));
+  const withPlayers = await Promise.all(cards.map(async c => ({ ...c, player: await getPlayerById(c.playerId) })));
   return { cards: withPlayers, total, pages: Math.ceil(total / perPage), page };
 }
 

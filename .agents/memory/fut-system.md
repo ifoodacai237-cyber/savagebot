@@ -42,3 +42,16 @@ IA com OVR ± 7 do usuário. ELO padrão K=32. Placar gerado por OVR diff + rand
 - Adicionar fotos de jogadores reais: passar `imageUrl` para `drawPlayerCard` no futCanvas.js
 - Adicionar troca de cartas entre usuários: nova rota no futManager.js
 - Mercado de transferências: modelo FutTransfer no schema
+
+## Painel admin de override manual (nome/foto por carta)
+Como fallback para quando a foto automática (FutBin CDN por eaId) vem errada/trocada, existe
+`FutPlayerOverride` (Prisma, playerId único) + `src/utils/futOverrides.js` (cache em memória +
+CRUD) + comando `/fut-painel-fotos` (admin) com botões que abrem modais para editar/resetar/listar.
+
+**Why:** correção automática por eaId nem sempre resolve (fotos trocadas entre jogadores parecidos,
+CDN sem imagem); admin precisa de um jeito manual e imediato sem depender de nova sessão de agente.
+
+**Como aplica:** `getPlayerById` em `futManager.js` (não em `futPlayers.js`) já aplica o override
+automaticamente — qualquer novo código que resolva jogador por ID deve usar essa versão (async) e
+não a de `futPlayers.js` diretamente, senão o override é ignorado. Fotos customizadas usam
+`player.customPhotoUrl` (URL direta, sem depender de eaId) — `fetchPlayerPhoto` prioriza isso antes do CDN.

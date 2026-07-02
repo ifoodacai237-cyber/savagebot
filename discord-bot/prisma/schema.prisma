@@ -390,6 +390,16 @@ model FutLineup {
   @@unique([teamId, slot])
 }
 
+model FutPlayerOverride {
+  id             String   @id @default(cuid())
+  playerId       Int      @unique
+  customName     String?
+  customPhotoUrl String?
+  updatedBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 model FutMatch {
   id           String   @id @default(cuid())
   teamId       String

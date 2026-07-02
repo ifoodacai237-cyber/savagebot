@@ -214,7 +214,34 @@ const _flagCache  = new Map();
 // Threshold de 12KB rejeita silhuetas e aceita todas as fotos reais.
 const PHOTO_MIN_BYTES = 12000;
 
-async function fetchPlayerPhoto(eaId) {
+// Foto customizada via painel admin (URL direta) — sempre prioritária.
+async function fetchCustomPhoto(url) {
+  if (!url) return null;
+  const cacheKey = `custom:${url}`;
+  if (_photoCache.has(cacheKey)) return _photoCache.get(cacheKey);
+  try {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    const res   = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
+    clearTimeout(timer);
+    if (res.ok) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      const img = await loadImage(buf);
+      if (img.width >= 10 && img.height >= 10) {
+        _photoCache.set(cacheKey, img);
+        return img;
+      }
+    }
+  } catch { /* continua */ }
+  _photoCache.set(cacheKey, null);
+  return null;
+}
+
+async function fetchPlayerPhoto(eaId, customPhotoUrl) {
+  if (customPhotoUrl) {
+    const custom = await fetchCustomPhoto(customPhotoUrl);
+    if (custom) return custom;
+  }
   if (!eaId) return null;
   const cacheKey = `ea:${eaId}`;
   if (_photoCache.has(cacheKey)) return _photoCache.get(cacheKey);
@@ -303,8 +330,7 @@ async function batchFetchPhotos(players) {
   const out = [];
   for (let i = 0; i < players.length; i++) {
     const p    = players[i]?.player ?? players[i];
-    const eaId = p?.eaId ?? null;
-    out.push(await fetchPlayerPhoto(eaId));
+    out.push(await fetchPlayerPhoto(p?.eaId ?? null, p?.customPhotoUrl ?? null));
     if (i < players.length - 1) await new Promise(r => setTimeout(r, 60));
   }
   return out;
@@ -730,11 +756,11 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
 
   for (const l of lineup) {
     const p    = l.player;
-    if (!p || !p.eaId) continue;
-    const key  = `ea:${p.eaId}`;
+    if (!p || (!p.eaId && !p.customPhotoUrl)) continue;
+    const key  = `id:${p.id}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const img = await fetchPlayerPhoto(p.eaId);
+    const img = await fetchPlayerPhoto(p.eaId, p.customPhotoUrl);
     if (img) photoMap.set(key, img);
     const flag = await fetchFlag(p.nat);
     if (flag) flagMap.set(p.nat, flag);
@@ -808,7 +834,7 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
     const s   = slots[i];
     const ent = lineup.find(l => l.slot === i + 1);
     const p   = ent?.player ?? null;
-    const key   = p?.eaId ? `ea:${p.eaId}` : null;
+    const key   = p ? `id:${p.id}` : null;
     const photo = key ? (photoMap.get(key) ?? null) : null;
     const flag  = p ? (flagMap.get(p.nat) ?? null) : null;
     drawFieldCard(

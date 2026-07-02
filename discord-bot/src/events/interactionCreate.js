@@ -849,6 +849,59 @@ export default {
           return;
         }
 
+        // ── FUT ADMIN: Painel de personalização de cartas ─────────────────
+        if (customId === 'futadm_editar') {
+          const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+          if (!isAdmin) return interaction.reply({ content: '❌ Apenas administradores.', ephemeral: true });
+          const modal = new ModalBuilder().setCustomId('futadm_editar_modal').setTitle('✏️ Editar Carta FUT');
+          modal.addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder().setCustomId('playerId').setLabel('ID do jogador').setStyle(TextInputStyle.Short)
+                .setPlaceholder('Ex: 15').setRequired(true).setMaxLength(6),
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder().setCustomId('nome').setLabel('Novo nome (deixe vazio p/ manter)').setStyle(TextInputStyle.Short)
+                .setRequired(false).setMaxLength(40),
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder().setCustomId('foto').setLabel('URL da foto (deixe vazio p/ manter)').setStyle(TextInputStyle.Short)
+                .setPlaceholder('https://...').setRequired(false).setMaxLength(300),
+            ),
+          );
+          return interaction.showModal(modal);
+        }
+
+        if (customId === 'futadm_resetar') {
+          const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+          if (!isAdmin) return interaction.reply({ content: '❌ Apenas administradores.', ephemeral: true });
+          const modal = new ModalBuilder().setCustomId('futadm_resetar_modal').setTitle('🗑️ Resetar Carta FUT');
+          modal.addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder().setCustomId('playerId').setLabel('ID do jogador').setStyle(TextInputStyle.Short)
+                .setPlaceholder('Ex: 15').setRequired(true).setMaxLength(6),
+            ),
+          );
+          return interaction.showModal(modal);
+        }
+
+        if (customId === 'futadm_listar') {
+          const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+          if (!isAdmin) return interaction.reply({ content: '❌ Apenas administradores.', ephemeral: true });
+          await interaction.deferReply({ ephemeral: true });
+          const { getAllOverrides } = await import('../utils/futOverrides.js');
+          const { getPlayerById: getRawPlayerById } = await import('../utils/futPlayers.js');
+          const overrides = await getAllOverrides();
+          if (!overrides.length)
+            return interaction.editReply({ content: 'ℹ️ Nenhuma carta personalizada ainda.' });
+          const lines = overrides.map(o => {
+            const base = getRawPlayerById(o.playerId);
+            return `**ID ${o.playerId}** (${base?.name ?? '?'}) → nome: \`${o.customName ?? '—'}\` | foto: ${o.customPhotoUrl ? '[link](' + o.customPhotoUrl + ')' : '—'}`;
+          });
+          return interaction.editReply({
+            embeds: [new EmbedBuilder().setColor(0x9B4FD6).setTitle('📋 Cartas Personalizadas').setDescription(lines.join('\n'))],
+          });
+        }
+
         // ── COPA: Palpites e painel ──────────────────────────────────────
         if (customId.startsWith('copa_')) {
           return handleCopaInteraction(interaction, client);
@@ -2721,6 +2774,56 @@ export default {
           interaction.customId.startsWith('copa_modal_resultado:')
         ) {
           return handleCopaModal(interaction, client);
+        }
+
+        // ── FUT ADMIN: Salvar edição/reset de carta ────────────────────
+        if (interaction.customId === 'futadm_editar_modal') {
+          await interaction.deferReply({ ephemeral: true });
+          const { getPlayerById: getRawPlayerById } = await import('../utils/futPlayers.js');
+          const { setOverride } = await import('../utils/futOverrides.js');
+          const { generateCollectionImage } = await import('../utils/futCanvas.js');
+
+          const playerId = parseInt(interaction.fields.getTextInputValue('playerId').trim(), 10);
+          const nome     = interaction.fields.getTextInputValue('nome').trim() || undefined;
+          const foto     = interaction.fields.getTextInputValue('foto').trim() || undefined;
+
+          if (Number.isNaN(playerId))
+            return interaction.editReply({ content: '❌ ID inválido — informe apenas números.' });
+
+          const base = getRawPlayerById(playerId);
+          if (!base)
+            return interaction.editReply({ content: `❌ Nenhum jogador encontrado com o ID **${playerId}**.` });
+
+          if (!nome && !foto)
+            return interaction.editReply({ content: '❌ Informe ao menos um novo nome ou uma URL de foto.' });
+
+          await setOverride(playerId, { customName: nome, customPhotoUrl: foto }, interaction.user.id);
+
+          const previewPlayer = { ...base, name: nome ?? base.name, customPhotoUrl: foto ?? null };
+          const buf   = await generateCollectionImage([{ player: previewPlayer }]);
+          const attach = new AttachmentBuilder(buf, { name: 'carta.png' });
+
+          return interaction.editReply({
+            content: `✅ Carta **ID ${playerId}** atualizada!\n${nome ? `Nome → **${nome}**\n` : ''}${foto ? `Foto → [link](${foto})` : ''}`,
+            files: [attach],
+          });
+        }
+
+        if (interaction.customId === 'futadm_resetar_modal') {
+          await interaction.deferReply({ ephemeral: true });
+          const { getPlayerById: getRawPlayerById } = await import('../utils/futPlayers.js');
+          const { removeOverride } = await import('../utils/futOverrides.js');
+
+          const playerId = parseInt(interaction.fields.getTextInputValue('playerId').trim(), 10);
+          if (Number.isNaN(playerId))
+            return interaction.editReply({ content: '❌ ID inválido — informe apenas números.' });
+
+          const base = getRawPlayerById(playerId);
+          if (!base)
+            return interaction.editReply({ content: `❌ Nenhum jogador encontrado com o ID **${playerId}**.` });
+
+          await removeOverride(playerId);
+          return interaction.editReply({ content: `✅ Personalização da carta **${base.name}** (ID ${playerId}) removida — voltou ao padrão automático.` });
         }
 
         // ── PAINEL DE CARGOS: Salvar texto ─────────────────────────────
