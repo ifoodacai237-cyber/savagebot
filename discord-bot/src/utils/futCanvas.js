@@ -208,9 +208,11 @@ function drawDiagonalPattern(ctx, x, y, w, h, color) {
 const _photoCache = new Map();
 const _flagCache  = new Map();
 
-// ─── Buscar foto: local → FutBin FC26 → FutBin FC25 (apenas FutBin) ──────────
-// Threshold: 7000 bytes (Cloudflare comprime fotos reais para ~7-30KB via cf-polish)
-const PHOTO_MIN_BYTES = 7000;
+// ─── Buscar foto: local → FutBin FC25 → FutBin FC26 (apenas FutBin) ──────────
+// Threshold: 40000 bytes
+// FIFA25 CDN tem fotos reais (70-90KB). FIFA26 CDN retorna silhueta genérica (~9-11KB)
+// para a maioria dos jogadores — só usa FC26 se FC25 não tiver (ex: novos no jogo).
+const PHOTO_MIN_BYTES = 40000;
 
 async function fetchPlayerPhoto(eaId) {
   if (!eaId) return null;
@@ -232,8 +234,8 @@ async function fetchPlayerPhoto(eaId) {
     } catch { /* continua */ }
   }
 
-  // ── 2. FutBin CDN FC26 → FC25 (único source, conforme configuração) ────────
-  for (const ver of ['fifa26', 'fifa25']) {
+  // ── 2. FutBin CDN FC25 → FC26 (FC25 tem fotos reais; FC26 só para jogadores novos) ──
+  for (const ver of ['fifa25', 'fifa26']) {
     try {
       const url  = `https://cdn.futbin.com/content/${ver}/img/players/${eaId}.png`;
       const ctrl = new AbortController();
