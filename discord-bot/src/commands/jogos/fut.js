@@ -14,8 +14,8 @@ import {
   getTeamOvr, getCollection, changeFormation, changeTeamName,
   simulateMatch, getUserBalance, PACKS, FORMATION_POSITIONS,
 } from '../../utils/futManager.js';
-import { generateFieldImage, generateCollectionImage, generateLojaImage, generatePacksImage, generatePartidaImage } from '../../utils/futCanvas.js';
-import { rarityLabel } from '../../utils/futPlayers.js';
+import { generateFieldImage, generateCollectionImage, generateLojaImage, generatePacksImage, generatePartidaImage, generateSingleCardImage } from '../../utils/futCanvas.js';
+import { getPlayerById, rarityLabel } from '../../utils/futPlayers.js';
 
 // ─── Helpers de UI ────────────────────────────────────────────────────────────
 function rarityEmoji(rarity) {
@@ -95,13 +95,26 @@ export async function buildCollectionMessage(userId, guildId, page = 1) {
   const prevDisabled = page <= 1;
   const nextDisabled = page >= (data.pages || 1);
 
-  const row = new ActionRowBuilder().addComponents(
+  const navRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`fut_colecao_${page - 1}`).setLabel('◀').setStyle(ButtonStyle.Secondary).setDisabled(prevDisabled),
     new ButtonBuilder().setCustomId('fut_time').setLabel('🏟️ Ver Time').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(`fut_colecao_${page + 1}`).setLabel('▶').setStyle(ButtonStyle.Secondary).setDisabled(nextDisabled),
   );
 
-  return { embeds: [embed], files: [attachment], components: [row] };
+  const cardOptions = sorted.slice(0, 25).map(c => ({
+    label: `${rarityEmoji(c.player?.rarity)} ${(c.player?.name ?? 'Desconhecido').slice(0, 80)}`,
+    value: String(c.playerId),
+    description: `OVR ${c.player?.ovr ?? '??'} · ${c.player?.pos ?? ''} · ${(c.player?.club ?? '').slice(0, 50)}`,
+  }));
+
+  const selectRow = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('fut_carta_select')
+      .setPlaceholder('🃏 Ver carta completa de um jogador...')
+      .addOptions(cardOptions.length ? cardOptions : [{ label: 'Sem cartas', value: 'none' }]),
+  );
+
+  return { embeds: [embed], files: [attachment], components: [selectRow, navRow] };
 }
 
 export async function buildShopMessage(userId, guildId) {
@@ -227,6 +240,10 @@ export default {
          )
     )
     .addSubcommand(sub =>
+      sub.setName('carta').setDescription('Ver carta completa de um jogador da sua coleção')
+         .addIntegerOption(opt => opt.setName('id').setDescription('ID do jogador (veja os números em /fut colecao)').setRequired(false).setMinValue(1))
+    )
+    .addSubcommand(sub =>
       sub.setName('nome').setDescription('Mude o nome do seu time')
          .addStringOption(opt => opt.setName('nome').setDescription('Novo nome (máx. 32 caracteres)').setRequired(true).setMaxLength(32))
     ),
@@ -250,6 +267,34 @@ export default {
         const member     = await interaction.guild.members.fetch(targetId).catch(() => null) ?? interaction.member;
         const msg = await buildTeamMessage(targetId, guildId, member);
         return interaction.editReply(msg);
+      }
+
+      // ── carta ────────────────────────────────────────────────────────────
+      if (sub === 'carta') {
+        const playerId = interaction.options.getInteger('id');
+        const team = await getOrCreateTeam(userId, guildId);
+        let player;
+        if (playerId) {
+          const card = await prisma.futUserCard.findFirst({ where: { teamId: team.id, playerId } });
+          if (!card) return interaction.editReply({ content: '❌ Você não tem essa carta na sua coleção. Use `/fut colecao` para ver seus jogadores.' });
+          player = getPlayerById(playerId);
+        } else {
+          const allCards = await prisma.futUserCard.findMany({ where: { teamId: team.id } });
+          if (!allCards.length) return interaction.editReply({ content: '❌ Você não tem cartas ainda! Abra pacotes com `/fut loja`.' });
+          const withPlayers = allCards.map(c => ({ ...c, player: getPlayerById(c.playerId) }));
+          const best = withPlayers.sort((a, b) => (b.player?.ovr ?? 0) - (a.player?.ovr ?? 0))[0];
+          player = best.player;
+        }
+        if (!player) return interaction.editReply({ content: '❌ Jogador não encontrado.' });
+        const imgBuf = await generateSingleCardImage(player);
+        const attach = new AttachmentBuilder(imgBuf, { name: 'carta.png' });
+        const embed = new EmbedBuilder()
+          .setColor(player.rarity === 'black' ? 0x9333ea : player.rarity === 'gold' ? 0xffd700 : player.rarity === 'silver' ? 0x94a3b8 : 0xb45309)
+          .setTitle(`${rarityEmoji(player.rarity)} ${player.name}`)
+          .setDescription(`**OVR ${player.ovr}** · ${player.pos} · ${player.club} · ${player.nat}`)
+          .setImage('attachment://carta.png')
+          .setFooter({ text: 'Use /fut colecao para ver todas as suas cartas' });
+        return interaction.editReply({ embeds: [embed], files: [attach] });
       }
 
       // ── colecao ───────────────────────────────────────────────────────────
