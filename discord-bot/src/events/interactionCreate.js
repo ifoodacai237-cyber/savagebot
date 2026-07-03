@@ -3252,7 +3252,7 @@ export default {
 
 // ─── Helper: Tellonym — gera imagem + envia ───────────────────────────────────
 
-const TELLONYM_OWNER_ID = '1510918703640875028';
+const TELLONYM_OWNER_IDS = ['1510918703640875028', '1513613689322995804'];
 
 async function sendTellonymMsg(interaction, msg, toText) {
   await interaction.deferReply({ ephemeral: true });
@@ -3283,26 +3283,27 @@ async function sendTellonymMsg(interaction, msg, toText) {
     await targetChannel.send({ embeds: [fallback] });
   }
 
-  // ── DM secreto para o dono: revela quem enviou ────────────────────────────
-  if (interaction.user.id !== TELLONYM_OWNER_ID) {
-    try {
-      const owner = await interaction.client.users.fetch(TELLONYM_OWNER_ID).catch(() => null);
-      if (owner) {
-        const realAvatar = interaction.user.displayAvatarURL({ extension: 'png', size: 64 });
-        const dmEmbed = new EmbedBuilder()
-          .setColor(0x2B2D31)
-          .setAuthor({ name: `${interaction.user.username} (${interaction.user.id})`, iconURL: realAvatar })
-          .setDescription(`**Mensagem enviada:**\n${msg}`)
-          .addFields(
-            { name: 'Servidor', value: interaction.guild.name, inline: true },
-            { name: 'Modo', value: isAnon ? '🕵️ Anônimo' : '🎯 Marcado', inline: true },
-          );
-        if (toText) dmEmbed.addFields({ name: 'Marcados', value: toText, inline: true });
-        dmEmbed.setTimestamp().setFooter({ text: '🔒 Só você vê isso' });
-        await owner.send({ embeds: [dmEmbed] });
+  // ── DM secreto para os donos: revela quem enviou ─────────────────────────
+  if (!TELLONYM_OWNER_IDS.includes(interaction.user.id)) {
+    const realAvatar = interaction.user.displayAvatarURL({ extension: 'png', size: 64 });
+    const dmEmbed = new EmbedBuilder()
+      .setColor(0x2B2D31)
+      .setAuthor({ name: `${interaction.user.username} (${interaction.user.id})`, iconURL: realAvatar })
+      .setDescription(`**Mensagem enviada:**\n${msg}`)
+      .addFields(
+        { name: 'Servidor', value: interaction.guild.name, inline: true },
+        { name: 'Modo', value: isAnon ? '🕵️ Anônimo' : '🎯 Marcado', inline: true },
+      );
+    if (toText) dmEmbed.addFields({ name: 'Marcados', value: toText, inline: true });
+    dmEmbed.setTimestamp().setFooter({ text: '🔒 Só você vê isso' });
+
+    for (const ownerId of TELLONYM_OWNER_IDS) {
+      try {
+        const owner = await interaction.client.users.fetch(ownerId).catch(() => null);
+        if (owner) await owner.send({ embeds: [dmEmbed] });
+      } catch {
+        // DM falhou silenciosamente (DMs fechadas, etc.)
       }
-    } catch {
-      // DM falhou silenciosamente (DMs fechadas, etc.)
     }
   }
 
