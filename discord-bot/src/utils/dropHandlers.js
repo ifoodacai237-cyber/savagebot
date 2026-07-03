@@ -132,7 +132,7 @@ export async function handleDropClaim(interaction) {
   }
 
   // ── Atualiza embed — botão desativado + quem ganhou ─────────────────────────
-  const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 
   const updatedContainer = new ContainerBuilder()
     .addTextDisplayComponents(
