@@ -16,7 +16,7 @@ import {
   MessageFlags,
 } from 'discord.js';
 import { getCardByInternalId, applyCardOverride, validateCard, logCard } from '../../utils/futCardCache.js';
-import { setOverride, removeOverride } from '../../utils/futOverrides.js';
+import { setOverride, removeOverride, getOverride } from '../../utils/futOverrides.js';
 import { generateSingleCardImage } from '../../utils/futCanvas.js';
 
 export default {
