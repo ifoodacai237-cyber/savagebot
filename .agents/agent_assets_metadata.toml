@@ -30,3 +30,9 @@ id = "FkpsFvkcm-VzPVD5GHIss"
 uri = "file://attached_assets/generated/preview_cards.png"
 type = "image"
 title = "Estado atual das fotos dos jogadores"
+
+[[outputs]]
+id = "hbxYSxF8eU6QqqhYaqh2v"
+uri = "file://test_card.png"
+type = "image"
+title = "Carta FUT — Thiago Silva (foto real do FUT.GG)"
