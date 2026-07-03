@@ -21,7 +21,8 @@ export default {
         .setRequired(true)
         .addChoices(
           { name: '💰 Moedas',        value: 'coins'         },
-          { name: '👤 Cargo da loja', value: 'cargo'         },
+          { name: '🎲 Aleatório',     value: 'aleatorio'     },
+          { name: '👤 Cargo',         value: 'cargo'         },
           { name: '🖼️ Banner',        value: 'banner'        },
           { name: '🎀 Personalizado', value: 'personalizado' },
         ),
@@ -67,6 +68,25 @@ export default {
       const payload = buildDropEmbed({ tipo: 'coins', quantidade, descricao, titulo, imagem, dropId });
 
       await interaction.reply({ content: '✅ Drop lançado!', ephemeral: true });
+      return interaction.channel.send(payload);
+    }
+
+    // ── Aleatório: vai direto, prêmio sorteado na hora do resgate ────────────
+    if (tipo === 'aleatorio') {
+      const { buildDropEmbed } = await import('../../utils/dropHandlers.js');
+      const { createDrop }     = await import('../../utils/dropSessions.js');
+
+      const dropId = createDrop({
+        guildId: interaction.guildId,
+        tipo: 'aleatorio',
+        quantidadeMax: quantidade ?? 1000,
+        descricao,
+        titulo,
+        imagem,
+      });
+      const payload = buildDropEmbed({ tipo: 'aleatorio', descricao, titulo, imagem, dropId });
+
+      await interaction.reply({ content: '✅ Drop aleatório lançado!', ephemeral: true });
       return interaction.channel.send(payload);
     }
 

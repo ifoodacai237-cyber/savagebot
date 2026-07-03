@@ -17,6 +17,7 @@ import { createDrop, getDrop, claimDrop, popPending } from './dropSessions.js';
 export function buildDropEmbed({ tipo, quantidade, roleId, roleName, descricao, titulo, imagem, dropId }) {
   let premioLinha;
   if (tipo === 'coins')         premioLinha = `🪙 **Prêmio:** 💰 ${Number(quantidade).toLocaleString('pt-BR')} moedas`;
+  else if (tipo === 'aleatorio') premioLinha = `🎲 **Prêmio:** ??? *(resgate para descobrir!)*`;
   else if (tipo === 'cargo')    premioLinha = `🪙 **Prêmio:** 👤 ${roleId ? `<@&${roleId}>` : roleName}`;
   else if (tipo === 'banner')   premioLinha = `🪙 **Prêmio:** 🖼️ ${roleName}`; // roleName reutilizado como bannerName
   else                          premioLinha = `🎀 **Prêmio:** ${descricao}`;
@@ -113,6 +114,36 @@ export async function handleDropClaim(interaction) {
       const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
       if (member && drop.roleId) await member.roles.add(drop.roleId).catch(() => {});
       premioTexto = `👤 **${drop.roleName}**`;
+
+    } else if (drop.tipo === 'aleatorio') {
+      // ── Sorteia moedas ou cargo aleatório do servidor ──────────────────────
+      const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+
+      // Coleta cargos atribuíveis pelo bot (abaixo do cargo mais alto do bot)
+      await interaction.guild.roles.fetch();
+      const botMember = await interaction.guild.members.fetchMe().catch(() => null);
+      const botHighestPos = botMember?.roles?.highest?.position ?? 0;
+      const rolesAtribuiveis = interaction.guild.roles.cache
+        .filter(r => r.id !== interaction.guild.id && !r.managed && r.position < botHighestPos)
+        .toJSON();
+
+      const darCargo = rolesAtribuiveis.length > 0 && Math.random() < 0.5;
+
+      if (darCargo) {
+        const roleSorteado = rolesAtribuiveis[Math.floor(Math.random() * rolesAtribuiveis.length)];
+        if (member) await member.roles.add(roleSorteado.id).catch(() => {});
+        premioTexto = `👤 **${roleSorteado.name}** (cargo aleatório)`;
+      } else {
+        const max = drop.quantidadeMax ?? 1000;
+        const min = Math.max(1, Math.floor(max * 0.1));
+        const moedas = Math.floor(Math.random() * (max - min + 1)) + min;
+        await prisma.economy.upsert({
+          where:  { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
+          create: { userId: interaction.user.id, guildId: interaction.guildId, balance: moedas },
+          update: { balance: { increment: moedas } },
+        });
+        premioTexto = `💰 **${Number(moedas).toLocaleString('pt-BR')} moedas** (sorteado)`;
+      }
 
     } else if (drop.tipo === 'banner') {
       // Registra a posse do banner (mesmo fluxo da loja)
