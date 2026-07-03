@@ -42,3 +42,9 @@ id = "eKbV4Y31bA2Eih9FgE8kB"
 uri = "file://tabela_cartas.png"
 type = "image"
 title = "Tabela completa — 124 cartas do bot"
+
+[[outputs]]
+id = "1LrNJ3hu67v-uFLPY5qYn"
+uri = "file://carta_completa.png"
+type = "image"
+title = "Carta completa — Thiago Silva"
