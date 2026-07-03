@@ -1,9 +1,9 @@
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
 
-const CHAT_MODEL = 'gpt-5.4';
-const IMAGE_MODEL = 'gpt-image-1';
+const CHAT_MODEL = 'gemini-2.5-flash';
+const IMAGE_MODEL = 'gemini-2.5-flash-image';
 const MAX_HISTORY = 12; // mensagens (user+assistant) mantidas por sessão
 const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutos de inatividade
 
@@ -49,7 +49,7 @@ const SYSTEM_PROMPT =
   'diretamente pelo chat — apenas responda normalmente ao pedido, pois a geração de imagem é tratada separadamente pelo sistema.';
 
 function ensureConfigured() {
-  if (!openai) throw new Error('A IA ainda não está configurada. Peça a um administrador para configurar a chave da OpenAI.');
+  if (!genAI) throw new Error('A IA ainda não está configurada. Peça a um administrador para configurar a chave do Gemini.');
 }
 
 // ─── Chat ──────────────────────────────────────────────────────────────────
@@ -59,33 +59,33 @@ export async function askAI({ guildId, userId, prompt }) {
   const session = getSession(guildId, userId);
   pushHistory(session, 'user', prompt);
 
-  const response = await openai.chat.completions.create({
-    model: CHAT_MODEL,
-    max_completion_tokens: 2048,
-    messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...session.history],
-  });
+  const model = genAI.getGenerativeModel({ model: CHAT_MODEL, systemInstruction: SYSTEM_PROMPT });
 
-  const answer = response.choices?.[0]?.message?.content?.trim() || 'Não consegui gerar uma resposta agora, tente novamente.';
+  const contents = session.history.map(msg => ({
+    role: msg.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: msg.content }],
+  }));
+
+  const result = await model.generateContent({ contents });
+  const answer = result.response?.text()?.trim() || 'Não consegui gerar uma resposta agora, tente novamente.';
   pushHistory(session, 'assistant', answer);
   return answer;
 }
 
 // ─── Geração de imagem ────────────────────────────────────────────────────────
 
-export async function generateAIImage({ prompt, size = '1024x1024' }) {
+export async function generateAIImage({ prompt }) {
   ensureConfigured();
-  const result = await openai.images.generate({
-    model: IMAGE_MODEL,
-    prompt,
-    size,
-    n: 1,
-  });
+  const model = genAI.getGenerativeModel({ model: IMAGE_MODEL });
 
-  const b64 = result.data?.[0]?.b64_json;
-  if (!b64) throw new Error('A OpenAI não retornou nenhuma imagem.');
-  return Buffer.from(b64, 'base64');
+  const result = await model.generateContent(prompt);
+  const parts = result.response?.candidates?.[0]?.content?.parts ?? [];
+  const imagePart = parts.find(p => p.inlineData?.data);
+
+  if (!imagePart) throw new Error('O Gemini não retornou nenhuma imagem.');
+  return Buffer.from(imagePart.inlineData.data, 'base64');
 }
 
 export function isAIConfigured() {
-  return !!openai;
+  return !!genAI;
 }
