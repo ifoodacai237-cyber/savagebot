@@ -23,7 +23,7 @@ const IMAGE_INTENT_REGEX = /\b(imagem|foto|desenh\w*|ilustra[çc][ãa]o|wallpape
 
 async function handleAIMention(message, client) {
   if (!isAIConfigured()) {
-    await message.reply('🤖 A IA ainda não está configurada neste bot. Peça a um administrador para configurar a chave da OpenAI.').catch(() => {});
+    await message.reply('🤖 A IA ainda não está configurada neste bot. Peça a um administrador para configurar a variável GROQ_API_KEY no Railway.').catch(() => {});
     return;
   }
 

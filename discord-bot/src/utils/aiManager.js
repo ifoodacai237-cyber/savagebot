@@ -78,13 +78,27 @@ export async function askAI({ guildId, userId, prompt }) {
 
 export async function generateAIImage({ prompt }) {
   const encoded = encodeURIComponent(prompt);
-  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&enhance=true`;
+  // model=flux é o modelo principal da Pollinations (gratuito, sem key)
+  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&model=flux&seed=${Math.floor(Math.random() * 99999)}`;
 
-  const response = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-  if (!response.ok) throw new Error(`Pollinations retornou ${response.status}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90_000); // 90s timeout
 
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error(`Pollinations retornou status ${response.status}`);
+
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!contentType.startsWith('image/')) {
+      const text = await response.text();
+      throw new Error(`Resposta inesperada da Pollinations: ${text.slice(0, 200)}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function isAIConfigured() {
