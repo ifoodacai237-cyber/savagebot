@@ -97,13 +97,21 @@ export default {
     let selectMenu;
 
     if (tipo === 'cargo') {
-      const cargos = await prisma.shopRole.findMany({
-        where: { guildId: interaction.guildId, active: true },
-        orderBy: { name: 'asc' },
-      });
+      await interaction.guild.roles.fetch();
+      const botMember = await interaction.guild.members.fetchMe().catch(() => null);
+      const botHighestPos = botMember?.roles?.highest?.position ?? 0;
+
+      const cargos = interaction.guild.roles.cache
+        .filter(r =>
+          r.id !== interaction.guild.id &&
+          !r.managed &&
+          r.position < botHighestPos,
+        )
+        .sort((a, b) => b.position - a.position)
+        .toJSON();
 
       if (!cargos.length) {
-        return interaction.editReply({ content: '❌ Nenhum cargo cadastrado na loja deste servidor.' });
+        return interaction.editReply({ content: '❌ Nenhum cargo disponível neste servidor.' });
       }
 
       selectMenu = new StringSelectMenuBuilder()
@@ -112,9 +120,9 @@ export default {
         .addOptions(
           cargos.slice(0, 25).map(c =>
             new StringSelectMenuOptionBuilder()
-              .setValue(`cargo:${c.roleId}:${c.name}`)
+              .setValue(`cargo:${c.id}:${c.name}`)
               .setLabel(c.name.slice(0, 100))
-              .setDescription((c.description ?? `💰 ${c.price} moedas`).slice(0, 100))
+              .setDescription(`Cargo do servidor`)
               .setEmoji('👤'),
           ),
         );

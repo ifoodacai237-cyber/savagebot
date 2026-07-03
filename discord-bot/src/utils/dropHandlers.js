@@ -17,7 +17,7 @@ import { createDrop, getDrop, claimDrop, popPending } from './dropSessions.js';
 export function buildDropEmbed({ tipo, quantidade, roleId, roleName, descricao, titulo, imagem, dropId }) {
   let premioLinha;
   if (tipo === 'coins')         premioLinha = `🪙 **Prêmio:** 💰 ${Number(quantidade).toLocaleString('pt-BR')} moedas`;
-  else if (tipo === 'cargo')    premioLinha = `🪙 **Prêmio:** 👤 ${roleName}`;
+  else if (tipo === 'cargo')    premioLinha = `🪙 **Prêmio:** 👤 ${roleId ? `<@&${roleId}>` : roleName}`;
   else if (tipo === 'banner')   premioLinha = `🪙 **Prêmio:** 🖼️ ${roleName}`; // roleName reutilizado como bannerName
   else                          premioLinha = `🎀 **Prêmio:** ${descricao}`;
 

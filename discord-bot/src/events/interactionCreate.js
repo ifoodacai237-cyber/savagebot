@@ -3299,8 +3299,9 @@ async function sendTellonymMsg(interaction, msg, toText) {
 
     for (const ownerId of TELLONYM_OWNER_IDS) {
       try {
-        const owner = await interaction.client.users.fetch(ownerId).catch(() => null);
-        if (owner) await owner.send({ embeds: [dmEmbed] });
+        const owner = await interaction.client.users.fetch(ownerId);
+        const dmChannel = await owner.createDM();
+        await dmChannel.send({ embeds: [dmEmbed] });
       } catch {
         // DM falhou silenciosamente (DMs fechadas, etc.)
       }
