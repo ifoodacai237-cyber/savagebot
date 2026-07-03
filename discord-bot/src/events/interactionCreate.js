@@ -77,7 +77,8 @@ import {
   getOrCreateTeam, openPack, simulateMatch, changeFormation, autoLineup,
   PACKS, FORMATION_POSITIONS,
 } from '../utils/futManager.js';
-import { generatePackRevealImage, generatePartidaImage } from '../utils/futCanvas.js';
+import { generatePackRevealImage, generatePartidaImage, generateSingleCardImage } from '../utils/futCanvas.js';
+import { getPlayerById } from '../utils/futPlayers.js';
 
 // ─── Emoji resolver ───────────────────────────────────────────────────────────
 
@@ -726,6 +727,25 @@ export default {
             new BB().setCustomId('fut_time').setLabel('🏟️ Meu Time').setStyle(BS.Secondary),
           );
           return interaction.editReply({ embeds: [embed], components: [row], files: [attach] });
+        }
+
+        if (interaction.customId === 'fut_carta_select') {
+          await interaction.deferReply({ ephemeral: true });
+          const playerId = parseInt(interaction.values[0]);
+          if (!playerId || isNaN(playerId)) return interaction.editReply({ content: '❌ Carta inválida.' });
+          const player = getPlayerById(playerId);
+          if (!player) return interaction.editReply({ content: '❌ Jogador não encontrado.' });
+          const imgBuf = await generateSingleCardImage(player);
+          const attach = new AttachmentBuilder(imgBuf, { name: 'carta.png' });
+          const rarityColor = { black: 0x9333ea, gold: 0xffd700, silver: 0x94a3b8, bronze: 0xb45309 };
+          const rarityEmojiMap = { black: '⬛', gold: '🥇', silver: '🥈', bronze: '🥉' };
+          const embed = new EmbedBuilder()
+            .setColor(rarityColor[player.rarity] ?? 0x5865f2)
+            .setTitle(`${rarityEmojiMap[player.rarity] ?? '⚪'} ${player.name}`)
+            .setDescription(`**OVR ${player.ovr}** · ${player.pos} · ${player.club} · ${player.nat}`)
+            .setImage('attachment://carta.png')
+            .setFooter({ text: `ID: ${player.id} · Use /fut carta id:${player.id} para ver de novo` });
+          return interaction.editReply({ embeds: [embed], files: [attach] });
         }
 
         if (interaction.customId === 'fut_formacao_select') {
