@@ -1,9 +1,8 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 
-const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
-const CHAT_MODEL = 'gemini-2.5-flash';
-const IMAGE_MODEL = 'gemini-2.5-flash-image';
+const CHAT_MODEL = 'llama-3.3-70b-versatile';
 const MAX_HISTORY = 12; // mensagens (user+assistant) mantidas por sessão
 const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutos de inatividade
 
@@ -49,7 +48,7 @@ const SYSTEM_PROMPT =
   'diretamente pelo chat — apenas responda normalmente ao pedido, pois a geração de imagem é tratada separadamente pelo sistema.';
 
 function ensureConfigured() {
-  if (!genAI) throw new Error('A IA ainda não está configurada. Peça a um administrador para configurar a chave do Gemini.');
+  if (!groq) throw new Error('A IA ainda não está configurada. Peça a um administrador para configurar a chave do Groq.');
 }
 
 // ─── Chat ──────────────────────────────────────────────────────────────────
@@ -59,33 +58,29 @@ export async function askAI({ guildId, userId, prompt }) {
   const session = getSession(guildId, userId);
   pushHistory(session, 'user', prompt);
 
-  const model = genAI.getGenerativeModel({ model: CHAT_MODEL, systemInstruction: SYSTEM_PROMPT });
+  const messages = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    ...session.history.map(msg => ({ role: msg.role === 'assistant' ? 'assistant' : 'user', content: msg.content })),
+  ];
 
-  const contents = session.history.map(msg => ({
-    role: msg.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: msg.content }],
-  }));
+  const completion = await groq.chat.completions.create({
+    model: CHAT_MODEL,
+    messages,
+    max_tokens: 1024,
+  });
 
-  const result = await model.generateContent({ contents });
-  const answer = result.response?.text()?.trim() || 'Não consegui gerar uma resposta agora, tente novamente.';
+  const answer = completion.choices?.[0]?.message?.content?.trim() || 'Não consegui gerar uma resposta agora, tente novamente.';
   pushHistory(session, 'assistant', answer);
   return answer;
 }
 
 // ─── Geração de imagem ────────────────────────────────────────────────────────
+// O Groq não suporta geração de imagem — lança erro para o fluxo cair no catch.
 
 export async function generateAIImage({ prompt }) {
-  ensureConfigured();
-  const model = genAI.getGenerativeModel({ model: IMAGE_MODEL });
-
-  const result = await model.generateContent(prompt);
-  const parts = result.response?.candidates?.[0]?.content?.parts ?? [];
-  const imagePart = parts.find(p => p.inlineData?.data);
-
-  if (!imagePart) throw new Error('O Gemini não retornou nenhuma imagem.');
-  return Buffer.from(imagePart.inlineData.data, 'base64');
+  throw new Error('Geração de imagem não está disponível com o provedor atual (Groq). Tente pedir texto ou informações.');
 }
 
 export function isAIConfigured() {
-  return !!genAI;
+  return !!groq;
 }
