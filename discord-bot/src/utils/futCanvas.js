@@ -1282,3 +1282,45 @@ export async function generatePartidaImage({ result, myScore, oppScore, myOvr, o
 
   return canvas.toBuffer('image/png');
 }
+
+// ─── Carta individual (grande, para /fut carta) ───────────────────────────────
+export async function generateSingleCardImage(player) {
+  const CARD_W = 380, CARD_H = 520;
+  const PAD    = 28;
+  const CW     = CARD_W + PAD * 2;
+  const CH     = CARD_H + PAD * 2 + 44;
+
+  const canvas = createCanvas(CW, CH);
+  const ctx    = canvas.getContext('2d');
+
+  // Fundo escuro estilo FutBin
+  const bg = ctx.createLinearGradient(0, 0, CW, CH);
+  bg.addColorStop(0, '#07071a');
+  bg.addColorStop(1, '#04040e');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, CW, CH);
+
+  // Brilho central suave atrás da carta
+  const glow = ctx.createRadialGradient(CW / 2, CH / 2 - 20, 0, CW / 2, CH / 2 - 20, 280);
+  const r    = RARITY[player.rarity] ?? RARITY.bronze;
+  glow.addColorStop(0, r.accent + '18');
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, CW, CH);
+
+  const [photo, flag] = await Promise.all([
+    fetchPlayerPhoto(player.futggId, player.customPhotoUrl),
+    fetchFlag(player.nat),
+  ]);
+
+  drawEACard(ctx, PAD, PAD, CARD_W, CARD_H, player, photo, flag);
+
+  // Rodapé
+  ctx.fillStyle    = 'rgba(255,255,255,0.18)';
+  ctx.font         = '12px RobotoReg';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('⚽  FALLEN ANGELS FUT  ·  EA FC 25', CW / 2, CARD_H + PAD + 22);
+
+  return canvas.toBuffer('image/png');
+}
