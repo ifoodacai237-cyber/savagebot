@@ -134,6 +134,10 @@ model GuildConfig {
   partnerFooter          String?
   partnerColor           String?
   partnerRemoveOnLeave   Boolean @default(false)
+
+  botIconUrl   String?
+  botBannerUrl String?
+  botBio       String?
 }
 
 model Partnership {
