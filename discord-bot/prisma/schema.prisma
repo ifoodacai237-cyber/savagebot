@@ -138,6 +138,8 @@ model GuildConfig {
   botIconUrl   String?
   botBannerUrl String?
   botBio       String?
+
+  aiChannelId  String?
 }
 
 model Partnership {

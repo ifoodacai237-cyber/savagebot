@@ -15,8 +15,47 @@ import {
 import prisma from '../database/client.js';
 import { likesMap, threadsMap, postDataMap } from '../utils/instaState.js';
 import { buildPartnershipPost } from '../utils/partnershipPanels.js';
+import { askAI, generateAIImage, isAIConfigured } from '../utils/aiManager.js';
 
 const PREFIX = 'fallen ';
+
+const IMAGE_INTENT_REGEX = /\b(imagem|foto|desenh\w*|ilustra[çc][ãa]o|wallpaper|logo|arte)\b/i;
+
+async function handleAIMention(message, client) {
+  if (!isAIConfigured()) {
+    await message.reply('🤖 A IA ainda não está configurada neste bot. Peça a um administrador para configurar a chave da OpenAI.').catch(() => {});
+    return;
+  }
+
+  const prompt = message.content
+    .replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '')
+    .trim();
+
+  if (!prompt) {
+    await message.reply('👋 Fala! Me marca e diz o que você quer que eu faça (ex: "@bot me conte uma piada" ou "@bot desenhe um gato astronauta").').catch(() => {});
+    return;
+  }
+
+  await message.channel.sendTyping().catch(() => {});
+
+  try {
+    if (IMAGE_INTENT_REGEX.test(prompt)) {
+      const buffer = await generateAIImage({ prompt });
+      const { AttachmentBuilder } = await import('discord.js');
+      const file = new AttachmentBuilder(buffer, { name: 'ia-imagem.png' });
+      await message.reply({ content: `🖼️ **Prompt:** ${prompt}`, files: [file] });
+    } else {
+      const resposta = await askAI({ guildId: message.guildId, userId: message.author.id, prompt });
+      const chunks = resposta.match(/[\s\S]{1,1990}/g) ?? [resposta];
+      for (const chunk of chunks) {
+        await message.reply(chunk);
+      }
+    }
+  } catch (err) {
+    console.error('[IA MENÇÃO]', err);
+    await message.reply('❌ Não consegui responder agora. Tente novamente em instantes.').catch(() => {});
+  }
+}
 
 const processedMessages = new Set();
 
@@ -64,6 +103,12 @@ export default {
     // ── INSTAGRAM AUTO-POST ──────────────────────────────────────────────────
     if (message.guildId) {
       const cfg = await getGuildCfg(message.guildId);
+
+      // ── IA POR MENÇÃO EM CANAL DEDICADO ─────────────────────────────────────
+      if (cfg?.aiChannelId && message.channelId === cfg.aiChannelId && message.mentions.has(client.user)) {
+        await handleAIMention(message, client);
+        return;
+      }
 
       // ── PARCERIAS AUTO-DETECT ──────────────────────────────────────────────
       if (cfg?.partnerEnabled && cfg?.partnerChannel && message.channelId === cfg.partnerChannel) {
