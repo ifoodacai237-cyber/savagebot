@@ -13,7 +13,7 @@ export default {
 
   async execute(interaction) {
     if (!isAIConfigured()) {
-      return interaction.reply({ embeds: [errorEmbed('A IA ainda não está configurada neste bot. Peça a um administrador para configurar a variável GROQ_API_KEY no Railway.')], ephemeral: true });
+      return interaction.reply({ embeds: [errorEmbed('A IA está temporariamente indisponível.')], ephemeral: true });
     }
 
     const cfg = await prisma.guildConfig.upsert({
