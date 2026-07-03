@@ -68,6 +68,7 @@ import {
   buildRPColorPicker,
   RP_COLOR_MAP,
 } from '../utils/rolePanelSessions.js';
+import { handleDropClaim } from '../utils/dropHandlers.js';
 
 // ─── Emoji resolver ───────────────────────────────────────────────────────────
 
@@ -664,6 +665,11 @@ export default {
       // ── BUTTONS ────────────────────────────────────────────────────────────
       if (interaction.isButton()) {
         const { customId } = interaction;
+
+        // ── DROP: Resgatar prêmio ────────────────────────────────────────
+        if (customId.startsWith('drop_claim_')) {
+          return handleDropClaim(interaction);
+        }
 
         // ── JOGOS: Blackjack / Mines ─────────────────────────────────────
         if (customId.startsWith('bj_hit_'))
