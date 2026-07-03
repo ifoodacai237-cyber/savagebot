@@ -78,7 +78,8 @@ import {
   PACKS, FORMATION_POSITIONS,
 } from '../utils/futManager.js';
 import { generatePackRevealImage, generatePartidaImage, generateSingleCardImage } from '../utils/futCanvas.js';
-import { getPlayerById } from '../utils/futPlayers.js';
+import { getPlayerById } from '../utils/futPlayers.js'; // usado apenas no painel admin
+import { getCardByInternalId as getFutCard } from '../utils/futCardCache.js';
 
 // ─── Emoji resolver ───────────────────────────────────────────────────────────
 
@@ -733,18 +734,21 @@ export default {
           await interaction.deferReply({ ephemeral: true });
           const playerId = parseInt(interaction.values[0]);
           if (!playerId || isNaN(playerId)) return interaction.editReply({ content: '❌ Carta inválida.' });
-          const player = getPlayerById(playerId);
-          if (!player) return interaction.editReply({ content: '❌ Jogador não encontrado.' });
+          // Busca do cache pelo internalId — todos os dados do mesmo cardId
+          const rawCard = getFutCard(playerId);
+          if (!rawCard) return interaction.editReply({ content: '❌ Jogador não encontrado.' });
+          const { applyOverride: applyFutOverride } = await import('../utils/futOverrides.js');
+          const player = await applyFutOverride(rawCard);
           const imgBuf = await generateSingleCardImage(player);
           const attach = new AttachmentBuilder(imgBuf, { name: 'carta.png' });
           const rarityColor = { black: 0x9333ea, gold: 0xffd700, silver: 0x94a3b8, bronze: 0xb45309 };
           const rarityEmojiMap = { black: '⬛', gold: '🥇', silver: '🥈', bronze: '🥉' };
           const embed = new EmbedBuilder()
             .setColor(rarityColor[player.rarity] ?? 0x5865f2)
-            .setTitle(`${rarityEmojiMap[player.rarity] ?? '⚪'} ${player.name}`)
+            .setTitle(`${rarityEmojiMap[player.rarity] ?? '⚪'} ${player.customName ?? player.name}`)
             .setDescription(`**OVR ${player.ovr}** · ${player.pos} · ${player.club} · ${player.nat}`)
             .setImage('attachment://carta.png')
-            .setFooter({ text: `ID: ${player.id} · Use /fut carta id:${player.id} para ver de novo` });
+            .setFooter({ text: `ID: ${player.internalId} · Use /fut carta id:${player.internalId} para ver de novo` });
           return interaction.editReply({ embeds: [embed], files: [attach] });
         }
 
@@ -2799,7 +2803,7 @@ export default {
         // ── FUT ADMIN: Salvar edição/reset de carta ────────────────────
         if (interaction.customId === 'futadm_editar_modal') {
           await interaction.deferReply({ ephemeral: true });
-          const { getPlayerById: getRawPlayerById } = await import('../utils/futPlayers.js');
+          const { getCardByInternalId: getAdmCard } = await import('../utils/futCardCache.js');
           const { setOverride } = await import('../utils/futOverrides.js');
           const { generateCollectionImage } = await import('../utils/futCanvas.js');
 
@@ -2810,7 +2814,8 @@ export default {
           if (Number.isNaN(playerId))
             return interaction.editReply({ content: '❌ ID inválido — informe apenas números.' });
 
-          const base = getRawPlayerById(playerId);
+          // Busca do cache pelo internalId — objeto completo com todos os dados do mesmo cardId
+          const base = getAdmCard(playerId);
           if (!base)
             return interaction.editReply({ content: `❌ Nenhum jogador encontrado com o ID **${playerId}**.` });
 
@@ -2819,8 +2824,10 @@ export default {
 
           await setOverride(playerId, { customName: nome, customPhotoUrl: foto }, interaction.user.id);
 
-          const previewPlayer = { ...base, name: nome ?? base.name, customPhotoUrl: foto ?? null };
-          const buf   = await generateCollectionImage([{ player: previewPlayer }]);
+          // Preview usa o mesmo objeto de carta do cache, com override aplicado
+          // NUNCA usa shape raw do futPlayers — garante consistência visual
+          const previewCard = { ...base, name: nome ?? base.name, customPhotoUrl: foto ?? null };
+          const buf   = await generateCollectionImage([{ player: previewCard }]);
           const attach = new AttachmentBuilder(buf, { name: 'carta.png' });
 
           return interaction.editReply({
@@ -2831,14 +2838,15 @@ export default {
 
         if (interaction.customId === 'futadm_resetar_modal') {
           await interaction.deferReply({ ephemeral: true });
-          const { getPlayerById: getRawPlayerById } = await import('../utils/futPlayers.js');
+          const { getCardByInternalId: getAdmCard } = await import('../utils/futCardCache.js');
           const { removeOverride } = await import('../utils/futOverrides.js');
 
           const playerId = parseInt(interaction.fields.getTextInputValue('playerId').trim(), 10);
           if (Number.isNaN(playerId))
             return interaction.editReply({ content: '❌ ID inválido — informe apenas números.' });
 
-          const base = getRawPlayerById(playerId);
+          // Busca do cache pelo internalId — todos os dados do mesmo cardId
+          const base = getAdmCard(playerId);
           if (!base)
             return interaction.editReply({ content: `❌ Nenhum jogador encontrado com o ID **${playerId}**.` });
 

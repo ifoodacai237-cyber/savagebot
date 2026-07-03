@@ -1,10 +1,22 @@
 import prisma from '../database/client.js';
-import { FUT_PLAYERS, getPlayerById as getRawPlayerById, getPlayersBySeries, getPlayersByPosition, POSITION_COMPAT } from './futPlayers.js';
+import {
+  getCardByInternalId,
+  getCardByFutggId,
+  getCardsByRarity,
+  getCardsBySeries,
+  getCardsByPosition,
+  validateCard,
+  logCard,
+} from './futCardCache.js';
+import { POSITION_COMPAT } from './futPlayers.js';
 import { applyOverride } from './futOverrides.js';
 
-// Retorna o jogador já com nome/foto customizados (override de painel admin) aplicados.
+// ─── Wrapper de retrocompatibilidade ─────────────────────────────────────────
+// Mantém a API externa idêntica. Internamente usa o cache por cardId.
 export async function getPlayerById(id) {
-  return applyOverride(getRawPlayerById(id));
+  const card = getCardByInternalId(id);
+  if (!card) return null;
+  return applyOverride(card);
 }
 
 // ─── Definição dos Pacotes ────────────────────────────────────────────────────
@@ -132,7 +144,7 @@ export const FORMATION_POSITIONS = {
   '3-4-3': ['GOL','ZAG','ZAG','ZAG','LE','MC','MC','LD','PE','CA','PD'],
 };
 
-// ─── Helpers internos ────────────────────────────────────────────────────────
+// ─── Helpers internos de sorteio ──────────────────────────────────────────────
 function rarityWeight(guaranteed) {
   const weights = {
     bronze:  [60, 30,  8,  2],
@@ -146,16 +158,19 @@ function rarityWeight(guaranteed) {
 function pickRarity(weights) {
   const [wB, wS, wG, wBl] = weights;
   const roll = Math.random() * 100;
-  if (roll < wB)          return 'bronze';
-  if (roll < wB + wS)     return 'silver';
-  if (roll < wB + wS + wG) return 'gold';
+  if (roll < wB)                return 'bronze';
+  if (roll < wB + wS)           return 'silver';
+  if (roll < wB + wS + wG)      return 'gold';
   return 'black';
 }
 
-function pickRandomPlayer(pool) {
+function pickRandom(pool) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// ─── Sorteio de cartas ────────────────────────────────────────────────────────
+// REGRA: cada carta retornada é um objeto completo do cache (getCardsByRarity
+// etc.), com TODOS os dados do mesmo cardId. Não há associação por índice.
 function drawCards(count, guaranteed, series, positions) {
   const drawn = [];
   let guaranteedUsed = false;
@@ -169,20 +184,20 @@ function drawCards(count, guaranteed, series, positions) {
       rarity = pickRarity(rarityWeight(guaranteed));
     }
 
-    let pool = FUT_PLAYERS.filter(p => p.rarity === rarity);
-    if (series) pool = pool.filter(p => p.series === series);
-    if (positions?.length) pool = pool.filter(p => positions.includes(p.pos));
+    // Pool: filtra do cache por raridade (e opcionalmente série/posição)
+    let pool = getCardsByRarity(rarity);
+    if (series)       pool = pool.filter(c => c.series === series);
+    if (positions?.length) pool = pool.filter(c => positions.includes(c.position));
 
-    // fallback — se pool vazio, abre de qualquer série/posição com a raridade
-    if (!pool.length) {
-      pool = FUT_PLAYERS.filter(p => p.rarity === rarity);
-    }
-    // fallback máximo
-    if (!pool.length) {
-      pool = FUT_PLAYERS.filter(p => p.rarity === 'bronze');
-    }
+    // Fallback 1: ignora série/posição, mantém raridade
+    if (!pool.length) pool = getCardsByRarity(rarity);
+    // Fallback 2: bronze se nada mais disponível
+    if (!pool.length) pool = getCardsByRarity('bronze');
 
-    drawn.push(pickRandomPlayer(pool));
+    if (!pool.length) continue;
+
+    const card = pickRandom(pool);
+    drawn.push(card);
   }
   return drawn;
 }
@@ -221,50 +236,61 @@ export async function openPack(packKey, userId, guildId) {
   const team = await getOrCreateTeam(userId, guildId);
   await deductBalance(userId, guildId, pack.price);
 
-  const players = drawCards(pack.cards, pack.guaranteed, pack.series, pack.positions);
+  // drawCards retorna objetos completos do cache (não índices de array)
+  const cards = drawCards(pack.cards, pack.guaranteed, pack.series, pack.positions);
 
+  // Persiste no DB usando internalId (retrocompatibilidade)
   await prisma.futUserCard.createMany({
-    data: players.map(p => ({ teamId: team.id, playerId: p.id })),
+    data: cards.map(card => ({ teamId: team.id, playerId: card.internalId })),
   });
 
-  // Rebuild auto-lineup após novos cards
   await autoLineup(team.id, team.formation);
 
-  return { success: true, players, spent: pack.price };
+  return { success: true, players: cards, spent: pack.price };
 }
 
+// ─── Auto-escalação ───────────────────────────────────────────────────────────
 export async function autoLineup(teamId, formation) {
-  // Carrega formação do time se não passada
   if (!formation) {
     const t = await prisma.futUserTeam.findUnique({ where: { id: teamId } });
     formation = t?.formation ?? '4-3-3';
   }
 
   const slots = FORMATION_POSITIONS[formation] ?? FORMATION_POSITIONS['4-3-3'];
+  const dbCards = await prisma.futUserCard.findMany({ where: { teamId } });
 
-  // Busca todas as cartas do time
-  const cards = await prisma.futUserCard.findMany({ where: { teamId } });
+  // Busca carta completa do cache por internalId
+  // REGRA: associação exclusiva pelo cardId — nunca por índice ou nome
+  const cardsWithData = dbCards
+    .map(c => {
+      const card = getCardByInternalId(c.playerId);
+      if (!card) return null;
+      return { dbCard: c, card };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (b.card.rating ?? 0) - (a.card.rating ?? 0));
 
-  // Mapa de playerId → player info
-  const cardsFull = (await Promise.all(cards.map(async c => ({ ...c, player: await getPlayerById(c.playerId) }))))
-    .filter(c => c.player !== null)
-    .sort((a, b) => (b.player?.ovr ?? 0) - (a.player?.ovr ?? 0));
-
-  const usedCardIds = new Set();
-  const newLineup = [];
+  const usedCardIds   = new Set();
+  const usedDbCardIds = new Set();
+  const newLineup     = [];
 
   for (let i = 0; i < slots.length; i++) {
     const slotPos = slots[i];
-    const compat = POSITION_COMPAT[slotPos] ?? [slotPos];
+    const compat  = POSITION_COMPAT[slotPos] ?? [slotPos];
 
-    const best = cardsFull.find(c => !usedCardIds.has(c.id) && compat.includes(c.player?.pos));
+    const best = cardsWithData.find(
+      e => !usedDbCardIds.has(e.dbCard.id) &&
+           !usedCardIds.has(e.card.cardId) &&
+           compat.includes(e.card.position)
+    );
+
     if (best) {
-      usedCardIds.add(best.id);
-      newLineup.push({ teamId, cardId: best.id, slot: i + 1 });
+      usedDbCardIds.add(best.dbCard.id);
+      usedCardIds.add(best.card.cardId);
+      newLineup.push({ teamId, cardId: best.dbCard.id, slot: i + 1 });
     }
   }
 
-  // Apaga lineup atual e recria
   await prisma.futLineup.deleteMany({ where: { teamId } });
   if (newLineup.length > 0) {
     await prisma.futLineup.createMany({ data: newLineup });
@@ -273,6 +299,9 @@ export async function autoLineup(teamId, formation) {
   return newLineup;
 }
 
+// ─── Busca escalação com validação completa ───────────────────────────────────
+// Cada carta é buscada exclusivamente pelo cardId.
+// Valida campos obrigatórios e detecta duplicatas antes de retornar.
 export async function getTeamLineup(teamId) {
   const lineup = await prisma.futLineup.findMany({
     where:   { teamId },
@@ -280,31 +309,80 @@ export async function getTeamLineup(teamId) {
     orderBy: { slot: 'asc' },
   });
 
-  return Promise.all(lineup.map(async l => ({
-    slot:   l.slot,
-    cardId: l.cardId,
-    player: await getPlayerById(l.card.playerId),
-  })));
+  const result      = [];
+  const seenCardIds = new Set();  // valida que não há jogadores duplicados pelo cardId
+
+  for (const l of lineup) {
+    const playerId = l.card?.playerId;
+    // Busca carta completa do cache usando internalId (playerId do DB)
+    const rawCard = getCardByInternalId(playerId);
+
+    // Aplica override do painel admin (apenas nome/foto — nunca cardId)
+    let card = rawCard ? await applyOverride(rawCard) : null;
+
+    // Log da cadeia de dados: FUT.GG → cache → render
+    logCard(`LINEUP slot=${l.slot} playerId=${playerId}`, card);
+
+    // Validação obrigatória antes de qualquer renderização
+    const validation = validateCard(card);
+    if (!validation.valid) {
+      console.error(
+        `[FUT LINEUP] ❌ Carta inválida no slot ${l.slot} (playerId=${playerId}): ` +
+        validation.errors.join(', ')
+      );
+      result.push({ slot: l.slot, cardId: l.cardId, player: null });
+      continue;
+    }
+
+    // Valida que não existem jogadores duplicados na escalação pelo cardId
+    if (seenCardIds.has(card.cardId)) {
+      console.error(
+        `[FUT LINEUP] ❌ Jogador duplicado detectado! cardId=${card.cardId} ` +
+        `(${card.name}) aparece mais de uma vez na escalação`
+      );
+      result.push({ slot: l.slot, cardId: l.cardId, player: null });
+      continue;
+    }
+    seenCardIds.add(card.cardId);
+
+    result.push({ slot: l.slot, cardId: l.cardId, player: card });
+  }
+
+  return result;
 }
 
 export async function getTeamOvr(teamId) {
   const lineup = await getTeamLineup(teamId);
   if (!lineup.length) return 0;
-  const total = lineup.reduce((sum, l) => sum + (l.player?.ovr ?? 0), 0);
+  const total = lineup.reduce((sum, l) => sum + (l.player?.rating ?? l.player?.ovr ?? 0), 0);
   return Math.round((total / lineup.length) * 100) / 100;
 }
 
 export async function getCollection(teamId, page = 1, perPage = 10) {
   const total = await prisma.futUserCard.count({ where: { teamId } });
-  const cards = await prisma.futUserCard.findMany({
+  const dbCards = await prisma.futUserCard.findMany({
     where:   { teamId },
     orderBy: { obtainedAt: 'desc' },
     skip:    (page - 1) * perPage,
     take:    perPage,
   });
 
-  const withPlayers = await Promise.all(cards.map(async c => ({ ...c, player: await getPlayerById(c.playerId) })));
-  return { cards: withPlayers, total, pages: Math.ceil(total / perPage), page };
+  // Cada carta é buscada pelo internalId (playerId) no cache
+  // Nunca por índice de array ou comparação de nomes
+  const withCards = await Promise.all(dbCards.map(async c => {
+    const rawCard = getCardByInternalId(c.playerId);
+    const card    = rawCard ? await applyOverride(rawCard) : null;
+
+    // Valida antes de incluir na coleção
+    const v = validateCard(card);
+    if (!v.valid) {
+      console.warn(`[FUT COLLECTION] Carta inválida (playerId=${c.playerId}): ${v.errors.join(', ')}`);
+    }
+
+    return { ...c, player: card };
+  }));
+
+  return { cards: withCards, total, pages: Math.ceil(total / perPage), page };
 }
 
 export async function changeFormation(teamId, formation) {
@@ -323,20 +401,18 @@ function eloExpected(myElo, oppElo) {
 }
 
 function eloChange(myElo, oppElo, result) {
-  const K = 32;
+  const K        = 32;
   const expected = eloExpected(myElo, oppElo);
-  const actual = result === 'win' ? 1 : result === 'draw' ? 0.5 : 0;
+  const actual   = result === 'win' ? 1 : result === 'draw' ? 0.5 : 0;
   return Math.round(K * (actual - expected));
 }
 
 function generateScore(diffOvr) {
-  const avgGoals = 2.5;
+  const avgGoals  = 2.5;
   const advantage = diffOvr / 10;
-
-  let myGoals = Math.max(0, Math.round(avgGoals * (1 + advantage * 0.3) * (0.5 + Math.random())));
+  let myGoals  = Math.max(0, Math.round(avgGoals * (1 + advantage * 0.3) * (0.5 + Math.random())));
   let oppGoals = Math.max(0, Math.round(avgGoals * (1 - advantage * 0.3) * (0.5 + Math.random())));
-
-  myGoals = Math.min(myGoals, 9);
+  myGoals  = Math.min(myGoals, 9);
   oppGoals = Math.min(oppGoals, 9);
   return [myGoals, oppGoals];
 }
@@ -348,24 +424,24 @@ const AI_NAMES = [
 ];
 
 export async function simulateMatch(userId, guildId) {
-  const team = await getOrCreateTeam(userId, guildId);
+  const team  = await getOrCreateTeam(userId, guildId);
   const myOvr = await getTeamOvr(team.id);
 
   if (myOvr < 55) {
     return { success: false, reason: 'no_lineup', message: 'Monte seu time primeiro! Abra pacotes e configure sua escalação.' };
   }
 
-  const oppOvr = Math.max(50, Math.round(myOvr + (Math.random() * 14 - 7)));
+  const oppOvr  = Math.max(50, Math.round(myOvr + (Math.random() * 14 - 7)));
   const oppName = AI_NAMES[Math.floor(Math.random() * AI_NAMES.length)];
   const diffOvr = myOvr - oppOvr;
 
   const [myScore, oppScore] = generateScore(diffOvr);
-  const result = myScore > oppScore ? 'win' : myScore < oppScore ? 'loss' : 'draw';
-  const change = eloChange(team.elo, oppOvr * 10, result);
+  const result   = myScore > oppScore ? 'win' : myScore < oppScore ? 'loss' : 'draw';
+  const change   = eloChange(team.elo, oppOvr * 10, result);
 
   await prisma.futUserTeam.update({
     where: { id: team.id },
-    data: {
+    data:  {
       elo:    { increment: change },
       wins:   result === 'win'  ? { increment: 1 } : undefined,
       losses: result === 'loss' ? { increment: 1 } : undefined,
@@ -390,10 +466,10 @@ export async function simulateMatch(userId, guildId) {
     success: true,
     result, myScore, oppScore, myOvr, oppOvr,
     oppName, eloChange: change,
-    newElo: updatedTeam.elo,
-    wins: updatedTeam.wins,
-    losses: updatedTeam.losses,
-    draws: updatedTeam.draws,
+    newElo:  updatedTeam.elo,
+    wins:    updatedTeam.wins,
+    losses:  updatedTeam.losses,
+    draws:   updatedTeam.draws,
   };
 }
 

@@ -15,7 +15,9 @@ import {
   simulateMatch, getUserBalance, PACKS, FORMATION_POSITIONS,
 } from '../../utils/futManager.js';
 import { generateFieldImage, generateCollectionImage, generateLojaImage, generatePacksImage, generatePartidaImage, generateSingleCardImage } from '../../utils/futCanvas.js';
-import { getPlayerById, rarityLabel } from '../../utils/futPlayers.js';
+import { rarityLabel } from '../../utils/futPlayers.js';
+import { getCardByInternalId } from '../../utils/futCardCache.js';
+import { applyOverride } from '../../utils/futOverrides.js';
 
 // ─── Helpers de UI ────────────────────────────────────────────────────────────
 function rarityEmoji(rarity) {
@@ -277,12 +279,19 @@ export default {
         if (playerId) {
           const card = await prisma.futUserCard.findFirst({ where: { teamId: team.id, playerId } });
           if (!card) return interaction.editReply({ content: '❌ Você não tem essa carta na sua coleção. Use `/fut colecao` para ver seus jogadores.' });
-          player = getPlayerById(playerId);
+          // Busca do cache pelo internalId — todos os dados do mesmo cardId
+          const rawCard = getCardByInternalId(playerId);
+          player = rawCard ? await applyOverride(rawCard) : null;
         } else {
           const allCards = await prisma.futUserCard.findMany({ where: { teamId: team.id } });
           if (!allCards.length) return interaction.editReply({ content: '❌ Você não tem cartas ainda! Abra pacotes com `/fut loja`.' });
-          const withPlayers = allCards.map(c => ({ ...c, player: getPlayerById(c.playerId) }));
-          const best = withPlayers.sort((a, b) => (b.player?.ovr ?? 0) - (a.player?.ovr ?? 0))[0];
+          // Busca do cache pelo internalId — nunca por índice de array
+          const withPlayers = await Promise.all(allCards.map(async c => {
+            const rawCard = getCardByInternalId(c.playerId);
+            const card = rawCard ? await applyOverride(rawCard) : null;
+            return { ...c, player: card };
+          }));
+          const best = withPlayers.sort((a, b) => (b.player?.rating ?? b.player?.ovr ?? 0) - (a.player?.rating ?? a.player?.ovr ?? 0))[0];
           player = best.player;
         }
         if (!player) return interaction.editReply({ content: '❌ Jogador não encontrado.' });

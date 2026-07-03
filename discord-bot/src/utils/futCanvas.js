@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
-import { getPlayerById } from './futPlayers.js';
+import { getCardByFutggId, validateCard, logCard } from './futCardCache.js';
 
 // ─── Fontes ───────────────────────────────────────────────────────────────────
 const __dir   = dirname(fileURLToPath(import.meta.url));
@@ -209,54 +209,60 @@ function drawDiagonalPattern(ctx, x, y, w, h, color) {
 const _photoCache = new Map();
 const _flagCache  = new Map();
 
-// ─── Buscar foto: local → FUT.GG CDN ─────────────────────────────────────────
-// FUT.GG CDN fornece foto e dados do jogador da mesma carta (futggId = chave primária).
 // Fotos reais têm >= 5KB. Silhuetas/placeholders têm < 2KB.
 const PHOTO_MIN_BYTES = 5000;
 
-// Foto customizada via painel admin (URL direta) — sempre prioritária.
-async function fetchCustomPhoto(url) {
-  if (!url) return null;
-  const cacheKey = `custom:${url}`;
-  if (_photoCache.has(cacheKey)) return _photoCache.get(cacheKey);
-  try {
-    const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 8000);
-    const res   = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
-    clearTimeout(timer);
-    if (res.ok) {
-      const buf = Buffer.from(await res.arrayBuffer());
-      const img = await loadImage(buf);
-      if (img.width >= 10 && img.height >= 10) {
-        _photoCache.set(cacheKey, img);
-        return img;
-      }
+// ─── fetchCardPhoto ───────────────────────────────────────────────────────────
+// REGRA ESTRUTURAL: recebe o objeto completo de carta (com cardId, imageUrl,
+// fallbackUrl1, fallbackUrl2, customPhotoUrl). Nunca recebe apenas um ID.
+//
+// Isso garante que a foto carregada pertence SEMPRE ao mesmo cardId da carta,
+// eliminando qualquer possibilidade de mistura de dados entre cartas diferentes.
+//
+// Prioridade:
+//   1. customPhotoUrl (override do painel admin, se existir)
+//   2. Arquivo local (salvo por cardId — nunca por sofascoreId ou índice)
+//   3. imageUrl da carta (CDN FUT.GG, derivado do mesmo cardId)
+//   4. fallbackUrl1 (SoFIFA FC25, derivado do sofascoreId do mesmo objeto)
+//   5. fallbackUrl2 (SoFIFA FC24, derivado do sofascoreId do mesmo objeto)
+//   6. null → drawAvatar (fallback visual com iniciais — nunca carta vazia)
+async function fetchCardPhoto(card) {
+  if (!card) return null;
+
+  // ── 1. URL custom do painel admin ─────────────────────────────────────────
+  if (card.customPhotoUrl) {
+    const cacheKey = `custom:${card.customPhotoUrl}`;
+    if (_photoCache.has(cacheKey)) {
+      const cached = _photoCache.get(cacheKey);
+      if (cached) return cached;
+    } else {
+      try {
+        const ctrl  = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        const res   = await fetch(card.customPhotoUrl, { signal: ctrl.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        clearTimeout(timer);
+        if (res.ok) {
+          const buf = Buffer.from(await res.arrayBuffer());
+          const img = await loadImage(buf);
+          if (img.width >= 10 && img.height >= 10) {
+            _photoCache.set(cacheKey, img);
+            return img;
+          }
+        }
+      } catch { /* continua */ }
+      _photoCache.set(cacheKey, null);
     }
-  } catch { /* continua */ }
-  _photoCache.set(cacheKey, null);
-  return null;
-}
-
-// Monta URL do SoFIFA CDN (sofifa IDs = mesmos IDs já no futPlayers.js).
-// Tenta EA FC 25 primeiro; se não disponível, cai para EA FC 24.
-function sofifaUrl(id, year) {
-  const s = String(id).padStart(6, '0');
-  return `https://cdn.sofifa.net/players/${s.slice(0, 3)}/${s.slice(3)}/${year}_120.png`;
-}
-
-// Busca foto pelo sofifa player ID.
-// Prioridade: 1) override do painel admin  2) arquivo local  3) SoFIFA CDN (FC25 → FC24)
-async function fetchPlayerPhoto(futggId, customPhotoUrl) {
-  if (customPhotoUrl) {
-    const custom = await fetchCustomPhoto(customPhotoUrl);
-    if (custom) return custom;
   }
-  if (!futggId) return null;
-  const cacheKey = `sofa:${futggId}`;
+
+  // cardId é a chave primária do FUT.GG — toda associação é feita por ele
+  const cardId = card.cardId;
+  if (!cardId) return null;
+
+  const cacheKey = `card:${cardId}`;
   if (_photoCache.has(cacheKey)) return _photoCache.get(cacheKey);
 
-  // ── 1. Arquivo local (mais rápido e confiável) ─────────────────────────────
-  const localPath = join(playDir, `${futggId}.png`);
+  // ── 2. Arquivo local (chave = cardId, nunca sofascoreId ou índice) ─────────
+  const localPath = join(playDir, `${cardId}.png`);
   if (existsSync(localPath)) {
     try {
       const buf = await readFile(localPath);
@@ -270,18 +276,20 @@ async function fetchPlayerPhoto(futggId, customPhotoUrl) {
     } catch { /* continua */ }
   }
 
-  // ── 2. SoFIFA CDN — EA FC 25, fallback EA FC 24 ───────────────────────────
-  for (const year of [25, 24]) {
+  // ── 3-5. URLs da própria carta (imageUrl, fallbackUrl1, fallbackUrl2) ──────
+  // Todas as URLs vêm do mesmo objeto de carta — nunca de fontes externas.
+  const urls = [card.imageUrl, card.fallbackUrl1, card.fallbackUrl2].filter(Boolean);
+
+  for (const url of urls) {
     try {
-      const url  = sofifaUrl(futggId, year);
-      const ctrl = new AbortController();
+      const ctrl  = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 10000);
-      const res  = await fetch(url, {
+      const res   = await fetch(url, {
         signal: ctrl.signal,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'https://sofifa.com/',
-          'Accept': 'image/png,image/webp,*/*',
+          'Referer':    'https://sofifa.com/',
+          'Accept':     'image/png,image/webp,*/*',
         },
       });
       clearTimeout(timer);
@@ -290,6 +298,7 @@ async function fetchPlayerPhoto(futggId, customPhotoUrl) {
         if (buf.length >= PHOTO_MIN_BYTES) {
           const img = await loadImage(buf);
           if (img.width >= 20 && img.height >= 20) {
+            // Salva localmente com a chave cardId (não sofascoreId)
             try {
               const { writeFile } = await import('fs/promises');
               await writeFile(localPath, buf);
@@ -299,10 +308,10 @@ async function fetchPlayerPhoto(futggId, customPhotoUrl) {
           }
         }
       }
-    } catch { /* tenta próximo ano */ }
+    } catch { /* tenta próxima URL */ }
   }
 
-  // Sem foto disponível → exibe avatar com iniciais
+  // Sem foto disponível → drawAvatar renderiza iniciais (nunca carta vazia)
   _photoCache.set(cacheKey, null);
   return null;
 }
@@ -333,13 +342,16 @@ function cardDisplayName(name) {
   return (name ?? '').replace(/\s+(Copa|Base|Europeu|BRL|UCL)\s*$/i, '').trim();
 }
 
-// ─── Batch fetch fotos (FUT.GG CDN, por futggId) ──────────────────────────────
-async function batchFetchPhotos(players) {
+// ─── Batch fetch fotos (usa objetos completos de carta) ───────────────────────
+// REGRA: cada foto é buscada a partir do objeto de carta completo (não apenas ID).
+// Isso garante que a foto carregada pertence ao mesmo cardId da carta exibida.
+async function batchFetchPhotos(cards) {
   const out = [];
-  for (let i = 0; i < players.length; i++) {
-    const p    = players[i]?.player ?? players[i];
-    out.push(await fetchPlayerPhoto(p?.futggId ?? null, p?.customPhotoUrl ?? null));
-    if (i < players.length - 1) await new Promise(r => setTimeout(r, 60));
+  for (let i = 0; i < cards.length; i++) {
+    // Aceita tanto { player } (coleção) quanto o próprio card object
+    const card = cards[i]?.player ?? cards[i];
+    out.push(await fetchCardPhoto(card ?? null));
+    if (i < cards.length - 1) await new Promise(r => setTimeout(r, 60));
   }
   return out;
 }
@@ -771,20 +783,26 @@ function drawPitch(ctx, fx, fy, fw, fh) {
 
 // ─── Imagem do campo (visão do time) ─────────────────────────────────────────
 export async function generateFieldImage({ lineup, formation, teamName, elo }) {
-  const seen     = new Set();
   const photoMap = new Map();
   const flagMap  = new Map();
 
   for (const l of lineup) {
-    const p    = l.player;
-    if (!p || (!p.futggId && !p.customPhotoUrl)) continue;
-    const key  = `id:${p.id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const img = await fetchPlayerPhoto(p.futggId, p.customPhotoUrl);
-    if (img) photoMap.set(key, img);
-    const flag = await fetchFlag(p.nat);
-    if (flag) flagMap.set(p.nat, flag);
+    const card = l.player;
+    if (!card) continue;
+
+    // Chave do mapa = cardId (nunca id interno ou índice)
+    // Garante que cada foto está associada ao cardId correto
+    const mapKey = `card:${card.cardId}`;
+    if (photoMap.has(mapKey)) continue;
+
+    const img = await fetchCardPhoto(card);
+    // Armazena independentemente de ser null (null = usa drawAvatar, nunca carta vazia)
+    photoMap.set(mapKey, img ?? null);
+
+    if (card.nat && !flagMap.has(card.nat)) {
+      const flag = await fetchFlag(card.nat);
+      if (flag) flagMap.set(card.nat, flag);
+    }
     await new Promise(r => setTimeout(r, 40));
   }
 
@@ -852,17 +870,18 @@ export async function generateFieldImage({ lineup, formation, teamName, elo }) {
   // ── Cards dos jogadores ──────────────────────────────────────────────────
   const slots = FORMATIONS[formation] ?? FORMATIONS['4-3-3'];
   for (let i = 0; i < slots.length; i++) {
-    const s   = slots[i];
-    const ent = lineup.find(l => l.slot === i + 1);
-    const p   = ent?.player ?? null;
-    const key   = p ? `id:${p.id}` : null;
-    const photo = key ? (photoMap.get(key) ?? null) : null;
-    const flag  = p ? (flagMap.get(p.nat) ?? null) : null;
+    const s    = slots[i];
+    const ent  = lineup.find(l => l.slot === i + 1);
+    const card = ent?.player ?? null;
+    // Busca foto pelo cardId (nunca por id interno ou índice)
+    const mapKey = card ? `card:${card.cardId}` : null;
+    const photo  = mapKey ? (photoMap.get(mapKey) ?? null) : null;
+    const flag   = card ? (flagMap.get(card.nat) ?? null) : null;
     drawFieldCard(
       ctx,
       Math.round(FX + s.x * FW),
       Math.round(FY + s.y * FH),
-      p, s.pos, photo, flag,
+      card, s.pos, photo, flag,
     );
   }
 
@@ -943,17 +962,29 @@ export async function generatePackRevealImage(players) {
   ctx.fillText('⚽  NOVAS CARTAS', CW / 2, 30);
   ctx.restore();
 
+  // Busca fotos e bandeiras usando objetos completos de carta (não apenas IDs)
   const photos = await batchFetchPhotos(players);
-  const flags  = await Promise.all(players.map(p => fetchFlag(p.nat)));
+  const flags  = await Promise.all(players.map(card => fetchFlag(card?.nat)));
 
   for (let i = 0; i < players.length; i++) {
+    const card = players[i];
+    if (!card) continue;
+
+    // Valida a carta antes de renderizar
+    const v = validateCard(card);
+    if (!v.valid) {
+      console.error(`[FUT PACK REVEAL] ❌ Carta inválida no slot ${i}: ${v.errors.join(', ')}`);
+      continue;
+    }
+    logCard(`PACK_REVEAL slot=${i}`, card);
+
     const col = i % COLS, row = Math.floor(i / COLS);
     drawEACard(
       ctx,
       PAD + col * (PC_W + GAP),
       60 + PAD + row * (PC_H + GAP),
       PC_W, PC_H,
-      players[i], photos[i], flags[i],
+      card, photos[i], flags[i],
     );
   }
 
@@ -992,19 +1023,29 @@ export async function generateCollectionImage(playerCards) {
     return canvas.toBuffer('image/png');
   }
 
+  // Busca fotos usando o objeto completo de carta (garante foto = mesmo cardId)
   const photos = await batchFetchPhotos(playerCards);
-  const flags  = await Promise.all(playerCards.map(c => fetchFlag(c.player?.nat)));
+  const flags  = await Promise.all(playerCards.map(c => fetchFlag(c.player?.nat ?? c.nat)));
 
   for (let i = 0; i < playerCards.length; i++) {
-    const p = playerCards[i].player;
-    if (!p) continue;
+    const card = playerCards[i].player ?? playerCards[i];
+    if (!card) continue;
+
+    // Valida antes de renderizar — nunca exibe carta com dados inválidos
+    const v = validateCard(card);
+    if (!v.valid) {
+      console.error(`[FUT COLLECTION] ❌ Carta inválida no slot ${i}: ${v.errors.join(', ')}`);
+      continue;
+    }
+    logCard(`COLLECTION slot=${i}`, card);
+
     const col = i % COLS, row = Math.floor(i / COLS);
     drawEACard(
       ctx,
       PAD + col * (CC_W + GAP),
       PAD + row * (CC_H + GAP),
       CC_W, CC_H,
-      p, photos[i], flags[i],
+      card, photos[i], flags[i],
     );
   }
 
@@ -1126,17 +1167,19 @@ function drawPackCard(ctx, x, y, w, h, packName, price, photo, guaranteed) {
 
 // ─── Loja image ────────────────────────────────────────────────────────────────
 export async function generateLojaImage(balance) {
+  // cardId = futggId do FUT.GG — todos os dados vêm do mesmo objeto de carta
   const packDefs = [
-    { name:'Padrão',  playerId: 11, price: 500,  guaranteed:'bronze' }, // Bellingham
-    { name:'Ouro',    playerId: 17, price: 2000, guaranteed:'gold'   }, // Salah
-    { name:'Premium', playerId: 14, price: 5000, guaranteed:'black'  }, // Mbappé
-    { name:'Europeu', playerId: 25, price: 2800, guaranteed:'gold'   }, // Lamine Yamal
+    { name:'Padrão',  cardId: 246669, price: 500,  guaranteed:'bronze' }, // Bellingham
+    { name:'Ouro',    cardId: 209331, price: 2000, guaranteed:'gold'   }, // Salah
+    { name:'Premium', cardId: 231747, price: 5000, guaranteed:'black'  }, // Mbappé
+    { name:'Europeu', cardId: 271321, price: 2800, guaranteed:'gold'   }, // Lamine Yamal
   ];
 
   const photos = [];
   for (const d of packDefs) {
-    const pl = getPlayerById(d.playerId);
-    photos.push(await fetchPlayerPhoto(pl?.futggId ?? null, null));
+    // Busca carta completa pelo cardId — nunca por índice ou nome
+    const card = getCardByFutggId(d.cardId);
+    photos.push(await fetchCardPhoto(card ?? null));
     await new Promise(r => setTimeout(r, 100));
   }
 
@@ -1173,19 +1216,21 @@ export async function generateLojaImage(balance) {
 
 // ─── Pacotes image (seleção de pacotes) ───────────────────────────────────────
 export async function generatePacksImage(packsInfo) {
+  // cardId = futggId do FUT.GG — busca pela chave primária, nunca por índice
   const defaults = [
-    { name:'Padrão',  playerId: 11, price: 500,  guaranteed:'bronze' },
-    { name:'Ouro',    playerId: 17, price: 2000, guaranteed:'gold'   },
-    { name:'Premium', playerId: 14, price: 5000, guaranteed:'black'  },
-    { name:'Copa 26', playerId: 26, price: 3000, guaranteed:'gold'   },
-    { name:'Europeu', playerId: 25, price: 2800, guaranteed:'gold'   },
+    { name:'Padrão',  cardId: 246669, price: 500,  guaranteed:'bronze' }, // Bellingham
+    { name:'Ouro',    cardId: 209331, price: 2000, guaranteed:'gold'   }, // Salah
+    { name:'Premium', cardId: 231747, price: 5000, guaranteed:'black'  }, // Mbappé
+    { name:'Copa 26', cardId: 238794, price: 3000, guaranteed:'gold'   }, // Vinicius Jr
+    { name:'Europeu', cardId: 271321, price: 2800, guaranteed:'gold'   }, // Lamine Yamal
   ];
   const defs = packsInfo ?? defaults;
 
   const photos = [];
   for (const d of defs) {
-    const pl = d.playerId != null ? getPlayerById(d.playerId) : null;
-    photos.push(await fetchPlayerPhoto(pl?.futggId ?? d.futggId ?? null, null));
+    // Busca carta completa pelo cardId — nunca por playerId interno
+    const card = d.cardId ? getCardByFutggId(d.cardId) : null;
+    photos.push(await fetchCardPhoto(card ?? null));
     await new Promise(r => setTimeout(r, 100));
   }
 
@@ -1300,6 +1345,13 @@ export async function generateSingleCardImage(player) {
   const canvas = createCanvas(CW, CH);
   const ctx    = canvas.getContext('2d');
 
+  // Valida a carta antes de renderizar
+  const v = validateCard(player);
+  if (!v.valid) {
+    console.error(`[FUT SINGLE CARD] ❌ Carta inválida: ${v.errors.join(', ')}`);
+  }
+  logCard('SINGLE_CARD', player);
+
   // Fundo escuro estilo FutBin
   const bg = ctx.createLinearGradient(0, 0, CW, CH);
   bg.addColorStop(0, '#07071a');
@@ -1315,8 +1367,9 @@ export async function generateSingleCardImage(player) {
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, CW, CH);
 
+  // Busca foto pelo objeto completo de carta (não apenas por futggId isolado)
   const [photo, flag] = await Promise.all([
-    fetchPlayerPhoto(player.futggId, player.customPhotoUrl),
+    fetchCardPhoto(player),
     fetchFlag(player.nat),
   ]);
 
