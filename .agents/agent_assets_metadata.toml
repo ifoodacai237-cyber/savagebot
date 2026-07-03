@@ -48,3 +48,21 @@ id = "1LrNJ3hu67v-uFLPY5qYn"
 uri = "file://carta_completa.png"
 type = "image"
 title = "Carta completa — Thiago Silva"
+
+[[outputs]]
+id = "bsM5zHHz-WyG0ggBH9vHB"
+uri = "file://carta_gold_40.png"
+type = "image"
+title = "🥇 Gold — Thiago Silva (com foto real)"
+
+[[outputs]]
+id = "cMei7125YpjCFPNL2SHbr"
+uri = "file://carta_black_1.png"
+type = "image"
+title = "⬛ Black — Courtois (avatar até o sync)"
+
+[[outputs]]
+id = "0lpOXy0Ydl9vjAINWDc9b"
+uri = "file://carta_silver_3.png"
+type = "image"
+title = "🥈 Silver — Kepa"
