@@ -1,40 +1,20 @@
-// Drops ativos em memória — limpos automaticamente após resgate ou expiração
+// ─── Drops ativos ────────────────────────────────────────────────────────────
 
-const drops = new Map();
-let _counter = 0;
+const drops    = new Map();
+const pending  = new Map(); // aguardando seleção de item na gavetinha
+let _counter   = 0;
 
-/**
- * Cria um drop e retorna seu ID único.
- * @param {{ guildId, tipo, quantidade?, roleId?, roleName?, descricao, titulo? }} opts
- */
-export function createDrop({ guildId, tipo, quantidade, roleId, roleName, descricao, titulo }) {
+// ── Drop ativo (já publicado no canal) ─────────────────────────────────────
+
+export function createDrop(data) {
   const id = `${Date.now()}_${++_counter}`;
-  drops.set(id, {
-    guildId,
-    tipo,               // 'coins' | 'cargo' | 'personalizado'
-    quantidade: quantidade ?? null,
-    roleId:     roleId  ?? null,
-    roleName:   roleName ?? null,
-    descricao:  descricao ?? null,
-    titulo:     titulo  ?? null,
-    claimed:    false,
-    claimedBy:  null,
-    claimedAt:  null,
-  });
-
-  // Auto-expiração após 24 h para evitar memory leak
-  setTimeout(() => drops.delete(id), 24 * 60 * 60 * 1000);
-
+  drops.set(id, { ...data, claimed: false, claimedBy: null, claimedAt: null });
+  setTimeout(() => drops.delete(id), 24 * 60 * 60 * 1000); // expira em 24h
   return id;
 }
 
-export function getDrop(id) {
-  return drops.get(id) ?? null;
-}
+export function getDrop(id)  { return drops.get(id) ?? null; }
 
-/**
- * Tenta marcar o drop como resgatado. Retorna true se foi o primeiro a resgatar.
- */
 export function claimDrop(id, userId) {
   const drop = drops.get(id);
   if (!drop || drop.claimed) return false;
@@ -42,4 +22,22 @@ export function claimDrop(id, userId) {
   drop.claimedBy = userId;
   drop.claimedAt = new Date();
   return true;
+}
+
+// ── Drop pendente (admin ainda escolhendo na gavetinha) ───────────────────
+
+/** Chave: `${guildId}:${userId}` */
+function pendingKey(guildId, userId) { return `${guildId}:${userId}`; }
+
+export function setPending(guildId, userId, data) {
+  const key = pendingKey(guildId, userId);
+  pending.set(key, data);
+  setTimeout(() => pending.delete(key), 5 * 60 * 1000); // expira em 5 min
+}
+
+export function popPending(guildId, userId) {
+  const key = pendingKey(guildId, userId);
+  const data = pending.get(key) ?? null;
+  pending.delete(key);
+  return data;
 }

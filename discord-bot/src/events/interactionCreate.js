@@ -68,7 +68,7 @@ import {
   buildRPColorPicker,
   RP_COLOR_MAP,
 } from '../utils/rolePanelSessions.js';
-import { handleDropClaim } from '../utils/dropHandlers.js';
+import { handleDropClaim, handleDropItemSelect } from '../utils/dropHandlers.js';
 
 // ─── Emoji resolver ───────────────────────────────────────────────────────────
 
@@ -404,6 +404,11 @@ export default {
 
       // ── STRING SELECT MENUS ────────────────────────────────────────────────
       if (interaction.isStringSelectMenu()) {
+        // ── DROP: Admin escolheu item na gavetinha ──────────────────────────
+        if (interaction.customId === 'drop_item_sel') {
+          return handleDropItemSelect(interaction);
+        }
+
         // ── TICKET: Painel público — menu de categorias ──────────────────────
         if (interaction.customId === 'ticket_menu_sel') {
           await interaction.deferReply({ ephemeral: true });

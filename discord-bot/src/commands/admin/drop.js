@@ -1,17 +1,14 @@
 import {
   SlashCommandBuilder,
   PermissionFlagsBits,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  SeparatorBuilder,
-  MediaGalleryBuilder,
-  MediaGalleryItemBuilder,
   ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
   MessageFlags,
 } from 'discord.js';
-import { createDrop } from '../../utils/dropSessions.js';
+import prisma from '../../database/client.js';
+import { BANNERS, buildBannerUrl } from '../../utils/shopData.js';
+import { setPending } from '../../utils/dropSessions.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -23,8 +20,9 @@ export default {
         .setDescription('O que vai cair no drop')
         .setRequired(true)
         .addChoices(
-          { name: '💰 Moedas',       value: 'coins'         },
-          { name: '👤 Cargo',        value: 'cargo'         },
+          { name: '💰 Moedas',        value: 'coins'         },
+          { name: '👤 Cargo da loja', value: 'cargo'         },
+          { name: '🖼️ Banner',        value: 'banner'        },
           { name: '🎀 Personalizado', value: 'personalizado' },
         ),
     )
@@ -34,18 +32,14 @@ export default {
         .setMinValue(1)
         .setMaxValue(1_000_000),
     )
-    .addRoleOption(opt =>
-      opt.setName('cargo')
-        .setDescription('Cargo a ser dado (apenas para tipo Cargo)'),
-    )
     .addStringOption(opt =>
       opt.setName('descricao')
-        .setDescription('Descrição do prêmio — aparece no drop e no anúncio')
+        .setDescription('Texto extra exibido no drop')
         .setMaxLength(300),
     )
     .addStringOption(opt =>
       opt.setName('titulo')
-        .setDescription('Título personalizado do drop (padrão: DROP!)')
+        .setDescription('Título personalizado (padrão: DROP!)')
         .setMaxLength(80),
     )
     .addStringOption(opt =>
@@ -57,88 +51,112 @@ export default {
   async execute(interaction) {
     const tipo      = interaction.options.getString('tipo');
     const quantidade = interaction.options.getInteger('quantidade');
-    const cargo     = interaction.options.getRole('cargo');
     const descricao = interaction.options.getString('descricao');
     const titulo    = interaction.options.getString('titulo');
     const imagem    = interaction.options.getString('imagem');
 
-    // ── Validações ────────────────────────────────────────────────────────────
-    if (tipo === 'coins' && !quantidade) {
-      return interaction.reply({ content: '❌ Informe a **quantidade** de moedas para este drop.', ephemeral: true });
-    }
-    if (tipo === 'cargo' && !cargo) {
-      return interaction.reply({ content: '❌ Selecione o **cargo** a ser dado neste drop.', ephemeral: true });
-    }
-    if (tipo === 'personalizado' && !descricao) {
-      return interaction.reply({ content: '❌ Informe a **descrição** do prêmio para este drop.', ephemeral: true });
-    }
-
-    // ── Texto do prêmio ───────────────────────────────────────────────────────
-    let premioLinha;
+    // ── Moedas: vai direto ────────────────────────────────────────────────────
     if (tipo === 'coins') {
-      premioLinha = `🪙 **Prêmio:** 💰 ${Number(quantidade).toLocaleString('pt-BR')} moedas`;
-    } else if (tipo === 'cargo') {
-      premioLinha = `🪙 **Prêmio:** 👤 ${cargo.name}`;
+      if (!quantidade) {
+        return interaction.reply({ content: '❌ Informe a **quantidade** de moedas para este drop.', ephemeral: true });
+      }
+      const { buildDropEmbed } = await import('../../utils/dropHandlers.js');
+      const { createDrop }     = await import('../../utils/dropSessions.js');
+
+      const dropId = createDrop({ guildId: interaction.guildId, tipo: 'coins', quantidade, descricao, titulo, imagem });
+      const payload = buildDropEmbed({ tipo: 'coins', quantidade, descricao, titulo, imagem, dropId });
+
+      await interaction.reply({ content: '✅ Drop lançado!', ephemeral: true });
+      return interaction.channel.send(payload);
+    }
+
+    // ── Personalizado: vai direto ─────────────────────────────────────────────
+    if (tipo === 'personalizado') {
+      if (!descricao) {
+        return interaction.reply({ content: '❌ Informe a **descrição** do prêmio para este drop.', ephemeral: true });
+      }
+      const { buildDropEmbed } = await import('../../utils/dropHandlers.js');
+      const { createDrop }     = await import('../../utils/dropSessions.js');
+
+      const dropId = createDrop({ guildId: interaction.guildId, tipo: 'personalizado', descricao, titulo, imagem });
+      const payload = buildDropEmbed({ tipo: 'personalizado', descricao, titulo, imagem, dropId });
+
+      await interaction.reply({ content: '✅ Drop lançado!', ephemeral: true });
+      return interaction.channel.send(payload);
+    }
+
+    // ── Cargo / Banner: mostra gavetinha ─────────────────────────────────────
+    await interaction.deferReply({ ephemeral: true });
+
+    // Salva estado pendente (titulo, descricao, imagem, canal)
+    setPending(interaction.guildId, interaction.user.id, {
+      tipo, titulo, descricao, imagem,
+      channelId: interaction.channelId,
+    });
+
+    let selectMenu;
+
+    if (tipo === 'cargo') {
+      const cargos = await prisma.shopRole.findMany({
+        where: { guildId: interaction.guildId, active: true },
+        orderBy: { name: 'asc' },
+      });
+
+      if (!cargos.length) {
+        return interaction.editReply({ content: '❌ Nenhum cargo cadastrado na loja deste servidor.' });
+      }
+
+      selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('drop_item_sel')
+        .setPlaceholder('Escolha o cargo do drop…')
+        .addOptions(
+          cargos.slice(0, 25).map(c =>
+            new StringSelectMenuOptionBuilder()
+              .setValue(`cargo:${c.roleId}:${c.name}`)
+              .setLabel(c.name.slice(0, 100))
+              .setDescription((c.description ?? `💰 ${c.price} moedas`).slice(0, 100))
+              .setEmoji('👤'),
+          ),
+        );
     } else {
-      premioLinha = `🎀 **Prêmio:** ${descricao}`;
+      // banner
+      const customBanners = await prisma.customBanner.findMany({
+        where: { guildId: interaction.guildId, active: true },
+      });
+
+      const allBanners = [
+        ...BANNERS,
+        ...customBanners.map(c => ({
+          key: c.key, name: c.name, description: c.description || '',
+          price: c.price, imageUrl: buildBannerUrl(c.imageUrl), emoji: c.emoji,
+        })),
+      ];
+
+      if (!allBanners.length) {
+        return interaction.editReply({ content: '❌ Nenhum banner disponível.' });
+      }
+
+      selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('drop_item_sel')
+        .setPlaceholder('Escolha o banner do drop…')
+        .addOptions(
+          allBanners.slice(0, 25).map(b => {
+            const opt = new StringSelectMenuOptionBuilder()
+              .setValue(`banner:${b.key}:${b.name}`)
+              .setLabel(b.name.slice(0, 100))
+              .setDescription((b.description || `🖼️ Banner`).slice(0, 100));
+
+            const match = String(b.emoji ?? '').match(/^<(a?):([^:>\s]+):(\d+)>$/);
+            if (match) opt.setEmoji({ animated: match[1] === 'a', name: match[2], id: match[3] });
+            else if (b.emoji) opt.setEmoji(b.emoji);
+
+            return opt;
+          }),
+        );
     }
 
-    // ── Criar sessão ─────────────────────────────────────────────────────────
-    const dropId = createDrop({
-      guildId:  interaction.guildId,
-      tipo,
-      quantidade,
-      roleId:   cargo?.id   ?? null,
-      roleName: cargo?.name ?? null,
-      descricao: descricao  ?? premioLinha,
-      titulo,
-    });
-
-    // ── Montar embed V2 (ContainerBuilder sem cor = sem barra lateral) ────────
-    const tituloFinal = titulo ? `## 🎁 ${titulo}` : '## 🎁 DROP!';
-
-    const bodyLines = [
-      tituloFinal,
-      '',
-      premioLinha,
-    ];
-    if (descricao && tipo !== 'personalizado') {
-      bodyLines.push('', `> ${descricao}`);
-    }
-    bodyLines.push('', '-# Seja o primeiro a clicar no botão para resgatar!');
-
-    const container = new ContainerBuilder();
-
-    // Imagem opcional no topo
-    if (imagem) {
-      container.addMediaGalleryComponents(
-        new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL(imagem),
-        ),
-      );
-    }
-
-    container
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(bodyLines.join('\n')),
-      )
-      .addSeparatorComponents(new SeparatorBuilder())
-      .addActionRowComponents(
-        new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`drop_claim_${dropId}`)
-            .setLabel('Resgatar')
-            .setStyle(ButtonStyle.Success)
-            .setEmoji('🎁'),
-        ),
-      );
-
-    await interaction.reply({ content: '✅ Drop lançado!', ephemeral: true });
-
-    await interaction.channel.send({
-      components: [container],
-      flags:      MessageFlags.IsComponentsV2,
-    });
+    const row = new ActionRowBuilder().addComponents(selectMenu);
+    return interaction.editReply({ content: `Escolha o item para o drop:`, components: [row] });
   },
 
   async executePrefix(message) {
