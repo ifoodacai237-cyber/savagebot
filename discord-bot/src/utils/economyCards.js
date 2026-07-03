@@ -513,18 +513,14 @@ export async function generateBlackjackCard({ playerCards, dealerCards, pTotal, 
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
-  // ── Felt background ─────────────────────────────────────────────────────────
-  const isLoss = !won && !tie && !hideDealer;
-  const [c0, c1, c2] = isLoss
-    ? ['#1a3520', '#0d2214', '#142a1a']
-    : ['#1a4a28', '#0d3318', '#153d20'];
+  // ── Background: dark/black ──────────────────────────────────────────────────
   const bg = ctx.createLinearGradient(0, 0, W, H);
-  bg.addColorStop(0, c0); bg.addColorStop(0.5, c1); bg.addColorStop(1, c2);
+  bg.addColorStop(0, '#0a0a0a'); bg.addColorStop(0.5, '#111111'); bg.addColorStop(1, '#0d0d0d');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
   // Subtle dot grid
-  ctx.fillStyle = 'rgba(255,255,255,0.035)';
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
   for (let x = 30; x < W; x += 44)
     for (let y = 30; y < H; y += 44) {
       ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
