@@ -74,11 +74,17 @@ export async function askAI({ guildId, userId, prompt }) {
   return answer;
 }
 
-// ─── Geração de imagem ────────────────────────────────────────────────────────
-// O Groq não suporta geração de imagem — lança erro para o fluxo cair no catch.
+// ─── Geração de imagem via Pollinations AI (gratuito, sem API key) ───────────
 
 export async function generateAIImage({ prompt }) {
-  throw new Error('Geração de imagem não está disponível com o provedor atual (Groq). Tente pedir texto ou informações.');
+  const encoded = encodeURIComponent(prompt);
+  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&enhance=true`;
+
+  const response = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+  if (!response.ok) throw new Error(`Pollinations retornou ${response.status}`);
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
 export function isAIConfigured() {
