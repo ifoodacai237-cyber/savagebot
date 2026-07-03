@@ -36,3 +36,9 @@ id = "hbxYSxF8eU6QqqhYaqh2v"
 uri = "file://test_card.png"
 type = "image"
 title = "Carta FUT — Thiago Silva (foto real do FUT.GG)"
+
+[[outputs]]
+id = "eKbV4Y31bA2Eih9FgE8kB"
+uri = "file://tabela_cartas.png"
+type = "image"
+title = "Tabela completa — 124 cartas do bot"
