@@ -43,26 +43,37 @@ IA com OVR ± 7 do usuário. ELO padrão K=32. Placar gerado por OVR diff + rand
 - Adicionar troca de cartas entre usuários: nova rota no futManager.js
 - Mercado de transferências: modelo FutTransfer no schema
 
-## Sistema de fotos — FUT.GG CDN (chave primária: futggId)
-`futggId` é o único ID de carta — o mesmo número serve para buscar foto e dados (sem queries separadas).
-- Foto: `cdn.futgg.com/images/players/{futggId}.png`
+## Sistema de fotos — SoFIFA CDN (chave: futggId = sofifa player ID)
+`futggId` = sofifa/EA player ID. Mesmo número para buscar foto e identificar jogador.
+- CDN: `cdn.sofifa.net/players/{id[0:3]}/{id[3:]}/25_120.png` (FC25 → fallback FC24)
 - Cache local: `src/assets/players/{futggId}.png`
 - Sync script: `scripts/sync-futgg.js` (baixa fotos que faltam; `--force` re-baixa tudo)
 - Rótulos de stats: PAS DRI DEF FIN VEL RES (linha) | ANT DEF TAT AER DIS EXP (goleiro)
 - Jogadores sem futggId mostram avatar com iniciais (comportamento esperado)
 
-**Why:** FutBin CDN bloqueava e retornava silhuetas genéricas; eaId foi renomeado para futggId
-para deixar claro que a fonte é o FUT.GG. Um único ID por carta = sem cruzamento de fontes.
+**CDN errado histórico:** FUT.GG CDN (`cdn.futgg.com`) usa "resource IDs" DIFERENTES dos sofifa IDs.
+Fotos baixadas com sofifa IDs desse CDN mostravam JOGADORES ALEATÓRIOS. Não usar nunca mais.
 
-## Status dos futggId (após rebuild)
-22 jogadores receberam futggId via web search (Thiago Silva=164240, Isco=197781, Pedro=189505, Raphael Veiga=250009, Gabigol=212823, Dudu=258085, Luciano=230601, Tiquinho=227476, Fabianski=164835, Lenglet=220440, Ndicka=236403, Javier Guerra=266436, Flores=259717, Palmieri=210736, Lodi=251573, Volland=200610, Soteldo=233531, Zé Rafael=221933, Léo Pereira=250001, Piquerez=239476, Patrick=242180, Neves Jr=272834).
+**Why SoFIFA:** sofifa IDs = futggIds já no arquivo. CDN acessível, retorna fotos reais.
+FC24 fallback resolve jogadores que saíram do EA FC 25 (aposentados/sem licença).
 
-4 ainda sem futggId (jogadores de ligas muito obscuras sem presença no EA FC 25): Carabott (MLT), Araújo Jr (Madureira/BRA), Ferreira (Criciúma/BRA), Reinaldo (Grêmio/BRA).
+## Verificar IDs com SoFIFA CDN
+```js
+// Testar se um ID é válido:
+const s = String(id).padStart(6,'0');
+fetch(`https://cdn.sofifa.net/players/${s.slice(0,3)}/${s.slice(3)}/25_120.png`)
+// 200 + >5000 bytes = válido | 404 = ID errado
+```
+
+## Status dos futggId
+- 97 jogadores com IDs válidos e verificados no SoFIFA CDN
+- FC24-only (sem foto FC25, mas ID correto): Marquinhos(213000), Thiago Silva(164240), Benzema(182521), Koulibaly(195722), Laporte(218353), Alaba(195864), Mendy(238803), Casemiro(193056), Frenkie De Jong(226328), D.Henderson(233684), Balogun(255892), Zaire-Emery(262004), Gomes(226325), Luiz Henrique(258219)
+- Sem futggId (IDs errados removidos): Kroos, Gabigol, Raphael Veiga, Tiquinho, Soteldo, Zé Rafael, Léo Pereira, Patrick
 
 ## Como buscar futggId para novos jogadores
-- CDN fut.gg é bloqueado da rede Replit (timeout). Usar web search: `webSearch({ query: "fut.gg {nome} EA FC 25 player ID" })`
-- IDs válidos ficam na faixa 158000–275000. IDs fora desse range são suspeitos/errados.
-- futggId = EA internal resource ID (mesmo que sofifa.com usa na URL do jogador)
+- Verificar no SoFIFA CDN (ver snippet acima). ID correto = 200 + >5000 bytes
+- IDs tipicamente na faixa 20000–275000 (sofifa IDs históricos)
+- NUNCA usar FUT.GG CDN — usa resource IDs diferentes dos sofifa IDs
 
 ## Painel admin de override manual (nome/foto por carta)
 `FutPlayerOverride` (Prisma, playerId único) + `src/utils/futOverrides.js` (cache em memória +
