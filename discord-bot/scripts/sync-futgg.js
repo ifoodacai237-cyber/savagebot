@@ -36,50 +36,57 @@ const DELAY   = 300;     // ms entre downloads (evita rate limit)
 // Threshold mínimo de bytes para aceitar como foto válida
 const PHOTO_MIN_BYTES = 5000;
 
-// ─── CDN FUT.GG ───────────────────────────────────────────────────────────────
+// ─── SoFIFA CDN (usa sofifa/EA player IDs — os mesmos do futPlayers.js) ───────
+// Tenta EA FC 25 primeiro; fallback para EA FC 24 caso o jogador não esteja no FC 25.
+function sofifaUrl(id, year) {
+  const s = String(id).padStart(6, '0');
+  return `https://cdn.sofifa.net/players/${s.slice(0, 3)}/${s.slice(3)}/${year}_120.png`;
+}
+
 function photoUrl(futggId) {
-  return `https://cdn.futgg.com/images/players/${futggId}.png`;
+  return sofifaUrl(futggId, 25); // principal — FC 25
+}
+function photoUrlFallback(futggId) {
+  return sofifaUrl(futggId, 24); // fallback — FC 24
 }
 
 // ─── Download com validação ───────────────────────────────────────────────────
 async function downloadPhoto(futggId) {
-  const url      = photoUrl(futggId);
   const localPath = join(playDir, `${futggId}.png`);
 
   if (!FORCE && existsSync(localPath)) {
     return { futggId, status: 'cached' };
   }
 
-  const ctrl  = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
-  try {
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://www.fut.gg/',
-        'Accept': 'image/png,image/webp,*/*',
-      },
-    });
-    clearTimeout(timer);
+  // Tenta FC 25 e depois FC 24 como fallback
+  for (const [year, url] of [[25, photoUrl(futggId)], [24, photoUrlFallback(futggId)]]) {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
+    try {
+      const res = await fetch(url, {
+        signal: ctrl.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://sofifa.com/',
+          'Accept': 'image/png,image/webp,*/*',
+        },
+      });
+      clearTimeout(timer);
 
-    if (!res.ok) {
-      return { futggId, status: 'http_error', code: res.status };
+      if (!res.ok) continue;
+
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length < PHOTO_MIN_BYTES) continue;
+
+      await writeFile(localPath, buf);
+      return { futggId, status: 'ok', bytes: buf.length, year };
+
+    } catch (err) {
+      clearTimeout(timer);
     }
-
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length < PHOTO_MIN_BYTES) {
-      return { futggId, status: 'too_small', bytes: buf.length };
-    }
-
-    await writeFile(localPath, buf);
-    return { futggId, status: 'ok', bytes: buf.length };
-
-  } catch (err) {
-    clearTimeout(timer);
-    const msg = err.name === 'AbortError' ? 'timeout' : err.message;
-    return { futggId, status: 'error', msg };
   }
+
+  return { futggId, status: 'error', msg: 'not found in FC25 or FC24' };
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────

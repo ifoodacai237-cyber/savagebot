@@ -237,16 +237,22 @@ async function fetchCustomPhoto(url) {
   return null;
 }
 
-// Busca foto pelo futggId (chave única FUT.GG).
-// Prioridade: 1) override do painel admin  2) arquivo local  3) FUT.GG CDN
-// Uma única fonte de verdade por carta — sem buscas separadas de foto e nome.
+// Monta URL do SoFIFA CDN (sofifa IDs = mesmos IDs já no futPlayers.js).
+// Tenta EA FC 25 primeiro; se não disponível, cai para EA FC 24.
+function sofifaUrl(id, year) {
+  const s = String(id).padStart(6, '0');
+  return `https://cdn.sofifa.net/players/${s.slice(0, 3)}/${s.slice(3)}/${year}_120.png`;
+}
+
+// Busca foto pelo sofifa player ID.
+// Prioridade: 1) override do painel admin  2) arquivo local  3) SoFIFA CDN (FC25 → FC24)
 async function fetchPlayerPhoto(futggId, customPhotoUrl) {
   if (customPhotoUrl) {
     const custom = await fetchCustomPhoto(customPhotoUrl);
     if (custom) return custom;
   }
   if (!futggId) return null;
-  const cacheKey = `futgg:${futggId}`;
+  const cacheKey = `sofa:${futggId}`;
   if (_photoCache.has(cacheKey)) return _photoCache.get(cacheKey);
 
   // ── 1. Arquivo local (mais rápido e confiável) ─────────────────────────────
@@ -264,36 +270,37 @@ async function fetchPlayerPhoto(futggId, customPhotoUrl) {
     } catch { /* continua */ }
   }
 
-  // ── 2. FUT.GG CDN — mesma fonte dos dados da carta ────────────────────────
-  try {
-    const url  = `https://cdn.futgg.com/images/players/${futggId}.png`;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 10000);
-    const res  = await fetch(url, {
-      signal: ctrl.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://www.fut.gg/',
-        'Accept': 'image/png,image/webp,*/*',
-      },
-    });
-    clearTimeout(timer);
-    if (res.ok) {
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length >= PHOTO_MIN_BYTES) {
-        const img = await loadImage(buf);
-        if (img.width >= 20 && img.height >= 20) {
-          // Salva localmente para próximas execuções
-          try {
-            const { writeFile } = await import('fs/promises');
-            await writeFile(localPath, buf);
-          } catch { /* sem erro */ }
-          _photoCache.set(cacheKey, img);
-          return img;
+  // ── 2. SoFIFA CDN — EA FC 25, fallback EA FC 24 ───────────────────────────
+  for (const year of [25, 24]) {
+    try {
+      const url  = sofifaUrl(futggId, year);
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 10000);
+      const res  = await fetch(url, {
+        signal: ctrl.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://sofifa.com/',
+          'Accept': 'image/png,image/webp,*/*',
+        },
+      });
+      clearTimeout(timer);
+      if (res.ok) {
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length >= PHOTO_MIN_BYTES) {
+          const img = await loadImage(buf);
+          if (img.width >= 20 && img.height >= 20) {
+            try {
+              const { writeFile } = await import('fs/promises');
+              await writeFile(localPath, buf);
+            } catch { /* sem erro */ }
+            _photoCache.set(cacheKey, img);
+            return img;
+          }
         }
       }
-    }
-  } catch { /* continua */ }
+    } catch { /* tenta próximo ano */ }
+  }
 
   // Sem foto disponível → exibe avatar com iniciais
   _photoCache.set(cacheKey, null);
