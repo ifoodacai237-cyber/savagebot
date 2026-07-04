@@ -228,10 +228,13 @@ model UserProfile {
   bestFriendId    String?
   bestFriendName  String?
   reps            Int     @default(0)
-  cardBg1         String?
-  cardBg2         String?
-  cardPanelColor  String?
-  walletBg        String?
+  cardBg1          String?
+  cardBg2          String?
+  cardPanelColor   String?
+  walletBg         String?
+  walletRing       String?
+  walletRingBorder String?
+  walletFrame      String?
 }
 
 model Pet {
