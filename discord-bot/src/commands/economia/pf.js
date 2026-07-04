@@ -48,7 +48,6 @@ export default {
     .addSubcommand(s => s
       .setName('vip')
       .setDescription('Dar VIP temporario a um membro')
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
       .addUserOption(o => o.setName('usuario').setDescription('Membro').setRequired(true))
       .addStringOption(o => o.setName('tempo').setDescription('Duracao (ex: 30d, 12h, 60m)').setRequired(true))
       .addRoleOption(o => o.setName('cargo').setDescription('Cargo VIP a dar').setRequired(true))),
