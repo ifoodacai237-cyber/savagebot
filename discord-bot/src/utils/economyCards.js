@@ -665,14 +665,22 @@ function fmtDouble(n) {
   return fmt(n);
 }
 
-export async function generateBalanceCard({ username, avatarUrl, balance, bank }) {
+export async function generateBalanceCard({ username, avatarUrl, balance, bank, cardBg1, cardBg2, cardPanelColor, ringBorderColor }) {
   const W   = 460, H = 590;
   const PAD = 18;
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
-  // Outer gray shell
-  ctx.fillStyle = '#E3E3E3';
+  // Outer shell — custom gradient/solid or default gray
+  if (cardBg1 && cardBg2) {
+    const shellGrad = ctx.createLinearGradient(0, 0, W, H);
+    shellGrad.addColorStop(0, cardBg1); shellGrad.addColorStop(1, cardBg2);
+    ctx.fillStyle = shellGrad;
+  } else if (cardBg1) {
+    ctx.fillStyle = cardBg1;
+  } else {
+    ctx.fillStyle = '#E3E3E3';
+  }
   roundRect(ctx, 0, 0, W, H, 28); ctx.fill();
 
   // Inner white card
@@ -683,8 +691,8 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank }
   const AV_R  = 80;
   const AV_CX = W / 2, AV_CY = AV_R + 30;
 
-  // Gray ring
-  ctx.strokeStyle = '#C8C8C8'; ctx.lineWidth = 7;
+  // Ring — custom color or default gray
+  ctx.strokeStyle = ringBorderColor ?? '#C8C8C8'; ctx.lineWidth = 7;
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 6, 0, Math.PI * 2); ctx.stroke();
 
   ctx.save();
@@ -729,8 +737,8 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank }
     const ry = ROW_Y0 + i * (ROW_H + ROW_GAP);
     const rw = W - PAD * 2;
 
-    // Row pill
-    ctx.fillStyle = '#EBEBEB';
+    // Row pill — custom panel color or default
+    ctx.fillStyle = cardPanelColor ?? '#EBEBEB';
     roundRect(ctx, PAD, ry, rw, ROW_H, ROW_H / 2); ctx.fill();
 
     // Purple icon circle
@@ -783,18 +791,21 @@ function drawRankBadge(ctx, cx, cy, rank) {
 }
 
 function drawCoinAmount(ctx, x, cy, amount) {
-  // Small coin circle
-  const cr = 9;
-  ctx.fillStyle = '#F5C518';
-  ctx.beginPath(); ctx.arc(x - cr - 4, cy, cr, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#3A2000'; ctx.font = `bold 8px ${FONT}`; ctx.textAlign = 'center';
-  ctx.fillText('$', x - cr - 4, cy + 3);
+  const cr   = 10;
+  const coinX = x - cr;          // coin centre — flush to right edge
+  const textX = coinX - cr - 6;  // text right-aligned just to the left of coin
 
-  // Amount text
+  // Amount text (drawn first, right-aligned)
   ctx.fillStyle   = '#C084FC';
   ctx.font        = `bold 15px ${FONT}`;
   ctx.textAlign   = 'right';
-  ctx.fillText(fmt(amount), x, cy + 5);
+  ctx.fillText(fmt(amount), textX, cy + 5);
+
+  // Coin circle — to the RIGHT of the text
+  ctx.fillStyle = '#F5C518';
+  ctx.beginPath(); ctx.arc(coinX, cy, cr, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#3A2000'; ctx.font = `bold 9px ${FONT}`; ctx.textAlign = 'center';
+  ctx.fillText('$', coinX, cy + 3);
 }
 
 export function generateTopCard(entries) {
