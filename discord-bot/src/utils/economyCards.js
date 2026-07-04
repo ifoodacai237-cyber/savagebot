@@ -1,7 +1,8 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-const _bjDir = join(dirname(fileURLToPath(import.meta.url)), '../assets');
+const _bjDir   = join(dirname(fileURLToPath(import.meta.url)), '../assets');
+const _ecoDir  = join(dirname(fileURLToPath(import.meta.url)), '../assets');
 
 const FONT = '"Noto Sans", "DejaVu Sans", Arial, sans-serif';
 
@@ -788,13 +789,20 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
   const ROW_Y0  = PILL_Y + (darkMode ? 46 : 56);
   const ICON_R  = 30;
 
+  // Load custom emoji icons
+  let imgCoins, imgBank, imgItems;
+  try { imgCoins = await loadImage(join(_ecoDir, 'icon_coins.webp')); } catch { imgCoins = null; }
+  try { imgBank  = await loadImage(join(_ecoDir, 'icon_bank.png'));   } catch { imgBank  = null; }
+  try { imgItems = await loadImage(join(_ecoDir, 'icon_items.png'));  } catch { imgItems = null; }
+
   const rows = [
-    { iconType: 'wallet', label: 'Carteira', value: fmtDouble(balance),        colorA: '#B06AF7', colorB: '#7C3AED' },
-    { iconType: 'bank',   label: 'Banco',    value: fmtDouble(bank),           colorA: '#9B4FD6', colorB: '#6D28D9' },
-    { iconType: 'coins',  label: 'Total',    value: fmtDouble(balance + bank), colorA: '#8B35C8', colorB: '#5B21B6' },
+    { iconImg: imgCoins, label: 'Carteira', value: fmtDouble(balance)        },
+    { iconImg: imgBank,  label: 'Banco',    value: fmtDouble(bank)           },
+    { iconImg: imgItems, label: 'Total',    value: fmtDouble(balance + bank) },
   ];
 
-  rows.forEach(({ iconType, label, value, colorA, colorB }, i) => {
+  for (let i = 0; i < rows.length; i++) {
+    const { iconImg, label, value } = rows[i];
     const ry = ROW_Y0 + i * (ROW_H + ROW_GAP);
     const rw = W - PAD * 2;
 
@@ -806,16 +814,18 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
     }
     roundRect(ctx, PAD, ry, rw, ROW_H, ROW_H / 2); ctx.fill();
 
-    // Purple icon circle
+    // Black icon circle
     const circleCx = PAD + ICON_R + 6;
     const circleCy = ry + ROW_H / 2;
 
-    const grad = ctx.createRadialGradient(circleCx - 6, circleCy - 6, 3, circleCx, circleCy, ICON_R);
-    grad.addColorStop(0, colorA); grad.addColorStop(1, colorB);
-    ctx.fillStyle = grad;
+    ctx.fillStyle = '#000000';
     ctx.beginPath(); ctx.arc(circleCx, circleCy, ICON_R, 0, Math.PI * 2); ctx.fill();
 
-    drawEconomyIcon(ctx, circleCx, circleCy, iconType);
+    // Draw custom emoji image inside circle
+    if (iconImg) {
+      const imgSize = ICON_R * 1.35;
+      ctx.drawImage(iconImg, circleCx - imgSize / 2, circleCy - imgSize / 2, imgSize, imgSize);
+    }
 
     const textX = circleCx + ICON_R + 14;
     const labelColor = darkMode ? '#FFFFFF' : '#1A1A1A';
@@ -826,7 +836,7 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
 
     ctx.fillStyle = valueColor; ctx.font = `13px ${FONT}`;
     ctx.fillText(value, textX, ry + 51);
-  });
+  }
 
   return canvas.toBuffer('image/png');
 }
