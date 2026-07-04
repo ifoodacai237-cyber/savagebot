@@ -1785,7 +1785,6 @@ async function handleWalletFundoBtn(interaction) {
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
         .setPlaceholder('https://cdn.discordapp.com/attachments/...')
-        .setValue(current ?? '')
     )
   );
   return interaction.showModal(modal);

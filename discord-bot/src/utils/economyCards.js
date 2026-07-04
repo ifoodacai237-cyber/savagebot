@@ -612,46 +612,54 @@ export async function generateBlackjackCard({ playerCards, dealerCards, pTotal, 
 
 function drawEconomyIcon(ctx, cx, cy, type) {
   ctx.save();
-  ctx.textAlign = 'center';
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.fillStyle   = '#FFFFFF';
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
 
   if (type === 'wallet') {
-    ctx.fillStyle = '#3CB55A';
-    roundRect(ctx, cx - 17, cy - 12, 34, 22, 4); ctx.fill();
-    ctx.strokeStyle = '#2A8A40'; ctx.lineWidth = 1;
-    roundRect(ctx, cx - 17, cy - 12, 34, 22, 4); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.moveTo(cx - 9, cy - 3); ctx.lineTo(cx + 9, cy - 3); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx - 9, cy + 3); ctx.lineTo(cx + 9, cy + 3); ctx.stroke();
-    ctx.fillStyle = '#F5C518';
-    ctx.beginPath(); ctx.arc(cx + 10, cy + 10, 10, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#C9A000'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(cx + 10, cy + 10, 10, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = '#6A4800'; ctx.font = `bold 11px Arial`;
-    ctx.fillText('$', cx + 10, cy + 14);
+    // Wallet body
+    ctx.lineWidth = 2.5;
+    roundRect(ctx, cx - 13, cy - 9, 26, 18, 3); ctx.stroke();
+    // Flap on top
+    ctx.lineWidth = 2;
+    roundRect(ctx, cx - 13, cy - 9, 14, 7, 2); ctx.stroke();
+    // Coin slot circle
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx + 7, cy + 1, 5, 0, Math.PI * 2); ctx.stroke();
+    // Dollar in slot
+    ctx.font = `bold 7px ${FONT}`; ctx.textAlign = 'center';
+    ctx.fillText('$', cx + 7, cy + 4);
 
   } else if (type === 'bank') {
-    ctx.fillStyle = '#5B9FD5';
+    // Roof triangle
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.moveTo(cx, cy - 19); ctx.lineTo(cx + 18, cy - 5); ctx.lineTo(cx - 18, cy - 5);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#4A88C0';
-    ctx.fillRect(cx - 15, cy - 5, 30, 17);
-    ctx.fillStyle = '#FFFFFF';
-    for (let i = 0; i < 3; i++) ctx.fillRect(cx - 10 + i * 10, cy - 4, 4, 14);
-    ctx.fillStyle = '#2E6EA8'; ctx.fillRect(cx - 17, cy + 12, 34, 5);
+    ctx.moveTo(cx, cy - 14); ctx.lineTo(cx + 15, cy - 5); ctx.lineTo(cx - 15, cy - 5);
+    ctx.closePath(); ctx.stroke();
+    // Three columns
+    ctx.lineWidth = 3;
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(cx + i * 9, cy - 4);
+      ctx.lineTo(cx + i * 9, cy + 8);
+      ctx.stroke();
+    }
+    // Base
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(cx - 16, cy + 9); ctx.lineTo(cx + 16, cy + 9); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 13, cy + 13); ctx.lineTo(cx + 13, cy + 13); ctx.stroke();
 
   } else if (type === 'coins') {
-    const stack = [[cx - 3, cy + 11], [cx + 3, cy + 2], [cx - 1, cy - 8]];
-    for (const [x, y] of stack) {
-      ctx.fillStyle = '#C9A000';
-      ctx.beginPath(); ctx.arc(x + 1, y + 1, 13, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#F5C518';
-      ctx.beginPath(); ctx.arc(x, y, 13, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#C9A000'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(x, y, 13, 0, Math.PI * 2); ctx.stroke();
+    // Three stacked coin circles (offset)
+    const coins = [{ x: cx - 4, y: cy + 8 }, { x: cx + 2, y: cy + 1 }, { x: cx - 1, y: cy - 7 }];
+    ctx.lineWidth = 2;
+    for (const c of coins) {
+      ctx.beginPath(); ctx.arc(c.x, c.y, 9, 0, Math.PI * 2); ctx.stroke();
     }
-    ctx.fillStyle = '#7A5800'; ctx.font = `bold 11px Arial`;
-    ctx.fillText('$', stack[2][0], stack[2][1] + 4);
+    // Dollar on top coin
+    ctx.font = `bold 8px ${FONT}`; ctx.textAlign = 'center';
+    ctx.fillText('$', coins[2].x, coins[2].y + 3);
   }
 
   ctx.restore();
@@ -665,55 +673,67 @@ function fmtDouble(n) {
   return fmt(n);
 }
 
+// Luminância relativa para detectar fundo escuro
+function isDark(hex) {
+  if (!hex) return false;
+  const c = hex.replace('#', '');
+  if (c.length < 6) return false;
+  const r = parseInt(c.slice(0, 2), 16);
+  const g = parseInt(c.slice(2, 4), 16);
+  const b = parseInt(c.slice(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 < 128;
+}
+
 export async function generateBalanceCard({ username, avatarUrl, balance, bank, cardBg1, cardBg2, cardPanelColor, ringBorderColor, walletBg }) {
   const W   = 480, H = 580;
   const PAD = 18;
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
-  const hasBgImage = !!walletBg;
+  const hasBgImage  = !!walletBg;
+  const hasCustomBg = !!cardBg1;
+  // Modo escuro = bg CDN ou cor personalizada escura
+  const darkMode = hasBgImage || isDark(cardBg1);
 
   // ─── Background ──────────────────────────────────────────────────────────
   if (hasBgImage) {
-    // Load CDN image as full-bleed background
+    // CDN image como fundo full-bleed
+    roundRect(ctx, 0, 0, W, H, 24); ctx.save(); ctx.clip();
     try {
       const buf = Buffer.from(await (await fetch(walletBg)).arrayBuffer());
       const img = await loadImage(buf);
-      roundRect(ctx, 0, 0, W, H, 24); ctx.save(); ctx.clip();
-      // Cover-fit
       const scale = Math.max(W / img.width, H / img.height);
       const sw = img.width * scale, sh = img.height * scale;
       ctx.drawImage(img, (W - sw) / 2, (H - sh) / 2, sw, sh);
-      ctx.restore();
     } catch {
-      // Fallback gradient if image load fails
       const fb = ctx.createLinearGradient(0, 0, W, H);
       fb.addColorStop(0, '#0D0D1F'); fb.addColorStop(1, '#1a0533');
-      ctx.fillStyle = fb;
-      roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
+      ctx.fillStyle = fb; ctx.fillRect(0, 0, W, H);
     }
-
-    // Dark gradient overlay for readability
+    ctx.restore();
+    // Overlay escuro para legibilidade
     const overlay = ctx.createLinearGradient(0, 0, 0, H);
-    overlay.addColorStop(0,   'rgba(0,0,0,0.30)');
-    overlay.addColorStop(0.5, 'rgba(0,0,0,0.50)');
-    overlay.addColorStop(1,   'rgba(0,0,0,0.80)');
+    overlay.addColorStop(0,   'rgba(0,0,0,0.25)');
+    overlay.addColorStop(0.5, 'rgba(0,0,0,0.45)');
+    overlay.addColorStop(1,   'rgba(0,0,0,0.78)');
     ctx.fillStyle = overlay;
     roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
-  } else {
-    // Outer shell — custom gradient/solid or default gray
+
+  } else if (hasCustomBg) {
+    // Cor/gradiente personalizado — cobre o card INTEIRO (sem inner card)
     if (cardBg1 && cardBg2) {
-      const shellGrad = ctx.createLinearGradient(0, 0, W, H);
-      shellGrad.addColorStop(0, cardBg1); shellGrad.addColorStop(1, cardBg2);
-      ctx.fillStyle = shellGrad;
-    } else if (cardBg1) {
-      ctx.fillStyle = cardBg1;
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, cardBg1); g.addColorStop(1, cardBg2);
+      ctx.fillStyle = g;
     } else {
-      ctx.fillStyle = '#E3E3E3';
+      ctx.fillStyle = cardBg1;
     }
     roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
 
-    // Inner white card
+  } else {
+    // Padrão: casca cinza + inner card branco
+    ctx.fillStyle = '#E3E3E3';
+    roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
     ctx.fillStyle = '#F9F9F9';
     roundRect(ctx, 10, 10, W - 20, H - 20, 18); ctx.fill();
   }
@@ -721,12 +741,12 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
   // ─── Avatar ───────────────────────────────────────────────────────────────
   const AV_R  = 76;
   const AV_CX = W / 2;
-  const AV_CY = AV_R + (hasBgImage ? 28 : 34);
+  const AV_CY = AV_R + (darkMode ? 28 : 34);
 
   // Ring
-  const ringColor = ringBorderColor ?? (hasBgImage ? '#FFFFFF' : '#C8C8C8');
-  ctx.strokeStyle = ringColor; ctx.lineWidth = hasBgImage ? 4 : 7;
-  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + (hasBgImage ? 4 : 6), 0, Math.PI * 2); ctx.stroke();
+  const ringColor = ringBorderColor ?? (darkMode ? '#FFFFFF' : '#C8C8C8');
+  ctx.strokeStyle = ringColor; ctx.lineWidth = darkMode ? 4 : 7;
+  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + (darkMode ? 4 : 6), 0, Math.PI * 2); ctx.stroke();
 
   ctx.save();
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R, 0, Math.PI * 2); ctx.clip();
@@ -747,9 +767,9 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
   ctx.font = `bold 20px ${FONT}`;
   const nameW = ctx.measureText(username).width;
 
-  if (hasBgImage) {
-    // Name with shadow/glow (no pill background)
-    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 8;
+  if (darkMode) {
+    // Nome com sombra (sem pílula)
+    ctx.shadowColor = 'rgba(0,0,0,0.85)'; ctx.shadowBlur = 10;
     ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center';
     ctx.fillText(username, W / 2, PILL_Y + 20);
     ctx.shadowBlur = 0;
@@ -765,7 +785,7 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
   // ─── Stat rows ───────────────────────────────────────────────────────────
   const ROW_H   = 78;
   const ROW_GAP = 10;
-  const ROW_Y0  = PILL_Y + (hasBgImage ? 46 : 56);
+  const ROW_Y0  = PILL_Y + (darkMode ? 46 : 56);
   const ICON_R  = 30;
 
   const rows = [
@@ -779,8 +799,8 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
     const rw = W - PAD * 2;
 
     // Row pill
-    if (hasBgImage) {
-      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    if (darkMode) {
+      ctx.fillStyle = cardPanelColor ?? 'rgba(0,0,0,0.40)';
     } else {
       ctx.fillStyle = cardPanelColor ?? '#EBEBEB';
     }
@@ -798,8 +818,8 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
     drawEconomyIcon(ctx, circleCx, circleCy, iconType);
 
     const textX = circleCx + ICON_R + 14;
-    const labelColor = hasBgImage ? '#EEEEEE' : '#1A1A1A';
-    const valueColor = hasBgImage ? 'rgba(255,255,255,0.70)' : '#555555';
+    const labelColor = darkMode ? '#FFFFFF' : '#1A1A1A';
+    const valueColor = darkMode ? 'rgba(255,255,255,0.70)' : '#555555';
 
     ctx.fillStyle = labelColor; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'left';
     ctx.fillText(label, textX, ry + 28);
