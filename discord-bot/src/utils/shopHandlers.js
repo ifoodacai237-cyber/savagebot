@@ -1805,16 +1805,16 @@ async function handleWalletFundoReset(interaction) {
 async function handleWalletFundoModal(interaction) {
   const url = interaction.fields.getTextInputValue('url').trim();
 
-  const validHosts = [
-    'https://cdn.discordapp.com/',
-    'https://media.discordapp.net/',
-    'https://images-ext-',
-  ];
-  const isValid = validHosts.some(h => url.startsWith(h));
+  let parsedUrl;
+  try { parsedUrl = new URL(url); } catch { parsedUrl = null; }
+
+  const isValid = parsedUrl &&
+    parsedUrl.protocol === 'https:' &&
+    /discordapp\.(com|net)|discord\.com/.test(parsedUrl.hostname);
 
   if (!isValid) {
     return interaction.reply({
-      content: '❌ Use apenas URLs do Discord CDN (`cdn.discordapp.com` ou `media.discordapp.net`).\n\nComo pegar: envie a imagem no Discord, clique com o botão direito → **Copiar link**.',
+      content: '❌ Use apenas links do Discord.\n\nComo pegar: envie a imagem no Discord, clique com o botão direito → **Copiar link de mídia**.',
       ephemeral: true,
     });
   }

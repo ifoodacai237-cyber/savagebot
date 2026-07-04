@@ -1,10 +1,18 @@
-import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-const _bjDir   = join(dirname(fileURLToPath(import.meta.url)), '../assets');
-const _ecoDir  = join(dirname(fileURLToPath(import.meta.url)), '../assets');
+import { readFileSync } from 'fs';
 
-const FONT = '"Noto Sans", "DejaVu Sans", Arial, sans-serif';
+const __ecoFilename = fileURLToPath(import.meta.url);
+const __ecoDir      = dirname(__ecoFilename);
+const _bjDir   = join(__ecoDir, '../assets');
+const _ecoDir  = join(__ecoDir, '../assets');
+const _fontsDir = join(__ecoDir, '../../fonts');
+
+GlobalFonts.register(readFileSync(join(_fontsDir, 'Roboto-Regular.ttf')), 'BotFont');
+GlobalFonts.register(readFileSync(join(_fontsDir, 'Roboto-Bold.ttf')),    'BotFont');
+
+const FONT = 'BotFont';
 
 function fmt(n) { return Number(n).toLocaleString('pt-BR'); }
 

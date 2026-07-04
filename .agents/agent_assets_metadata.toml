@@ -72,3 +72,21 @@ id = "Vl5AdnR3YvAlmidIrn_XS"
 uri = "file://preview_wallet.png"
 type = "image"
 title = "Preview — Carteira com novos emojis"
+
+[[outputs]]
+id = "3BTp0xgexoipBIcoecX7g"
+uri = "file://preview_dark.png"
+type = "image"
+title = "Dark mode"
+
+[[outputs]]
+id = "3yg58Haw0vTT2B2mEanec"
+uri = "file://preview_light.png"
+type = "image"
+title = "Light mode"
+
+[[outputs]]
+id = "-pKWOnW5Xv0ira7voepZh"
+uri = "file://preview_final.png"
+type = "image"
+title = "Preview com texto corrigido"
