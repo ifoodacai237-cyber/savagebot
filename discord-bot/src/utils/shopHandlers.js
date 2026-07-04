@@ -11,7 +11,7 @@ import {
   PermissionFlagsBits,
 } from 'discord.js';
 import prisma from '../database/client.js';
-import { BANNERS, getBanner, RING_PRESETS, getRing, buildBannerUrl } from './shopData.js';
+import { BANNERS, WALLET_BACKGROUNDS, getBanner, RING_PRESETS, getRing, buildBannerUrl } from './shopData.js';
 
 const SHOP_COLOR = 0x9B4FD6;
 const DIVIDER    = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
@@ -471,6 +471,7 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'profile_panel_reset')            return handleProfilePanelReset(interaction);
     if (id === 'profile_pet_btn')                return handleProfilePetBtn(interaction);
     if (id === 'wallet_fundo_btn')               return handleWalletFundoBtn(interaction);
+    if (id === 'wallet_fundo_preset_btn')        return handleWalletFundoPresetBtn(interaction);
     if (id === 'wallet_fundo_reset')             return handleWalletFundoReset(interaction);
     if (id.startsWith('loja_cfg_'))              return handleLojaCfgBtn(interaction);
     if (id === 'loja_admin_cargos')              return handleLojaAdminCargos(interaction);
@@ -485,6 +486,7 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'shop_item_sel')                  return handleItemSel(interaction);
     if (id === 'shop_vitrine_sel')               return handleVitrineSel(interaction);
     if (id === 'profile_banner_sel')             return handleProfileBannerSel(interaction);
+    if (id === 'wallet_fundo_preset_sel')        return handleWalletFundoPresetSel(interaction);
     if (id === 'profile_pet_sel')                return handleProfilePetSel(interaction);
     if (id.startsWith('shop_gt:'))               return handleGiftTypeSel(interaction);
     if (id.startsWith('shop_gi:'))               return handleGiftItemSel(interaction);
@@ -1771,6 +1773,70 @@ async function handleProfilePanelModal(interaction) {
 }
 
 // ─── 🖼️ Fundo CDN da Carteira ─────────────────────────────────────────────────
+
+async function handleWalletFundoPresetBtn(interaction) {
+  const profile = await prisma.userProfile.findUnique({ where: { userId: interaction.user.id } });
+  const current = profile?.walletBg ?? null;
+
+  const opts = [
+    new StringSelectMenuOptionBuilder()
+      .setLabel('🚫 Sem fundo (padrão)')
+      .setValue('none')
+      .setDescription('Remover fundo da carteira')
+      .setEmoji('🚫'),
+    ...WALLET_BACKGROUNDS.map(bg => {
+      const isActive = current === bg.url;
+      return new StringSelectMenuOptionBuilder()
+        .setLabel(bg.name.slice(0, 100))
+        .setValue(bg.key)
+        .setDescription(isActive ? '✅ Equipado' : 'Toque para equipar')
+        .setEmoji(bg.emoji);
+    }),
+  ];
+
+  // Discord limita 25 opções por select — dividir em páginas se necessário
+  const page1 = opts.slice(0, 25);
+
+  return interaction.reply({
+    content: '🖼️ **Escolha um fundo para sua carteira:**',
+    components: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('wallet_fundo_preset_sel')
+          .setPlaceholder('Selecione um fundo...')
+          .addOptions(page1),
+      ),
+    ],
+    ephemeral: true,
+  });
+}
+
+async function handleWalletFundoPresetSel(interaction) {
+  const key = interaction.values[0];
+
+  if (key === 'none') {
+    await prisma.userProfile.upsert({
+      where:  { userId: interaction.user.id },
+      create: { userId: interaction.user.id, walletBg: null },
+      update: { walletBg: null },
+    });
+    return interaction.update({ content: '✅ Fundo removido! Use `fallen pf` para ver.', components: [] });
+  }
+
+  const bg = WALLET_BACKGROUNDS.find(b => b.key === key);
+  if (!bg) return interaction.update({ content: '❌ Fundo não encontrado.', components: [] });
+
+  await prisma.userProfile.upsert({
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, walletBg: bg.url },
+    update: { walletBg: bg.url },
+  });
+
+  return interaction.update({
+    content: `✅ Fundo **${bg.name}** equipado! Use \`fallen pf\` para ver.`,
+    components: [],
+  });
+}
 
 async function handleWalletFundoBtn(interaction) {
   const profile = await prisma.userProfile.findUnique({ where: { userId: interaction.user.id } });

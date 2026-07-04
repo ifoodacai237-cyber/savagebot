@@ -1,3 +1,26 @@
+export const WALLET_BACKGROUNDS = [
+  { key: 'wbg_galaxy',   name: '🌌 Galáxia Roxa',    emoji: '🌌', url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=900&q=90' },
+  { key: 'wbg_neon',     name: '🏙️ Cidade Neon',     emoji: '🏙️', url: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=900&q=90' },
+  { key: 'wbg_ocean',    name: '🌊 Oceano Profundo',  emoji: '🌊', url: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=900&q=90' },
+  { key: 'wbg_sakura',   name: '🌸 Sakura',           emoji: '🌸', url: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=900&q=90' },
+  { key: 'wbg_aurora',   name: '✨ Aurora Boreal',    emoji: '✨', url: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=900&q=90' },
+  { key: 'wbg_sunset',   name: '🌅 Pôr do Sol',      emoji: '🌅', url: 'https://images.unsplash.com/photo-1495344517868-8ebaf0a2044a?w=900&q=90' },
+  { key: 'wbg_forest',   name: '🌲 Floresta Mágica', emoji: '🌲', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=900&q=90' },
+  { key: 'wbg_dark',     name: '🖤 Escuridão',        emoji: '🖤', url: 'https://images.unsplash.com/photo-1475274047050-1d0c0975864c?w=900&q=90' },
+  { key: 'wbg_roses',    name: '🌹 Rosas',            emoji: '🌹', url: 'https://images.unsplash.com/photo-1490750967868-88df5691cc2c?w=900&q=90' },
+  { key: 'wbg_stars',    name: '⭐ Estrelas',         emoji: '⭐', url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=900&q=90' },
+  { key: 'wbg_rain',     name: '🌧️ Chuva Neon',      emoji: '🌧️', url: 'https://images.unsplash.com/photo-1428592953211-077101b2021b?w=900&q=90' },
+  { key: 'wbg_anime',    name: '🎌 Japão Noturno',   emoji: '🎌', url: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=900&q=90' },
+  { key: 'wbg_smoke',    name: '💜 Fumaça Roxa',     emoji: '💜', url: 'https://images.unsplash.com/photo-1550159930-40066082a4fc?w=900&q=90' },
+  { key: 'wbg_city',     name: '🌃 Cidade à Noite',  emoji: '🌃', url: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=900&q=90' },
+  { key: 'wbg_cyber',    name: '🔷 Cyber Azul',      emoji: '🔷', url: 'https://images.unsplash.com/photo-1580927752452-89d86da3fa0a?w=900&q=90' },
+  { key: 'wbg_pastel',   name: '🩷 Pastel Suave',    emoji: '🩷', url: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=900&q=90' },
+  { key: 'wbg_clouds',   name: '☁️ Céu de Nuvens',  emoji: '☁️', url: 'https://images.unsplash.com/photo-1501630834273-4b5604d2ee31?w=900&q=90' },
+  { key: 'wbg_abstract', name: '🎨 Abstrato',        emoji: '🎨', url: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=900&q=90' },
+  { key: 'wbg_winter',   name: '❄️ Inverno',         emoji: '❄️', url: 'https://images.unsplash.com/photo-1491002052546-bf38f186af56?w=900&q=90' },
+  { key: 'wbg_gold',     name: '✨ Glitter Dourado', emoji: '✨', url: 'https://images.unsplash.com/photo-1533158307587-828f0a76ef46?w=900&q=90' },
+];
+
 export const BANNERS = [
   {
     key: 'galaxy',

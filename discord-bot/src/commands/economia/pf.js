@@ -61,10 +61,13 @@ export async function buildWalletCard(userId, guildId, guild, target) {
 function editButtons() {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('wallet_fundo_btn').setLabel('Fundo CDN').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('wallet_fundo_preset_btn').setLabel('Fundos').setEmoji('🖼️').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('wallet_fundo_btn').setLabel('Fundo CDN').setEmoji('🔗').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('profile_ring_btn').setLabel('Argola').setEmoji('💠').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('profile_bg_btn').setLabel('Cor Fundo').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('profile_panel_btn').setLabel('Painel').setEmoji('🟦').setStyle(ButtonStyle.Secondary),
+    ),
+    new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('wallet_fundo_reset').setLabel('Limpar Fundo').setEmoji('↩️').setStyle(ButtonStyle.Danger),
     ),
   ];
