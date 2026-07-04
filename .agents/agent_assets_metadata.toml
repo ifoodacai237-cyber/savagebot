@@ -66,3 +66,9 @@ id = "0lpOXy0Ydl9vjAINWDc9b"
 uri = "file://carta_silver_3.png"
 type = "image"
 title = "🥈 Silver — Kepa"
+
+[[outputs]]
+id = "Vl5AdnR3YvAlmidIrn_XS"
+uri = "file://preview_wallet.png"
+type = "image"
+title = "Preview — Carteira com novos emojis"
