@@ -706,10 +706,11 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
 
   // ─── Background ──────────────────────────────────────────────────────────
   if (hasBgImage) {
-    // CDN image como fundo full-bleed
+    // CDN image como fundo full-bleed — strip Discord resize params para qualidade máxima
     roundRect(ctx, 0, 0, W, H, 24); ctx.save(); ctx.clip();
     try {
-      const buf = Buffer.from(await (await fetch(walletBg)).arrayBuffer());
+      const cleanUrl = (() => { try { const u = new URL(walletBg); u.searchParams.delete('width'); u.searchParams.delete('height'); u.searchParams.delete('size'); return u.toString(); } catch { return walletBg; } })();
+      const buf = Buffer.from(await (await fetch(cleanUrl)).arrayBuffer());
       const img = await loadImage(buf);
       const scale = Math.max(W / img.width, H / img.height);
       const sw = img.width * scale, sh = img.height * scale;
@@ -809,17 +810,19 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
     { iconImg: imgItems, label: 'Total',    value: fmtDouble(balance + bank) },
   ];
 
+  // Effective pill color — used to decide text contrast
+  const effectivePill = cardPanelColor ?? (darkMode ? 'rgba(0,0,0,0.40)' : '#EBEBEB');
+  const pillIsDark    = isDark(cardPanelColor) || (!cardPanelColor && darkMode);
+  const labelColor    = pillIsDark ? '#FFFFFF' : '#1A1A1A';
+  const valueColor    = pillIsDark ? 'rgba(255,255,255,0.75)' : '#555555';
+
   for (let i = 0; i < rows.length; i++) {
     const { iconImg, label, value } = rows[i];
     const ry = ROW_Y0 + i * (ROW_H + ROW_GAP);
     const rw = W - PAD * 2;
 
     // Row pill
-    if (darkMode) {
-      ctx.fillStyle = cardPanelColor ?? 'rgba(0,0,0,0.40)';
-    } else {
-      ctx.fillStyle = cardPanelColor ?? '#EBEBEB';
-    }
+    ctx.fillStyle = effectivePill;
     roundRect(ctx, PAD, ry, rw, ROW_H, ROW_H / 2); ctx.fill();
 
     // Black icon circle
@@ -836,8 +839,6 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
     }
 
     const textX = circleCx + ICON_R + 14;
-    const labelColor = darkMode ? '#FFFFFF' : '#1A1A1A';
-    const valueColor = darkMode ? 'rgba(255,255,255,0.70)' : '#555555';
 
     ctx.fillStyle = labelColor; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'left';
     ctx.fillText(label, textX, ry + 28);

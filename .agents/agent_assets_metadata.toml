@@ -96,3 +96,15 @@ id = "j-6AO-GRXV6veAZMRblG3"
 uri = "file://preview_font_test.png"
 type = "image"
 title = "Preview com fonte corrigida"
+
+[[outputs]]
+id = "jY2wAs41hUKUYYMLYdmeg"
+uri = "file://preview_white_panel.png"
+type = "image"
+title = "Preview painel branco"
+
+[[outputs]]
+id = "2HB1_hWQN66dnGBnFP37b"
+uri = "file://preview_fix.png"
+type = "image"
+title = "Preview com contraste corrigido"
