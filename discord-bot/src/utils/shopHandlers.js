@@ -470,6 +470,8 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'profile_panel_custom')           return handleProfilePanelCustom(interaction);
     if (id === 'profile_panel_reset')            return handleProfilePanelReset(interaction);
     if (id === 'profile_pet_btn')                return handleProfilePetBtn(interaction);
+    if (id === 'wallet_fundo_btn')               return handleWalletFundoBtn(interaction);
+    if (id === 'wallet_fundo_reset')             return handleWalletFundoReset(interaction);
     if (id.startsWith('loja_cfg_'))              return handleLojaCfgBtn(interaction);
     if (id === 'loja_admin_cargos')              return handleLojaAdminCargos(interaction);
     if (id === 'loja_admin_personalizar')        return handleLojaConfig(interaction);
@@ -499,6 +501,7 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'profile_bg_solid_modal')         return handleProfileBgSolidModal(interaction);
     if (id === 'profile_bg_gradient_modal')      return handleProfileBgGradientModal(interaction);
     if (id === 'profile_panel_modal')            return handleProfilePanelModal(interaction);
+    if (id === 'wallet_fundo_modal')             return handleWalletFundoModal(interaction);
   }
 }
 
@@ -1763,6 +1766,68 @@ async function handleProfilePanelModal(interaction) {
 
   return interaction.reply({
     content: `✅ Cor do painel alterada para \`#${hex}\`! Use \`/perfil\` para ver.`,
+    ephemeral: true,
+  });
+}
+
+// ─── 🖼️ Fundo CDN da Carteira ─────────────────────────────────────────────────
+
+async function handleWalletFundoBtn(interaction) {
+  const profile = await prisma.userProfile.findUnique({ where: { userId: interaction.user.id } });
+  const current = profile?.walletBg ?? null;
+
+  const modal = new ModalBuilder().setCustomId('wallet_fundo_modal').setTitle('🖼️ Fundo da Carteira');
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('url')
+        .setLabel('URL do Discord CDN')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('https://cdn.discordapp.com/attachments/...')
+        .setValue(current ?? '')
+    )
+  );
+  return interaction.showModal(modal);
+}
+
+async function handleWalletFundoReset(interaction) {
+  await prisma.userProfile.upsert({
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, walletBg: null },
+    update: { walletBg: null },
+  });
+  return interaction.reply({
+    content: '✅ Fundo da carteira removido! Use `fallen pf` para ver.',
+    ephemeral: true,
+  });
+}
+
+async function handleWalletFundoModal(interaction) {
+  const url = interaction.fields.getTextInputValue('url').trim();
+
+  const validHosts = [
+    'https://cdn.discordapp.com/',
+    'https://media.discordapp.net/',
+    'https://images-ext-',
+  ];
+  const isValid = validHosts.some(h => url.startsWith(h));
+
+  if (!isValid) {
+    return interaction.reply({
+      content: '❌ Use apenas URLs do Discord CDN (`cdn.discordapp.com` ou `media.discordapp.net`).\n\nComo pegar: envie a imagem no Discord, clique com o botão direito → **Copiar link**.',
+      ephemeral: true,
+    });
+  }
+
+  await prisma.userProfile.upsert({
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, walletBg: url },
+    update: { walletBg: url },
+  });
+
+  return interaction.reply({
+    content: `✅ Fundo da carteira definido!\nUse \`fallen pf\` para ver o resultado.`,
     ephemeral: true,
   });
 }

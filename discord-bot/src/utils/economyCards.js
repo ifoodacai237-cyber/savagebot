@@ -665,35 +665,68 @@ function fmtDouble(n) {
   return fmt(n);
 }
 
-export async function generateBalanceCard({ username, avatarUrl, balance, bank, cardBg1, cardBg2, cardPanelColor, ringBorderColor }) {
-  const W   = 460, H = 590;
+export async function generateBalanceCard({ username, avatarUrl, balance, bank, cardBg1, cardBg2, cardPanelColor, ringBorderColor, walletBg }) {
+  const W   = 480, H = 580;
   const PAD = 18;
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
-  // Outer shell — custom gradient/solid or default gray
-  if (cardBg1 && cardBg2) {
-    const shellGrad = ctx.createLinearGradient(0, 0, W, H);
-    shellGrad.addColorStop(0, cardBg1); shellGrad.addColorStop(1, cardBg2);
-    ctx.fillStyle = shellGrad;
-  } else if (cardBg1) {
-    ctx.fillStyle = cardBg1;
+  const hasBgImage = !!walletBg;
+
+  // ─── Background ──────────────────────────────────────────────────────────
+  if (hasBgImage) {
+    // Load CDN image as full-bleed background
+    try {
+      const buf = Buffer.from(await (await fetch(walletBg)).arrayBuffer());
+      const img = await loadImage(buf);
+      roundRect(ctx, 0, 0, W, H, 24); ctx.save(); ctx.clip();
+      // Cover-fit
+      const scale = Math.max(W / img.width, H / img.height);
+      const sw = img.width * scale, sh = img.height * scale;
+      ctx.drawImage(img, (W - sw) / 2, (H - sh) / 2, sw, sh);
+      ctx.restore();
+    } catch {
+      // Fallback gradient if image load fails
+      const fb = ctx.createLinearGradient(0, 0, W, H);
+      fb.addColorStop(0, '#0D0D1F'); fb.addColorStop(1, '#1a0533');
+      ctx.fillStyle = fb;
+      roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
+    }
+
+    // Dark gradient overlay for readability
+    const overlay = ctx.createLinearGradient(0, 0, 0, H);
+    overlay.addColorStop(0,   'rgba(0,0,0,0.30)');
+    overlay.addColorStop(0.5, 'rgba(0,0,0,0.50)');
+    overlay.addColorStop(1,   'rgba(0,0,0,0.80)');
+    ctx.fillStyle = overlay;
+    roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
   } else {
-    ctx.fillStyle = '#E3E3E3';
+    // Outer shell — custom gradient/solid or default gray
+    if (cardBg1 && cardBg2) {
+      const shellGrad = ctx.createLinearGradient(0, 0, W, H);
+      shellGrad.addColorStop(0, cardBg1); shellGrad.addColorStop(1, cardBg2);
+      ctx.fillStyle = shellGrad;
+    } else if (cardBg1) {
+      ctx.fillStyle = cardBg1;
+    } else {
+      ctx.fillStyle = '#E3E3E3';
+    }
+    roundRect(ctx, 0, 0, W, H, 24); ctx.fill();
+
+    // Inner white card
+    ctx.fillStyle = '#F9F9F9';
+    roundRect(ctx, 10, 10, W - 20, H - 20, 18); ctx.fill();
   }
-  roundRect(ctx, 0, 0, W, H, 28); ctx.fill();
 
-  // Inner white card
-  ctx.fillStyle = '#F9F9F9';
-  roundRect(ctx, 10, 10, W - 20, H - 20, 20); ctx.fill();
+  // ─── Avatar ───────────────────────────────────────────────────────────────
+  const AV_R  = 76;
+  const AV_CX = W / 2;
+  const AV_CY = AV_R + (hasBgImage ? 28 : 34);
 
-  // Avatar
-  const AV_R  = 80;
-  const AV_CX = W / 2, AV_CY = AV_R + 30;
-
-  // Ring — custom color or default gray
-  ctx.strokeStyle = ringBorderColor ?? '#C8C8C8'; ctx.lineWidth = 7;
-  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 6, 0, Math.PI * 2); ctx.stroke();
+  // Ring
+  const ringColor = ringBorderColor ?? (hasBgImage ? '#FFFFFF' : '#C8C8C8');
+  ctx.strokeStyle = ringColor; ctx.lineWidth = hasBgImage ? 4 : 7;
+  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + (hasBgImage ? 4 : 6), 0, Math.PI * 2); ctx.stroke();
 
   ctx.save();
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R, 0, Math.PI * 2); ctx.clip();
@@ -709,23 +742,31 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
   }
   ctx.restore();
 
-  // Name pill
-  const PILL_Y = AV_CY + AV_R + 18;
+  // ─── Name ─────────────────────────────────────────────────────────────────
+  const PILL_Y = AV_CY + AV_R + 16;
   ctx.font = `bold 20px ${FONT}`;
-  const nameW  = ctx.measureText(username).width;
-  const pillW  = Math.max(nameW + 48, 120), pillH = 38;
-  const pillX  = W / 2 - pillW / 2;
+  const nameW = ctx.measureText(username).width;
 
-  ctx.fillStyle = '#E5E5E5';
-  roundRect(ctx, pillX, PILL_Y, pillW, pillH, pillH / 2); ctx.fill();
-  ctx.fillStyle = '#1A1A1A'; ctx.textAlign = 'center';
-  ctx.fillText(username, W / 2, PILL_Y + 26);
+  if (hasBgImage) {
+    // Name with shadow/glow (no pill background)
+    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 8;
+    ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center';
+    ctx.fillText(username, W / 2, PILL_Y + 20);
+    ctx.shadowBlur = 0;
+  } else {
+    const pillW = Math.max(nameW + 48, 120), pillH = 36;
+    const pillX = W / 2 - pillW / 2;
+    ctx.fillStyle = '#E5E5E5';
+    roundRect(ctx, pillX, PILL_Y, pillW, pillH, pillH / 2); ctx.fill();
+    ctx.fillStyle = '#1A1A1A'; ctx.textAlign = 'center';
+    ctx.fillText(username, W / 2, PILL_Y + 24);
+  }
 
-  // Rows
-  const ROW_H   = 80;
+  // ─── Stat rows ───────────────────────────────────────────────────────────
+  const ROW_H   = 78;
   const ROW_GAP = 10;
-  const ROW_Y0  = PILL_Y + pillH + 24;
-  const ICON_R  = 32;
+  const ROW_Y0  = PILL_Y + (hasBgImage ? 46 : 56);
+  const ICON_R  = 30;
 
   const rows = [
     { iconType: 'wallet', label: 'Carteira', value: fmtDouble(balance),        colorA: '#B06AF7', colorB: '#7C3AED' },
@@ -737,29 +778,34 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
     const ry = ROW_Y0 + i * (ROW_H + ROW_GAP);
     const rw = W - PAD * 2;
 
-    // Row pill — custom panel color or default
-    ctx.fillStyle = cardPanelColor ?? '#EBEBEB';
+    // Row pill
+    if (hasBgImage) {
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    } else {
+      ctx.fillStyle = cardPanelColor ?? '#EBEBEB';
+    }
     roundRect(ctx, PAD, ry, rw, ROW_H, ROW_H / 2); ctx.fill();
 
     // Purple icon circle
-    const circleCx = PAD + ICON_R + 5;
+    const circleCx = PAD + ICON_R + 6;
     const circleCy = ry + ROW_H / 2;
 
-    const grad = ctx.createRadialGradient(circleCx - 8, circleCy - 8, 4, circleCx, circleCy, ICON_R);
-    grad.addColorStop(0, colorA);
-    grad.addColorStop(1, colorB);
+    const grad = ctx.createRadialGradient(circleCx - 6, circleCy - 6, 3, circleCx, circleCy, ICON_R);
+    grad.addColorStop(0, colorA); grad.addColorStop(1, colorB);
     ctx.fillStyle = grad;
     ctx.beginPath(); ctx.arc(circleCx, circleCy, ICON_R, 0, Math.PI * 2); ctx.fill();
 
     drawEconomyIcon(ctx, circleCx, circleCy, iconType);
 
-    const textX = circleCx + ICON_R + 16;
+    const textX = circleCx + ICON_R + 14;
+    const labelColor = hasBgImage ? '#EEEEEE' : '#1A1A1A';
+    const valueColor = hasBgImage ? 'rgba(255,255,255,0.70)' : '#555555';
 
-    ctx.fillStyle = '#1A1A1A'; ctx.font = `bold 17px ${FONT}`; ctx.textAlign = 'left';
+    ctx.fillStyle = labelColor; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'left';
     ctx.fillText(label, textX, ry + 28);
 
-    ctx.fillStyle = '#555555'; ctx.font = `13px ${FONT}`;
-    ctx.fillText(value, textX, ry + 52);
+    ctx.fillStyle = valueColor; ctx.font = `13px ${FONT}`;
+    ctx.fillText(value, textX, ry + 51);
   });
 
   return canvas.toBuffer('image/png');

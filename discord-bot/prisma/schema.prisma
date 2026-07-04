@@ -231,6 +231,7 @@ model UserProfile {
   cardBg1         String?
   cardBg2         String?
   cardPanelColor  String?
+  walletBg        String?
 }
 
 model Pet {
