@@ -657,25 +657,35 @@ function drawEconomyIcon(ctx, cx, cy, type) {
   ctx.restore();
 }
 
-// ─── Balance card ─────────────────────────────────────────────────────────────
+// ─── Balance card (matches reference design) ──────────────────────────────────
+
+function fmtDouble(n) {
+  if (n >= 1_000_000) return `${fmt(n)} (${(n / 1_000_000).toFixed(2)}M)`;
+  if (n >= 1_000)     return `${fmt(n)} (${(n / 1_000).toFixed(2)}K)`;
+  return fmt(n);
+}
 
 export async function generateBalanceCard({ username, avatarUrl, balance, bank }) {
-  const W   = 480, H = 610;
+  const W   = 460, H = 590;
   const PAD = 18;
   const canvas = createCanvas(W, H);
   const ctx    = canvas.getContext('2d');
 
-  ctx.fillStyle = '#E8E8E8';
-  roundRect(ctx, 0, 0, W, H, 26); ctx.fill();
+  // Outer gray shell
+  ctx.fillStyle = '#E3E3E3';
+  roundRect(ctx, 0, 0, W, H, 28); ctx.fill();
 
-  ctx.fillStyle = '#FFFFFF';
-  roundRect(ctx, 8, 8, W - 16, H - 16, 20); ctx.fill();
+  // Inner white card
+  ctx.fillStyle = '#F9F9F9';
+  roundRect(ctx, 10, 10, W - 20, H - 20, 20); ctx.fill();
 
-  const AV_R  = 90;
-  const AV_CX = W / 2, AV_CY = AV_R + 24;
+  // Avatar
+  const AV_R  = 80;
+  const AV_CX = W / 2, AV_CY = AV_R + 30;
 
-  ctx.strokeStyle = '#D0D0D0'; ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 5, 0, Math.PI * 2); ctx.stroke();
+  // Gray ring
+  ctx.strokeStyle = '#C8C8C8'; ctx.lineWidth = 7;
+  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 6, 0, Math.PI * 2); ctx.stroke();
 
   ctx.save();
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R, 0, Math.PI * 2); ctx.clip();
@@ -684,106 +694,203 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank }
     const img = await loadImage(buf);
     ctx.drawImage(img, AV_CX - AV_R, AV_CY - AV_R, AV_R * 2, AV_R * 2);
   } catch {
-    ctx.fillStyle = '#CCCCCC'; ctx.fillRect(AV_CX - AV_R, AV_CY - AV_R, AV_R * 2, AV_R * 2);
+    const fallback = ctx.createLinearGradient(AV_CX - AV_R, AV_CY - AV_R, AV_CX + AV_R, AV_CY + AV_R);
+    fallback.addColorStop(0, '#A855F7'); fallback.addColorStop(1, '#7C3AED');
+    ctx.fillStyle = fallback;
+    ctx.fillRect(AV_CX - AV_R, AV_CY - AV_R, AV_R * 2, AV_R * 2);
   }
   ctx.restore();
 
+  // Name pill
   const PILL_Y = AV_CY + AV_R + 18;
-  ctx.font = `bold 22px ${FONT}`;
-  const nameW = ctx.measureText(username).width;
-  const pillW = Math.max(nameW + 52, 120), pillH = 40;
-  const pillX = W / 2 - pillW / 2;
+  ctx.font = `bold 20px ${FONT}`;
+  const nameW  = ctx.measureText(username).width;
+  const pillW  = Math.max(nameW + 48, 120), pillH = 38;
+  const pillX  = W / 2 - pillW / 2;
 
-  ctx.fillStyle = '#EBEBEB';
+  ctx.fillStyle = '#E5E5E5';
   roundRect(ctx, pillX, PILL_Y, pillW, pillH, pillH / 2); ctx.fill();
+  ctx.fillStyle = '#1A1A1A'; ctx.textAlign = 'center';
+  ctx.fillText(username, W / 2, PILL_Y + 26);
 
-  ctx.fillStyle = '#111111'; ctx.textAlign = 'center';
-  ctx.fillText(username, W / 2, PILL_Y + 28);
-
-  const ROW_H   = 84;
-  const ROW_GAP = 8;
-  const ROW_Y0  = PILL_Y + pillH + 22;
-  const CIRCLE_R = 34;
+  // Rows
+  const ROW_H   = 80;
+  const ROW_GAP = 10;
+  const ROW_Y0  = PILL_Y + pillH + 24;
+  const ICON_R  = 32;
 
   const rows = [
-    { iconType: 'wallet', label: 'Carteira', value: fmt(balance),          colorA: '#A855F7', colorB: '#7C3AED' },
-    { iconType: 'bank',   label: 'Banco',    value: fmt(bank),             colorA: '#9333EA', colorB: '#6D28D9' },
-    { iconType: 'coins',  label: 'Total',    value: fmt(balance + bank),   colorA: '#7C3AED', colorB: '#5B21B6' },
+    { iconType: 'wallet', label: 'Carteira', value: fmtDouble(balance),        colorA: '#B06AF7', colorB: '#7C3AED' },
+    { iconType: 'bank',   label: 'Banco',    value: fmtDouble(bank),           colorA: '#9B4FD6', colorB: '#6D28D9' },
+    { iconType: 'coins',  label: 'Total',    value: fmtDouble(balance + bank), colorA: '#8B35C8', colorB: '#5B21B6' },
   ];
 
   rows.forEach(({ iconType, label, value, colorA, colorB }, i) => {
     const ry = ROW_Y0 + i * (ROW_H + ROW_GAP);
     const rw = W - PAD * 2;
 
+    // Row pill
     ctx.fillStyle = '#EBEBEB';
     roundRect(ctx, PAD, ry, rw, ROW_H, ROW_H / 2); ctx.fill();
 
-    const circleCx = PAD + CIRCLE_R + 5;
+    // Purple icon circle
+    const circleCx = PAD + ICON_R + 5;
     const circleCy = ry + ROW_H / 2;
 
-    const grad = ctx.createRadialGradient(circleCx - 8, circleCy - 8, 5, circleCx, circleCy, CIRCLE_R);
+    const grad = ctx.createRadialGradient(circleCx - 8, circleCy - 8, 4, circleCx, circleCy, ICON_R);
     grad.addColorStop(0, colorA);
     grad.addColorStop(1, colorB);
     ctx.fillStyle = grad;
-    ctx.beginPath(); ctx.arc(circleCx, circleCy, CIRCLE_R, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(circleCx, circleCy, ICON_R, 0, Math.PI * 2); ctx.fill();
 
     drawEconomyIcon(ctx, circleCx, circleCy, iconType);
 
-    const textX = circleCx + CIRCLE_R + 16;
+    const textX = circleCx + ICON_R + 16;
 
-    ctx.fillStyle = '#111111'; ctx.font = `bold 18px ${FONT}`; ctx.textAlign = 'left';
-    ctx.fillText(label, textX, ry + 32);
+    ctx.fillStyle = '#1A1A1A'; ctx.font = `bold 17px ${FONT}`; ctx.textAlign = 'left';
+    ctx.fillText(label, textX, ry + 28);
 
-    ctx.fillStyle = '#666666'; ctx.font = `15px ${FONT}`;
-    ctx.fillText(value, textX, ry + 56);
+    ctx.fillStyle = '#555555'; ctx.font = `13px ${FONT}`;
+    ctx.fillText(value, textX, ry + 52);
   });
 
   return canvas.toBuffer('image/png');
 }
 
-// ─── Top leaderboard card ─────────────────────────────────────────────────────
+// ─── Top leaderboard card (redesign — no emoji in canvas) ─────────────────────
+
+function drawRankBadge(ctx, cx, cy, rank) {
+  let bgColor, textColor;
+  if (rank === 1)      { bgColor = '#F5C518'; textColor = '#3A2000'; }
+  else if (rank === 2) { bgColor = '#C0C0C0'; textColor = '#1A1A1A'; }
+  else if (rank === 3) { bgColor = '#CD7F32'; textColor = '#1A0800'; }
+  else                 { bgColor = '#4B1D8A'; textColor = '#DDD0FF'; }
+
+  // Badge circle
+  ctx.fillStyle = bgColor;
+  ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI * 2); ctx.fill();
+
+  // Inner ring for top 3
+  if (rank <= 3) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx, cy, 17, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  ctx.fillStyle   = textColor;
+  ctx.font        = `bold 14px ${FONT}`;
+  ctx.textAlign   = 'center';
+  ctx.fillText(String(rank), cx, cy + 5);
+}
+
+function drawCoinAmount(ctx, x, cy, amount) {
+  // Small coin circle
+  const cr = 9;
+  ctx.fillStyle = '#F5C518';
+  ctx.beginPath(); ctx.arc(x - cr - 4, cy, cr, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#3A2000'; ctx.font = `bold 8px ${FONT}`; ctx.textAlign = 'center';
+  ctx.fillText('$', x - cr - 4, cy + 3);
+
+  // Amount text
+  ctx.fillStyle   = '#C084FC';
+  ctx.font        = `bold 15px ${FONT}`;
+  ctx.textAlign   = 'right';
+  ctx.fillText(fmt(amount), x, cy + 5);
+}
 
 export function generateTopCard(entries) {
-  const W     = 620;
-  const ROW_H = 56;
-  const H     = 68 + entries.length * ROW_H + 24;
-  const canvas = createCanvas(W, H);
-  const ctx    = canvas.getContext('2d');
+  const W       = 640;
+  const ROW_H   = 62;
+  const HDR_H   = 88;
+  const H       = HDR_H + entries.length * ROW_H + 20;
+  const canvas  = createCanvas(W, H);
+  const ctx     = canvas.getContext('2d');
 
-  ctx.fillStyle = '#F2F2F2';
-  roundRect(ctx, 0, 0, W, H, 18); ctx.fill();
-  ctx.fillStyle = '#FFFFFF';
-  roundRect(ctx, 10, 10, W - 20, H - 20, 12); ctx.fill();
+  // Background — dark navy/purple
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#0D0D1F');
+  bg.addColorStop(1, '#140D26');
+  ctx.fillStyle = bg;
+  roundRect(ctx, 0, 0, W, H, 22); ctx.fill();
 
-  ctx.fillStyle = '#9B4FD6';
-  roundRect(ctx, 10, 10, W - 20, 50, 12); ctx.fill();
-  ctx.fillRect(10, 38, W - 20, 22);
+  // Subtle dot grid
+  ctx.fillStyle = 'rgba(180,140,255,0.04)';
+  for (let gx = 24; gx < W; gx += 30)
+    for (let gy = 24; gy < H; gy += 30) {
+      ctx.beginPath(); ctx.arc(gx, gy, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
 
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font      = `bold 17px ${FONT}`;
-  ctx.textAlign = 'center';
-  ctx.fillText('🏆  TOP ECONOMIA — FallenCoins', W / 2, 41);
+  // Header pill
+  const hGrad = ctx.createLinearGradient(20, 0, W - 20, 0);
+  hGrad.addColorStop(0, '#6B21A8');
+  hGrad.addColorStop(1, '#4C1D95');
+  ctx.fillStyle = hGrad;
+  roundRect(ctx, 20, 14, W - 40, 60, 18); ctx.fill();
 
-  const MEDALS = ['🥇', '🥈', '🥉'];
+  // Trophy icon (drawn) — left side of header
+  const tx = 55, ty = 44;
+  ctx.fillStyle = '#F5C518';
+  // Cup body
+  ctx.beginPath();
+  ctx.moveTo(tx - 14, ty - 16);
+  ctx.lineTo(tx + 14, ty - 16);
+  ctx.lineTo(tx + 12, ty + 2);
+  ctx.quadraticCurveTo(tx + 12, ty + 14, tx, ty + 14);
+  ctx.quadraticCurveTo(tx - 12, ty + 14, tx - 12, ty + 2);
+  ctx.closePath(); ctx.fill();
+  // Handles
+  ctx.strokeStyle = '#F5C518'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(tx - 15, ty - 6, 6, Math.PI * 0.5, Math.PI * 1.5); ctx.stroke();
+  ctx.beginPath(); ctx.arc(tx + 15, ty - 6, 6, -Math.PI * 0.5, Math.PI * 0.5); ctx.stroke();
+  // Base
+  ctx.fillStyle = '#F5C518';
+  ctx.fillRect(tx - 6, ty + 14, 12, 5);
+  ctx.fillRect(tx - 10, ty + 19, 20, 4);
 
+  ctx.fillStyle   = '#FFFFFF';
+  ctx.font        = `bold 18px ${FONT}`;
+  ctx.textAlign   = 'center';
+  ctx.fillText('TOP ECONOMIA', W / 2 + 14, 41);
+
+  ctx.fillStyle = '#F5C518';
+  ctx.font      = `12px ${FONT}`;
+  ctx.fillText('FallenCoins', W / 2 + 14, 60);
+
+  // Rows
   entries.forEach((e, i) => {
-    const y = 70 + i * ROW_H;
-    ctx.fillStyle = i % 2 === 0 ? '#F7F7F7' : '#FFFFFF';
-    roundRect(ctx, 16, y, W - 32, ROW_H - 6, 10); ctx.fill();
+    const ry = HDR_H + i * ROW_H;
 
-    ctx.font      = `bold 16px ${FONT}`;
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillText(MEDALS[i] ?? `#${i + 1}`, 30, y + 33);
+    // Row background
+    const rowBg = ctx.createLinearGradient(16, ry, W - 16, ry);
+    rowBg.addColorStop(0, i % 2 === 0 ? '#14142A' : '#1A1732');
+    rowBg.addColorStop(1, i % 2 === 0 ? '#18163A' : '#1E1A3C');
+    ctx.fillStyle = rowBg;
+    roundRect(ctx, 16, ry + 5, W - 32, ROW_H - 8, 14); ctx.fill();
 
-    ctx.fillStyle = '#333333';
-    ctx.font      = `bold 14px ${FONT}`;
-    ctx.fillText(e.username, 70, y + 33);
+    // Subtle left accent line for top 3
+    if (i < 3) {
+      const accentColor = i === 0 ? '#F5C518' : i === 1 ? '#C0C0C0' : '#CD7F32';
+      ctx.fillStyle = accentColor;
+      roundRect(ctx, 16, ry + 5, 4, ROW_H - 8, 2); ctx.fill();
+    }
 
-    ctx.fillStyle = '#9B4FD6';
-    ctx.font      = `bold 15px ${FONT}`;
-    ctx.textAlign = 'right';
-    ctx.fillText(`${fmt(e.total)} 💰`, W - 30, y + 33);
+    const cy = ry + ROW_H / 2 + 3;
+
+    // Rank badge
+    drawRankBadge(ctx, 54, cy, i + 1);
+
+    // Username
+    const maxNameW = W - 250;
+    ctx.fillStyle   = '#FFFFFF';
+    ctx.font        = `bold 15px ${FONT}`;
+    ctx.textAlign   = 'left';
+    let name = e.username;
+    while (ctx.measureText(name).width > maxNameW && name.length > 1)
+      name = name.slice(0, -1);
+    if (name !== e.username) name += '...';
+    ctx.fillText(name, 88, cy + 5);
+
+    // Coin amount
+    drawCoinAmount(ctx, W - 22, cy, e.total);
   });
 
   return canvas.toBuffer('image/png');

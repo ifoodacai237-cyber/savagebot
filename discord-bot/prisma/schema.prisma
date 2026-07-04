@@ -349,3 +349,15 @@ model CopaPrediction {
 
   @@unique([matchId, discordUserId])
 }
+
+model VipGrant {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  roleId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([guildId, userId, roleId])
+  @@index([expiresAt])
+}
