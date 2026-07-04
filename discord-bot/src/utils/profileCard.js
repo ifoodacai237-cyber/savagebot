@@ -2,7 +2,7 @@ import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
-import { resolveBanner, getRingColors } from './shopData.js';
+import { resolveBanner, getRingColors, drawAvatarRing } from './shopData.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
@@ -418,13 +418,7 @@ export async function generateProfileCard({
   ctx.fillStyle = ringBorderColor ?? '#ffffff';
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 14, 0, Math.PI * 2); ctx.fill();
 
-  const rg = ctx.createLinearGradient(AV_CX - AV_R, AV_CY - AV_R, AV_CX + AV_R, AV_CY + AV_R);
-  rg.addColorStop(0, rc1); rg.addColorStop(1, rc2);
-  ctx.save();
-  ctx.shadowColor = rc1; ctx.shadowBlur = 18;
-  ctx.strokeStyle = rg; ctx.lineWidth = 9;
-  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 8, 0, Math.PI * 2); ctx.stroke();
-  ctx.restore();
+  drawAvatarRing(ctx, AV_CX, AV_CY, AV_R + 8, activeRing ?? null);
 
   ctx.save();
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R, 0, Math.PI * 2); ctx.clip();

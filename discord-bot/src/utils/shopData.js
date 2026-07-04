@@ -193,13 +193,25 @@ export function getBanner(key) {
 
 export async function resolveBanner(key, guildId) {
   if (!key) return null;
+  // Banners personalizados do servidor têm prioridade sobre os estáticos: se um
+  // admin criar um banner cuja chave coincida com a de um banner padrão (ex: "fogo"),
+  // o personalizado do servidor deve ser o exibido/equipado — nunca o padrão global.
+  if (guildId) {
+    try {
+      const { default: prisma } = await import('../database/client.js');
+      const custom = await prisma.customBanner.findFirst({ where: { key, guildId, active: true } });
+      if (custom) return buildCustomBannerResult(custom, prisma);
+    } catch (e) {
+      console.error('[banner] resolveBanner erro:', e.message);
+    }
+  }
   const staticB = getBanner(key);
   if (staticB) return staticB;
-  if (!guildId) return null;
+  return null;
+}
+
+async function buildCustomBannerResult(custom, prisma) {
   try {
-    const { default: prisma } = await import('../database/client.js');
-    const custom = await prisma.customBanner.findFirst({ where: { key, guildId, active: true } });
-    if (!custom) return null;
 
     let imageUrl = buildBannerUrl(custom.imageUrl);
 
@@ -252,9 +264,103 @@ export function getRing(key) {
   return RING_PRESETS.find(r => r.key === key) ?? null;
 }
 
+// ─── 🖼️ Molduras (frames com desenho, não apenas cor) ─────────────────────────
+// Prefixo "frame:" distingue uma moldura de uma cor sólida/preset no mesmo campo
+// (activeRing / walletRing), sem precisar de coluna extra no banco.
+export const FRAME_PRESETS = [
+  { key: 'ouro_cravejado', label: 'Ouro Cravejado',   emoji: '✨', c1: '#fde68a', c2: '#b45309', style: 'studs'  },
+  { key: 'gelo_duplo',     label: 'Gelo Duplo',       emoji: '❄️', c1: '#bae6fd', c2: '#0284c7', style: 'double' },
+  { key: 'fogo_tribal',    label: 'Fogo Tribal',      emoji: '🔥', c1: '#fca5a5', c2: '#b91c1c', style: 'dashed' },
+  { key: 'estelar',        label: 'Estelar',          emoji: '🌟', c1: '#e9d5ff', c2: '#7c3aed', style: 'stars'  },
+  { key: 'esmeralda_real', label: 'Esmeralda Real',   emoji: '💚', c1: '#86efac', c2: '#15803d', style: 'double' },
+  { key: 'sombrio',        label: 'Sombrio Espinhado',emoji: '🖤', c1: '#9ca3af', c2: '#111827', style: 'studs'  },
+];
+
+export function getFrame(value) {
+  if (!value || !value.startsWith('frame:')) return null;
+  const key = value.slice('frame:'.length);
+  return FRAME_PRESETS.find(f => f.key === key) ?? null;
+}
+
 export function getRingColors(activeRing) {
   if (!activeRing) return { c1: '#c084fc', c2: '#7c3aed' };
+  const frame = getFrame(activeRing);
+  if (frame) return { c1: frame.c1, c2: frame.c2 };
   if (activeRing.startsWith('#')) return { c1: activeRing, c2: activeRing };
   const preset = getRing(activeRing);
   return preset ? { c1: preset.c1, c2: preset.c2 } : { c1: '#c084fc', c2: '#7c3aed' };
+}
+
+function drawStar(ctx, x, y, size, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const outerAngle = (-90 + i * 72) * Math.PI / 180;
+    const innerAngle = (-90 + i * 72 + 36) * Math.PI / 180;
+    ctx.lineTo(Math.cos(outerAngle) * size, Math.sin(outerAngle) * size);
+    ctx.lineTo(Math.cos(innerAngle) * size * 0.45, Math.sin(innerAngle) * size * 0.45);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * Desenha a argola/moldura do avatar em qualquer canvas (perfil ou carteira).
+ * Se `ringValue` for uma cor/preset, desenha o anel de gradiente simples (comportamento
+ * antigo). Se for uma moldura ("frame:..."), desenha o desenho correspondente.
+ */
+export function drawAvatarRing(ctx, cx, cy, r, ringValue) {
+  const frame       = getFrame(ringValue);
+  const { c1, c2 }  = getRingColors(ringValue);
+  const grad        = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+  grad.addColorStop(0, c1);
+  grad.addColorStop(1, c2);
+
+  ctx.save();
+  ctx.shadowColor = c1;
+  ctx.shadowBlur  = frame ? 14 : 18;
+
+  if (!frame) {
+    ctx.strokeStyle = grad;
+    ctx.lineWidth   = 9;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  if (frame.style === 'double') {
+    ctx.strokeStyle = grad; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(cx, cy, r + 5, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, r - 4, 0, Math.PI * 2); ctx.stroke();
+  } else if (frame.style === 'dashed') {
+    ctx.strokeStyle = grad; ctx.lineWidth = 9;
+    ctx.setLineDash([14, 10]);
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (frame.style === 'studs') {
+    ctx.strokeStyle = grad; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    const studCount = 12;
+    for (let i = 0; i < studCount; i++) {
+      const ang = (i / studCount) * Math.PI * 2;
+      const sx  = cx + Math.cos(ang) * r, sy = cy + Math.sin(ang) * r;
+      ctx.beginPath(); ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = i % 2 === 0 ? c1 : c2;
+      ctx.fill();
+    }
+  } else if (frame.style === 'stars') {
+    ctx.strokeStyle = grad; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    const starCount = 8;
+    for (let i = 0; i < starCount; i++) {
+      const ang = (i / starCount) * Math.PI * 2;
+      const sx  = cx + Math.cos(ang) * (r + 3), sy = cy + Math.sin(ang) * (r + 3);
+      drawStar(ctx, sx, sy, 6, i % 2 === 0 ? c1 : c2);
+    }
+  }
+
+  ctx.restore();
 }

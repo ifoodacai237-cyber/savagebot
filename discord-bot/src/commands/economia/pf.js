@@ -45,13 +45,14 @@ export async function buildWalletCard(userId, guildId, guild, target) {
   const buf = await generateBalanceCard({
     username,
     avatarUrl,
-    balance:         eco?.balance          ?? 0,
-    bank:            eco?.bank             ?? 0,
-    cardBg1:         profile?.cardBg1      ?? null,
-    cardBg2:         profile?.cardBg2      ?? null,
-    cardPanelColor:  profile?.cardPanelColor ?? null,
-    ringBorderColor: profile?.ringBorderColor ?? null,
-    walletBg:        profile?.walletBg     ?? null,
+    balance:          eco?.balance          ?? 0,
+    bank:             eco?.bank             ?? 0,
+    cardBg1:          profile?.cardBg1      ?? null,
+    cardBg2:          profile?.cardBg2      ?? null,
+    cardPanelColor:   profile?.cardPanelColor ?? null,
+    walletRing:       profile?.walletRing       ?? null,
+    walletRingBorder: profile?.walletRingBorder ?? null,
+    walletBg:         profile?.walletBg     ?? null,
   });
   return new AttachmentBuilder(buf, { name: 'carteira.png' });
 }
@@ -63,7 +64,7 @@ function editButtons() {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('wallet_fundo_preset_btn').setLabel('Fundos').setEmoji('🖼️').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('wallet_fundo_btn').setLabel('Fundo CDN').setEmoji('🔗').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('profile_ring_btn').setLabel('Argola').setEmoji('💠').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('wallet_ring_btn').setLabel('Argola').setEmoji('💠').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('profile_bg_btn').setLabel('Cor Fundo').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('profile_panel_btn').setLabel('Painel').setEmoji('🟦').setStyle(ButtonStyle.Secondary),
     ),

@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import prisma from '../../database/client.js';
+import { BANNERS } from '../../utils/shopData.js';
 
 const COIN = '<a:emoji_1:1516993823665033286>';
 
@@ -79,17 +80,22 @@ export default {
 
     // ── Modo criação ────────────────────────────────────────────────────────────
     const priceVal = preco ?? 1000;
-    const chave = nome.toLowerCase()
+    // Prefixo "c_" garante que a chave de um banner personalizado nunca colida com
+    // a de um banner estático (galaxy, neon, ocean, etc), evitando que clicar em um
+    // banner no menu acabe equipando/exibindo outro.
+    const slug = nome.toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^\w\s]/g, '')
       .trim()
       .replace(/\s+/g, '_')
       .slice(0, 30);
+    const chave = `c_${slug}`;
+    const staticKeys = new Set(BANNERS.map(b => b.key));
 
     const existing = await prisma.customBanner.findUnique({
       where: { guildId_key: { guildId: interaction.guildId, key: chave } },
     });
-    const finalKey = existing ? `${chave}_${Date.now().toString(36)}` : chave;
+    const finalKey = (existing || staticKeys.has(chave)) ? `${chave}_${Date.now().toString(36)}` : chave;
 
     await prisma.customBanner.create({
       data: {

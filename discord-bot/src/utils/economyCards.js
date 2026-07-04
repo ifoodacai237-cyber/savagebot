@@ -2,6 +2,7 @@ import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
+import { drawAvatarRing } from './shopData.js';
 
 const __ecoFilename = fileURLToPath(import.meta.url);
 const __ecoDir      = dirname(__ecoFilename);
@@ -693,7 +694,7 @@ function isDark(hex) {
   return (r * 299 + g * 587 + b * 114) / 1000 < 128;
 }
 
-export async function generateBalanceCard({ username, avatarUrl, balance, bank, cardBg1, cardBg2, cardPanelColor, ringBorderColor, walletBg }) {
+export async function generateBalanceCard({ username, avatarUrl, balance, bank, cardBg1, cardBg2, cardPanelColor, walletRing, walletRingBorder, walletBg }) {
   const W   = 480, H = 580;
   const PAD = 18;
   const canvas = createCanvas(W, H);
@@ -753,10 +754,14 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
   const AV_CX = W / 2;
   const AV_CY = AV_R + (darkMode ? 28 : 34);
 
-  // Ring
-  const ringColor = ringBorderColor ?? (darkMode ? '#FFFFFF' : '#C8C8C8');
-  ctx.strokeStyle = ringColor; ctx.lineWidth = darkMode ? 4 : 7;
-  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + (darkMode ? 4 : 6), 0, Math.PI * 2); ctx.stroke();
+  // Ring — argola/moldura própria da carteira (independente da argola do /perfil)
+  if (walletRing) {
+    drawAvatarRing(ctx, AV_CX, AV_CY, AV_R + (darkMode ? 4 : 6), walletRing);
+  } else {
+    const ringColor = walletRingBorder ?? (darkMode ? '#FFFFFF' : '#C8C8C8');
+    ctx.strokeStyle = ringColor; ctx.lineWidth = darkMode ? 4 : 7;
+    ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + (darkMode ? 4 : 6), 0, Math.PI * 2); ctx.stroke();
+  }
 
   ctx.save();
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R, 0, Math.PI * 2); ctx.clip();
