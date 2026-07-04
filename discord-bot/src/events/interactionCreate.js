@@ -597,7 +597,8 @@ export default {
           interaction.customId.startsWith('shop_') ||
           interaction.customId.startsWith('profile_') ||
           interaction.customId.startsWith('loja_admin_') ||
-          interaction.customId.startsWith('banner_admin_')
+          interaction.customId.startsWith('banner_admin_') ||
+          interaction.customId.startsWith('wallet_fundo')
         ) {
           return handleShopInteraction(interaction, client);
         }
@@ -806,7 +807,8 @@ export default {
           customId.startsWith('loja_cfg_') ||
           customId.startsWith('loja_admin_') ||
           customId.startsWith('profile_') ||
-          customId.startsWith('banner_admin_')
+          customId.startsWith('banner_admin_') ||
+          customId.startsWith('wallet_fundo')
         ) {
           return handleShopInteraction(interaction, client);
         }

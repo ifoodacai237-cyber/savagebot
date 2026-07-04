@@ -90,3 +90,9 @@ id = "-pKWOnW5Xv0ira7voepZh"
 uri = "file://preview_final.png"
 type = "image"
 title = "Preview com texto corrigido"
+
+[[outputs]]
+id = "j-6AO-GRXV6veAZMRblG3"
+uri = "file://preview_font_test.png"
+type = "image"
+title = "Preview com fonte corrigida"
