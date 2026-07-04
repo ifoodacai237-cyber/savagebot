@@ -2569,7 +2569,8 @@ export default {
           interaction.customId.startsWith('loja_cfg_modal_') ||
           interaction.customId === 'shop_gift_modal' ||
           interaction.customId.startsWith('loja_admin_modal_') ||
-          interaction.customId.startsWith('profile_')
+          interaction.customId.startsWith('profile_') ||
+          interaction.customId === 'wallet_fundo_modal'
         ) {
           return handleShopInteraction(interaction, client);
         }
