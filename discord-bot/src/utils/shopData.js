@@ -304,63 +304,189 @@ function drawStar(ctx, x, y, size, color) {
   }
   ctx.closePath();
   ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Gema com brilho radial (efeito 3D) — usada nas molduras "cravejadas"
+function drawGem(ctx, x, y, size, color) {
+  ctx.save();
+  const grad = ctx.createRadialGradient(x - size * 0.35, y - size * 0.35, 0.4, x, y, size);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.38, color);
+  grad.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 1;
+  ctx.stroke();
+  // Brilho pequeno
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.beginPath(); ctx.arc(x - size * 0.32, y - size * 0.32, size * 0.22, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+// Diamante facetado — usado nas molduras "duplas"
+function drawDiamond(ctx, x, y, size, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  const grad = ctx.createLinearGradient(0, -size, 0, size);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.5, color);
+  grad.addColorStop(1, 'rgba(0,0,0,0.45)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(0, -size); ctx.lineTo(size * 0.72, 0); ctx.lineTo(0, size); ctx.lineTo(-size * 0.72, 0);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Flourish ornamental (arabesco) no topo da moldura, estilo "coroa" de Pinterest
+function drawFlourish(ctx, x, y, c1, c2) {
+  ctx.save();
+  ctx.translate(x, y);
+  const grad = ctx.createLinearGradient(-16, 0, 16, 0);
+  grad.addColorStop(0, c1); grad.addColorStop(0.5, '#ffffff'); grad.addColorStop(1, c2);
+  ctx.strokeStyle = grad; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-16, 6);
+  ctx.quadraticCurveTo(-8, -10, 0, -3);
+  ctx.quadraticCurveTo(8, -10, 16, 6);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-10, 8);
+  ctx.quadraticCurveTo(-5, 0, 0, 4);
+  ctx.quadraticCurveTo(5, 0, 10, 8);
+  ctx.stroke();
+  drawGem(ctx, 0, -4, 4.2, c2);
   ctx.restore();
 }
 
 /**
  * Desenha a argola/moldura do avatar em qualquer canvas (perfil ou carteira).
  * Se `ringValue` for uma cor/preset, desenha o anel de gradiente simples (comportamento
- * antigo). Se for uma moldura ("frame:..."), desenha o desenho correspondente.
+ * antigo, porém com acabamento em relevo). Se for uma moldura ("frame:..."), desenha uma
+ * moldura ornamentada em várias camadas (anel duplo + relevo + ornamentos + flourish).
  */
 export function drawAvatarRing(ctx, cx, cy, r, ringValue) {
   const frame       = getFrame(ringValue);
   const { c1, c2 }  = getRingColors(ringValue);
   const grad        = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
   grad.addColorStop(0, c1);
+  grad.addColorStop(0.5, '#ffffff');
   grad.addColorStop(1, c2);
+
+  const simpleGrad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+  simpleGrad.addColorStop(0, c1);
+  simpleGrad.addColorStop(1, c2);
 
   ctx.save();
   ctx.shadowColor = c1;
-  ctx.shadowBlur  = frame ? 14 : 18;
+  ctx.shadowBlur  = frame ? 16 : 18;
 
   if (!frame) {
-    ctx.strokeStyle = grad;
+    // Anel simples, mas com acabamento em relevo (bisel) para não ficar "chapado"
+    ctx.strokeStyle = simpleGrad;
     ctx.lineWidth   = 9;
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(cx, cy, r - 5.5, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(cx, cy, r + 5, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
     return;
   }
 
+  // ── Base ornamentada comum a todas as molduras ──────────────────────────
+  // Anel externo fino (contorno escuro, dá profundidade)
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, r + 11, 0, Math.PI * 2); ctx.stroke();
+
+  // Anel principal grosso com brilho central (efeito metálico)
+  ctx.strokeStyle = grad; ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.arc(cx, cy, r + 6, 0, Math.PI * 2); ctx.stroke();
+
+  // Realce interno claro
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.arc(cx, cy, r + 1.5, 0, Math.PI * 2); ctx.stroke();
+
+  ctx.shadowBlur  = 10;
+  ctx.shadowColor = c2;
+
+  // ── Ornamentos específicos por estilo ────────────────────────────────────
   if (frame.style === 'double') {
-    ctx.strokeStyle = grad; ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.arc(cx, cy, r + 5, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = simpleGrad; ctx.lineWidth = 3.5;
     ctx.beginPath(); ctx.arc(cx, cy, r - 4, 0, Math.PI * 2); ctx.stroke();
+    const diamondCount = 4;
+    for (let i = 0; i < diamondCount; i++) {
+      const ang = (i / diamondCount) * Math.PI * 2 + Math.PI / 4;
+      const dx  = cx + Math.cos(ang) * (r + 6), dy = cy + Math.sin(ang) * (r + 6);
+      drawDiamond(ctx, dx, dy, 8, i % 2 === 0 ? c1 : c2);
+    }
+    const gemCount = 8;
+    for (let i = 0; i < gemCount; i++) {
+      const ang = (i / gemCount) * Math.PI * 2;
+      const gx  = cx + Math.cos(ang) * (r - 4), gy = cy + Math.sin(ang) * (r - 4);
+      if (i % 2 === 0) drawGem(ctx, gx, gy, 2.6, '#ffffff');
+    }
   } else if (frame.style === 'dashed') {
-    ctx.strokeStyle = grad; ctx.lineWidth = 9;
-    ctx.setLineDash([14, 10]);
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-    ctx.setLineDash([]);
-  } else if (frame.style === 'studs') {
-    ctx.strokeStyle = grad; ctx.lineWidth = 6;
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-    const studCount = 12;
-    for (let i = 0; i < studCount; i++) {
-      const ang = (i / studCount) * Math.PI * 2;
-      const sx  = cx + Math.cos(ang) * r, sy = cy + Math.sin(ang) * r;
-      ctx.beginPath(); ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+    // Chamas triangulares ao redor do anel (estilo "fogo tribal")
+    const spikeCount = 18;
+    for (let i = 0; i < spikeCount; i++) {
+      const ang    = (i / spikeCount) * Math.PI * 2;
+      const baseR  = r + 6, tipR = i % 2 === 0 ? r + 19 : r + 14;
+      const bx1 = cx + Math.cos(ang - 0.09) * baseR, by1 = cy + Math.sin(ang - 0.09) * baseR;
+      const bx2 = cx + Math.cos(ang + 0.09) * baseR, by2 = cy + Math.sin(ang + 0.09) * baseR;
+      const midAng = ang + 0.02;
+      const cxr = cx + Math.cos(midAng) * (baseR + (tipR - baseR) * 0.5) + Math.cos(midAng + Math.PI / 2) * 3;
+      const cyr = cy + Math.sin(midAng) * (baseR + (tipR - baseR) * 0.5) + Math.sin(midAng + Math.PI / 2) * 3;
+      const tx = cx + Math.cos(ang) * tipR, ty = cy + Math.sin(ang) * tipR;
+      ctx.beginPath();
+      ctx.moveTo(bx1, by1);
+      ctx.quadraticCurveTo(cxr, cyr, tx, ty);
+      ctx.lineTo(bx2, by2);
+      ctx.closePath();
       ctx.fillStyle = i % 2 === 0 ? c1 : c2;
       ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.6; ctx.stroke();
+    }
+  } else if (frame.style === 'studs') {
+    const studCount = 14;
+    for (let i = 0; i < studCount; i++) {
+      const ang = (i / studCount) * Math.PI * 2;
+      const sx  = cx + Math.cos(ang) * (r + 6), sy = cy + Math.sin(ang) * (r + 6);
+      drawGem(ctx, sx, sy, 6.5, i % 2 === 0 ? c1 : c2);
+    }
+    // Pequenos cravos internos alternados
+    for (let i = 0; i < studCount; i++) {
+      const ang = (i / studCount) * Math.PI * 2 + Math.PI / studCount;
+      const sx  = cx + Math.cos(ang) * (r - 3), sy = cy + Math.sin(ang) * (r - 3);
+      drawGem(ctx, sx, sy, 2.4, '#fff8dc');
     }
   } else if (frame.style === 'stars') {
-    ctx.strokeStyle = grad; ctx.lineWidth = 6;
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-    const starCount = 8;
+    const starCount = 10;
     for (let i = 0; i < starCount; i++) {
       const ang = (i / starCount) * Math.PI * 2;
-      const sx  = cx + Math.cos(ang) * (r + 3), sy = cy + Math.sin(ang) * (r + 3);
-      drawStar(ctx, sx, sy, 6, i % 2 === 0 ? c1 : c2);
+      const sx  = cx + Math.cos(ang) * (r + 9), sy = cy + Math.sin(ang) * (r + 9);
+      drawStar(ctx, sx, sy, 7.5, i % 2 === 0 ? c1 : c2);
+    }
+    // Pontinhos cintilantes entre as estrelas
+    for (let i = 0; i < starCount; i++) {
+      const ang = (i / starCount) * Math.PI * 2 + Math.PI / starCount;
+      const sx  = cx + Math.cos(ang) * (r + 15), sy = cy + Math.sin(ang) * (r + 15);
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath(); ctx.arc(sx, sy, 1.7, 0, Math.PI * 2); ctx.fill();
     }
   }
+
+  // Flourish ornamental no topo (assinatura visual de "moldura", como nas referências)
+  ctx.shadowBlur = 6;
+  drawFlourish(ctx, cx, cy - r - 15, c1, c2);
 
   ctx.restore();
 }
