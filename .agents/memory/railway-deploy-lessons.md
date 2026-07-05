@@ -77,6 +77,18 @@ O agente main não pode usar `git add/commit/push` diretamente. Usar GitHub Cont
 1. `GET /repos/{owner}/{repo}/contents/{path}` → pega o `sha` do arquivo
 2. `PUT /repos/{owner}/{repo}/contents/{path}` com `content` (base64) e `sha` → push direto
 
+## Regra: erro "Project Token not found" via GraphQL = token não existe mais, não é falta de permissão
+
+Ao testar RAILWAY_TOKEN via `Project-Access-Token` header na query `projectToken { id name projectId }`, um erro genérico "Not Authorized" pode significar objectId/serviceId errados, mas **"Project Token not found"** é definitivo: o token não corresponde a nenhum Project Token existente no Railway (foi revogado/deletado, ou nunca foi um Project Token válido).
+
+**Como aplicar**: Se `railway status`/`railway whoami` da CLI E a query GraphQL `projectToken` retornarem erro, peça ao usuário para gerar um novo Project Token em Project Settings → Tokens no painel do Railway (não um Account/Team API token) e atualizar o Secret. Testar novo token imediatamente com `query { projectToken { id name projectId environmentId } }` antes de assumir que funciona.
+
+**Why:** A CLI do Railway (`railway status`, `railway whoami`, `railway redeploy`) e a API "me"/"deployments" falham de forma idêntica e pouco informativa ("Invalid RAILWAY_TOKEN" / "Not Authorized") tanto para tokens revogados quanto para uso incorreto de escopo — a query `projectToken` é o único jeito de diferenciar as duas causas.
+
+## Deploy automático via GitHub independe do RAILWAY_TOKEN
+
+Se o serviço Railway está conectado ao repositório GitHub (deploy automático por push), atualizar a branch `main` no GitHub (via push normal ou GitHub API) já dispara o build no Railway sozinho — não é necessário um RAILWAY_TOKEN válido para isso. O token só é necessário para verificar status/logs ou forçar um redeploy manual via API/CLI.
+
 ## Como buscar FutggId para novos jogadores
 
 O CDN do FUT.GG (`cdn.futgg.com`) é inacessível da rede do Replit (timeout/000). Para encontrar futggId de jogadores:
