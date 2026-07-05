@@ -598,7 +598,8 @@ export default {
           interaction.customId.startsWith('profile_') ||
           interaction.customId.startsWith('loja_admin_') ||
           interaction.customId.startsWith('banner_admin_') ||
-          interaction.customId.startsWith('wallet_fundo')
+          interaction.customId.startsWith('wallet_fundo') ||
+          interaction.customId.startsWith('wallet_ring')
         ) {
           return handleShopInteraction(interaction, client);
         }
@@ -808,7 +809,8 @@ export default {
           customId.startsWith('loja_admin_') ||
           customId.startsWith('profile_') ||
           customId.startsWith('banner_admin_') ||
-          customId.startsWith('wallet_fundo')
+          customId.startsWith('wallet_fundo') ||
+          customId.startsWith('wallet_ring')
         ) {
           return handleShopInteraction(interaction, client);
         }
@@ -2572,7 +2574,8 @@ export default {
           interaction.customId === 'shop_gift_modal' ||
           interaction.customId.startsWith('loja_admin_modal_') ||
           interaction.customId.startsWith('profile_') ||
-          interaction.customId === 'wallet_fundo_modal'
+          interaction.customId === 'wallet_fundo_modal' ||
+          interaction.customId.startsWith('wallet_ring')
         ) {
           return handleShopInteraction(interaction, client);
         }
