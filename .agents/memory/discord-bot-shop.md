@@ -35,6 +35,23 @@ description: Shop system (loja) for Slow bot — banners, roles, profile cards, 
 
 All shop/profile interactions dispatched from `interactionCreate.js` → `handleShopInteraction()` in `shopHandlers.js`.
 
+## Preview-before-equip pattern (ring/frame/color)
+
+Ring color presets, frames, and custom hex colors (both ring and border) render a
+throwaway canvas preview (`ringPreview.js` → `renderRingPreview`) in an ephemeral
+deferred reply with "Equipar"/"Cancelar" buttons (`*_ring_confirm:<value>`,
+`*_ringborder_confirm:<value>`, `*_ring_cancel`) BEFORE writing to `UserProfile`.
+DB write only happens on confirm.
+
+**Why:** User asked to see how a ring/frame/color would look without having to equip
+every option one by one — equip-then-check was too slow for browsing many presets.
+
+**How to apply:** Any new equippable cosmetic with multiple visual options should follow
+this same defer→render→confirm/cancel flow instead of applying immediately, reusing
+`sendRingPreview`/`sendRingBorderPreview` as the template. The generic `profile_`/`wallet_ring`
+prefix routing in `interactionCreate.js` already covers any new suffix on these prefixes —
+no interactionCreate.js changes needed when only adding new customId suffixes there.
+
 ## Profile card
 
 - 900×340px canvas card using `@napi-rs/canvas`
