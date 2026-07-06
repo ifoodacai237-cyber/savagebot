@@ -185,3 +185,9 @@ id = "npqoJkp1r-fvAI4NxRwsP"
 uri = "file://attached_assets/ring_preview.png"
 type = "image"
 title = "Prévia de todas as molduras e argolas"
+
+[[outputs]]
+id = "-ksGCQjnMv1xIMRl_nZcv"
+uri = "file://attached_assets/ring_preview_correct.png"
+type = "image"
+title = "Molduras 3D — como aparecem no Discord"
