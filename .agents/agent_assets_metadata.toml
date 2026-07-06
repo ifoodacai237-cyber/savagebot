@@ -108,3 +108,9 @@ id = "2HB1_hWQN66dnGBnFP37b"
 uri = "file://preview_fix.png"
 type = "image"
 title = "Preview com contraste corrigido"
+
+[[outputs]]
+id = "BzH16sXKKTjRawDeRs_2H"
+uri = "file://moldura_fogo_preview.png"
+type = "image"
+title = "Moldura Fogo Tribal"
