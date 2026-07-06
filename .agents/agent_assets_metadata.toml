@@ -191,3 +191,9 @@ id = "-ksGCQjnMv1xIMRl_nZcv"
 uri = "file://attached_assets/ring_preview_correct.png"
 type = "image"
 title = "Molduras 3D — como aparecem no Discord"
+
+[[outputs]]
+id = "P-zK4HoaRBZgfKpiPzp_Y"
+uri = "file://attached_assets/thickness_cmp.png"
+type = "image"
+title = "Comparação de espessura — linha do meio (r+30) foi aplicada"

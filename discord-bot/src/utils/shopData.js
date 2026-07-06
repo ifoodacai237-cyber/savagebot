@@ -507,7 +507,7 @@ export async function drawAvatarRing(ctx, cx, cy, r, ringValue) {
     // Scale using the REAL outer radius of each ring (auto-detected per image).
     // This shows the full 3D decorations (gems, spikes, ornaments) around the avatar
     // rather than clipping them. The avatar (drawn after) covers the center naturally.
-    const targetOuter = r + 42; // ring outer edge 42px beyond avatar radius
+    const targetOuter = r + 30; // ring outer edge 30px beyond avatar radius
     const scale    = targetOuter / outerRadius;
     const drawSize = size * scale;
 
