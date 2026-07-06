@@ -489,13 +489,25 @@ export async function drawAvatarRing(ctx, cx, cy, r, ringValue) {
   const extra    = frame?.extra ?? null;
   const { c1, c2 } = getRingColors(ringValue);
 
-  const { canvas: ringCanvas, size, holeRadius } = await getKeyedRingImage(fileName);
-  const scale  = (r * 1.02) / holeRadius;
-  const drawSize = size * scale;
+  try {
+    const { canvas: ringCanvas, size, holeRadius } = await getKeyedRingImage(fileName);
+    const scale  = (r * 1.02) / holeRadius;
+    const drawSize = size * scale;
 
-  ctx.save();
-  ctx.drawImage(ringCanvas, cx - drawSize / 2, cy - drawSize / 2, drawSize, drawSize);
-  ctx.restore();
+    ctx.save();
+    ctx.drawImage(ringCanvas, cx - drawSize / 2, cy - drawSize / 2, drawSize, drawSize);
+    ctx.restore();
+  } catch (e) {
+    console.error(`[ring] Falha ao desenhar imagem da argola "${fileName}":`, e?.stack || e);
+    const fallbackGrad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+    fallbackGrad.addColorStop(0, c1);
+    fallbackGrad.addColorStop(1, c2);
+    ctx.save();
+    ctx.strokeStyle = fallbackGrad;
+    ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
 
   if (!extra) return;
 
