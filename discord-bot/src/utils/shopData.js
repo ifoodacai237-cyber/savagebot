@@ -493,6 +493,7 @@ export async function drawAvatarRing(ctx, cx, cy, r, ringValue) {
     const { canvas: ringCanvas, size, holeRadius } = await getKeyedRingImage(fileName);
     const scale  = (r * 1.02) / holeRadius;
     const drawSize = size * scale;
+    console.log(`[ring] "${fileName}" size=${size} holeRadius=${holeRadius.toFixed(1)} r=${r} scale=${scale.toFixed(3)} drawSize=${drawSize.toFixed(1)}`);
 
     ctx.save();
     ctx.drawImage(ringCanvas, cx - drawSize / 2, cy - drawSize / 2, drawSize, drawSize);
