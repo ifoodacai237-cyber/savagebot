@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: guilds
+    description: Guild configuration
 paths:
   /healthz:
     get:
@@ -24,6 +26,91 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /guilds:
+    get:
+      operationId: listGuilds
+      tags: [guilds]
+      summary: List all guilds with configs
+      responses:
+        "200":
+          description: List of guild configs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GuildSummary"
+  /guilds/{guildId}/config:
+    get:
+      operationId: getGuildConfig
+      tags: [guilds]
+      summary: Get full guild configuration
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Guild config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuildConfig"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateGuildConfig
+      tags: [guilds]
+      summary: Update guild configuration
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuildConfigUpdate"
+      responses:
+        "200":
+          description: Updated config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuildConfig"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /guilds/{guildId}/stats:
+    get:
+      operationId: getGuildStats
+      tags: [guilds]
+      summary: Get guild statistics
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Guild stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuildStats"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +120,392 @@ components:
           type: string
       required:
         - status
-
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    GuildSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        guildId:
+          type: string
+        welcomeEnabled:
+          type: boolean
+        partnerEnabled:
+          type: boolean
+        hasTicketChannel:
+          type: boolean
+        hasShop:
+          type: boolean
+      required:
+        - id
+        - guildId
+        - welcomeEnabled
+        - partnerEnabled
+        - hasTicketChannel
+        - hasShop
+    GuildConfig:
+      type: object
+      properties:
+        id:
+          type: string
+        guildId:
+          type: string
+        ticketChannel:
+          type: ["string", "null"]
+        ticketCategory:
+          type: ["string", "null"]
+        ticketColor:
+          type: ["string", "null"]
+        ticketBanner:
+          type: ["string", "null"]
+        ticketThumb:
+          type: ["string", "null"]
+        ticketFooter:
+          type: ["string", "null"]
+        ticketTitle:
+          type: ["string", "null"]
+        ticketText:
+          type: ["string", "null"]
+        ticketPingRole:
+          type: ["string", "null"]
+        ticketPingUser:
+          type: ["string", "null"]
+        ticketBtnLabel:
+          type: ["string", "null"]
+        ticketBtnEmoji:
+          type: ["string", "null"]
+        ticketBtnStyle:
+          type: ["string", "null"]
+        ticketOpenText:
+          type: ["string", "null"]
+        ticketUseSeparator:
+          type: boolean
+        ticketBannerPosition:
+          type: string
+        ticketOnlyBanner:
+          type: boolean
+        ticketUseMenu:
+          type: boolean
+        ticketQuestion1:
+          type: ["string", "null"]
+        ticketQuestion2:
+          type: ["string", "null"]
+        ticketQuestion3:
+          type: ["string", "null"]
+        instaChannel:
+          type: ["string", "null"]
+        instaColor:
+          type: ["string", "null"]
+        instaEmoji:
+          type: string
+        instaHandle:
+          type: ["string", "null"]
+        tellonymChannel:
+          type: ["string", "null"]
+        tellonymColor:
+          type: ["string", "null"]
+        tellonymBanner:
+          type: ["string", "null"]
+        tellonymThumb:
+          type: ["string", "null"]
+        tellonymFooter:
+          type: ["string", "null"]
+        tellonymTitle:
+          type: ["string", "null"]
+        tellonymText:
+          type: ["string", "null"]
+        tellonymBtnLabel:
+          type: ["string", "null"]
+        tellonymBtnEmoji:
+          type: ["string", "null"]
+        lojaTitle:
+          type: ["string", "null"]
+        lojaText:
+          type: ["string", "null"]
+        lojaBanner:
+          type: ["string", "null"]
+        lojaThumb:
+          type: ["string", "null"]
+        lojaColor:
+          type: ["string", "null"]
+        lojaConversao:
+          type: ["string", "null"]
+        lojaUseDivider:
+          type: boolean
+        shopEmojiComprar:
+          type: ["string", "null"]
+        shopEmojiVitrine:
+          type: ["string", "null"]
+        shopEmojiConverter:
+          type: ["string", "null"]
+        shopEmojiSaldo:
+          type: ["string", "null"]
+        shopEmojiGift:
+          type: ["string", "null"]
+        welcomeEnabled:
+          type: boolean
+        welcomeChannel:
+          type: ["string", "null"]
+        welcomeColor:
+          type: ["string", "null"]
+        welcomeBanner:
+          type: ["string", "null"]
+        welcomeThumb:
+          type: ["string", "null"]
+        welcomeFooter:
+          type: ["string", "null"]
+        welcomeTitle:
+          type: ["string", "null"]
+        welcomeText:
+          type: ["string", "null"]
+        welcomeRoles:
+          type: ["string", "null"]
+        welcomeChannels:
+          type: ["string", "null"]
+        welcomeUseDivider:
+          type: boolean
+        welcomeBannerPosition:
+          type: string
+        welcomeShowTitle:
+          type: boolean
+        welcomeShowAvatar:
+          type: boolean
+        welcomeDeleteAfter:
+          type: ["integer", "null"]
+        partnerEnabled:
+          type: boolean
+        partnerChannel:
+          type: ["string", "null"]
+        partnerResponsibleRole:
+          type: ["string", "null"]
+        partnerPingRole:
+          type: ["string", "null"]
+        partnerRole:
+          type: ["string", "null"]
+        partnerNotifyDm:
+          type: boolean
+        partnerMessage:
+          type: ["string", "null"]
+        partnerImage:
+          type: ["string", "null"]
+        partnerThumbnail:
+          type: ["string", "null"]
+        partnerFooter:
+          type: ["string", "null"]
+        partnerColor:
+          type: ["string", "null"]
+        partnerRemoveOnLeave:
+          type: boolean
+        botIconUrl:
+          type: ["string", "null"]
+        botBannerUrl:
+          type: ["string", "null"]
+        botBio:
+          type: ["string", "null"]
+        aiChannelId:
+          type: ["string", "null"]
+      required:
+        - id
+        - guildId
+        - instaEmoji
+        - ticketUseSeparator
+        - ticketBannerPosition
+        - ticketOnlyBanner
+        - ticketUseMenu
+        - lojaUseDivider
+        - welcomeEnabled
+        - welcomeUseDivider
+        - welcomeBannerPosition
+        - welcomeShowTitle
+        - welcomeShowAvatar
+        - partnerEnabled
+        - partnerNotifyDm
+        - partnerRemoveOnLeave
+    GuildConfigUpdate:
+      type: object
+      properties:
+        ticketChannel:
+          type: ["string", "null"]
+        ticketCategory:
+          type: ["string", "null"]
+        ticketColor:
+          type: ["string", "null"]
+        ticketBanner:
+          type: ["string", "null"]
+        ticketThumb:
+          type: ["string", "null"]
+        ticketFooter:
+          type: ["string", "null"]
+        ticketTitle:
+          type: ["string", "null"]
+        ticketText:
+          type: ["string", "null"]
+        ticketPingRole:
+          type: ["string", "null"]
+        ticketPingUser:
+          type: ["string", "null"]
+        ticketBtnLabel:
+          type: ["string", "null"]
+        ticketBtnEmoji:
+          type: ["string", "null"]
+        ticketBtnStyle:
+          type: ["string", "null"]
+        ticketOpenText:
+          type: ["string", "null"]
+        ticketUseSeparator:
+          type: boolean
+        ticketBannerPosition:
+          type: string
+        ticketOnlyBanner:
+          type: boolean
+        ticketUseMenu:
+          type: boolean
+        ticketQuestion1:
+          type: ["string", "null"]
+        ticketQuestion2:
+          type: ["string", "null"]
+        ticketQuestion3:
+          type: ["string", "null"]
+        instaChannel:
+          type: ["string", "null"]
+        instaColor:
+          type: ["string", "null"]
+        instaEmoji:
+          type: string
+        instaHandle:
+          type: ["string", "null"]
+        tellonymChannel:
+          type: ["string", "null"]
+        tellonymColor:
+          type: ["string", "null"]
+        tellonymBanner:
+          type: ["string", "null"]
+        tellonymThumb:
+          type: ["string", "null"]
+        tellonymFooter:
+          type: ["string", "null"]
+        tellonymTitle:
+          type: ["string", "null"]
+        tellonymText:
+          type: ["string", "null"]
+        tellonymBtnLabel:
+          type: ["string", "null"]
+        tellonymBtnEmoji:
+          type: ["string", "null"]
+        lojaTitle:
+          type: ["string", "null"]
+        lojaText:
+          type: ["string", "null"]
+        lojaBanner:
+          type: ["string", "null"]
+        lojaThumb:
+          type: ["string", "null"]
+        lojaColor:
+          type: ["string", "null"]
+        lojaConversao:
+          type: ["string", "null"]
+        lojaUseDivider:
+          type: boolean
+        shopEmojiComprar:
+          type: ["string", "null"]
+        shopEmojiVitrine:
+          type: ["string", "null"]
+        shopEmojiConverter:
+          type: ["string", "null"]
+        shopEmojiSaldo:
+          type: ["string", "null"]
+        shopEmojiGift:
+          type: ["string", "null"]
+        welcomeEnabled:
+          type: boolean
+        welcomeChannel:
+          type: ["string", "null"]
+        welcomeColor:
+          type: ["string", "null"]
+        welcomeBanner:
+          type: ["string", "null"]
+        welcomeThumb:
+          type: ["string", "null"]
+        welcomeFooter:
+          type: ["string", "null"]
+        welcomeTitle:
+          type: ["string", "null"]
+        welcomeText:
+          type: ["string", "null"]
+        welcomeRoles:
+          type: ["string", "null"]
+        welcomeChannels:
+          type: ["string", "null"]
+        welcomeUseDivider:
+          type: boolean
+        welcomeBannerPosition:
+          type: string
+        welcomeShowTitle:
+          type: boolean
+        welcomeShowAvatar:
+          type: boolean
+        welcomeDeleteAfter:
+          type: ["integer", "null"]
+        partnerEnabled:
+          type: boolean
+        partnerChannel:
+          type: ["string", "null"]
+        partnerResponsibleRole:
+          type: ["string", "null"]
+        partnerPingRole:
+          type: ["string", "null"]
+        partnerRole:
+          type: ["string", "null"]
+        partnerNotifyDm:
+          type: boolean
+        partnerMessage:
+          type: ["string", "null"]
+        partnerImage:
+          type: ["string", "null"]
+        partnerThumbnail:
+          type: ["string", "null"]
+        partnerFooter:
+          type: ["string", "null"]
+        partnerColor:
+          type: ["string", "null"]
+        partnerRemoveOnLeave:
+          type: boolean
+        botIconUrl:
+          type: ["string", "null"]
+        botBannerUrl:
+          type: ["string", "null"]
+        botBio:
+          type: ["string", "null"]
+        aiChannelId:
+          type: ["string", "null"]
+    GuildStats:
+      type: object
+      properties:
+        guildId:
+          type: string
+        totalUsers:
+          type: integer
+        totalTickets:
+          type: integer
+        openTickets:
+          type: integer
+        totalPartnerships:
+          type: integer
+        richestBalance:
+          type: integer
+        totalEconomy:
+          type: integer
+      required:
+        - guildId
+        - totalUsers
+        - totalTickets
+        - openTickets
+        - totalPartnerships
+        - richestBalance
+        - totalEconomy
