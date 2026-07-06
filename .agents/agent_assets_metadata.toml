@@ -179,3 +179,9 @@ id = "Q8Kf41Tfas9cr688s1GNB"
 uri = "file://resultado_rings.png"
 type = "image"
 title = "Argolas de avatar atualizadas"
+
+[[outputs]]
+id = "npqoJkp1r-fvAI4NxRwsP"
+uri = "file://attached_assets/ring_preview.png"
+type = "image"
+title = "Prévia de todas as molduras e argolas"
