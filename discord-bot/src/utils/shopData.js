@@ -504,11 +504,14 @@ export async function drawAvatarRing(ctx, cx, cy, r, ringValue) {
 
   try {
     const { canvas: ringCanvas, size, outerRadius } = await getKeyedRingImage(fileName);
-    // Scale using the REAL outer radius of each ring (auto-detected per image).
-    // This shows the full 3D decorations (gems, spikes, ornaments) around the avatar
-    // rather than clipping them. The avatar (drawn after) covers the center naturally.
-    const targetOuter = r + 30; // ring outer edge 30px beyond avatar radius
-    const scale    = targetOuter / outerRadius;
+    // Normalise ring size to match "Fúria Carmesim" (vermelho.png, outerRadius≈414).
+    // Clamp each ring's detected outer radius to ±8% of the reference so that compact
+    // wreaths (verde, outer≈247) are scaled up and spiky rings (azul, outer≈455) are
+    // scaled down — all landing at roughly the same band width as the reference.
+    const REF_OUTER   = 414;                                         // vermelho reference
+    const clampedOuter = Math.min(Math.max(outerRadius, REF_OUTER * 0.85), REF_OUTER * 1.05);
+    const targetOuter  = r + 30;                                     // outer edge 30px past avatar
+    const scale    = targetOuter / clampedOuter;
     const drawSize = size * scale;
 
     ctx.save();
