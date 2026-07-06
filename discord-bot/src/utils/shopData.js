@@ -470,7 +470,20 @@ async function getKeyedRingImage(fileName) {
   }
 
   c.putImageData(imgData, 0, 0);
-  const result = { canvas, size, holeRadius };
+
+  // 4) Detecta o raio externo real da moldura: o pixel visível mais distante
+  //    do centro após todo o processamento de transparência.
+  let outerRadius = holeRadius * 1.5; // fallback mínimo
+  for (let y = 0; y < size; y++) {
+    const dy2 = y - cy0;
+    for (let x = 0; x < size; x++) {
+      if (data[(y * size + x) * 4 + 3] === 0) continue;
+      const d = Math.hypot(x - cx0, dy2);
+      if (d > outerRadius) outerRadius = d;
+    }
+  }
+
+  const result = { canvas, size, holeRadius, outerRadius };
   ringImageCache.set(fileName, result);
   return result;
 }
@@ -490,10 +503,13 @@ export async function drawAvatarRing(ctx, cx, cy, r, ringValue) {
   const { c1, c2 } = getRingColors(ringValue);
 
   try {
-    const { canvas: ringCanvas, size, holeRadius } = await getKeyedRingImage(fileName);
-    const scale  = (r * 1.02) / holeRadius;
+    const { canvas: ringCanvas, size, outerRadius } = await getKeyedRingImage(fileName);
+    // Scale using the REAL outer radius of each ring (auto-detected per image).
+    // This shows the full 3D decorations (gems, spikes, ornaments) around the avatar
+    // rather than clipping them. The avatar (drawn after) covers the center naturally.
+    const targetOuter = r + 42; // ring outer edge 42px beyond avatar radius
+    const scale    = targetOuter / outerRadius;
     const drawSize = size * scale;
-    console.log(`[ring] "${fileName}" size=${size} holeRadius=${holeRadius.toFixed(1)} r=${r} scale=${scale.toFixed(3)} drawSize=${drawSize.toFixed(1)}`);
 
     ctx.save();
     ctx.drawImage(ringCanvas, cx - drawSize / 2, cy - drawSize / 2, drawSize, drawSize);
