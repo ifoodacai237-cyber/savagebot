@@ -142,6 +142,10 @@ components:
           type: boolean
         hasShop:
           type: boolean
+        discordName:
+          type: ["string", "null"]
+        discordIcon:
+          type: ["string", "null"]
       required:
         - id
         - guildId

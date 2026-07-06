@@ -5,14 +5,59 @@ import { eq, sql } from "drizzle-orm";
 
 const router = Router();
 
+const DISCORD_API = "https://discord.com/api/v10";
+const BOT_TOKEN = process.env.DISCORD_TOKEN;
+
 function isValidGuildId(id: unknown): id is string {
   return typeof id === "string" && id.length > 0;
+}
+
+interface DiscordGuild {
+  id: string;
+  name: string;
+  icon: string | null;
+}
+
+async function fetchDiscordGuild(guildId: string): Promise<DiscordGuild | null> {
+  if (!BOT_TOKEN) return null;
+  try {
+    const res = await fetch(`${DISCORD_API}/guilds/${guildId}`, {
+      headers: { Authorization: `Bot ${BOT_TOKEN}` },
+    });
+    if (!res.ok) return null;
+    return await res.json() as DiscordGuild;
+  } catch {
+    return null;
+  }
+}
+
+function guildIconUrl(guildId: string, icon: string | null): string | null {
+  if (!icon) return null;
+  const ext = icon.startsWith("a_") ? "gif" : "webp";
+  return `https://cdn.discordapp.com/icons/${guildId}/${icon}.${ext}?size=64`;
 }
 
 router.get("/guilds", async (req, res) => {
   try {
     const guilds = await db.select().from(guildConfigTable);
-    res.json(guilds);
+
+    const enriched = await Promise.all(
+      guilds.map(async (g) => {
+        const discord = await fetchDiscordGuild(g.guildId);
+        return {
+          id: g.id,
+          guildId: g.guildId,
+          welcomeEnabled: g.welcomeEnabled,
+          partnerEnabled: g.partnerEnabled,
+          hasTicketChannel: !!g.ticketChannel,
+          hasShop: !!g.lojaTitle,
+          discordName: discord?.name ?? null,
+          discordIcon: discord ? guildIconUrl(g.guildId, discord.icon) : null,
+        };
+      })
+    );
+
+    res.json(enriched);
   } catch (err) {
     req.log.error({ err }, "Failed to list guilds");
     res.status(500).json({ error: "Internal server error" });

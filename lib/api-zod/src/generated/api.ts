@@ -26,7 +26,9 @@ export const ListGuildsResponseItem = zod.object({
   "welcomeEnabled": zod.boolean(),
   "partnerEnabled": zod.boolean(),
   "hasTicketChannel": zod.boolean(),
-  "hasShop": zod.boolean()
+  "hasShop": zod.boolean(),
+  "discordName": zod.string().nullish(),
+  "discordIcon": zod.string().nullish()
 })
 export const ListGuildsResponse = zod.array(ListGuildsResponseItem)
 

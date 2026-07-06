@@ -20,6 +20,10 @@ export interface GuildSummary {
   partnerEnabled: boolean;
   hasTicketChannel: boolean;
   hasShop: boolean;
+  /** @nullable */
+  discordName?: string | null;
+  /** @nullable */
+  discordIcon?: string | null;
 }
 
 export interface GuildConfig {
