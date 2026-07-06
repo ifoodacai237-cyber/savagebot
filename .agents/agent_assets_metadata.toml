@@ -173,3 +173,9 @@ id = "BzH16sXKKTjRawDeRs_2H"
 uri = "file://moldura_fogo_preview.png"
 type = "image"
 title = "Moldura Fogo Tribal"
+
+[[outputs]]
+id = "Q8Kf41Tfas9cr688s1GNB"
+uri = "file://resultado_rings.png"
+type = "image"
+title = "Argolas de avatar atualizadas"
