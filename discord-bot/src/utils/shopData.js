@@ -247,17 +247,19 @@ async function buildCustomBannerResult(custom, prisma) {
   }
 }
 
+// Todas as cores também são molduras elaboradas (3D) — não existe mais versão "básica".
+// O campo `style` define o ornamento (gemas, diamantes, chamas ou estrelas) igual às FRAME_PRESETS.
 export const RING_PRESETS = [
-  { key: 'roxo',      label: 'Roxo',       emoji: '🟣', c1: '#c084fc', c2: '#7c3aed' },
-  { key: 'azul',      label: 'Azul',       emoji: '🔵', c1: '#60a5fa', c2: '#2563eb' },
-  { key: 'verde',     label: 'Verde',      emoji: '🟢', c1: '#4ade80', c2: '#16a34a' },
-  { key: 'vermelho',  label: 'Vermelho',   emoji: '🔴', c1: '#f87171', c2: '#dc2626' },
-  { key: 'rosa',      label: 'Rosa',       emoji: '🩷', c1: '#f9a8d4', c2: '#ec4899' },
-  { key: 'dourado',   label: 'Dourado',    emoji: '🟡', c1: '#fde68a', c2: '#d97706' },
-  { key: 'ciano',     label: 'Ciano',      emoji: '🩵', c1: '#67e8f9', c2: '#0891b2' },
-  { key: 'branco',    label: 'Branco',     emoji: '⚪', c1: '#f8fafc', c2: '#94a3b8' },
-  { key: 'arco_iris', label: 'Arco-íris',  emoji: '🌈', c1: '#f472b6', c2: '#3b82f6' },
-  { key: 'preto',     label: 'Preto',      emoji: '⚫', c1: '#6b7280', c2: '#111827' },
+  { key: 'roxo',      label: 'Roxo',       emoji: '🟣', c1: '#c084fc', c2: '#7c3aed', style: 'stars'  },
+  { key: 'azul',      label: 'Azul',       emoji: '🔵', c1: '#60a5fa', c2: '#2563eb', style: 'double' },
+  { key: 'verde',     label: 'Verde',      emoji: '🟢', c1: '#4ade80', c2: '#16a34a', style: 'double' },
+  { key: 'vermelho',  label: 'Vermelho',   emoji: '🔴', c1: '#f87171', c2: '#dc2626', style: 'dashed' },
+  { key: 'rosa',      label: 'Rosa',       emoji: '🩷', c1: '#f9a8d4', c2: '#ec4899', style: 'studs'  },
+  { key: 'dourado',   label: 'Dourado',    emoji: '🟡', c1: '#fde68a', c2: '#d97706', style: 'studs'  },
+  { key: 'ciano',     label: 'Ciano',      emoji: '🩵', c1: '#67e8f9', c2: '#0891b2', style: 'double' },
+  { key: 'branco',    label: 'Branco',     emoji: '⚪', c1: '#f8fafc', c2: '#94a3b8', style: 'stars'  },
+  { key: 'arco_iris', label: 'Arco-íris',  emoji: '🌈', c1: '#f472b6', c2: '#3b82f6', style: 'stars'  },
+  { key: 'preto',     label: 'Preto',      emoji: '⚫', c1: '#6b7280', c2: '#111827', style: 'studs'  },
 ];
 
 export function getRing(key) {
@@ -367,13 +369,17 @@ function drawFlourish(ctx, x, y, c1, c2) {
 
 /**
  * Desenha a argola/moldura do avatar em qualquer canvas (perfil ou carteira).
- * Se `ringValue` for uma cor/preset, desenha o anel de gradiente simples (comportamento
- * antigo, porém com acabamento em relevo). Se for uma moldura ("frame:..."), desenha uma
- * moldura ornamentada em várias camadas (anel duplo + relevo + ornamentos + flourish).
+ * Toda argola (cor/preset, hex customizada ou moldura "frame:...") é sempre desenhada
+ * como uma moldura ornamentada em várias camadas (anel duplo + relevo metálico + gemas/
+ * diamantes/chamas/estrelas + flourish no topo). Não existe mais versão "básica".
  */
 export function drawAvatarRing(ctx, cx, cy, r, ringValue) {
   const frame       = getFrame(ringValue);
-  const { c1, c2 }  = getRingColors(ringValue);
+  const preset       = !frame && ringValue ? getRing(ringValue) : null;
+  // Não existe mais moldura "básica": toda argola (preset, hex customizada ou moldura)
+  // usa sempre o mesmo acabamento ornamentado em 3D. `style` só muda o tipo de ornamento.
+  const style        = frame?.style ?? preset?.style ?? 'studs';
+  const { c1, c2 }   = getRingColors(ringValue);
   const grad        = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
   grad.addColorStop(0, c1);
   grad.addColorStop(0.5, '#ffffff');
@@ -385,23 +391,9 @@ export function drawAvatarRing(ctx, cx, cy, r, ringValue) {
 
   ctx.save();
   ctx.shadowColor = c1;
-  ctx.shadowBlur  = frame ? 16 : 18;
+  ctx.shadowBlur  = 16;
 
-  if (!frame) {
-    // Anel simples, mas com acabamento em relevo (bisel) para não ficar "chapado"
-    ctx.strokeStyle = simpleGrad;
-    ctx.lineWidth   = 9;
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.arc(cx, cy, r - 5.5, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.arc(cx, cy, r + 5, 0, Math.PI * 2); ctx.stroke();
-    ctx.restore();
-    return;
-  }
-
-  // ── Base ornamentada comum a todas as molduras ──────────────────────────
+  // ── Base ornamentada comum a TODAS as argolas ────────────────────────────
   // Anel externo fino (contorno escuro, dá profundidade)
   ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(cx, cy, r + 11, 0, Math.PI * 2); ctx.stroke();
@@ -419,7 +411,7 @@ export function drawAvatarRing(ctx, cx, cy, r, ringValue) {
   ctx.shadowColor = c2;
 
   // ── Ornamentos específicos por estilo ────────────────────────────────────
-  if (frame.style === 'double') {
+  if (style === 'double') {
     ctx.strokeStyle = simpleGrad; ctx.lineWidth = 3.5;
     ctx.beginPath(); ctx.arc(cx, cy, r - 4, 0, Math.PI * 2); ctx.stroke();
     const diamondCount = 4;
@@ -434,7 +426,7 @@ export function drawAvatarRing(ctx, cx, cy, r, ringValue) {
       const gx  = cx + Math.cos(ang) * (r - 4), gy = cy + Math.sin(ang) * (r - 4);
       if (i % 2 === 0) drawGem(ctx, gx, gy, 2.6, '#ffffff');
     }
-  } else if (frame.style === 'dashed') {
+  } else if (style === 'dashed') {
     // Chamas triangulares ao redor do anel (estilo "fogo tribal")
     const spikeCount = 18;
     for (let i = 0; i < spikeCount; i++) {
@@ -455,7 +447,7 @@ export function drawAvatarRing(ctx, cx, cy, r, ringValue) {
       ctx.fill();
       ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.6; ctx.stroke();
     }
-  } else if (frame.style === 'studs') {
+  } else if (style === 'studs') {
     const studCount = 14;
     for (let i = 0; i < studCount; i++) {
       const ang = (i / studCount) * Math.PI * 2;
@@ -468,7 +460,7 @@ export function drawAvatarRing(ctx, cx, cy, r, ringValue) {
       const sx  = cx + Math.cos(ang) * (r - 3), sy = cy + Math.sin(ang) * (r - 3);
       drawGem(ctx, sx, sy, 2.4, '#fff8dc');
     }
-  } else if (frame.style === 'stars') {
+  } else if (style === 'stars') {
     const starCount = 10;
     for (let i = 0; i < starCount; i++) {
       const ang = (i / starCount) * Math.PI * 2;
