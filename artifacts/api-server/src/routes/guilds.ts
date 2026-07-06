@@ -1,37 +1,18 @@
-import { Router, type IRouter } from "express";
+import { Router } from "express";
+import { db } from "@workspace/db";
+import { guildConfigTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { db, guildConfigTable } from "@workspace/db";
-import {
-  GetGuildConfigParams,
-  UpdateGuildConfigParams,
-  UpdateGuildConfigBody,
-  GetGuildStatsParams,
-} from "@workspace/api-zod";
-const router: IRouter = Router();
+
+const router = Router();
+
+function isValidGuildId(id: unknown): id is string {
+  return typeof id === "string" && id.length > 0;
+}
 
 router.get("/guilds", async (req, res) => {
   try {
-    const guilds = await db
-      .select({
-        id: guildConfigTable.id,
-        guildId: guildConfigTable.guildId,
-        welcomeEnabled: guildConfigTable.welcomeEnabled,
-        partnerEnabled: guildConfigTable.partnerEnabled,
-        ticketChannel: guildConfigTable.ticketChannel,
-        lojaTitle: guildConfigTable.lojaTitle,
-      })
-      .from(guildConfigTable);
-
-    const summaries = guilds.map((g) => ({
-      id: g.id,
-      guildId: g.guildId,
-      welcomeEnabled: g.welcomeEnabled,
-      partnerEnabled: g.partnerEnabled,
-      hasTicketChannel: !!g.ticketChannel,
-      hasShop: !!g.lojaTitle,
-    }));
-
-    res.json(summaries);
+    const guilds = await db.select().from(guildConfigTable);
+    res.json(guilds);
   } catch (err) {
     req.log.error({ err }, "Failed to list guilds");
     res.status(500).json({ error: "Internal server error" });
@@ -39,19 +20,17 @@ router.get("/guilds", async (req, res) => {
 });
 
 router.get("/guilds/:guildId/config", async (req, res) => {
-  const parsed = GetGuildConfigParams.safeParse(req.params);
-  if (!parsed.success) {
+  const { guildId } = req.params;
+  if (!isValidGuildId(guildId)) {
     res.status(400).json({ error: "Invalid guild ID" });
     return;
   }
-  const { guildId } = parsed.data;
 
   try {
     const [config] = await db
       .select()
       .from(guildConfigTable)
-      .where(eq(guildConfigTable.guildId, guildId))
-      .limit(1);
+      .where(eq(guildConfigTable.guildId, guildId));
 
     if (!config) {
       res.status(404).json({ error: "Guild config not found" });
@@ -66,25 +45,17 @@ router.get("/guilds/:guildId/config", async (req, res) => {
 });
 
 router.patch("/guilds/:guildId/config", async (req, res) => {
-  const paramsParsed = UpdateGuildConfigParams.safeParse(req.params);
-  if (!paramsParsed.success) {
+  const { guildId } = req.params;
+  if (!isValidGuildId(guildId)) {
     res.status(400).json({ error: "Invalid guild ID" });
-    return;
-  }
-  const { guildId } = paramsParsed.data;
-
-  const bodyParsed = UpdateGuildConfigBody.safeParse(req.body);
-  if (!bodyParsed.success) {
-    res.status(400).json({ error: "Invalid body" });
     return;
   }
 
   try {
     const [existing] = await db
-      .select({ id: guildConfigTable.id })
+      .select()
       .from(guildConfigTable)
-      .where(eq(guildConfigTable.guildId, guildId))
-      .limit(1);
+      .where(eq(guildConfigTable.guildId, guildId));
 
     if (!existing) {
       res.status(404).json({ error: "Guild config not found" });
@@ -93,7 +64,7 @@ router.patch("/guilds/:guildId/config", async (req, res) => {
 
     const [updated] = await db
       .update(guildConfigTable)
-      .set(bodyParsed.data)
+      .set({ ...req.body, updatedAt: new Date() })
       .where(eq(guildConfigTable.guildId, guildId))
       .returning();
 
@@ -104,49 +75,53 @@ router.patch("/guilds/:guildId/config", async (req, res) => {
   }
 });
 
+async function safeCount(query: ReturnType<typeof sql>): Promise<number> {
+  try {
+    const result = await db.execute<{ count: string }>(query);
+    return parseInt(result[0]?.count ?? "0") || 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function safeEconomyStats(guildId: string) {
+  try {
+    const [row] = await db.execute<{ users: string; richest: string; total: string }>(
+      sql`SELECT COUNT(*) as users, COALESCE(MAX("balance" + "bank"), 0) as richest, COALESCE(SUM("balance" + "bank"), 0) as total FROM "Economy" WHERE "guildId" = ${guildId}`
+    );
+    return {
+      users: parseInt(row?.users ?? "0") || 0,
+      richest: parseInt(row?.richest ?? "0") || 0,
+      total: parseInt(row?.total ?? "0") || 0,
+    };
+  } catch {
+    return { users: 0, richest: 0, total: 0 };
+  }
+}
+
 router.get("/guilds/:guildId/stats", async (req, res) => {
-  const parsed = GetGuildStatsParams.safeParse(req.params);
-  if (!parsed.success) {
+  const { guildId } = req.params;
+  if (!isValidGuildId(guildId)) {
     res.status(400).json({ error: "Invalid guild ID" });
     return;
   }
-  const { guildId } = parsed.data;
 
-  try {
-    const [totalTickets] = await db.execute<{ count: string }>(
-      sql`SELECT COUNT(*) as count FROM "Ticket" WHERE "guildId" = ${guildId}`
-    );
-    const [openTickets] = await db.execute<{ count: string }>(
-      sql`SELECT COUNT(*) as count FROM "Ticket" WHERE "guildId" = ${guildId} AND "status" = 'open'`
-    );
-    const [totalPartnerships] = await db.execute<{ count: string }>(
-      sql`SELECT COUNT(*) as count FROM "Partnership" WHERE "guildId" = ${guildId}`
-    );
-    const [economyStats] = await db.execute<{ users: string; richest: string; total: string }>(
-      sql`SELECT COUNT(*) as users, COALESCE(MAX("balance" + "bank"), 0) as richest, COALESCE(SUM("balance" + "bank"), 0) as total FROM "Economy" WHERE "guildId" = ${guildId}`
-    );
+  const [totalTickets, openTickets, totalPartnerships, economy] = await Promise.all([
+    safeCount(sql`SELECT COUNT(*) as count FROM "Ticket" WHERE "guildId" = ${guildId}`),
+    safeCount(sql`SELECT COUNT(*) as count FROM "Ticket" WHERE "guildId" = ${guildId} AND "status" = 'open'`),
+    safeCount(sql`SELECT COUNT(*) as count FROM "Partnership" WHERE "guildId" = ${guildId}`),
+    safeEconomyStats(guildId),
+  ]);
 
-    res.json({
-      guildId,
-      totalUsers: parseInt(economyStats?.users ?? "0") || 0,
-      totalTickets: parseInt(totalTickets?.count ?? "0") || 0,
-      openTickets: parseInt(openTickets?.count ?? "0") || 0,
-      totalPartnerships: parseInt(totalPartnerships?.count ?? "0") || 0,
-      richestBalance: parseInt(economyStats?.richest ?? "0") || 0,
-      totalEconomy: parseInt(economyStats?.total ?? "0") || 0,
-    });
-  } catch (err) {
-    req.log.error({ err }, "Failed to get guild stats");
-    res.json({
-      guildId,
-      totalUsers: 0,
-      totalTickets: 0,
-      openTickets: 0,
-      totalPartnerships: 0,
-      richestBalance: 0,
-      totalEconomy: 0,
-    });
-  }
+  res.json({
+    guildId,
+    totalUsers: economy.users,
+    totalTickets,
+    openTickets,
+    totalPartnerships,
+    richestBalance: economy.richest,
+    totalEconomy: economy.total,
+  });
 });
 
 export default router;
