@@ -39,7 +39,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <Bot className="w-5 h-5 text-white" />
           </div>
           <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">
-            SlowBot
+            FallenBot
           </span>
         </div>
         <button
@@ -90,7 +90,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-medium">Admin</span>
-            <span className="text-xs text-muted-foreground">SlowBot Dashboard</span>
+            <span className="text-xs text-muted-foreground">FallenBot Dashboard</span>
           </div>
         </div>
       </div>
