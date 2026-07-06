@@ -1,5 +1,64 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "EJ5pJS28-tU7HES9rqgCe"
+uri = "file://attached_assets/generated_images/ring_preto.png"
+type = "image"
+title = "black liquid chrome ring"
+
+[[generated]]
+id = "59uEGQsUbyU9azL0mCfzS"
+uri = "file://attached_assets/generated_images/ring_vermelho.png"
+type = "image"
+title = "red lightning ring"
+
+[[generated]]
+id = "huItaTiqEsClWn-l7A4Gw"
+uri = "file://attached_assets/generated_images/ring_roxo.png"
+type = "image"
+title = "purple gothic spiked ring"
+
+[[generated]]
+id = "K_5MMV4uKzGkcL6CZ58BU"
+uri = "file://attached_assets/generated_images/ring_azul.png"
+type = "image"
+title = "blue ice crystal ring"
+
+[[generated]]
+id = "A7SKCTA6hDJXC8Y5dcM4Y"
+uri = "file://attached_assets/generated_images/ring_verde.png"
+type = "image"
+title = "green emerald vine ring"
+
+[[generated]]
+id = "G_5r01rb_tSkzInlAKalH"
+uri = "file://attached_assets/generated_images/ring_rosa.png"
+type = "image"
+title = "pink rose pearl ring"
+
+[[generated]]
+id = "k7SqAyCSjQFeQR7N6Xcwn"
+uri = "file://attached_assets/generated_images/ring_dourado.png"
+type = "image"
+title = "gold baroque filigree ring"
+
+[[generated]]
+id = "Ydp5o1jaHyCXlI_hj31me"
+uri = "file://attached_assets/generated_images/ring_ciano.png"
+type = "image"
+title = "cyan crystal glow ring"
+
+[[generated]]
+id = "ZZRFMqex4HT4FY8yb_aVE"
+uri = "file://attached_assets/generated_images/ring_branco.png"
+type = "image"
+title = "white silver chrome ring"
+
+[[generated]]
+id = "HXfnhNrRVcvsBuY10J5_a"
+uri = "file://attached_assets/generated_images/ring_arco_iris.png"
+type = "image"
+title = "rainbow prismatic ring"
 
 [[outputs]]
 id = "4AOTjtd6LAAOcCUcwG7WG"

@@ -28,7 +28,7 @@ export async function renderRingPreview(avatarUrl, ringValue, borderColor) {
   ctx.fillStyle = borderColor ?? '#ffffff';
   ctx.beginPath(); ctx.arc(CX, CY, AV_R + 14, 0, Math.PI * 2); ctx.fill();
 
-  drawAvatarRing(ctx, CX, CY, AV_R + 8, ringValue ?? null);
+  await drawAvatarRing(ctx, CX, CY, AV_R + 8, ringValue ?? null);
 
   ctx.save();
   ctx.beginPath(); ctx.arc(CX, CY, AV_R, 0, Math.PI * 2); ctx.clip();
