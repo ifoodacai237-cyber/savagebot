@@ -756,7 +756,7 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
 
   // Ring — argola/moldura própria da carteira (independente da argola do /perfil)
   if (walletRing) {
-    await drawAvatarRing(ctx, AV_CX, AV_CY, AV_R + (darkMode ? 4 : 6), walletRing);
+    drawAvatarRing(ctx, AV_CX, AV_CY, AV_R + (darkMode ? 4 : 6), walletRing);
   } else {
     const ringColor = walletRingBorder ?? (darkMode ? '#FFFFFF' : '#C8C8C8');
     ctx.strokeStyle = ringColor; ctx.lineWidth = darkMode ? 4 : 7;

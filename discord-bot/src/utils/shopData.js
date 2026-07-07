@@ -1,11 +1,3 @@
-import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = dirname(__filename);
-const RINGS_DIR  = join(__dirname, '../assets/rings');
-
 export const WALLET_BACKGROUNDS = [
   { key: 'wbg_galaxy',   name: '🌌 Galáxia Roxa',    emoji: '🌌', url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=900&q=90' },
   { key: 'wbg_neon',     name: '🏙️ Cidade Neon',     emoji: '🏙️', url: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=900&q=90' },
@@ -255,20 +247,17 @@ async function buildCustomBannerResult(custom, prisma) {
   }
 }
 
-// Todas as cores também são molduras elaboradas em imagem real (relevo 3D, gemas,
-// cristais, metal) — não existe mais versão "básica" desenhada em vetor simples.
-// O campo `image` aponta para o arquivo em src/assets/rings/ usado como moldura.
 export const RING_PRESETS = [
-  { key: 'roxo',      label: 'Roxo Espinhado',  emoji: '🟣', c1: '#c084fc', c2: '#7c3aed', image: 'roxo.png' },
-  { key: 'azul',      label: 'Gelo Azul',       emoji: '🔵', c1: '#60a5fa', c2: '#2563eb', image: 'azul.png' },
-  { key: 'verde',     label: 'Vinha Esmeralda', emoji: '🟢', c1: '#4ade80', c2: '#16a34a', image: 'verde.png' },
-  { key: 'vermelho',  label: 'Relâmpago Carmesim', emoji: '🔴', c1: '#f87171', c2: '#dc2626', image: 'vermelho.png' },
-  { key: 'rosa',      label: 'Rosas e Pérolas', emoji: '🩷', c1: '#f9a8d4', c2: '#ec4899', image: 'rosa.png' },
-  { key: 'dourado',   label: 'Filigrana Dourada', emoji: '🟡', c1: '#fde68a', c2: '#d97706', image: 'dourado.png' },
-  { key: 'ciano',     label: 'Cristal Ciano',   emoji: '🩵', c1: '#67e8f9', c2: '#0891b2', image: 'ciano.png' },
-  { key: 'branco',    label: 'Cromo Prateado',  emoji: '⚪', c1: '#f8fafc', c2: '#94a3b8', image: 'branco.png' },
-  { key: 'arco_iris', label: 'Prisma Arco-íris', emoji: '🌈', c1: '#f472b6', c2: '#3b82f6', image: 'arco_iris.png' },
-  { key: 'preto',     label: 'Metal Sombrio',   emoji: '⚫', c1: '#6b7280', c2: '#111827', image: 'preto.png' },
+  { key: 'roxo',      label: 'Roxo',       emoji: '🟣', c1: '#c084fc', c2: '#7c3aed' },
+  { key: 'azul',      label: 'Azul',       emoji: '🔵', c1: '#60a5fa', c2: '#2563eb' },
+  { key: 'verde',     label: 'Verde',      emoji: '🟢', c1: '#4ade80', c2: '#16a34a' },
+  { key: 'vermelho',  label: 'Vermelho',   emoji: '🔴', c1: '#f87171', c2: '#dc2626' },
+  { key: 'rosa',      label: 'Rosa',       emoji: '🩷', c1: '#f9a8d4', c2: '#ec4899' },
+  { key: 'dourado',   label: 'Dourado',    emoji: '🟡', c1: '#fde68a', c2: '#d97706' },
+  { key: 'ciano',     label: 'Ciano',      emoji: '🩵', c1: '#67e8f9', c2: '#0891b2' },
+  { key: 'branco',    label: 'Branco',     emoji: '⚪', c1: '#f8fafc', c2: '#94a3b8' },
+  { key: 'arco_iris', label: 'Arco-íris',  emoji: '🌈', c1: '#f472b6', c2: '#3b82f6' },
+  { key: 'preto',     label: 'Preto',      emoji: '⚫', c1: '#6b7280', c2: '#111827' },
 ];
 
 export function getRing(key) {
@@ -278,16 +267,13 @@ export function getRing(key) {
 // ─── 🖼️ Molduras (frames com desenho, não apenas cor) ─────────────────────────
 // Prefixo "frame:" distingue uma moldura de uma cor sólida/preset no mesmo campo
 // (activeRing / walletRing), sem precisar de coluna extra no banco.
-// As molduras premium reaproveitam as mesmas imagens base (mesmo acabamento em relevo
-// real), mas ganham um extra de ornamento desenhado por cima (`extra`) para se
-// diferenciarem visualmente da cor comum e justificarem o nome.
 export const FRAME_PRESETS = [
-  { key: 'ouro_cravejado', label: 'Ouro Cravejado',    emoji: '✨', c1: '#fde68a', c2: '#b45309', image: 'dourado.png',  extra: 'studs' },
-  { key: 'gelo_duplo',     label: 'Gelo Duplo',        emoji: '❄️', c1: '#bae6fd', c2: '#0284c7', image: 'azul.png',     extra: 'double' },
-  { key: 'fogo_tribal',    label: 'Fúria Carmesim',    emoji: '🔥', c1: '#fca5a5', c2: '#b91c1c', image: 'vermelho.png', extra: 'dashed' },
-  { key: 'estelar',        label: 'Trono Estelar',     emoji: '🌟', c1: '#e9d5ff', c2: '#7c3aed', image: 'roxo.png',     extra: 'stars' },
-  { key: 'esmeralda_real', label: 'Esmeralda Real',    emoji: '💚', c1: '#86efac', c2: '#15803d', image: 'verde.png',    extra: 'double' },
-  { key: 'sombrio',        label: 'Cromo Sombrio',     emoji: '🖤', c1: '#9ca3af', c2: '#111827', image: 'preto.png',    extra: 'studs' },
+  { key: 'ouro_cravejado', label: 'Ouro Cravejado',   emoji: '✨', c1: '#fde68a', c2: '#b45309', style: 'studs'  },
+  { key: 'gelo_duplo',     label: 'Gelo Duplo',       emoji: '❄️', c1: '#bae6fd', c2: '#0284c7', style: 'double' },
+  { key: 'fogo_tribal',    label: 'Fogo Tribal',      emoji: '🔥', c1: '#fca5a5', c2: '#b91c1c', style: 'dashed' },
+  { key: 'estelar',        label: 'Estelar',          emoji: '🌟', c1: '#e9d5ff', c2: '#7c3aed', style: 'stars'  },
+  { key: 'esmeralda_real', label: 'Esmeralda Real',   emoji: '💚', c1: '#86efac', c2: '#15803d', style: 'double' },
+  { key: 'sombrio',        label: 'Sombrio Espinhado',emoji: '🖤', c1: '#9ca3af', c2: '#111827', style: 'studs'  },
 ];
 
 export function getFrame(value) {
@@ -318,290 +304,61 @@ function drawStar(ctx, x, y, size, color) {
   }
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-  ctx.lineWidth = 0.8;
-  ctx.stroke();
   ctx.restore();
-}
-
-// Gema com brilho radial (efeito 3D) — usada nas molduras "cravejadas"
-function drawGem(ctx, x, y, size, color) {
-  ctx.save();
-  const grad = ctx.createRadialGradient(x - size * 0.35, y - size * 0.35, 0.4, x, y, size);
-  grad.addColorStop(0, '#ffffff');
-  grad.addColorStop(0.38, color);
-  grad.addColorStop(1, 'rgba(0,0,0,0.55)');
-  ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 1;
-  ctx.stroke();
-  // Brilho pequeno
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.beginPath(); ctx.arc(x - size * 0.32, y - size * 0.32, size * 0.22, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-}
-
-// Diamante facetado — usado nas molduras "duplas"
-function drawDiamond(ctx, x, y, size, color) {
-  ctx.save();
-  ctx.translate(x, y);
-  const grad = ctx.createLinearGradient(0, -size, 0, size);
-  grad.addColorStop(0, '#ffffff');
-  grad.addColorStop(0.5, color);
-  grad.addColorStop(1, 'rgba(0,0,0,0.45)');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.moveTo(0, -size); ctx.lineTo(size * 0.72, 0); ctx.lineTo(0, size); ctx.lineTo(-size * 0.72, 0);
-  ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1;
-  ctx.stroke();
-  ctx.restore();
-}
-
-// Flourish ornamental (arabesco) no topo da moldura, estilo "coroa" de Pinterest
-function drawFlourish(ctx, x, y, c1, c2) {
-  ctx.save();
-  ctx.translate(x, y);
-  const grad = ctx.createLinearGradient(-16, 0, 16, 0);
-  grad.addColorStop(0, c1); grad.addColorStop(0.5, '#ffffff'); grad.addColorStop(1, c2);
-  ctx.strokeStyle = grad; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(-16, 6);
-  ctx.quadraticCurveTo(-8, -10, 0, -3);
-  ctx.quadraticCurveTo(8, -10, 16, 6);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(-10, 8);
-  ctx.quadraticCurveTo(-5, 0, 0, 4);
-  ctx.quadraticCurveTo(5, 0, 10, 8);
-  ctx.stroke();
-  drawGem(ctx, 0, -4, 4.2, c2);
-  ctx.restore();
-}
-
-// ─── 🖼️ Cache de imagens de moldura com chroma-key (remove o fundo/buraco pretos) ──
-// As imagens são geradas em um "vazio preto puro"; removemos com flood-fill (não um
-// threshold global) para não apagar partes escuras que fazem parte do próprio desenho
-// (ex.: sombras do metal cromado). Só o preto CONECTADO à borda ou ao centro vira
-// transparente — o resto do relevo/gemas permanece intacto.
-const ringImageCache = new Map();
-
-const BLACK_THRESHOLD = 42;
-
-function luma(data, idx) {
-  return (data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114);
-}
-
-async function getKeyedRingImage(fileName) {
-  if (ringImageCache.has(fileName)) return ringImageCache.get(fileName);
-
-  const img    = await loadImage(join(RINGS_DIR, fileName));
-  const size   = Math.max(img.width, img.height);
-  const canvas = createCanvas(size, size);
-  const c      = canvas.getContext('2d');
-  c.drawImage(img, 0, 0, size, size);
-
-  const imgData = c.getImageData(0, 0, size, size);
-  const data    = imgData.data;
-  const cx0 = size / 2, cy0 = size / 2;
-
-  // 1) Remove o fundo (vazio preto) externo: flood-fill a partir da borda,
-  //    seguindo apenas pixels escuros conectados (não afeta sombras internas
-  //    isoladas dentro do próprio desenho da moldura).
-  const visited = new Uint8Array(size * size);
-  const queue   = [];
-  for (let x = 0; x < size; x++) { queue.push(x, 0); queue.push(x, size - 1); }
-  for (let y = 0; y < size; y++) { queue.push(0, y); queue.push(size - 1, y); }
-
-  while (queue.length) {
-    const y = queue.pop(), x = queue.pop();
-    if (x < 0 || y < 0 || x >= size || y >= size) continue;
-    const vIdx = y * size + x;
-    if (visited[vIdx]) continue;
-    const pIdx = vIdx * 4;
-    if (luma(data, pIdx) >= BLACK_THRESHOLD) continue;
-    visited[vIdx] = 1;
-    data[pIdx + 3] = 0;
-    queue.push(x + 1, y, x - 1, y, x, y + 1, x, y - 1);
-  }
-
-  // 2) Descobre o raio real do buraco central via varredura radial (ignora
-  //    reflexos/brilhos que cruzam o buraco, usando um percentil baixo das
-  //    distâncias medidas em várias direções ao invés de flood-fill, que
-  //    falha quando um brilho interrompe a conectividade do buraco).
-  const angleSamples = 360;
-  const boundaryAt   = new Float32Array(angleSamples);
-  const maxScan = size * 0.42;
-  const minHole = size * 0.14, maxHole = size * 0.36;
-  for (let a = 0; a < angleSamples; a++) {
-    const ang = (a / angleSamples) * Math.PI * 2;
-    const dx = Math.cos(ang), dy = Math.sin(ang);
-    let dist = maxHole;
-    for (let d = 4; d < maxScan; d += 2) {
-      const x = Math.round(cx0 + dx * d), y = Math.round(cy0 + dy * d);
-      if (x < 0 || y < 0 || x >= size || y >= size) break;
-      const pIdx = (y * size + x) * 4;
-      if (luma(data, pIdx) >= BLACK_THRESHOLD) { dist = d; break; }
-    }
-    boundaryAt[a] = Math.min(Math.max(dist, minHole), maxHole);
-  }
-  const sortedForMedian = Array.from(boundaryAt).sort((a, b) => a - b);
-  const holeRadius = sortedForMedian[Math.floor(angleSamples * 0.5)];
-
-  // 3) Força a transparência do buraco central seguindo o contorno REAL da
-  //    moldura em cada direção (não um círculo perfeito) — assim pontas de
-  //    espinhos/cristais que avançam mais para o centro ficam preservadas,
-  //    e não sobra nenhuma faixa preta entre o avatar e a moldura.
-  const twoPi = Math.PI * 2;
-  for (let y = 0; y < size; y++) {
-    const dy2 = y - cy0;
-    for (let x = 0; x < size; x++) {
-      const dx2 = x - cx0;
-      const dist = Math.hypot(dx2, dy2);
-      if (dist > maxHole) continue;
-      let ang = Math.atan2(dy2, dx2);
-      if (ang < 0) ang += twoPi;
-      const aIdx = Math.round((ang / twoPi) * angleSamples) % angleSamples;
-      const boundary = boundaryAt[aIdx];
-      if (dist <= boundary * 1.03) {
-        data[(y * size + x) * 4 + 3] = 0;
-      }
-    }
-  }
-
-  c.putImageData(imgData, 0, 0);
-
-  // 4) Detecta o raio externo real da moldura: o pixel visível mais distante
-  //    do centro após todo o processamento de transparência.
-  let outerRadius = holeRadius * 1.5; // fallback mínimo
-  for (let y = 0; y < size; y++) {
-    const dy2 = y - cy0;
-    for (let x = 0; x < size; x++) {
-      if (data[(y * size + x) * 4 + 3] === 0) continue;
-      const d = Math.hypot(x - cx0, dy2);
-      if (d > outerRadius) outerRadius = d;
-    }
-  }
-
-  const result = { canvas, size, holeRadius, outerRadius };
-  ringImageCache.set(fileName, result);
-  return result;
 }
 
 /**
  * Desenha a argola/moldura do avatar em qualquer canvas (perfil ou carteira).
- * Toda argola (cor/preset, hex customizada ou moldura "frame:...") usa uma imagem
- * real de moldura ornamentada (metal/gemas/cristais em relevo 3D) — não existe mais
- * versão "básica" desenhada em vetor simples. Molduras premium (`extra`) ganham um
- * ornamento extra desenhado por cima para se diferenciar da cor comum.
+ * Se `ringValue` for uma cor/preset, desenha o anel de gradiente simples (comportamento
+ * antigo). Se for uma moldura ("frame:..."), desenha o desenho correspondente.
  */
-export async function drawAvatarRing(ctx, cx, cy, r, ringValue) {
-  const frame  = getFrame(ringValue);
-  const preset = !frame && ringValue ? getRing(ringValue) : null;
-  const fileName = frame?.image ?? preset?.image ?? 'roxo.png';
-  const extra    = frame?.extra ?? null;
-  const { c1, c2 } = getRingColors(ringValue);
-
-  try {
-    const { canvas: ringCanvas, size, outerRadius } = await getKeyedRingImage(fileName);
-    // Normalise ring size to match "Fúria Carmesim" (vermelho.png, outerRadius≈414).
-    // Clamp each ring's detected outer radius to ±8% of the reference so that compact
-    // wreaths (verde, outer≈247) are scaled up and spiky rings (azul, outer≈455) are
-    // scaled down — all landing at roughly the same band width as the reference.
-    const REF_OUTER   = 414;                                         // vermelho reference
-    const clampedOuter = Math.min(Math.max(outerRadius, REF_OUTER * 0.85), REF_OUTER * 1.05);
-    const targetOuter  = r + 30;                                     // outer edge 30px past avatar
-    const scale    = targetOuter / clampedOuter;
-    const drawSize = size * scale;
-
-    ctx.save();
-    ctx.drawImage(ringCanvas, cx - drawSize / 2, cy - drawSize / 2, drawSize, drawSize);
-    ctx.restore();
-  } catch (e) {
-    console.error(`[ring] Falha ao desenhar imagem da argola "${fileName}":`, e?.stack || e);
-    const fallbackGrad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
-    fallbackGrad.addColorStop(0, c1);
-    fallbackGrad.addColorStop(1, c2);
-    ctx.save();
-    ctx.strokeStyle = fallbackGrad;
-    ctx.lineWidth = 7;
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-    ctx.restore();
-  }
-
-  if (!extra) return;
-
-  // ── Ornamento extra (só nas molduras premium, para diferenciar da cor comum) ──
-  const simpleGrad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
-  simpleGrad.addColorStop(0, c1);
-  simpleGrad.addColorStop(1, c2);
+export function drawAvatarRing(ctx, cx, cy, r, ringValue) {
+  const frame       = getFrame(ringValue);
+  const { c1, c2 }  = getRingColors(ringValue);
+  const grad        = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+  grad.addColorStop(0, c1);
+  grad.addColorStop(1, c2);
 
   ctx.save();
-  ctx.shadowColor = c2;
-  ctx.shadowBlur  = 10;
-  const style = extra;
-  if (style === 'double') {
-    ctx.strokeStyle = simpleGrad; ctx.lineWidth = 3.5;
+  ctx.shadowColor = c1;
+  ctx.shadowBlur  = frame ? 14 : 18;
+
+  if (!frame) {
+    ctx.strokeStyle = grad;
+    ctx.lineWidth   = 9;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  if (frame.style === 'double') {
+    ctx.strokeStyle = grad; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(cx, cy, r + 5, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.arc(cx, cy, r - 4, 0, Math.PI * 2); ctx.stroke();
-    const diamondCount = 4;
-    for (let i = 0; i < diamondCount; i++) {
-      const ang = (i / diamondCount) * Math.PI * 2 + Math.PI / 4;
-      const dx  = cx + Math.cos(ang) * (r + 6), dy = cy + Math.sin(ang) * (r + 6);
-      drawDiamond(ctx, dx, dy, 8, i % 2 === 0 ? c1 : c2);
-    }
-    const gemCount = 8;
-    for (let i = 0; i < gemCount; i++) {
-      const ang = (i / gemCount) * Math.PI * 2;
-      const gx  = cx + Math.cos(ang) * (r - 4), gy = cy + Math.sin(ang) * (r - 4);
-      if (i % 2 === 0) drawGem(ctx, gx, gy, 2.6, '#ffffff');
-    }
-  } else if (style === 'dashed') {
-    // Chamas triangulares ao redor do anel (estilo "fogo tribal")
-    const spikeCount = 18;
-    for (let i = 0; i < spikeCount; i++) {
-      const ang    = (i / spikeCount) * Math.PI * 2;
-      const baseR  = r + 6, tipR = i % 2 === 0 ? r + 19 : r + 14;
-      const bx1 = cx + Math.cos(ang - 0.09) * baseR, by1 = cy + Math.sin(ang - 0.09) * baseR;
-      const bx2 = cx + Math.cos(ang + 0.09) * baseR, by2 = cy + Math.sin(ang + 0.09) * baseR;
-      const midAng = ang + 0.02;
-      const cxr = cx + Math.cos(midAng) * (baseR + (tipR - baseR) * 0.5) + Math.cos(midAng + Math.PI / 2) * 3;
-      const cyr = cy + Math.sin(midAng) * (baseR + (tipR - baseR) * 0.5) + Math.sin(midAng + Math.PI / 2) * 3;
-      const tx = cx + Math.cos(ang) * tipR, ty = cy + Math.sin(ang) * tipR;
-      ctx.beginPath();
-      ctx.moveTo(bx1, by1);
-      ctx.quadraticCurveTo(cxr, cyr, tx, ty);
-      ctx.lineTo(bx2, by2);
-      ctx.closePath();
-      ctx.fillStyle = i % 2 === 0 ? c1 : c2;
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.6; ctx.stroke();
-    }
-  } else if (style === 'studs') {
-    const studCount = 14;
+  } else if (frame.style === 'dashed') {
+    ctx.strokeStyle = grad; ctx.lineWidth = 9;
+    ctx.setLineDash([14, 10]);
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (frame.style === 'studs') {
+    ctx.strokeStyle = grad; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    const studCount = 12;
     for (let i = 0; i < studCount; i++) {
       const ang = (i / studCount) * Math.PI * 2;
-      const sx  = cx + Math.cos(ang) * (r + 6), sy = cy + Math.sin(ang) * (r + 6);
-      drawGem(ctx, sx, sy, 6.5, i % 2 === 0 ? c1 : c2);
+      const sx  = cx + Math.cos(ang) * r, sy = cy + Math.sin(ang) * r;
+      ctx.beginPath(); ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = i % 2 === 0 ? c1 : c2;
+      ctx.fill();
     }
-    // Pequenos cravos internos alternados
-    for (let i = 0; i < studCount; i++) {
-      const ang = (i / studCount) * Math.PI * 2 + Math.PI / studCount;
-      const sx  = cx + Math.cos(ang) * (r - 3), sy = cy + Math.sin(ang) * (r - 3);
-      drawGem(ctx, sx, sy, 2.4, '#fff8dc');
-    }
-  } else if (style === 'stars') {
-    const starCount = 10;
+  } else if (frame.style === 'stars') {
+    ctx.strokeStyle = grad; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    const starCount = 8;
     for (let i = 0; i < starCount; i++) {
       const ang = (i / starCount) * Math.PI * 2;
-      const sx  = cx + Math.cos(ang) * (r + 9), sy = cy + Math.sin(ang) * (r + 9);
-      drawStar(ctx, sx, sy, 7.5, i % 2 === 0 ? c1 : c2);
-    }
-    // Pontinhos cintilantes entre as estrelas
-    for (let i = 0; i < starCount; i++) {
-      const ang = (i / starCount) * Math.PI * 2 + Math.PI / starCount;
-      const sx  = cx + Math.cos(ang) * (r + 15), sy = cy + Math.sin(ang) * (r + 15);
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      ctx.beginPath(); ctx.arc(sx, sy, 1.7, 0, Math.PI * 2); ctx.fill();
+      const sx  = cx + Math.cos(ang) * (r + 3), sy = cy + Math.sin(ang) * (r + 3);
+      drawStar(ctx, sx, sy, 6, i % 2 === 0 ? c1 : c2);
     }
   }
 

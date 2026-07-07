@@ -418,7 +418,7 @@ export async function generateProfileCard({
   ctx.fillStyle = ringBorderColor ?? '#ffffff';
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 14, 0, Math.PI * 2); ctx.fill();
 
-  await drawAvatarRing(ctx, AV_CX, AV_CY, AV_R + 8, activeRing ?? null);
+  drawAvatarRing(ctx, AV_CX, AV_CY, AV_R + 8, activeRing ?? null);
 
   ctx.save();
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R, 0, Math.PI * 2); ctx.clip();

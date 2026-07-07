@@ -9,11 +9,9 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   PermissionFlagsBits,
-  AttachmentBuilder,
 } from 'discord.js';
 import prisma from '../database/client.js';
 import { BANNERS, WALLET_BACKGROUNDS, getBanner, RING_PRESETS, getRing, FRAME_PRESETS, getFrame, buildBannerUrl } from './shopData.js';
-import { renderRingPreview } from './ringPreview.js';
 
 const SHOP_COLOR = 0x9B4FD6;
 const DIVIDER    = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
@@ -472,9 +470,6 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'profile_ring_remove' || id === 'wallet_ring_remove')           return handleRingRemove(interaction, ringMode(id));
     if (id.startsWith('profile_ring_preset:') || id.startsWith('wallet_ring_preset:')) return handleRingPreset(interaction, ringMode(id));
     if (id.startsWith('profile_ring_frame:') || id.startsWith('wallet_ring_frame:'))   return handleRingFrame(interaction, ringMode(id));
-    if (id.startsWith('profile_ring_confirm:') || id.startsWith('wallet_ring_confirm:')) return handleRingConfirm(interaction, ringMode(id));
-    if (id.startsWith('profile_ringborder_confirm:') || id.startsWith('wallet_ringborder_confirm:')) return handleRingBorderConfirm(interaction, ringMode(id));
-    if (id === 'profile_ring_cancel' || id === 'wallet_ring_cancel') return handleRingCancel(interaction);
     if (id === 'profile_bg_btn')                 return handleProfileBgBtn(interaction);
     if (id === 'profile_bg_solid')               return handleProfileBgSolid(interaction);
     if (id === 'profile_bg_gradient')            return handleProfileBgGradient(interaction);
@@ -1392,123 +1387,62 @@ async function handleRingBtn(interaction, mode) {
   });
 }
 
-// ─── 👁️ Prévia (sem persistir) + confirmação de equipar ───────────────────────
-
-async function sendRingPreview(interaction, mode, value, label) {
-  await interaction.deferReply({ ephemeral: true });
-
-  const fields    = RING_FIELDS[mode];
-  const profile   = await prisma.userProfile.findUnique({ where: { userId: interaction.user.id } });
-  const border    = profile?.[fields.border] ?? null;
-  const avatarUrl = interaction.user.displayAvatarURL({ extension: 'png', size: 256 });
-
-  const buf        = await renderRingPreview(avatarUrl, value, border);
-  const attachment = new AttachmentBuilder(buf, { name: 'preview.png' });
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`${mode}_ring_confirm:${value}`).setLabel('Equipar').setEmoji('✅').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(`${mode}_ring_cancel`).setLabel('Cancelar').setEmoji('❌').setStyle(ButtonStyle.Secondary),
-  );
-
-  const embed = new EmbedBuilder()
-    .setColor(SHOP_COLOR)
-    .setTitle('👁️ Prévia da Argola')
-    .setDescription(`Veja como vai ficar antes de equipar:\n\n**${label}**`)
-    .setImage('attachment://preview.png')
-    .setFooter({ text: 'Clique em Equipar para confirmar, sem afetar a atual até lá' });
-
-  return interaction.editReply({ embeds: [embed], files: [attachment], components: [row] });
-}
-
-async function sendRingBorderPreview(interaction, mode, borderValue, currentRing) {
-  await interaction.deferReply({ ephemeral: true });
-
-  const avatarUrl = interaction.user.displayAvatarURL({ extension: 'png', size: 256 });
-  const buf        = await renderRingPreview(avatarUrl, currentRing, borderValue);
-  const attachment = new AttachmentBuilder(buf, { name: 'preview.png' });
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`${mode}_ringborder_confirm:${borderValue}`).setLabel('Equipar').setEmoji('✅').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(`${mode}_ring_cancel`).setLabel('Cancelar').setEmoji('❌').setStyle(ButtonStyle.Secondary),
-  );
-
-  const embed = new EmbedBuilder()
-    .setColor(SHOP_COLOR)
-    .setTitle('👁️ Prévia do Contorno')
-    .setDescription(`Veja como vai ficar antes de equipar:\n\n**Contorno:** \`${borderValue}\``)
-    .setImage('attachment://preview.png')
-    .setFooter({ text: 'Clique em Equipar para confirmar, sem afetar o atual até lá' });
-
-  return interaction.editReply({ embeds: [embed], files: [attachment], components: [row] });
-}
-
 async function handleRingPreset(interaction, mode) {
+  const fields = RING_FIELDS[mode];
   const key    = interaction.customId.slice(`${mode}_ring_preset:`.length);
   const preset = getRing(key);
   if (!preset) return interaction.reply({ content: '❌ Cor inválida.', ephemeral: true });
 
-  return sendRingPreview(interaction, mode, key, `${preset.emoji} ${preset.label}`);
+  await prisma.userProfile.upsert({
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, [fields.ring]: key },
+    update: { [fields.ring]: key },
+  });
+
+  const profile = await prisma.userProfile.findUnique({ where: { userId: interaction.user.id } });
+  const border  = profile?.[fields.border] ?? null;
+
+  return interaction.update({
+    embeds: [
+      new EmbedBuilder().setColor(SHOP_COLOR).setTitle(ringTitle(mode))
+        .setDescription(
+          `✅ Argola alterada para **${preset.emoji} ${preset.label}**!\n\n` +
+          `**🔲 Contorno:** ${border ? `\`${border}\`` : '⬜ Branco (padrão)'}\n` +
+          `Use \`${mode === 'wallet' ? '/carteira' : '/perfil'}\` para ver o resultado.`
+        )
+        .setFooter({ text: ringFooter(mode) }),
+    ],
+    components: buildRingRows(key, mode),
+  });
 }
 
 async function handleRingFrame(interaction, mode) {
-  const key   = interaction.customId.slice(`${mode}_ring_frame:`.length);
-  const frame = FRAME_PRESETS.find(f => f.key === key);
+  const fields = RING_FIELDS[mode];
+  const key    = interaction.customId.slice(`${mode}_ring_frame:`.length);
+  const frame  = FRAME_PRESETS.find(f => f.key === key);
   if (!frame) return interaction.reply({ content: '❌ Moldura inválida.', ephemeral: true });
 
-  return sendRingPreview(interaction, mode, `frame:${key}`, `${frame.emoji} ${frame.label} (moldura)`);
-}
-
-async function handleRingConfirm(interaction, mode) {
-  const fields = RING_FIELDS[mode];
-  const value  = interaction.customId.slice(`${mode}_ring_confirm:`.length);
-
+  const value = `frame:${key}`;
   await prisma.userProfile.upsert({
     where:  { userId: interaction.user.id },
     create: { userId: interaction.user.id, [fields.ring]: value },
     update: { [fields.ring]: value },
   });
 
-  return interaction.update({
-    embeds: [
-      new EmbedBuilder().setColor(0x57F287).setTitle('✅ Argola Equipada!')
-        .setDescription(
-          `Sua argola foi atualizada para **${describeRing(value)}**!\n` +
-          `Use \`${mode === 'wallet' ? '/carteira' : '/perfil'}\` para ver o resultado.`
-        )
-        .setImage('attachment://preview.png'),
-    ],
-    components: [],
-  });
-}
-
-async function handleRingBorderConfirm(interaction, mode) {
-  const fields = RING_FIELDS[mode];
-  const value  = interaction.customId.slice(`${mode}_ringborder_confirm:`.length);
-
-  await prisma.userProfile.upsert({
-    where:  { userId: interaction.user.id },
-    create: { userId: interaction.user.id, [fields.border]: value },
-    update: { [fields.border]: value },
-  });
+  const profile = await prisma.userProfile.findUnique({ where: { userId: interaction.user.id } });
+  const border  = profile?.[fields.border] ?? null;
 
   return interaction.update({
     embeds: [
-      new EmbedBuilder().setColor(0x57F287).setTitle('✅ Contorno Equipado!')
+      new EmbedBuilder().setColor(SHOP_COLOR).setTitle(ringTitle(mode))
         .setDescription(
-          `O contorno da argola foi atualizado para \`${value}\`!\n` +
+          `✅ Moldura alterada para **${frame.emoji} ${frame.label}**!\n\n` +
+          `**🔲 Contorno:** ${border ? `\`${border}\`` : '⬜ Branco (padrão)'}\n` +
           `Use \`${mode === 'wallet' ? '/carteira' : '/perfil'}\` para ver o resultado.`
         )
-        .setImage('attachment://preview.png'),
+        .setFooter({ text: ringFooter(mode) }),
     ],
-    components: [],
-  });
-}
-
-async function handleRingCancel(interaction) {
-  return interaction.update({
-    content:    '❌ Alteração cancelada. Nada foi equipado.',
-    embeds:     [],
-    components: [],
+    components: buildRingRows(value, mode),
   });
 }
 
@@ -1542,10 +1476,16 @@ async function handleRingBorderModal(interaction, mode) {
   if (!/^[0-9A-F]{6}$/.test(hex))
     return interaction.reply({ content: '❌ Cor inválida! Use um hex de 6 dígitos (ex: `FFFFFF`).', ephemeral: true });
 
-  const profile     = await prisma.userProfile.findUnique({ where: { userId: interaction.user.id } });
-  const currentRing = profile?.[fields.ring] ?? null;
+  await prisma.userProfile.upsert({
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, [fields.border]: `#${hex}` },
+    update: { [fields.border]: `#${hex}` },
+  });
 
-  return sendRingBorderPreview(interaction, mode, `#${hex}`, currentRing);
+  return interaction.reply({
+    content: `✅ Cor do contorno alterada para \`#${hex}\`! Use \`${mode === 'wallet' ? '/carteira' : '/perfil'}\` para ver.`,
+    ephemeral: true,
+  });
 }
 
 async function handleRingBorderReset(interaction, mode) {
@@ -1559,11 +1499,21 @@ async function handleRingBorderReset(interaction, mode) {
 }
 
 async function handleRingCustomModal(interaction, mode) {
+  const fields = RING_FIELDS[mode];
   let hex = interaction.fields.getTextInputValue('hex').trim().replace(/^#/, '').toUpperCase();
   if (!/^[0-9A-F]{6}$/.test(hex))
     return interaction.reply({ content: '❌ Cor inválida! Use um hex de 6 dígitos (ex: `FF0000`).',  ephemeral: true });
 
-  return sendRingPreview(interaction, mode, `#${hex}`, `Personalizada \`#${hex}\``);
+  await prisma.userProfile.upsert({
+    where:  { userId: interaction.user.id },
+    create: { userId: interaction.user.id, [fields.ring]: `#${hex}` },
+    update: { [fields.ring]: `#${hex}` },
+  });
+
+  return interaction.reply({
+    content: `✅ Argola alterada para cor personalizada \`#${hex}\`! Use \`${mode === 'wallet' ? '/carteira' : '/perfil'}\` para ver.`,
+    ephemeral: true,
+  });
 }
 
 async function handleRingRemove(interaction, mode) {
