@@ -53,13 +53,14 @@ export async function buildMenuOptsPanel(guildId) {
       .setCustomId('tcfg_menu_opt_sel')
       .setPlaceholder('Selecione uma opção para gerenciar…')
       .addOptions(
-        options.map(o =>
-          new StringSelectMenuOptionBuilder()
+        options.map(o => {
+          const opt = new StringSelectMenuOptionBuilder()
             .setLabel(o.label.slice(0, 100))
             .setValue(o.id)
-            .setDescription((o.description?.slice(0, 100)) || 'Clique para editar ou excluir')
-            .setEmoji(o.emoji || '🎫'),
-        ),
+            .setDescription((o.description?.slice(0, 100)) || 'Clique para editar ou excluir');
+          try { opt.setEmoji(o.emoji || '🎫'); } catch { /* emoji inválido, ignora */ }
+          return opt;
+        }),
       );
     rows.push(new ActionRowBuilder().addComponents(select));
   }

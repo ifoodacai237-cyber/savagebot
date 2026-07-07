@@ -392,3 +392,123 @@ export function buildSepTypeSelector() {
     ),
   ];
 }
+
+// ─── parseMsgFromMessage ────────────────────────────────────────────────────
+// Tenta reconstruir os blocos de uma sessão a partir de uma mensagem publicada.
+export function parseMsgFromMessage(message) {
+  const result = {
+    blocks:      [],
+    accentColor: 0x5865F2,
+    thumbnail:   null,
+    banner:      null,
+  };
+
+  const embeds = message.embeds ?? [];
+
+  // Mensagem de embed (accentColor != null no original)
+  if (embeds.length > 0) {
+    const first = embeds[0];
+    result.accentColor = first.color ?? 0x5865F2;
+    result.thumbnail   = first.thumbnail?.url ?? null;
+
+    for (let i = 0; i < embeds.length; i++) {
+      const embed = embeds[i];
+
+      // Embed com só imagem → separator_img
+      if (embed.image?.url && !embed.description) {
+        result.blocks.push({ type: 'separator_img', url: embed.image.url });
+        if (i === embeds.length - 1) result.banner = embed.image.url;
+        continue;
+      }
+
+      // Banner no último embed
+      if (embed.image?.url && i === embeds.length - 1) {
+        result.banner = embed.image.url;
+      }
+
+      // Adiciona separador entre embeds (exceto no primeiro)
+      if (i > 0) {
+        result.blocks.push({ type: 'separator', content: '' });
+      }
+
+      const desc = embed.description ?? '';
+      const lines = desc.split('\n');
+      let roleIds    = [];
+      let pendingTxt = '';
+
+      const flushRoles = () => {
+        if (roleIds.length > 0) {
+          result.blocks.push({ type: 'roles', roleIds: [...roleIds] });
+          roleIds = [];
+        }
+      };
+      const flushText = () => {
+        const t = pendingTxt.trim();
+        if (t) {
+          result.blocks.push({ type: 'text', content: t });
+          pendingTxt = '';
+        }
+      };
+
+      for (const line of lines) {
+        const roleMatch = line.match(/^•\s*<@&(\d+)>/);
+        if (roleMatch) {
+          flushText();
+          roleIds.push(roleMatch[1]);
+        } else {
+          flushRoles();
+          if (line.trim()) {
+            pendingTxt += (pendingTxt ? '\n' : '') + line;
+          }
+        }
+      }
+      flushRoles();
+      flushText();
+    }
+    return result;
+  }
+
+  // Mensagem Components V2 — tenta extrair texto dos TextDisplay
+  if (message.components?.length > 0) {
+    result.accentColor = null; // sem cor lateral
+    for (const row of message.components) {
+      for (const comp of (row.components ?? [])) {
+        // TextDisplay (type 10 nos dados brutos)
+        if (comp.type === 10 && comp.content) {
+          const lines = comp.content.split('\n');
+          let roleIds    = [];
+          let pendingTxt = '';
+
+          const flushRoles = () => {
+            if (roleIds.length > 0) {
+              result.blocks.push({ type: 'roles', roleIds: [...roleIds] });
+              roleIds = [];
+            }
+          };
+          const flushText = () => {
+            const t = pendingTxt.trim();
+            if (t) {
+              result.blocks.push({ type: 'text', content: t });
+              pendingTxt = '';
+            }
+          };
+
+          for (const line of lines) {
+            const roleMatch = line.match(/^•\s*<@&(\d+)>/);
+            if (roleMatch) {
+              flushText();
+              roleIds.push(roleMatch[1]);
+            } else {
+              flushRoles();
+              if (line.trim()) pendingTxt += (pendingTxt ? '\n' : '') + line;
+            }
+          }
+          flushRoles();
+          flushText();
+        }
+      }
+    }
+  }
+
+  return result;
+}

@@ -1171,8 +1171,13 @@ export default {
             const menuOptions = cfg.ticketUseMenu
               ? await prisma.ticketOption.findMany({ where: { guildId: interaction.guildId }, orderBy: { order: 'asc' } })
               : [];
-            await interaction.channel.send(buildTicketPanelV2(cfg, menuOptions));
-            return interaction.editReply({ embeds: [successEmbed('Painel Enviado', `O painel de tickets foi enviado em ${interaction.channel}.`)] });
+            try {
+              await interaction.channel.send(buildTicketPanelV2(cfg, menuOptions));
+              return interaction.editReply({ embeds: [successEmbed('Painel Enviado', `O painel de tickets foi enviado em ${interaction.channel}.`)] });
+            } catch (err) {
+              console.error('[TICKET PANEL SEND ERROR]', err?.message ?? err);
+              return interaction.editReply({ content: `❌ Não foi possível enviar o painel: \`${err?.message ?? 'Erro desconhecido'}\`\nVerifique se o emoji do botão é válido ou se o bot tem permissão no canal.` });
+            }
           }
 
           // ── Toggle modo menu (select menu em vez de botão) ────────────────
@@ -2200,9 +2205,12 @@ export default {
                 update: { data: JSON.stringify(persistData) },
               }).catch(() => {});
             }
+            const wasEditMode = !!session.editMode;
             deleteMsgSession(interaction.user.id, interaction.guildId);
             return interaction.update({
-              content: '✅ **Mensagem publicada com sucesso!** A sessão foi encerrada.',
+              content: wasEditMode
+                ? '✅ **Mensagem editada com sucesso!** As alterações foram salvas.'
+                : '✅ **Mensagem publicada com sucesso!** A sessão foi encerrada.',
               components: [],
             });
           }
@@ -2212,13 +2220,30 @@ export default {
             const sess = getMsgSession(interaction.user.id, interaction.guildId);
             if (sess) {
               try {
-                const ch  = interaction.guild.channels.cache.get(sess.previewChannelId);
-                const m   = ch ? await ch.messages.fetch(sess.previewMessageId).catch(() => null) : null;
-                if (m) await m.delete().catch(() => {});
+                const ch = interaction.guild.channels.cache.get(sess.previewChannelId);
+                const m  = ch ? await ch.messages.fetch(sess.previewMessageId).catch(() => null) : null;
+                if (m) {
+                  if (sess.editMode && sess.originalPayload) {
+                    // Restaura a mensagem original em vez de apagar
+                    const restore = {
+                      embeds:     sess.originalPayload.embeds,
+                      components: sess.originalPayload.components,
+                    };
+                    if (sess.originalPayload.flags) restore.flags = sess.originalPayload.flags;
+                    await m.edit(restore).catch(() => {});
+                  } else {
+                    await m.delete().catch(() => {});
+                  }
+                }
               } catch {}
               deleteMsgSession(interaction.user.id, interaction.guildId);
             }
-            return interaction.update({ content: '❌ **Montagem cancelada.** A pré-visualização foi removida.', components: [] });
+            return interaction.update({
+              content: sess?.editMode
+                ? '↩️ **Edição cancelada.** A mensagem original foi restaurada.'
+                : '❌ **Montagem cancelada.** A pré-visualização foi removida.',
+              components: [],
+            });
           }
 
           // ── Voltar ao painel principal ─────────────────────────────────────

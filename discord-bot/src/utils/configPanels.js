@@ -31,8 +31,10 @@ export function buildTicketOpenButton(cfg) {
   const style    = BTN_STYLE_MAP[cfg.ticketBtnStyle] ?? ButtonStyle.Primary;
   const btn = new ButtonBuilder().setCustomId('ticket_open').setLabel(label).setStyle(style);
   const match = emojiRaw.match(/^<(a?):([^:>\s]+):(\d+)>$/);
-  if (match) btn.setEmoji({ animated: match[1] === 'a', name: match[2], id: match[3] });
-  else if (emojiRaw) btn.setEmoji(emojiRaw);
+  try {
+    if (match) btn.setEmoji({ animated: match[1] === 'a', name: match[2], id: match[3] });
+    else if (emojiRaw) btn.setEmoji(emojiRaw);
+  } catch { btn.setEmoji('🎫'); }
   return btn;
 }
 
