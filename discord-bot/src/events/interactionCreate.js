@@ -1176,7 +1176,15 @@ export default {
               return interaction.editReply({ embeds: [successEmbed('Painel Enviado', `O painel de tickets foi enviado em ${interaction.channel}.`)] });
             } catch (err) {
               console.error('[TICKET PANEL SEND ERROR]', err?.message ?? err);
-              return interaction.editReply({ content: `❌ Não foi possível enviar o painel: \`${err?.message ?? 'Erro desconhecido'}\`\nVerifique se o emoji do botão é válido ou se o bot tem permissão no canal.` });
+              const msg = err?.message ?? 'Erro desconhecido';
+              // Detecta qual opção do menu tem emoji inválido e nomeia para facilitar a correção
+              const idxMatch = msg.match(/options\[(\d+)\]/);
+              const badIdx   = idxMatch ? parseInt(idxMatch[1]) : null;
+              const badOpt   = badIdx !== null ? menuOptions[badIdx] : null;
+              const hint = badOpt
+                ? `\n⚠️ O emoji **${badOpt.emoji}** da opção **"${badOpt.label}"** é inválido (emoji deletado ou de outro servidor). Use **Opções do Menu** para corrigir.`
+                : '\nVerifique se o emoji do botão é válido ou se o bot tem permissão no canal.';
+              return interaction.editReply({ content: `❌ Não foi possível enviar o painel: \`${msg}\`${hint}` });
             }
           }
 
@@ -1194,9 +1202,15 @@ export default {
           }
 
           // ── Gestão de opções do menu de ticket ────────────────────────────
-          if (field === 'menu_opts' || field === 'menu_back') {
+          if (field === 'menu_opts') {
             await interaction.deferUpdate();
             return interaction.editReply(await buildMenuOptsPanel(interaction.guildId));
+          }
+
+          // ── Voltar ao painel de config do ticket ──────────────────────────
+          if (field === 'menu_back') {
+            const cfg = await getCfg(interaction.guildId);
+            return interaction.update({ ...buildTicketConfigPayload(cfg), content: null });
           }
 
           if (field === 'menu_opt_add') {

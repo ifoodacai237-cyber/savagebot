@@ -71,8 +71,13 @@ export async function buildMenuOptsPanel(guildId) {
             .setLabel(o.label.slice(0, 100))
             .setValue(o.id)
             .setDescription((o.description?.slice(0, 100)) || 'Clique para editar ou excluir');
-          const emoji = parseEmoji(o.emoji) ?? '🎫';
-          try { opt.setEmoji(emoji); } catch { /* emoji inválido, omite */ }
+          // Apenas emojis unicode são seguros em select menus — emojis customizados deletados
+          // passam na validação local mas são rejeitados pela API (COMPONENT_INVALID_EMOJI),
+          // derrubando toda a resposta silenciosamente após um deferUpdate.
+          const emoji = parseEmoji(o.emoji);
+          if (emoji && typeof emoji === 'string') {
+            try { opt.setEmoji(emoji); } catch {}
+          }
           return opt;
         }),
       );

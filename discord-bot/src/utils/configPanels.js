@@ -121,8 +121,12 @@ export function buildTicketPanelV2(cfg, options = []) {
             .setLabel(o.label.slice(0, 100))
             .setValue(o.id)
             .setDescription((o.description?.slice(0, 100)) || 'Clique para abrir um ticket');
-          const emoji = parseEmoji(o.emoji) ?? '🎫';
-          try { opt.setEmoji(emoji); } catch { /* emoji inválido, omite */ }
+          // Apenas emojis unicode são seguros em select menus — emojis customizados deletados
+          // passam na validação local mas são rejeitados pela API (COMPONENT_INVALID_EMOJI).
+          const emoji = parseEmoji(o.emoji);
+          if (emoji && typeof emoji === 'string') {
+            try { opt.setEmoji(emoji); } catch {}
+          }
           return opt;
         }),
       );
