@@ -16,6 +16,21 @@ import {
 } from 'discord.js';
 import { buildConfigEmbed, Colors } from './embed.js';
 
+// ─── Emoji helper — valida antes de enviar à API do Discord ──────────────────
+// Emojis customizados com IDs inválidos (não-snowflake) causam COMPONENT_INVALID_EMOJI.
+// Retorna objeto/string seguro para setEmoji(), ou null se inválido.
+function parseEmoji(raw) {
+  if (!raw) return null;
+  const s = raw.trim();
+  const match = s.match(/^<(a?):([^:>\s]+):(\d+)>$/);
+  if (match) {
+    const id = match[3];
+    if (id.length < 17 || id.length > 20) return null; // ID inválido — não envia
+    return { animated: match[1] === 'a', name: match[2], id };
+  }
+  return s || null;
+}
+
 // ─── Botão de abrir ticket ────────────────────────────────────────────────────
 
 const BTN_STYLE_MAP = {
@@ -26,15 +41,11 @@ const BTN_STYLE_MAP = {
 };
 
 export function buildTicketOpenButton(cfg) {
-  const label    = cfg.ticketBtnLabel || 'Abrir Ticket';
-  const emojiRaw = (cfg.ticketBtnEmoji || '🎫').trim();
-  const style    = BTN_STYLE_MAP[cfg.ticketBtnStyle] ?? ButtonStyle.Primary;
-  const btn = new ButtonBuilder().setCustomId('ticket_open').setLabel(label).setStyle(style);
-  const match = emojiRaw.match(/^<(a?):([^:>\s]+):(\d+)>$/);
-  try {
-    if (match) btn.setEmoji({ animated: match[1] === 'a', name: match[2], id: match[3] });
-    else if (emojiRaw) btn.setEmoji(emojiRaw);
-  } catch { btn.setEmoji('🎫'); }
+  const label  = cfg.ticketBtnLabel || 'Abrir Ticket';
+  const style  = BTN_STYLE_MAP[cfg.ticketBtnStyle] ?? ButtonStyle.Primary;
+  const btn    = new ButtonBuilder().setCustomId('ticket_open').setLabel(label).setStyle(style);
+  const emoji  = parseEmoji(cfg.ticketBtnEmoji) ?? '🎫';
+  try { btn.setEmoji(emoji); } catch { btn.setEmoji('🎫'); }
   return btn;
 }
 
@@ -110,7 +121,8 @@ export function buildTicketPanelV2(cfg, options = []) {
             .setLabel(o.label.slice(0, 100))
             .setValue(o.id)
             .setDescription((o.description?.slice(0, 100)) || 'Clique para abrir um ticket');
-          try { opt.setEmoji(o.emoji || '🎫'); } catch { opt.setEmoji('🎫'); }
+          const emoji = parseEmoji(o.emoji) ?? '🎫';
+          try { opt.setEmoji(emoji); } catch { /* emoji inválido, omite */ }
           return opt;
         }),
       );

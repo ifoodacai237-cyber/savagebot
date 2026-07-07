@@ -11,6 +11,19 @@ import {
 } from 'discord.js';
 import prisma from '../database/client.js';
 
+// Valida emoji antes de enviar à API — IDs de emoji customizado inválidos causam COMPONENT_INVALID_EMOJI
+function parseEmoji(raw) {
+  if (!raw) return null;
+  const s = raw.trim();
+  const match = s.match(/^<(a?):([^:>\s]+):(\d+)>$/);
+  if (match) {
+    const id = match[3];
+    if (id.length < 17 || id.length > 20) return null;
+    return { animated: match[1] === 'a', name: match[2], id };
+  }
+  return s || null;
+}
+
 // ─── Painel de gestão de opções do menu de ticket ─────────────────────────────
 
 export async function buildMenuOptsPanel(guildId) {
@@ -58,7 +71,8 @@ export async function buildMenuOptsPanel(guildId) {
             .setLabel(o.label.slice(0, 100))
             .setValue(o.id)
             .setDescription((o.description?.slice(0, 100)) || 'Clique para editar ou excluir');
-          try { opt.setEmoji(o.emoji || '🎫'); } catch { /* emoji inválido, ignora */ }
+          const emoji = parseEmoji(o.emoji) ?? '🎫';
+          try { opt.setEmoji(emoji); } catch { /* emoji inválido, omite */ }
           return opt;
         }),
       );
