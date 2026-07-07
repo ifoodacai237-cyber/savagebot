@@ -87,6 +87,9 @@ export const guildConfigTable = pgTable("GuildConfig", {
   botBannerUrl: text("botBannerUrl"),
   botBio: text("botBio"),
   aiChannelId: text("aiChannelId"),
+
+  ticketPanelMessageId: text("ticketPanelMessageId"),
+  ticketPanelChannelId: text("ticketPanelChannelId"),
 });
 
 export type GuildConfig = typeof guildConfigTable.$inferSelect;

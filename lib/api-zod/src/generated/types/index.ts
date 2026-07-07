@@ -12,3 +12,4 @@ export * from './guildConfigUpdate';
 export * from './guildStats';
 export * from './guildSummary';
 export * from './healthStatus';
+export * from './panelActionResult';

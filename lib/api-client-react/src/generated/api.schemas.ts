@@ -314,6 +314,12 @@ export interface GuildConfigUpdate {
   aiChannelId?: string | null;
 }
 
+export interface PanelActionResult {
+  ok: boolean;
+  /** @nullable */
+  messageId?: string | null;
+}
+
 export interface GuildStats {
   guildId: string;
   totalUsers: number;

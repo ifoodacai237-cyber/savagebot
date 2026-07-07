@@ -15,7 +15,13 @@ async function getOrCreate(guildId) {
 
 async function sendPanel(target, guildId) {
   const cfg = await getOrCreate(guildId);
-  return target.send(buildTicketPanelV2(cfg));
+  const msg = await target.send(buildTicketPanelV2(cfg));
+  // Salva o ID da mensagem e do canal para permitir edição futura via dashboard
+  await prisma.guildConfig.update({
+    where: { guildId },
+    data: { ticketPanelMessageId: msg.id, ticketPanelChannelId: target.id },
+  });
+  return msg;
 }
 
 export async function sendTicketConfigPanel(interaction) {

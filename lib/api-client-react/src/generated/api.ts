@@ -25,7 +25,8 @@ import type {
   GuildConfigUpdate,
   GuildStats,
   GuildSummary,
-  HealthStatus
+  HealthStatus,
+  PanelActionResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -342,6 +343,146 @@ export const useUpdateGuildConfig = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getUpdateGuildConfigMutationOptions(options));
+    }
+
+export const getSendTicketPanelUrl = (guildId: string,) => {
+
+
+
+
+  return `/api/guilds/${guildId}/panels/ticket/send`
+}
+
+/**
+ * @summary Send ticket panel to Discord channel
+ */
+export const sendTicketPanel = async (guildId: string, options?: RequestInit): Promise<PanelActionResult> => {
+
+  return customFetch<PanelActionResult>(getSendTicketPanelUrl(guildId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSendTicketPanelMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendTicketPanel>>, TError,{guildId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendTicketPanel>>, TError,{guildId: string}, TContext> => {
+
+const mutationKey = ['sendTicketPanel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendTicketPanel>>, {guildId: string}> = (props) => {
+          const {guildId} = props ?? {};
+
+          return  sendTicketPanel(guildId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendTicketPanelMutationResult = NonNullable<Awaited<ReturnType<typeof sendTicketPanel>>>
+
+    export type SendTicketPanelMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Send ticket panel to Discord channel
+ */
+export const useSendTicketPanel = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendTicketPanel>>, TError,{guildId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendTicketPanel>>,
+        TError,
+        {guildId: string},
+        TContext
+      > => {
+      return useMutation(getSendTicketPanelMutationOptions(options));
+    }
+
+export const getUpdateTicketPanelUrl = (guildId: string,) => {
+
+
+
+
+  return `/api/guilds/${guildId}/panels/ticket/update`
+}
+
+/**
+ * @summary Edit existing ticket panel message in Discord
+ */
+export const updateTicketPanel = async (guildId: string, options?: RequestInit): Promise<PanelActionResult> => {
+
+  return customFetch<PanelActionResult>(getUpdateTicketPanelUrl(guildId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getUpdateTicketPanelMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTicketPanel>>, TError,{guildId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTicketPanel>>, TError,{guildId: string}, TContext> => {
+
+const mutationKey = ['updateTicketPanel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTicketPanel>>, {guildId: string}> = (props) => {
+          const {guildId} = props ?? {};
+
+          return  updateTicketPanel(guildId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTicketPanelMutationResult = NonNullable<Awaited<ReturnType<typeof updateTicketPanel>>>
+
+    export type UpdateTicketPanelMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Edit existing ticket panel message in Discord
+ */
+export const useUpdateTicketPanel = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTicketPanel>>, TError,{guildId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTicketPanel>>,
+        TError,
+        {guildId: string},
+        TContext
+      > => {
+      return useMutation(getUpdateTicketPanelMutationOptions(options));
     }
 
 export const getGetGuildStatsUrl = (guildId: string,) => {

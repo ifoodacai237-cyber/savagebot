@@ -16,7 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ModulePage, FormSection } from "@/components/module-page";
 import { DiscordEmbedPreview } from "@/components/discord-embed-preview";
-import { Ticket, Save, Loader2 } from "lucide-react";
+import { Ticket, Save, Loader2, Send, RefreshCw } from "lucide-react";
+import { useSendTicketPanel, useUpdateTicketPanel } from "@workspace/api-client-react";
 
 export default function Tickets() {
   const { selectedGuildId } = useGuild();
@@ -27,6 +28,42 @@ export default function Tickets() {
   });
 
   const mutation = useUpdateGuildConfig();
+  const sendPanel = useSendTicketPanel();
+  const updatePanel = useUpdateTicketPanel();
+
+  const handleSendPanel = () => {
+    if (!selectedGuildId) return;
+    sendPanel.mutate(
+      { guildId: selectedGuildId },
+      {
+        onSuccess: () => toast.success("Painel enviado no canal de tickets!"),
+        onError: (err: unknown) => {
+          const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+          toast.error(msg ?? "Erro ao enviar painel.");
+        },
+      }
+    );
+  };
+
+  const handleUpdatePanel = () => {
+    if (!selectedGuildId) return;
+    updatePanel.mutate(
+      { guildId: selectedGuildId },
+      {
+        onSuccess: () => toast.success("Painel atualizado no Discord!"),
+        onError: (err: unknown) => {
+          const resp = (err as { response?: { data?: { error?: string; message?: string } } })?.response?.data;
+          if (resp?.error === "NO_PANEL_ID") {
+            toast.error("Nenhum painel rastreado. Use /ticket painel no Discord primeiro.");
+          } else if (resp?.error === "PANEL_NOT_FOUND") {
+            toast.error("Mensagem não encontrada. Envie um novo painel com o botão abaixo.");
+          } else {
+            toast.error(resp?.message ?? "Erro ao atualizar painel.");
+          }
+        },
+      }
+    );
+  };
 
   const form = useForm({
     defaultValues: {
@@ -281,10 +318,30 @@ export default function Tickets() {
                 )} />
               </FormSection>
 
-              <div className="flex justify-end pt-2">
+              <div className="flex flex-wrap justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={updatePanel.isPending}
+                  onClick={handleUpdatePanel}
+                  className="gap-2"
+                >
+                  {updatePanel.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  Atualizar Painel no Discord
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={sendPanel.isPending}
+                  onClick={handleSendPanel}
+                  className="gap-2"
+                >
+                  {sendPanel.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  Enviar Novo Painel
+                </Button>
                 <Button type="submit" disabled={mutation.isPending} className="gap-2 px-8">
                   {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  Salvar Alterações
+                  Salvar Configurações
                 </Button>
               </div>
             </form>

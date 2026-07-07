@@ -93,6 +93,66 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /guilds/{guildId}/panels/ticket/send:
+    post:
+      operationId: sendTicketPanel
+      tags: [guilds]
+      summary: Send ticket panel to Discord channel
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Panel sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PanelActionResult"
+        "400":
+          description: No channel configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /guilds/{guildId}/panels/ticket/update:
+    post:
+      operationId: updateTicketPanel
+      tags: [guilds]
+      summary: Edit existing ticket panel message in Discord
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Panel updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PanelActionResult"
+        "409":
+          description: No panel ID saved yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Message not found in Discord
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /guilds/{guildId}/stats:
     get:
       operationId: getGuildStats
@@ -488,6 +548,15 @@ components:
           type: ["string", "null"]
         aiChannelId:
           type: ["string", "null"]
+    PanelActionResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        messageId:
+          type: ["string", "null"]
+      required:
+        - ok
     GuildStats:
       type: object
       properties:

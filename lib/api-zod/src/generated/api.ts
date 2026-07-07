@@ -294,6 +294,32 @@ export const UpdateGuildConfigResponse = zod.object({
 
 
 /**
+ * @summary Send ticket panel to Discord channel
+ */
+export const SendTicketPanelParams = zod.object({
+  "guildId": zod.coerce.string()
+})
+
+export const SendTicketPanelResponse = zod.object({
+  "ok": zod.boolean(),
+  "messageId": zod.string().nullish()
+})
+
+
+/**
+ * @summary Edit existing ticket panel message in Discord
+ */
+export const UpdateTicketPanelParams = zod.object({
+  "guildId": zod.coerce.string()
+})
+
+export const UpdateTicketPanelResponse = zod.object({
+  "ok": zod.boolean(),
+  "messageId": zod.string().nullish()
+})
+
+
+/**
  * @summary Get guild statistics
  */
 export const GetGuildStatsParams = zod.object({
