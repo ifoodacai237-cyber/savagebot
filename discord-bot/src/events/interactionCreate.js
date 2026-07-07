@@ -2678,6 +2678,7 @@ export default {
 
         // ── PRESET: Salvar preset de Ticket ─────────────────────────────
         if (interaction.customId === 'preset_modal_tc') {
+          await interaction.deferUpdate();
           const name = interaction.fields.getTextInputValue('preset_name').trim();
           const cfg  = await getCfg(interaction.guildId);
           await prisma.panelPreset.upsert({
@@ -2702,12 +2703,13 @@ export default {
               text:   cfg.ticketText,
             },
           });
-          await interaction.message?.edit(buildTicketConfigPayload(cfg)).catch(() => {});
-          return interaction.reply({ content: `✅ Preset **${name}** salvo com sucesso!`, ephemeral: true });
+          const payload = buildTicketConfigPayload(cfg);
+          return interaction.editReply({ ...payload, content: `✅ Preset **${name}** salvo com sucesso!` });
         }
 
         // ── PRESET: Salvar preset de Tellonym ───────────────────────────
         if (interaction.customId === 'preset_modal_tn') {
+          await interaction.deferUpdate();
           const name = interaction.fields.getTextInputValue('preset_name').trim();
           const cfg  = await getCfg(interaction.guildId);
           await prisma.panelPreset.upsert({
@@ -2732,12 +2734,13 @@ export default {
               text:   cfg.tellonymText,
             },
           });
-          await interaction.message?.edit(buildTellonymConfigPayload(cfg)).catch(() => {});
-          return interaction.reply({ content: `✅ Preset **${name}** salvo com sucesso!`, ephemeral: true });
+          const tnPayload = buildTellonymConfigPayload(cfg);
+          return interaction.editReply({ ...tnPayload, content: `✅ Preset **${name}** salvo com sucesso!` });
         }
 
         // ── CONFIG: Ticket — salvar botão ───────────────────────────────────
         if (interaction.customId === 'tcfg_modal_botao') {
+          await interaction.deferUpdate();
           const rawLabel = interaction.fields.getTextInputValue('btn_label').trim();
           const rawEmoji = interaction.fields.getTextInputValue('btn_emoji').trim();
           const rawStyle = interaction.fields.getTextInputValue('btn_style').trim().toLowerCase();
@@ -2754,12 +2757,12 @@ export default {
           });
           const cfg     = await getCfg(interaction.guildId);
           const payload = buildTicketConfigPayload(cfg);
-          await interaction.message?.edit(payload).catch(() => {});
-          return interaction.reply({ content: '✅ Botão do ticket atualizado!', ephemeral: true });
+          return interaction.editReply({ ...payload, content: null });
         }
 
         // ── CONFIG: Ticket — salvar texto de abertura ────────────────────────
         if (interaction.customId === 'tcfg_modal_abertura') {
+          await interaction.deferUpdate();
           const raw   = interaction.fields.getTextInputValue('value').trim();
           const value = raw || null;
           await prisma.guildConfig.upsert({
@@ -2769,12 +2772,12 @@ export default {
           });
           const cfg     = await getCfg(interaction.guildId);
           const payload = buildTicketConfigPayload(cfg);
-          await interaction.message?.edit(payload).catch(() => {});
-          return interaction.reply({ content: '✅ Texto de abertura atualizado!', ephemeral: true });
+          return interaction.editReply({ ...payload, content: null });
         }
 
         // ── CONFIG: Ticket — salvar ping de cargo(s) ─────────────────────
         if (interaction.customId === 'tcfg_modal_ping') {
+          await interaction.deferUpdate();
           const raw = interaction.fields.getTextInputValue('role_id').trim();
           if (!raw) {
             await prisma.guildConfig.upsert({
@@ -2784,14 +2787,13 @@ export default {
             });
             const cfg     = await getCfg(interaction.guildId);
             const payload = buildTicketConfigPayload(cfg);
-            await interaction.message?.edit(payload).catch(() => {});
-            return interaction.reply({ content: '✅ Ping de cargo desativado.', ephemeral: true });
+            return interaction.editReply({ ...payload, content: null });
           }
 
           const ids = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
           const invalid = ids.filter(id => !/^\d{15,20}$/.test(id));
           if (invalid.length) {
-            return interaction.reply({
+            return interaction.followUp({
               content: `❌ ID(s) inválido(s): \`${invalid.join(', ')}\`\nCole apenas IDs numéricos de cargo, um por linha.`,
               ephemeral: true,
             });
@@ -2805,13 +2807,14 @@ export default {
           });
           const cfg     = await getCfg(interaction.guildId);
           const payload = buildTicketConfigPayload(cfg);
-          await interaction.message?.edit(payload).catch(() => {});
           const mentions = ids.map(id => `<@&${id}>`).join(', ');
-          return interaction.reply({ content: `✅ ${ids.length} cargo(s) serão pingados: ${mentions}`, ephemeral: true });
+          await interaction.followUp({ content: `✅ ${ids.length} cargo(s) serão pingados: ${mentions}`, ephemeral: true });
+          return interaction.editReply({ ...payload, content: null });
         }
 
         // ── CONFIG: Ticket — salvar ping de usuários ─────────────────────────
         if (interaction.customId === 'tcfg_modal_ping_user') {
+          await interaction.deferUpdate();
           const raw = interaction.fields.getTextInputValue('user_id').trim();
           if (!raw) {
             await prisma.guildConfig.upsert({
@@ -2821,14 +2824,13 @@ export default {
             });
             const cfg     = await getCfg(interaction.guildId);
             const payload = buildTicketConfigPayload(cfg);
-            await interaction.message?.edit(payload).catch(() => {});
-            return interaction.reply({ content: '✅ Ping de usuários desativado.', ephemeral: true });
+            return interaction.editReply({ ...payload, content: null });
           }
 
           const ids = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
           const invalid = ids.filter(id => !/^\d{15,20}$/.test(id));
           if (invalid.length) {
-            return interaction.reply({
+            return interaction.followUp({
               content: `❌ ID(s) inválido(s): \`${invalid.join(', ')}\`\nCole apenas IDs numéricos de usuário, um por linha.`,
               ephemeral: true,
             });
@@ -2842,9 +2844,9 @@ export default {
           });
           const cfg     = await getCfg(interaction.guildId);
           const payload = buildTicketConfigPayload(cfg);
-          await interaction.message?.edit(payload).catch(() => {});
           const mentions = ids.map(id => `<@${id}>`).join(', ');
-          return interaction.reply({ content: `✅ ${ids.length} usuário(s) serão marcados: ${mentions}`, ephemeral: true });
+          await interaction.followUp({ content: `✅ ${ids.length} usuário(s) serão marcados: ${mentions}`, ephemeral: true });
+          return interaction.editReply({ ...payload, content: null });
         }
 
         // ── CONFIG: Ticket — salvar campo modal ─────────────────────────
@@ -2858,15 +2860,17 @@ export default {
           const isEmpty = value === '';
 
           if (def.isUrl) {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferUpdate();
             if (isEmpty) {
               value = null;
             } else {
               const resolved = await resolveImageUrl(value, client);
               if (resolved === null) {
-                return interaction.editReply({
+                await interaction.followUp({
                   embeds: [errorEmbed('Não encontrei nenhuma imagem nessa mensagem. Cole uma URL direta de imagem (ex: `https://i.imgur.com/...`) ou o link de uma mensagem do Discord que contenha uma imagem.')],
+                  ephemeral: true,
                 });
+                return;
               }
               value = resolved;
             }
@@ -2877,9 +2881,10 @@ export default {
             });
             const cfg     = await getCfg(interaction.guildId);
             const payload = buildTicketConfigPayload(cfg);
-            await interaction.message?.edit(payload).catch(() => {});
-            return interaction.editReply({ content: '✅ Campo atualizado!' });
+            return interaction.editReply({ ...payload, content: null });
           }
+
+          await interaction.deferUpdate();
 
           if (isEmpty) {
             value = null;
@@ -2895,12 +2900,12 @@ export default {
 
           const cfg     = await getCfg(interaction.guildId);
           const payload = buildTicketConfigPayload(cfg);
-          await interaction.message?.edit(payload).catch(() => {});
-          return interaction.reply({ content: '✅ Campo atualizado!', ephemeral: true });
+          return interaction.editReply({ ...payload, content: null });
         }
 
         // ── CONFIG: Tellonym — salvar campo modal ────────────────────────
         if (interaction.customId === 'tncfg_modal_botao') {
+          await interaction.deferUpdate();
           const label = interaction.fields.getTextInputValue('btn_label').trim() || null;
           const emoji = interaction.fields.getTextInputValue('btn_emoji').trim() || null;
           await prisma.guildConfig.upsert({
@@ -2910,8 +2915,7 @@ export default {
           });
           const cfg     = await getCfg(interaction.guildId);
           const payload = buildTellonymConfigPayload(cfg);
-          await interaction.message?.edit(payload).catch(() => {});
-          return interaction.reply({ content: `✅ Botão atualizado! Label: **${label ?? 'Enviar Mensagem'}** | Emoji: ${emoji ?? '💌'}`, ephemeral: true });
+          return interaction.editReply({ ...payload, content: null });
         }
 
         if (interaction.customId.startsWith('tncfg_modal_')) {
@@ -2924,15 +2928,17 @@ export default {
           const isEmpty = value === '';
 
           if (def.isUrl) {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferUpdate();
             if (isEmpty) {
               value = null;
             } else {
               const resolved = await resolveImageUrl(value, client);
               if (resolved === null) {
-                return interaction.editReply({
+                await interaction.followUp({
                   embeds: [errorEmbed('Não encontrei nenhuma imagem nessa mensagem. Cole uma URL direta de imagem (ex: `https://i.imgur.com/...`) ou o link de uma mensagem do Discord que contenha uma imagem.')],
+                  ephemeral: true,
                 });
+                return;
               }
               value = resolved;
             }
@@ -2943,9 +2949,10 @@ export default {
             });
             const cfg     = await getCfg(interaction.guildId);
             const payload = buildTellonymConfigPayload(cfg);
-            await interaction.message?.edit(payload).catch(() => {});
-            return interaction.editReply({ content: '✅ Campo atualizado!' });
+            return interaction.editReply({ ...payload, content: null });
           }
+
+          await interaction.deferUpdate();
 
           if (isEmpty) {
             // Para o campo texto do tellonym: vazio = remover texto (armazena ''), não volta ao padrão
@@ -2962,12 +2969,12 @@ export default {
 
           const cfg     = await getCfg(interaction.guildId);
           const payload = buildTellonymConfigPayload(cfg);
-          await interaction.message?.edit(payload).catch(() => {});
-          return interaction.reply({ content: '✅ Campo atualizado!', ephemeral: true });
+          return interaction.editReply({ ...payload, content: null });
         }
 
         // ── CONFIG: Boas-Vindas — salvar cargos/canais ──────────────────
         if (interaction.customId === 'wcfg_modal_cargos') {
+          await interaction.deferUpdate();
           const raw = interaction.fields.getTextInputValue('value').trim();
           const ids = raw ? raw.split(/[\s,]+/).map(s => s.replace(/[<@&>]/g, '').trim()).filter(s => /^\d{15,20}$/.test(s)).join(',') : null;
           await prisma.guildConfig.upsert({
@@ -2976,11 +2983,11 @@ export default {
             update: { welcomeRoles: ids },
           });
           const cfg = await getCfg(interaction.guildId);
-          await interaction.message?.edit(buildWelcomeConfigPayload(cfg)).catch(() => {});
-          return interaction.reply({ content: ids ? `✅ Cargos configurados!` : '✅ Cargos removidos.', ephemeral: true });
+          return interaction.editReply({ ...buildWelcomeConfigPayload(cfg), content: null });
         }
 
         if (interaction.customId === 'wcfg_modal_canais') {
+          await interaction.deferUpdate();
           const raw = interaction.fields.getTextInputValue('value').trim();
           const ids = raw ? raw.split(/[\s,]+/).map(s => s.replace(/[<#>]/g, '').trim()).filter(s => /^\d{15,20}$/.test(s)).join(',') : null;
           await prisma.guildConfig.upsert({
@@ -2989,16 +2996,17 @@ export default {
             update: { welcomeChannels: ids },
           });
           const cfg = await getCfg(interaction.guildId);
-          await interaction.message?.edit(buildWelcomeConfigPayload(cfg)).catch(() => {});
-          return interaction.reply({ content: ids ? '✅ Canais configurados!' : '✅ Canais removidos.', ephemeral: true });
+          return interaction.editReply({ ...buildWelcomeConfigPayload(cfg), content: null });
         }
 
         // ── CONFIG: Boas-Vindas — salvar tempo de sumir ──────────────────
         if (interaction.customId === 'wcfg_modal_sumir') {
+          await interaction.deferUpdate();
           const raw = interaction.fields.getTextInputValue('value').trim();
           const secs = raw === '' ? null : parseInt(raw, 10);
           if (raw !== '' && (isNaN(secs) || secs < 1 || secs > 86400)) {
-            return interaction.reply({ embeds: [errorEmbed('Valor inválido. Digite um número de **1** a **86400** (24h), ou deixe vazio para desativar.')], ephemeral: true });
+            await interaction.followUp({ embeds: [errorEmbed('Valor inválido. Digite um número de **1** a **86400** (24h), ou deixe vazio para desativar.')], ephemeral: true });
+            return;
           }
           await prisma.guildConfig.upsert({
             where:  { guildId: interaction.guildId },
@@ -3006,8 +3014,7 @@ export default {
             update: { welcomeDeleteAfter: secs },
           });
           const cfg = await getCfg(interaction.guildId);
-          await interaction.message?.edit(buildWelcomeConfigPayload(cfg)).catch(() => {});
-          return interaction.reply({ content: secs ? `✅ Mensagem vai sumir após **${formatDeleteTime(secs)}**.` : '✅ Auto-deleção desativada.', ephemeral: true });
+          return interaction.editReply({ ...buildWelcomeConfigPayload(cfg), content: null });
         }
 
         // ── CONFIG: Boas-Vindas — salvar campo modal ─────────────────────
@@ -3021,15 +3028,17 @@ export default {
           const isEmpty = value === '';
 
           if (def.isUrl) {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferUpdate();
             if (isEmpty) {
               value = null;
             } else {
               const resolved = await resolveImageUrl(value, client);
               if (resolved === null) {
-                return interaction.editReply({
+                await interaction.followUp({
                   embeds: [errorEmbed('Não encontrei nenhuma imagem. Cole uma URL direta (ex: `https://i.imgur.com/...`) ou o link de uma mensagem do Discord com imagem.')],
+                  ephemeral: true,
                 });
+                return;
               }
               value = resolved;
             }
@@ -3039,9 +3048,10 @@ export default {
               update: { [def.db]: value },
             });
             const cfg = await getCfg(interaction.guildId);
-            await interaction.message?.edit(buildWelcomeConfigPayload(cfg)).catch(() => {});
-            return interaction.editReply({ content: '✅ Campo atualizado!' });
+            return interaction.editReply({ ...buildWelcomeConfigPayload(cfg), content: null });
           }
+
+          await interaction.deferUpdate();
 
           if (isEmpty) {
             value = null;
@@ -3055,12 +3065,12 @@ export default {
             update: { [def.db]: value },
           });
           const cfg = await getCfg(interaction.guildId);
-          await interaction.message?.edit(buildWelcomeConfigPayload(cfg)).catch(() => {});
-          return interaction.reply({ content: '✅ Campo atualizado!', ephemeral: true });
+          return interaction.editReply({ ...buildWelcomeConfigPayload(cfg), content: null });
         }
 
         // ── CONFIG: Parcerias — cargo responsável ────────────────────────
         if (interaction.customId === 'pcfg_modal_cargo_resp') {
+          await interaction.deferUpdate();
           const raw = interaction.fields.getTextInputValue('role_id').trim();
           await prisma.guildConfig.upsert({
             where:  { guildId: interaction.guildId },
@@ -3068,12 +3078,12 @@ export default {
             update: { partnerResponsibleRole: raw || null },
           });
           const cfg = await getCfg(interaction.guildId);
-          await interaction.message?.edit(buildPartnerConfigPayload(cfg)).catch(() => {});
-          return interaction.reply({ content: raw ? `✅ Cargo responsável definido: <@&${raw}>` : '✅ Cargo responsável removido.', ephemeral: true });
+          return interaction.editReply({ ...buildPartnerConfigPayload(cfg), content: null });
         }
 
         // ── CONFIG: Parcerias — cargo de ping ────────────────────────────
         if (interaction.customId === 'pcfg_modal_cargo_ping') {
+          await interaction.deferUpdate();
           const raw = interaction.fields.getTextInputValue('role_id').trim();
           await prisma.guildConfig.upsert({
             where:  { guildId: interaction.guildId },
@@ -3081,12 +3091,12 @@ export default {
             update: { partnerPingRole: raw || null },
           });
           const cfg = await getCfg(interaction.guildId);
-          await interaction.message?.edit(buildPartnerConfigPayload(cfg)).catch(() => {});
-          return interaction.reply({ content: raw ? `✅ Cargo de ping definido: <@&${raw}>` : '✅ Cargo de ping removido.', ephemeral: true });
+          return interaction.editReply({ ...buildPartnerConfigPayload(cfg), content: null });
         }
 
         // ── CONFIG: Parcerias — cargo de parceiro ────────────────────────
         if (interaction.customId === 'pcfg_modal_cargo_parceiro') {
+          await interaction.deferUpdate();
           const raw = interaction.fields.getTextInputValue('role_id').trim();
           await prisma.guildConfig.upsert({
             where:  { guildId: interaction.guildId },
@@ -3094,8 +3104,7 @@ export default {
             update: { partnerRole: raw || null },
           });
           const cfg = await getCfg(interaction.guildId);
-          await interaction.message?.edit(buildPartnerConfigPayload(cfg)).catch(() => {});
-          return interaction.reply({ content: raw ? `✅ Cargo de parceiro definido: <@&${raw}>` : '✅ Cargo de parceiro removido.', ephemeral: true });
+          return interaction.editReply({ ...buildPartnerConfigPayload(cfg), content: null });
         }
 
         // ── CONFIG: Parcerias — campos genéricos ─────────────────────────
@@ -3109,13 +3118,14 @@ export default {
           const isEmpty = value === '';
 
           if (def.isUrl) {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferUpdate();
             if (isEmpty) {
               value = null;
             } else {
               const resolved = await resolveImageUrl(value, client);
               if (resolved === null) {
-                return interaction.editReply({ embeds: [errorEmbed('Não encontrei nenhuma imagem. Cole uma URL direta ou o link de uma mensagem do Discord com imagem.')] });
+                await interaction.followUp({ embeds: [errorEmbed('Não encontrei nenhuma imagem. Cole uma URL direta ou o link de uma mensagem do Discord com imagem.')], ephemeral: true });
+                return;
               }
               value = resolved;
             }
@@ -3125,9 +3135,10 @@ export default {
               update: { [def.db]: value },
             });
             const cfg = await getCfg(interaction.guildId);
-            await interaction.message?.edit(buildPartnerConfigPayload(cfg)).catch(() => {});
-            return interaction.editReply({ content: '✅ Campo atualizado!' });
+            return interaction.editReply({ ...buildPartnerConfigPayload(cfg), content: null });
           }
+
+          await interaction.deferUpdate();
 
           if (isEmpty) {
             value = null;
@@ -3141,8 +3152,7 @@ export default {
             update: { [def.db]: value },
           });
           const cfg = await getCfg(interaction.guildId);
-          await interaction.message?.edit(buildPartnerConfigPayload(cfg)).catch(() => {});
-          return interaction.reply({ content: '✅ Campo atualizado!', ephemeral: true });
+          return interaction.editReply({ ...buildPartnerConfigPayload(cfg), content: null });
         }
 
         // ── TELLONYM: Envio anônimo ──────────────────────────────────────
