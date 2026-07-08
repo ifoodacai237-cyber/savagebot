@@ -1172,7 +1172,7 @@ export default {
               ? await prisma.ticketOption.findMany({ where: { guildId: interaction.guildId }, orderBy: { order: 'asc' } })
               : [];
             try {
-              await interaction.channel.send(buildTicketPanelV2(cfg, menuOptions));
+              await interaction.channel.send(buildTicketPanelV2(cfg, menuOptions, client));
               return interaction.editReply({ embeds: [successEmbed('Painel Enviado', `O painel de tickets foi enviado em ${interaction.channel}.`)] });
             } catch (err) {
               console.error('[TICKET PANEL SEND ERROR]', err?.message ?? err);
@@ -1204,7 +1204,7 @@ export default {
           // ── Gestão de opções do menu de ticket ────────────────────────────
           if (field === 'menu_opts') {
             await interaction.deferUpdate();
-            return interaction.editReply(await buildMenuOptsPanel(interaction.guildId));
+            return interaction.editReply(await buildMenuOptsPanel(interaction.guildId, client));
           }
 
           // ── Voltar ao painel de config do ticket ──────────────────────────
@@ -1228,7 +1228,7 @@ export default {
             const optId = field.split(':')[1];
             await prisma.ticketOption.delete({ where: { id: optId } }).catch(() => {});
             await interaction.deferUpdate();
-            return interaction.editReply(await buildMenuOptsPanel(interaction.guildId));
+            return interaction.editReply(await buildMenuOptsPanel(interaction.guildId, client));
           }
 
           if (field === 'salvar') {
@@ -2664,7 +2664,7 @@ export default {
           });
 
           await interaction.deferUpdate();
-          return interaction.editReply(await buildMenuOptsPanel(interaction.guildId));
+          return interaction.editReply(await buildMenuOptsPanel(interaction.guildId, client));
         }
 
         // ── TICKET MENU: Editar opção existente ─────────────────────────
@@ -2682,7 +2682,7 @@ export default {
           });
 
           await interaction.deferUpdate();
-          return interaction.editReply(await buildMenuOptsPanel(interaction.guildId));
+          return interaction.editReply(await buildMenuOptsPanel(interaction.guildId, client));
         }
 
         // ── TICKET: Criar canal ──────────────────────────────────────────

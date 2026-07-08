@@ -52,7 +52,7 @@ export function buildTicketOpenButton(cfg) {
 // ─── Painel público V2 (sem barra lateral quando sem cor) ─────────────────────
 
 // options = array de TicketOption do banco (passados pelo caller que faz query assíncrona)
-export function buildTicketPanelV2(cfg, options = []) {
+export function buildTicketPanelV2(cfg, options = [], client = null) {
   const container = new ContainerBuilder();
   const bannerPos = cfg.ticketBannerPosition ?? 'top';
 
@@ -121,11 +121,16 @@ export function buildTicketPanelV2(cfg, options = []) {
             .setLabel(o.label.slice(0, 100))
             .setValue(o.id)
             .setDescription((o.description?.slice(0, 100)) || 'Clique para abrir um ticket');
-          // Apenas emojis unicode são seguros em select menus — emojis customizados deletados
-          // passam na validação local mas são rejeitados pela API (COMPONENT_INVALID_EMOJI).
           const emoji = parseEmoji(o.emoji);
-          if (emoji && typeof emoji === 'string') {
-            try { opt.setEmoji(emoji); } catch {}
+          if (emoji) {
+            if (typeof emoji === 'string') {
+              // Emoji unicode — sempre seguro
+              try { opt.setEmoji(emoji); } catch {}
+            } else if (client?.emojis?.cache?.has(emoji.id)) {
+              // Emoji customizado — só usa se o bot tem acesso (evita COMPONENT_INVALID_EMOJI)
+              try { opt.setEmoji(emoji); } catch {}
+            }
+            // Se customizado e fora do cache do bot → omite sem crash
           }
           return opt;
         }),

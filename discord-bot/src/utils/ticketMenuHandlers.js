@@ -26,7 +26,7 @@ function parseEmoji(raw) {
 
 // ─── Painel de gestão de opções do menu de ticket ─────────────────────────────
 
-export async function buildMenuOptsPanel(guildId) {
+export async function buildMenuOptsPanel(guildId, client = null) {
   const options = await prisma.ticketOption.findMany({
     where: { guildId },
     orderBy: { order: 'asc' },
@@ -71,12 +71,16 @@ export async function buildMenuOptsPanel(guildId) {
             .setLabel(o.label.slice(0, 100))
             .setValue(o.id)
             .setDescription((o.description?.slice(0, 100)) || 'Clique para editar ou excluir');
-          // Apenas emojis unicode são seguros em select menus — emojis customizados deletados
-          // passam na validação local mas são rejeitados pela API (COMPONENT_INVALID_EMOJI),
-          // derrubando toda a resposta silenciosamente após um deferUpdate.
           const emoji = parseEmoji(o.emoji);
-          if (emoji && typeof emoji === 'string') {
-            try { opt.setEmoji(emoji); } catch {}
+          if (emoji) {
+            if (typeof emoji === 'string') {
+              // Emoji unicode — sempre seguro
+              try { opt.setEmoji(emoji); } catch {}
+            } else if (client?.emojis?.cache?.has(emoji.id)) {
+              // Emoji customizado — só usa se o bot realmente tem acesso (evita COMPONENT_INVALID_EMOJI)
+              try { opt.setEmoji(emoji); } catch {}
+            }
+            // Se customizado e não está no cache do bot → omite (sem crash)
           }
           return opt;
         }),
