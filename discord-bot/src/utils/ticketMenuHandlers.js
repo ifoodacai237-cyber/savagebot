@@ -73,7 +73,12 @@ export async function buildMenuOptsPanel(guildId, client = null) {
             .setDescription((o.description?.slice(0, 100)) || 'Clique para editar ou excluir');
           const emoji = parseEmoji(o.emoji);
           if (emoji) {
-            try { opt.setEmoji(emoji); } catch {}
+            if (typeof emoji === 'string') {
+              try { opt.setEmoji(emoji); } catch {}
+            } else if (client?.emojis?.cache?.has(emoji.id)) {
+              try { opt.setEmoji(emoji); } catch {}
+            }
+            // customizado sem acesso → omite (evita COMPONENT_INVALID_EMOJI)
           }
           return opt;
         }),
