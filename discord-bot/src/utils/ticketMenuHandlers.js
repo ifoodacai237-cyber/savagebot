@@ -73,14 +73,7 @@ export async function buildMenuOptsPanel(guildId, client = null) {
             .setDescription((o.description?.slice(0, 100)) || 'Clique para editar ou excluir');
           const emoji = parseEmoji(o.emoji);
           if (emoji) {
-            if (typeof emoji === 'string') {
-              // Emoji unicode — sempre seguro
-              try { opt.setEmoji(emoji); } catch {}
-            } else if (client?.emojis?.cache?.has(emoji.id)) {
-              // Emoji customizado — só usa se o bot realmente tem acesso (evita COMPONENT_INVALID_EMOJI)
-              try { opt.setEmoji(emoji); } catch {}
-            }
-            // Se customizado e não está no cache do bot → omite (sem crash)
+            try { opt.setEmoji(emoji); } catch {}
           }
           return opt;
         }),

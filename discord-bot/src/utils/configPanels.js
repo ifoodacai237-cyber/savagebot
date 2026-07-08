@@ -123,14 +123,7 @@ export function buildTicketPanelV2(cfg, options = [], client = null) {
             .setDescription((o.description?.slice(0, 100)) || 'Clique para abrir um ticket');
           const emoji = parseEmoji(o.emoji);
           if (emoji) {
-            if (typeof emoji === 'string') {
-              // Emoji unicode — sempre seguro
-              try { opt.setEmoji(emoji); } catch {}
-            } else if (client?.emojis?.cache?.has(emoji.id)) {
-              // Emoji customizado — só usa se o bot tem acesso (evita COMPONENT_INVALID_EMOJI)
-              try { opt.setEmoji(emoji); } catch {}
-            }
-            // Se customizado e fora do cache do bot → omite sem crash
+            try { opt.setEmoji(emoji); } catch {}
           }
           return opt;
         }),
