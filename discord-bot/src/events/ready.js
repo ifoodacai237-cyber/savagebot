@@ -36,9 +36,9 @@ export default {
     client.user.setPresence({
       status: 'online',
       activities: [{
-        name: 'discord.gg/fallenn',
+        name: 'discord.gg/savagge',
         type: ActivityType.Streaming,
-        url: 'https://www.twitch.tv/fallenn',
+        url: 'https://www.twitch.tv/savagge',
       }],
     });
 
