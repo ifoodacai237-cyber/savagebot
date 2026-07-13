@@ -13,21 +13,24 @@ import prisma from '../../database/client.js';
 import { startMonitor, stopMonitor, isAvailable } from '../../utils/usernameMonitor.js';
 
 const CATEGORIAS = [
-  { value: 'realwordpt', label: '🇧🇷 Palavras PT',   field: 'channelRealwordPt' },
-  { value: 'realword',   label: '🌍 Palavras EN',    field: 'channelRealword'   },
-  { value: 'mixed',      label: '🔀 Mixed',          field: 'channelMixed'      },
-  { value: 'sniper',     label: '🎯 Sniper',         field: 'channelSniper'     },
-  { value: 'numbers',    label: '🔢 Números',        field: 'channelNumbers'    },
+  { value: 'realwordpt', label: '🇧🇷 Palavras PT',   field: 'channelRealwordPt', threadField: 'threadRealwordPt' },
+  { value: 'realword',   label: '🌍 Palavras EN',    field: 'channelRealword',   threadField: 'threadRealword'   },
+  { value: 'mixed',      label: '🔀 Mixed',          field: 'channelMixed',      threadField: 'threadMixed'      },
+  { value: 'sniper',     label: '🎯 Sniper',         field: 'channelSniper',     threadField: 'threadSniper'     },
+  { value: 'numbers',    label: '🔢 Números',        field: 'channelNumbers',    threadField: 'threadNumbers'    },
 ];
 
 // Nome do fórum único criado automaticamente por /sniper-config criar-canais
 const FORUM_NOME = 'users';
 
-// Aceita canal de texto OU fórum
+const THREAD_TYPES = [ChannelType.PublicThread, ChannelType.AnnouncementThread];
+
+// Aceita canal de texto, fórum ou uma thread já existente (dentro de um fórum)
 const CHANNEL_TYPES = [
   ChannelType.GuildText,
   ChannelType.GuildForum,
   ChannelType.GuildAnnouncement,
+  ...THREAD_TYPES,
 ];
 
 export default {
@@ -108,20 +111,40 @@ export default {
       const found = CATEGORIAS.find(c => c.value === cat);
       if (!found) return interaction.editReply({ content: '❌ Categoria inválida.' });
 
-      const isForum = ch.type === ChannelType.GuildForum;
+      const isThread = THREAD_TYPES.includes(ch.type);
+      const isForum  = ch.type === ChannelType.GuildForum;
+
+      const updateData = {};
+      if (isThread) {
+        // Usuário escolheu uma thread já existente dentro de um fórum: o bot
+        // nunca cria thread nova, só posta ali direto — evita o problema dos
+        // cards em branco quando o próprio bot cria a thread.
+        if (!ch.parentId) return interaction.editReply({ content: '❌ Não consegui identificar o fórum dessa thread.' });
+        updateData[found.field]       = ch.parentId;
+        updateData[found.threadField] = ch.id;
+      } else {
+        updateData[found.field]       = ch.id;
+        updateData[found.threadField] = null; // fórum/canal novo — deixa o bot criar/reaproveitar a thread dele
+      }
 
       await prisma.sniperConfig.upsert({
         where:  { guildId },
-        create: { guildId, [found.field]: ch.id },
-        update: { [found.field]: ch.id },
+        create: { guildId, ...updateData },
+        update: updateData,
       });
+
+      const tipoDesc = isThread
+        ? `*(thread já existente dentro do fórum <#${ch.parentId}>)*`
+        : isForum
+          ? '*(fórum — crio/uso a thread da categoria automaticamente)*'
+          : '*(canal de texto)*';
 
       return interaction.editReply({
         embeds: [
           new EmbedBuilder()
             .setColor(0x57F287)
             .setTitle('✅ Canal configurado')
-            .setDescription(`${found.label} → ${ch} ${isForum ? '*(fórum — cada username vira um post)*' : '*(canal de texto)*'}`)
+            .setDescription(`${found.label} → ${ch} ${tipoDesc}`)
             .setFooter({ text: 'Use /sniper-config ver para ver todos os canais.' }),
         ],
       });
@@ -194,12 +217,14 @@ export default {
 
       const linhas = await Promise.all(
         CATEGORIAS.map(async c => {
-          const id = cfg[c.field];
+          const id       = cfg[c.field];
+          const threadId = cfg[c.threadField];
           if (!id) return `${c.label}: \`não configurado\``;
           try {
             const ch = await client.channels.fetch(id);
             const tipo = ch.type === ChannelType.GuildForum ? ' 📋 fórum' : ' 💬 texto';
-            return `${c.label}: <#${id}>${tipo}`;
+            const threadInfo = threadId ? ` → thread <#${threadId}>` : '';
+            return `${c.label}: <#${id}>${tipo}${threadInfo}`;
           } catch {
             return `${c.label}: <#${id}> *(sem acesso)*`;
           }
