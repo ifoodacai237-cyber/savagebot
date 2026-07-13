@@ -2580,6 +2580,28 @@ export default {
       // ── MODALS ─────────────────────────────────────────────────────────────
       if (interaction.isModalSubmit()) {
 
+        // ── STATUS PERSONALIZADO DO BOT ────────────────────────────────
+        if (interaction.customId === 'status_modal') {
+          const { aplicarCustomStatus, pararRotacao } = await import('../commands/admin/status.js');
+          const emoji    = (interaction.fields.getTextInputValue('status_emoji')   || '').trim();
+          const mensagem = (interaction.fields.getTextInputValue('status_mensagem') || '').trim();
+
+          pararRotacao(client);
+          aplicarCustomStatus(client, emoji, mensagem);
+
+          const preview = emoji ? `${emoji} ${mensagem}` : mensagem;
+          return interaction.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(0x9B4FD6)
+                .setTitle('✅ Status atualizado')
+                .setDescription(`**${preview}**`)
+                .setFooter({ text: 'Transmitindo discord.gg/savagge continua fixo embaixo' }),
+            ],
+            flags: 64,
+          });
+        }
+
         // ── PAINEL DE CARGOS: Salvar texto ─────────────────────────────
         if (interaction.customId === 'rp_modal_text') {
           const session = getRPSession(interaction.user.id, interaction.guildId);
