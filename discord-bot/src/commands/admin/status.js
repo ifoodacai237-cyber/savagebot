@@ -18,25 +18,35 @@ const TIPOS = {
 // Referência ao intervalo de rotação ativo (por client)
 const KEY = Symbol('statusInterval');
 
+// Activity de streaming fixo — sempre presente na presença do bot
+const STREAMING_FIXO = {
+  name: 'discord.gg/savagge',
+  type: ActivityType.Streaming,
+  url: 'https://www.twitch.tv/savagge',
+};
+
 function aplicarStatus(client, tipo, mensagem, url, emoji) {
   const cfg = TIPOS[tipo] ?? TIPOS.jogando;
 
-  let activity;
-
   if (tipo === 'personalizado') {
-    // Custom status: emoji aparece ao lado do texto
-    activity = {
+    // Custom status (bolha de cima) + streaming fixo (seção embaixo)
+    const custom = {
       type: ActivityType.Custom,
       name: 'Custom Status',
       state: mensagem,
     };
-    if (emoji) activity.emoji = { name: emoji };
-  } else {
-    activity = { name: mensagem, type: cfg.type };
-    if (tipo === 'streaming' && url) activity.url = url;
-  }
+    if (emoji) custom.emoji = { name: emoji };
 
-  client.user.setPresence({ status: 'online', activities: [activity] });
+    client.user.setPresence({ status: 'online', activities: [custom, STREAMING_FIXO] });
+  } else if (tipo === 'streaming') {
+    // Substituição total do streaming
+    const activity = { name: mensagem, type: ActivityType.Streaming, url: url || 'https://www.twitch.tv/savagge' };
+    client.user.setPresence({ status: 'online', activities: [activity] });
+  } else {
+    // Jogando / Assistindo / Ouvindo / Competindo → fica junto com o streaming
+    const activity = { name: mensagem, type: cfg.type };
+    client.user.setPresence({ status: 'online', activities: [activity, STREAMING_FIXO] });
+  }
 }
 
 function pararRotacao(client) {
