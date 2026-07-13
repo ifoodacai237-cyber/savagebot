@@ -14,9 +14,15 @@ import { enWords } from '../lists/words-en.js';
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const DISCORD_API  = 'https://discord.com/api/v10';
-const CHECK_DELAY  = 1_500;   // 1.5s entre chamadas (evita rate limit)
-const BATCH_SIZE   = 15;      // usernames por lote
-const CYCLE_PAUSE  = 20_000;  // pausa entre lotes (20s)
+// IMPORTANTE: o endpoint username-attempt-unauthed tem um bucket de rate
+// limit bem punitivo — se estourar, o retry_after vem em ~1300s (>20min!),
+// não em segundos como o normal. Testado manualmente: rajadas de ~0.3s entre
+// chamadas disparam esse bloqueio longo. Por isso NÃO reduzir CHECK_DELAY
+// abaixo de ~1.5s. O ganho de velocidade vem de eliminar pausas ociosas
+// entre categorias, não de bater mais rápido no endpoint.
+const CHECK_DELAY  = 1_500;   // 1.5s entre chamadas (evita o bloqueio longo)
+const BATCH_SIZE   = 25;      // usernames por lote
+const CYCLE_PAUSE  = 2_000;   // pausa curta entre categorias (só um respiro, não é rate-limit)
 const REPOST_DAYS  = 7;       // não re-anuncia se postou há menos de X dias
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
