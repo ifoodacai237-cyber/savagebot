@@ -222,17 +222,47 @@ async function postSniperLiberou(client, target) {
   }
 }
 
-// ─── Geração de números ───────────────────────────────────────────────────────
+// ─── Geradores ───────────────────────────────────────────────────────────────
 
-function randomNumbers(count = 10) {
-  const nums = [];
-  while (nums.length < count) {
-    const digits = Math.random() < 0.5 ? 5 : 6;
-    const min = 10 ** (digits - 1);
-    const max = 10 ** digits - 1;
-    nums.push(String(Math.floor(min + Math.random() * (max - min))));
+/** Gera números aleatórios de 4-6 dígitos */
+function generateNumbers(count = 15) {
+  const nums = new Set();
+  while (nums.size < count) {
+    const digits = [4, 5, 6][Math.floor(Math.random() * 3)];
+    const min    = 10 ** (digits - 1);
+    const max    = 10 ** digits - 1;
+    nums.add(String(Math.floor(min + Math.random() * (max - min))));
   }
-  return nums;
+  return [...nums];
+}
+
+/** Gera strings "mixed" de 4 chars alfanuméricos (ex: 2n6a, wpb8, 4hcq)
+ *  Garantia: pelo menos 1 letra e 1 dígito.
+ */
+function generateMixed(count = 15) {
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+  const digits  = '0123456789';
+  const all     = letters + digits;
+  const results = new Set();
+
+  while (results.size < count) {
+    let s = '';
+    for (let i = 0; i < 4; i++) {
+      s += all[Math.floor(Math.random() * all.length)];
+    }
+    if (/[a-z]/.test(s) && /\d/.test(s)) results.add(s);
+  }
+  return [...results];
+}
+
+/** Retorna próximo lote da lista de palavras (PT ou EN) com rotação */
+function nextBatch(arr, idxRef, size) {
+  const batch = [];
+  for (let i = 0; i < size; i++) {
+    batch.push(arr[idxRef.v % arr.length]);
+    idxRef.v++;
+  }
+  return batch;
 }
 
 // ─── Loop principal ───────────────────────────────────────────────────────────
@@ -251,45 +281,46 @@ export async function startMonitor(client) {
   if (running) return;
   running = true;
 
+  // Prepara listas de palavras reais (PT e EN) com rotação
   ptArr = shuffle([...ptWords]);
   enArr = shuffle([...enWords]);
-  ptIdx = 0;
-  enIdx = 0;
+  const ptRef = { v: 0 };
+  const enRef = { v: 0 };
 
-  console.log(`[SNIPER] Monitor iniciado (${ptArr.length} PT, ${enArr.length} EN).`);
+  console.log(`[SNIPER] Monitor iniciado. PT=${ptArr.length} EN=${enArr.length} | mixed+numbers gerados em tempo real.`);
 
   while (running) {
     try {
-      // Lote PT
-      const ptBatch = [];
-      for (let i = 0; i < BATCH_SIZE; i++) {
-        ptBatch.push(ptArr[ptIdx % ptArr.length]);
-        ptIdx++;
-      }
-      await checkBatch(client, ptBatch, 'realwordpt');
+      // ── 1. Palavras PT reais ────────────────────────────────────────────
+      await checkBatch(client, nextBatch(ptArr, ptRef, BATCH_SIZE), 'realwordpt');
       if (!running) break;
       await sleep(CYCLE_PAUSE);
 
-      // Lote EN
-      const enBatch = [];
-      for (let i = 0; i < BATCH_SIZE; i++) {
-        enBatch.push(enArr[enIdx % enArr.length]);
-        enIdx++;
-      }
-      await checkBatch(client, enBatch, 'realword');
+      // ── 2. Mixed: 4 chars alfanumérico aleatório (ex: 2n6a, wpb8) ──────
+      await checkBatch(client, generateMixed(BATCH_SIZE), 'mixed');
       if (!running) break;
       await sleep(CYCLE_PAUSE);
 
-      // Números aleatórios
-      await checkBatch(client, randomNumbers(8), 'numbers');
+      // ── 3. Palavras EN reais ────────────────────────────────────────────
+      await checkBatch(client, nextBatch(enArr, enRef, BATCH_SIZE), 'realword');
       if (!running) break;
       await sleep(CYCLE_PAUSE);
 
-      // Targets sniper aguardando confirmação
+      // ── 4. Mixed: mais um lote (canal mais ativo) ───────────────────────
+      await checkBatch(client, generateMixed(BATCH_SIZE), 'mixed');
+      if (!running) break;
+      await sleep(CYCLE_PAUSE);
+
+      // ── 5. Números aleatórios (4-6 dígitos) ────────────────────────────
+      await checkBatch(client, generateNumbers(BATCH_SIZE), 'numbers');
+      if (!running) break;
+      await sleep(CYCLE_PAUSE);
+
+      // ── 6. Targets sniper aguardando confirmação ────────────────────────
       const targets = await prisma.sniperTarget.findMany({
         where:   { category: 'sniper', sniperAlerted: true, postedAt: null },
         orderBy: { detectedAt: 'asc' },
-        take:    5,
+        take:    10,
       });
       for (const t of targets) {
         if (!running) break;
@@ -299,6 +330,7 @@ export async function startMonitor(client) {
       }
 
       await sleep(CYCLE_PAUSE);
+
     } catch (err) {
       console.error('[SNIPER] Erro no loop:', err.message);
       await sleep(15_000);
