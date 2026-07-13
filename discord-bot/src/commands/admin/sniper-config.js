@@ -7,6 +7,7 @@ import {
   PermissionFlagsBits,
   EmbedBuilder,
   ChannelType,
+  ForumLayoutType,
 } from 'discord.js';
 import prisma from '../../database/client.js';
 import { startMonitor, stopMonitor, isAvailable } from '../../utils/usernameMonitor.js';
@@ -151,7 +152,12 @@ export default {
           name: FORUM_NOME,
           type: ChannelType.GuildForum,
           topic: 'Usernames encontrados automaticamente pelo sniper. Cada categoria vira uma thread. Somente leitura.',
+          defaultForumLayout: ForumLayoutType.ListView,
         });
+      } else if (forum.defaultForumLayout !== ForumLayoutType.ListView) {
+        // Fóruns criados antes desta correção ficaram no layout padrão (Galeria),
+        // que deixa os cards em branco porque nossos posts não têm imagem.
+        try { await forum.edit({ defaultForumLayout: ForumLayoutType.ListView }); } catch {}
       }
 
       const updateData = { forumChannelId: forum.id, enabled: true };

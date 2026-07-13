@@ -6,7 +6,7 @@
  *  - Posta nos canais/fóruns configurados quando disponível
  */
 
-import { ChannelType, ContainerBuilder, TextDisplayBuilder, MessageFlags } from 'discord.js';
+import { ChannelType, EmbedBuilder } from 'discord.js';
 import prisma from '../database/client.js';
 import { ptWords } from '../lists/words-pt.js';
 import { enWords } from '../lists/words-en.js';
@@ -67,22 +67,23 @@ export function classifyUsername(username) {
   return 'realword';
 }
 
-// ─── Componentes V2: card sem barra lateral (Container sem accent color) ──────
+// ─── Card sem barra lateral (embed sem accent color) ──────────────────────────
+// Usamos embed clássico (não Components V2) porque o preview de post do fórum
+// (visão "Ordenar e ver" / galeria no mobile) só lê content/embeds da mensagem —
+// mensagens Components V2 não têm content e ficam com o card vazio no fórum.
+// Embed sem setColor() não desenha barra lateral colorida, então o visual bate
+// com o do print (sem faixa de cor).
 
-/** Monta o payload Components V2 de um card "username disponível". */
+/** Monta o payload (embed) de um card "username disponível". */
 function buildAvailableCard(username, ts) {
-  const container = new ContainerBuilder().addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`🎉 **@${username}**\ndisponível agora · <t:${ts}:R>`),
-  );
-  return { flags: MessageFlags.IsComponentsV2, components: [container] };
+  const embed = new EmbedBuilder().setDescription(`🎉 **@${username}**\ndisponível agora · <t:${ts}:R>`);
+  return { embeds: [embed] };
 }
 
-/** Monta o payload Components V2 de um card com título + linhas extras (sniper). */
+/** Monta o payload (embed) de um card com título + linhas extras (sniper). */
 function buildCard(lines) {
-  const container = new ContainerBuilder().addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(lines.join('\n')),
-  );
-  return { flags: MessageFlags.IsComponentsV2, components: [container] };
+  const embed = new EmbedBuilder().setDescription(lines.join('\n'));
+  return { embeds: [embed] };
 }
 
 // ─── Postagem universal: fórum (thread "users" persistente) ou texto ─────────
