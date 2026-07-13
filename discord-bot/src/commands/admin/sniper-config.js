@@ -12,7 +12,7 @@ import {
   ActionRowBuilder,
 } from 'discord.js';
 import prisma from '../../database/client.js';
-import { startMonitor, stopMonitor, isAvailable } from '../../utils/usernameMonitor.js';
+import { startMonitor, stopMonitor, isAvailable, postTestCard } from '../../utils/usernameMonitor.js';
 import { CATEGORIAS } from '../../utils/sniperCategories.js';
 
 // Nome do fórum único criado automaticamente por /sniper-config criar-canais
@@ -71,6 +71,22 @@ export default {
     .addSubcommand(sub =>
       sub.setName('desativar')
         .setDescription('Desativa o monitor de usernames neste servidor'))
+
+    // ── testar ─────────────────────────────────────────────────────────────
+    .addSubcommand(sub =>
+      sub.setName('testar')
+        .setDescription('Posta um card de exemplo na thread configurada, pra ver se o formato tá certo')
+        .addStringOption(o =>
+          o.setName('categoria')
+            .setDescription('Categoria a testar')
+            .setRequired(true)
+            .addChoices(
+              { name: '🇧🇷 Palavras PT (realwordpt)', value: 'realwordpt' },
+              { name: '🌍 Palavras EN (realword)',    value: 'realword'   },
+              { name: '🔀 Mixed',                    value: 'mixed'      },
+              { name: '🎯 Sniper (mudança de nick)', value: 'sniper'     },
+              { name: '🔢 Números',                  value: 'numbers'    },
+            )))
 
     // ── checar ─────────────────────────────────────────────────────────────
     .addSubcommand(sub =>
@@ -273,6 +289,27 @@ export default {
       });
       return interaction.editReply({
         embeds: [new EmbedBuilder().setColor(0xFEE75C).setDescription('⏸️ Monitor desativado para este servidor.')],
+      });
+    }
+
+    // ── testar ──────────────────────────────────────────────────────────────
+    if (sub === 'testar') {
+      const cat   = interaction.options.getString('categoria');
+      const found = CATEGORIAS.find(c => c.value === cat);
+      if (!found) return interaction.editReply({ content: '❌ Categoria inválida.' });
+
+      const cfg = await prisma.sniperConfig.findUnique({ where: { guildId } });
+      if (!cfg?.[found.field]) {
+        return interaction.editReply({
+          content: `⚠️ **${found.label}** ainda não tem canal/fórum configurado. Use \`/sniper-config canal\` primeiro.`,
+        });
+      }
+
+      const posted = await postTestCard(client, cat);
+      return interaction.editReply({
+        content: posted
+          ? `✅ Card de teste enviado pra **${found.label}**. Confere lá se apareceu certinho.`
+          : `❌ Não consegui enviar — o bot não achou o canal configurado (sem permissão ou canal foi apagado?).`,
       });
     }
 

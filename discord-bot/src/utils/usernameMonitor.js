@@ -368,6 +368,21 @@ export function stopMonitor() {
   running = false;
 }
 
+// ─── Teste manual: posta um card de exemplo na thread da categoria ──────────
+// Usado por /sniper-config testar pra confirmar visualmente que o post chega
+// certinho na thread configurada, sem precisar esperar um username real.
+
+export async function postTestCard(client, category) {
+  const payload = category === 'sniper'
+    ? buildCard([
+        '🎯 **@exemplo-teste** entrou na mira *(teste manual)*',
+        '<@0> mudou pra **@novo-exemplo** — isto é só um teste do formato do card, não é um alerta real.',
+      ])
+    : buildAvailableCard('exemplo-teste', Math.floor(Date.now() / 1000));
+
+  return postToCategory(client, category, payload);
+}
+
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
