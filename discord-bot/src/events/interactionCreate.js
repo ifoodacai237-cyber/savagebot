@@ -28,6 +28,7 @@ import { likesMap, postDataMap } from '../utils/instaState.js';
 import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, buildWelcomeV2, buildTicketPanelV2, buildTellonymPanelV2, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT, formatDeleteTime } from '../utils/configPanels.js';
 import { buildMenuOptsPanel, buildOptionDetailPanel, buildAddOptionModal, buildEditOptionModal, parseIdList } from '../utils/ticketMenuHandlers.js';
 import { buildPartnerConfigPayload } from '../utils/partnershipPanels.js';
+import { CATEGORIAS as SNIPER_CATEGORIAS } from '../utils/sniperCategories.js';
 import {
   getSession,
   deleteSession,
@@ -311,6 +312,29 @@ export default {
 
       // ── STRING SELECT MENUS ────────────────────────────────────────────────
       if (interaction.isStringSelectMenu()) {
+        // ── SNIPER-CONFIG: escolher thread do fórum pra uma categoria ─────
+        if (interaction.customId.startsWith('sniperthread:')) {
+          const [, categoria, forumId] = interaction.customId.split(':');
+          const found = SNIPER_CATEGORIAS.find(c => c.value === categoria);
+          if (!found) return interaction.update({ content: '❌ Categoria inválida.', components: [] });
+
+          const value    = interaction.values[0];
+          const threadId = value === 'auto' ? null : value;
+          const guildId  = interaction.guildId;
+
+          await prisma.sniperConfig.upsert({
+            where:  { guildId },
+            create: { guildId, [found.field]: forumId, [found.threadField]: threadId },
+            update: { [found.field]: forumId, [found.threadField]: threadId },
+          });
+
+          const desc = threadId
+            ? `✅ **${found.label}** vai postar em <#${threadId}> (dentro de <#${forumId}>).`
+            : `✅ **${found.label}** vai postar em <#${forumId}> — o bot cria a thread da categoria automaticamente.`;
+
+          return interaction.update({ content: desc, components: [] });
+        }
+
         // ── MONTAR-MENSAGEM: Menu publicado ──────────────────────────────
         if (interaction.customId === 'msg_ms') {
           const value = interaction.values[0];

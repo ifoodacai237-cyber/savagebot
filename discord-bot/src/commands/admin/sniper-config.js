@@ -8,29 +8,23 @@ import {
   EmbedBuilder,
   ChannelType,
   ForumLayoutType,
+  StringSelectMenuBuilder,
+  ActionRowBuilder,
 } from 'discord.js';
 import prisma from '../../database/client.js';
 import { startMonitor, stopMonitor, isAvailable } from '../../utils/usernameMonitor.js';
-
-const CATEGORIAS = [
-  { value: 'realwordpt', label: '🇧🇷 Palavras PT',   field: 'channelRealwordPt', threadField: 'threadRealwordPt' },
-  { value: 'realword',   label: '🌍 Palavras EN',    field: 'channelRealword',   threadField: 'threadRealword'   },
-  { value: 'mixed',      label: '🔀 Mixed',          field: 'channelMixed',      threadField: 'threadMixed'      },
-  { value: 'sniper',     label: '🎯 Sniper',         field: 'channelSniper',     threadField: 'threadSniper'     },
-  { value: 'numbers',    label: '🔢 Números',        field: 'channelNumbers',    threadField: 'threadNumbers'    },
-];
+import { CATEGORIAS } from '../../utils/sniperCategories.js';
 
 // Nome do fórum único criado automaticamente por /sniper-config criar-canais
 const FORUM_NOME = 'users';
 
-const THREAD_TYPES = [ChannelType.PublicThread, ChannelType.AnnouncementThread];
-
-// Aceita canal de texto, fórum ou uma thread já existente (dentro de um fórum)
+// Aceita canal de texto, anúncio ou fórum. Threads dentro de um fórum não
+// aparecem no seletor nativo de canal do Discord — por isso, ao escolher um
+// fórum, mostramos logo em seguida uma lista das threads dele pra escolher.
 const CHANNEL_TYPES = [
   ChannelType.GuildText,
   ChannelType.GuildForum,
   ChannelType.GuildAnnouncement,
-  ...THREAD_TYPES,
 ];
 
 export default {
@@ -111,40 +105,56 @@ export default {
       const found = CATEGORIAS.find(c => c.value === cat);
       if (!found) return interaction.editReply({ content: '❌ Categoria inválida.' });
 
-      const isThread = THREAD_TYPES.includes(ch.type);
-      const isForum  = ch.type === ChannelType.GuildForum;
+      // Fórum: o Discord não deixa escolher uma thread direto no seletor de
+      // canal do comando, então buscamos as threads desse fórum e mostramos
+      // um menu simples pra clicar em qual usar (ou deixar automático).
+      if (ch.type === ChannelType.GuildForum) {
+        const active   = await ch.threads.fetchActive().catch(() => null);
+        const archived = await ch.threads.fetchArchived().catch(() => null);
+        const threads  = [
+          ...(active?.threads?.values() ?? []),
+          ...(archived?.threads?.values() ?? []),
+        ];
 
-      const updateData = {};
-      if (isThread) {
-        // Usuário escolheu uma thread já existente dentro de um fórum: o bot
-        // nunca cria thread nova, só posta ali direto — evita o problema dos
-        // cards em branco quando o próprio bot cria a thread.
-        if (!ch.parentId) return interaction.editReply({ content: '❌ Não consegui identificar o fórum dessa thread.' });
-        updateData[found.field]       = ch.parentId;
-        updateData[found.threadField] = ch.id;
-      } else {
-        updateData[found.field]       = ch.id;
-        updateData[found.threadField] = null; // fórum/canal novo — deixa o bot criar/reaproveitar a thread dele
+        const options = [
+          {
+            label:       '🤖 Deixar o bot criar/gerenciar sozinho',
+            value:       'auto',
+            description: 'O bot cria a thread da categoria automaticamente',
+          },
+          ...threads.slice(0, 24).map(t => ({
+            label:       t.name.slice(0, 100),
+            value:       t.id,
+            description: `Postar as notificações de ${found.label} aqui`.slice(0, 100),
+          })),
+        ];
+
+        const select = new StringSelectMenuBuilder()
+          .setCustomId(`sniperthread:${found.value}:${ch.id}`)
+          .setPlaceholder('Escolha a thread (ou deixe automático)')
+          .addOptions(options);
+
+        return interaction.editReply({
+          content: threads.length
+            ? `📋 Encontrei ${threads.length} thread(s) dentro de ${ch}. Escolha qual vai receber **${found.label}**:`
+            : `⚠️ Não encontrei nenhuma thread dentro de ${ch} ainda. Crie uma lá e rode o comando de novo, ou deixe o bot criar sozinho:`,
+          components: [new ActionRowBuilder().addComponents(select)],
+        });
       }
 
+      // Canal de texto/anúncio — salva direto, sem thread
       await prisma.sniperConfig.upsert({
         where:  { guildId },
-        create: { guildId, ...updateData },
-        update: updateData,
+        create: { guildId, [found.field]: ch.id, [found.threadField]: null },
+        update: { [found.field]: ch.id, [found.threadField]: null },
       });
-
-      const tipoDesc = isThread
-        ? `*(thread já existente dentro do fórum <#${ch.parentId}>)*`
-        : isForum
-          ? '*(fórum — crio/uso a thread da categoria automaticamente)*'
-          : '*(canal de texto)*';
 
       return interaction.editReply({
         embeds: [
           new EmbedBuilder()
             .setColor(0x57F287)
             .setTitle('✅ Canal configurado')
-            .setDescription(`${found.label} → ${ch} ${tipoDesc}`)
+            .setDescription(`${found.label} → ${ch} *(canal de texto)*`)
             .setFooter({ text: 'Use /sniper-config ver para ver todos os canais.' }),
         ],
       });
