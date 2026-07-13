@@ -2580,23 +2580,21 @@ export default {
       // ── MODALS ─────────────────────────────────────────────────────────────
       if (interaction.isModalSubmit()) {
 
-        // ── STATUS PERSONALIZADO DO BOT ────────────────────────────────
+        // ── STATUS DO BOT (Transmitindo) ───────────────────────────────
         if (interaction.customId === 'status_modal') {
-          const { aplicarCustomStatus, pararRotacao } = await import('../commands/admin/status.js');
-          const emoji    = (interaction.fields.getTextInputValue('status_emoji')   || '').trim();
-          const mensagem = (interaction.fields.getTextInputValue('status_mensagem') || '').trim();
+          const { setStreamingPresence, pararRotacao } = await import('../commands/admin/status.js');
+          const texto = (interaction.fields.getTextInputValue('status_texto') || '').trim();
 
           pararRotacao(client);
-          aplicarCustomStatus(client, emoji, mensagem);
+          setStreamingPresence(client, texto);
 
-          const preview = emoji ? `${emoji} ${mensagem}` : mensagem;
           return interaction.reply({
             embeds: [
               new EmbedBuilder()
                 .setColor(0x9B4FD6)
                 .setTitle('✅ Status atualizado')
-                .setDescription(`**${preview}**`)
-                .setFooter({ text: 'Transmitindo discord.gg/savagge continua fixo embaixo' }),
+                .setDescription(`**Transmitindo:** ${texto}`)
+                .setFooter({ text: 'URL: discord.gg/savagge' }),
             ],
             flags: 64,
           });

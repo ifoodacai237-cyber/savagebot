@@ -9,29 +9,21 @@ import {
   ActionRowBuilder,
 } from 'discord.js';
 
-// ── Streaming fixo — SEMPRE fica na presença do bot ──────────────────────────
-export const STREAMING_FIXO = {
-  name: 'discord.gg/savagge',
-  type: ActivityType.Streaming,
-  url:  'https://www.twitch.tv/savagge',
-};
+// URL padrão do streaming
+const STREAM_URL = 'https://www.twitch.tv/savagge';
 
-// Referência ao intervalo de rotação ativo
+// Intervalo de rotação
 const KEY = Symbol('statusInterval');
 
-/**
- * Aplica presença: streaming fixo embaixo + custom status em cima.
- * O emoji vai embutido na string state (forma que funciona de verdade em bots).
- */
-export function aplicarCustomStatus(client, emoji, mensagem) {
-  const state = emoji ? `${emoji} ${mensagem}` : mensagem;
+/** Define a presença como Streaming — único tipo que permanece visível em bots */
+export function setStreamingPresence(client, texto) {
   client.user.setPresence({
     status: 'online',
-    activities: [
-      // streaming PRIMEIRO → Discord mantém ele visível
-      STREAMING_FIXO,
-      { type: ActivityType.Custom, name: 'Custom Status', state },
-    ],
+    activities: [{
+      type: ActivityType.Streaming,
+      name: texto,
+      url:  STREAM_URL,
+    }],
   });
 }
 
@@ -45,21 +37,21 @@ export function pararRotacao(client) {
 export default {
   data: new SlashCommandBuilder()
     .setName('status')
-    .setDescription('Gerencia o status personalizado do bot')
+    .setDescription('Gerencia o status (Transmitindo) do bot')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 
-    // ── definir: abre modal igual ao editor de status do Discord ──────────
+    // ── definir: modal com emoji + texto ──────────────────────────────────
     .addSubcommand(sub =>
       sub.setName('definir')
-        .setDescription('Abre o editor de status — emoji + mensagem'))
+        .setDescription('Abre editor — emoji + mensagem que aparece em Transmitindo'))
 
-    // ── automatico: rotação ───────────────────────────────────────────────
+    // ── automatico: rotação de textos ─────────────────────────────────────
     .addSubcommand(sub =>
       sub.setName('automatico')
-        .setDescription('Rotação automática de status (separe com |)')
+        .setDescription('Rotação automática (separe com |)')
         .addStringOption(o =>
-          o.setName('mensagens')
-            .setDescription('Ex: 💋 Minha riqueza, yas.|🌙 savage #700|🔥 discord.gg/savagge')
+          o.setName('textos')
+            .setDescription('Ex: 💋 Minha riqueza|🌙 savage #700|🔥 discord.gg/savagge')
             .setRequired(true))
         .addIntegerOption(o =>
           o.setName('intervalo')
@@ -70,7 +62,7 @@ export default {
     // ── parar ─────────────────────────────────────────────────────────────
     .addSubcommand(sub =>
       sub.setName('parar')
-        .setDescription('Para a rotação e restaura só o Transmitindo padrão')),
+        .setDescription('Para rotação e restaura discord.gg/savagge')),
 
   name: 'status',
 
@@ -81,27 +73,18 @@ export default {
     if (sub === 'definir') {
       const modal = new ModalBuilder()
         .setCustomId('status_modal')
-        .setTitle('✨ Status Personalizado');
-
-      const emojiInput = new TextInputBuilder()
-        .setCustomId('status_emoji')
-        .setLabel('Emoji (opcional — cole um emoji aqui)')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('💋')
-        .setRequired(false)
-        .setMaxLength(8);
-
-      const msgInput = new TextInputBuilder()
-        .setCustomId('status_mensagem')
-        .setLabel('Mensagem')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('Minha riqueza, yas.')
-        .setRequired(true)
-        .setMaxLength(128);
+        .setTitle('✨ Editar Status (Transmitindo)');
 
       modal.addComponents(
-        new ActionRowBuilder().addComponents(emojiInput),
-        new ActionRowBuilder().addComponents(msgInput),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('status_texto')
+            .setLabel('Emoji + Mensagem (aparece em Transmitindo)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('💋 Minha riqueza, yas.')
+            .setRequired(true)
+            .setMaxLength(128),
+        ),
       );
 
       return interaction.showModal(modal);
@@ -109,14 +92,14 @@ export default {
 
     // ── /status automatico ────────────────────────────────────────────────
     if (sub === 'automatico') {
-      const raw       = interaction.options.getString('mensagens');
+      const raw       = interaction.options.getString('textos');
       const intervalo = (interaction.options.getInteger('intervalo') ?? 30) * 1_000;
 
-      const msgs = raw.split('|').map(m => m.trim()).filter(Boolean);
-      if (msgs.length < 2) {
+      const textos = raw.split('|').map(t => t.trim()).filter(Boolean);
+      if (textos.length < 2) {
         return interaction.reply({
           embeds: [new EmbedBuilder().setColor(0xED4245)
-            .setDescription('❌ Coloque pelo menos **2 mensagens** separadas por `|`.')],
+            .setDescription('❌ Coloque pelo menos **2 textos** separados por `|`.')],
           flags: 64,
         });
       }
@@ -125,21 +108,13 @@ export default {
 
       let idx = 0;
       const trocar = () => {
-        // Cada mensagem pode já vir com emoji na frente — aplica direto
-        const txt = msgs[idx];
-        client.user.setPresence({
-          status: 'online',
-          activities: [
-            STREAMING_FIXO,
-            { type: ActivityType.Custom, name: 'Custom Status', state: txt },
-          ],
-        });
-        idx = (idx + 1) % msgs.length;
+        setStreamingPresence(client, textos[idx]);
+        idx = (idx + 1) % textos.length;
       };
       trocar();
       client[KEY] = setInterval(trocar, intervalo);
 
-      const lista = msgs.map((m, i) => `\`${i + 1}.\` ${m}`).join('\n');
+      const lista = textos.map((t, i) => `\`${i + 1}.\` ${t}`).join('\n');
       return interaction.reply({
         embeds: [
           new EmbedBuilder()
@@ -147,7 +122,7 @@ export default {
             .setTitle('🔄 Rotação automática ativada')
             .addFields(
               { name: 'Intervalo', value: `${intervalo / 1000}s`, inline: true },
-              { name: 'Mensagens', value: lista },
+              { name: 'Textos', value: lista },
             ),
         ],
         flags: 64,
@@ -157,14 +132,10 @@ export default {
     // ── /status parar ─────────────────────────────────────────────────────
     if (sub === 'parar') {
       pararRotacao(client);
-      client.user.setPresence({ status: 'online', activities: [STREAMING_FIXO] });
-
+      setStreamingPresence(client, 'discord.gg/savagge');
       return interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0xFEE75C)
-            .setDescription('⏹️ Rotação parada. Voltou para `Transmitindo discord.gg/savagge`.'),
-        ],
+        embeds: [new EmbedBuilder().setColor(0xFEE75C)
+          .setDescription('⏹️ Rotação parada. Voltou para `Transmitindo discord.gg/savagge`.')],
         flags: 64,
       });
     }
