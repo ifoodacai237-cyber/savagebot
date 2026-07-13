@@ -7,8 +7,8 @@
  */
 
 import prisma from '../database/client.js';
-import { ptWords } from '../data/words-pt.js';
-import { enWords } from '../data/words-en.js';
+import { ptWords } from '../lists/words-pt.js';
+import { enWords } from '../lists/words-en.js';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
