@@ -1,5 +1,5 @@
 /**
- * /sniper-config — configura canais e gerencia o sistema de sniper de usernames
+ * /sniper-config — configura canais/fóruns e gerencia o sistema de sniper
  */
 
 import {
@@ -19,6 +19,13 @@ const CATEGORIAS = [
   { value: 'numbers',    label: '🔢 Números',        field: 'channelNumbers'    },
 ];
 
+// Aceita canal de texto OU fórum
+const CHANNEL_TYPES = [
+  ChannelType.GuildText,
+  ChannelType.GuildForum,
+  ChannelType.GuildAnnouncement,
+];
+
 export default {
   data: new SlashCommandBuilder()
     .setName('sniper-config')
@@ -28,7 +35,7 @@ export default {
     // ── canal ──────────────────────────────────────────────────────────────
     .addSubcommand(sub =>
       sub.setName('canal')
-        .setDescription('Define o canal para uma categoria de usernames')
+        .setDescription('Define o canal/fórum para uma categoria de usernames')
         .addStringOption(o =>
           o.setName('categoria')
             .setDescription('Categoria de usernames')
@@ -42,8 +49,8 @@ export default {
             ))
         .addChannelOption(o =>
           o.setName('canal')
-            .setDescription('Canal onde serão postadas as notificações')
-            .addChannelTypes(ChannelType.GuildText)
+            .setDescription('Canal ou fórum onde serão postadas as notificações')
+            .addChannelTypes(...CHANNEL_TYPES)
             .setRequired(true)))
 
     // ── ver ────────────────────────────────────────────────────────────────
@@ -51,7 +58,7 @@ export default {
       sub.setName('ver')
         .setDescription('Mostra a configuração atual dos canais'))
 
-    // ── ligar / desligar ───────────────────────────────────────────────────
+    // ── ativar / desativar ─────────────────────────────────────────────────
     .addSubcommand(sub =>
       sub.setName('ativar')
         .setDescription('Ativa o monitor de usernames neste servidor'))
@@ -92,6 +99,8 @@ export default {
       const found = CATEGORIAS.find(c => c.value === cat);
       if (!found) return interaction.editReply({ content: '❌ Categoria inválida.' });
 
+      const isForum = ch.type === ChannelType.GuildForum;
+
       await prisma.sniperConfig.upsert({
         where:  { guildId },
         create: { guildId, [found.field]: ch.id },
@@ -103,7 +112,7 @@ export default {
           new EmbedBuilder()
             .setColor(0x57F287)
             .setTitle('✅ Canal configurado')
-            .setDescription(`${found.label} → ${ch}`)
+            .setDescription(`${found.label} → ${ch} ${isForum ? '*(fórum — cada username vira um post)*' : '*(canal de texto)*'}`)
             .setFooter({ text: 'Use /sniper-config ver para ver todos os canais.' }),
         ],
       });
@@ -113,13 +122,24 @@ export default {
     if (sub === 'ver') {
       const cfg = await prisma.sniperConfig.findUnique({ where: { guildId } });
       if (!cfg) {
-        return interaction.editReply({ content: '⚠️ Nenhuma configuração encontrada. Use `/sniper-config canal` para começar.' });
+        return interaction.editReply({
+          content: '⚠️ Nenhuma configuração encontrada. Use `/sniper-config canal` para começar.',
+        });
       }
 
-      const linhas = CATEGORIAS.map(c => {
-        const id = cfg[c.field];
-        return `${c.label}: ${id ? `<#${id}>` : '`não configurado`'}`;
-      });
+      const linhas = await Promise.all(
+        CATEGORIAS.map(async c => {
+          const id = cfg[c.field];
+          if (!id) return `${c.label}: \`não configurado\``;
+          try {
+            const ch = await client.channels.fetch(id);
+            const tipo = ch.type === ChannelType.GuildForum ? ' 📋 fórum' : ' 💬 texto';
+            return `${c.label}: <#${id}>${tipo}`;
+          } catch {
+            return `${c.label}: <#${id}> *(sem acesso)*`;
+          }
+        }),
+      );
 
       return interaction.editReply({
         embeds: [
@@ -138,7 +158,6 @@ export default {
         create: { guildId, enabled: true },
         update: { enabled: true },
       });
-      // Garante que o monitor está rodando
       startMonitor(client);
       return interaction.editReply({
         embeds: [new EmbedBuilder().setColor(0x57F287).setDescription('✅ Monitor de usernames **ativado** neste servidor.')],
@@ -153,7 +172,7 @@ export default {
         update: { enabled: false },
       });
       return interaction.editReply({
-        embeds: [new EmbedBuilder().setColor(0xFEE75C).setDescription('⏸️ Monitor desativado para este servidor. O monitor global pode continuar para outros servidores.')],
+        embeds: [new EmbedBuilder().setColor(0xFEE75C).setDescription('⏸️ Monitor desativado para este servidor.')],
       });
     }
 
@@ -166,12 +185,14 @@ export default {
         return interaction.editReply({ content: '⚠️ Não foi possível verificar agora. Tente novamente em instantes.' });
       }
 
-      const cor  = avail ? 0x57F287 : 0xED4245;
-      const ico  = avail ? '✅' : '❌';
-      const txt  = avail ? `**@${username}** está **disponível**!` : `**@${username}** está **ocupado**.`;
-
       return interaction.editReply({
-        embeds: [new EmbedBuilder().setColor(cor).setDescription(`${ico} ${txt}`)],
+        embeds: [
+          new EmbedBuilder()
+            .setColor(avail ? 0x57F287 : 0xED4245)
+            .setDescription(avail
+              ? `✅ **@${username}** está **disponível**!`
+              : `❌ **@${username}** está **ocupado**.`),
+        ],
       });
     }
 

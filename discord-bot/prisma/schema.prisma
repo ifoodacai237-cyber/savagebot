@@ -393,6 +393,8 @@ model SniperTarget {
   postedAt      DateTime? // quando foi anunciado como disponível
   /// true = já postou alerta "entrou na mira" no canal sniper
   sniperAlerted Boolean   @default(false)
+  /// ID do thread de fórum criado no "entrou na mira" (para reply no LIBEROU)
+  threadId      String?
 
   @@index([category])
   @@index([postedAt])

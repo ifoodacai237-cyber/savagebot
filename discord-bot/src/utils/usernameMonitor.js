@@ -3,37 +3,35 @@
  * Motor de sniper de usernames:
  *  - Verifica disponibilidade de palavras PT/EN/numbers/mixed
  *  - Rastreia targets do canal sniper (via userUpdate)
- *  - Posta nos canais configurados quando disponível
+ *  - Posta nos canais/fóruns configurados quando disponível
  */
 
+import { ChannelType } from 'discord.js';
 import prisma from '../database/client.js';
 import { ptWords } from '../lists/words-pt.js';
 import { enWords } from '../lists/words-en.js';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const DISCORD_API   = 'https://discord.com/api/v10';
-const CHECK_DELAY   = 1_500;   // 1.5s entre chamadas (evita rate limit)
-const BATCH_SIZE    = 15;      // usernames por ciclo de palavra
-const CYCLE_PAUSE   = 20_000;  // pausa entre lotes (20s)
-const REPOST_DAYS   = 7;       // não re-anuncia se postou há menos de X dias
+const DISCORD_API  = 'https://discord.com/api/v10';
+const CHECK_DELAY  = 1_500;   // 1.5s entre chamadas (evita rate limit)
+const BATCH_SIZE   = 15;      // usernames por lote
+const CYCLE_PAUSE  = 20_000;  // pausa entre lotes (20s)
+const REPOST_DAYS  = 7;       // não re-anuncia se postou há menos de X dias
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ─── Estado interno ───────────────────────────────────────────────────────────
 
-let running       = false;
-let ptArr         = null;  // Array de palavras PT
-let enArr         = null;  // Array de palavras EN
-let ptIdx         = 0;
-let enIdx         = 0;
-const foundCache  = new Set(); // evita re-checar recém-anunciados
+let running      = false;
+let ptArr        = null;
+let enArr        = null;
+let ptIdx        = 0;
+let enIdx        = 0;
+const foundCache = new Set();
 
 // ─── Verificação de disponibilidade ──────────────────────────────────────────
 
-/**
- * Retorna true se o username está disponível, false se está ocupado, null em erro/rate-limit.
- */
 export async function isAvailable(username) {
   try {
     const res = await fetch(`${DISCORD_API}/unique-username/username-attempt-unauthed`, {
@@ -44,15 +42,13 @@ export async function isAvailable(username) {
 
     if (res.status === 429) {
       const retry = Number(res.headers.get('Retry-After') || 5);
-      console.warn(`[SNIPER] Rate limited. Aguardando ${retry}s…`);
+      console.warn(`[SNIPER] Rate limited — aguardando ${retry}s…`);
       await sleep(retry * 1_000);
       return null;
     }
 
     if (!res.ok) return null;
-
     const data = await res.json();
-    // Discord retorna { taken: true/false }
     if (typeof data.taken === 'boolean') return !data.taken;
     return null;
   } catch {
@@ -60,18 +56,38 @@ export async function isAvailable(username) {
   }
 }
 
-// ─── Classificação de usernames ───────────────────────────────────────────────
+// ─── Classificação ───────────────────────────────────────────────────────────
 
 export function classifyUsername(username) {
   const lower = username.toLowerCase();
-  if (/^\d+$/.test(lower))                          return 'numbers';
-  if (ptWords.has(lower))                           return 'realwordpt';
-  if (enWords.has(lower))                           return 'realword';
-  if (/[a-z]/i.test(lower) && /\d/.test(lower))    return 'mixed';
-  return 'realword'; // palavra pura sem lista → usa realword como fallback
+  if (/^\d+$/.test(lower))                       return 'numbers';
+  if (ptWords.has(lower))                        return 'realwordpt';
+  if (enWords.has(lower))                        return 'realword';
+  if (/[a-z]/i.test(lower) && /\d/.test(lower)) return 'mixed';
+  return 'realword';
 }
 
-// ─── Postagem nos canais ──────────────────────────────────────────────────────
+// ─── Postagem universal: fórum ou texto ──────────────────────────────────────
+
+/**
+ * Envia mensagem ou cria post de fórum.
+ * Retorna o ID do thread criado (se fórum) ou null.
+ */
+async function sendOrPost(ch, title, content) {
+  if (!ch) return null;
+  if (ch.type === ChannelType.GuildForum) {
+    const thread = await ch.threads.create({
+      name: title,
+      message: { content },
+    });
+    return thread.id;
+  } else {
+    await ch.send(content);
+    return null;
+  }
+}
+
+// ─── Buscar canais configurados ───────────────────────────────────────────────
 
 const CATEGORY_FIELD = {
   realwordpt: 'channelRealwordPt',
@@ -82,10 +98,10 @@ const CATEGORY_FIELD = {
 };
 
 async function getChannels(client, category) {
-  const field   = CATEGORY_FIELD[category];
+  const field = CATEGORY_FIELD[category];
   if (!field) return [];
   const configs = await prisma.sniperConfig.findMany({ where: { enabled: true } });
-  const chs     = [];
+  const chs = [];
   for (const cfg of configs) {
     const id = cfg[field];
     if (!id) continue;
@@ -94,11 +110,11 @@ async function getChannels(client, category) {
   return chs.filter(Boolean);
 }
 
-/** Anuncia username disponível no canal correto */
+// ─── Posta username disponível (word channels) ────────────────────────────────
+
 async function postAvailable(client, username, category, detectedAt) {
   if (foundCache.has(username)) return;
 
-  // Checa DB — evita re-postar no período de REPOST_DAYS
   const cutoff = new Date(Date.now() - REPOST_DAYS * 86_400_000);
   const record = await prisma.sniperTarget.findUnique({ where: { username } });
   if (record?.postedAt && record.postedAt > cutoff) return;
@@ -107,7 +123,6 @@ async function postAvailable(client, username, category, detectedAt) {
   const chs = await getChannels(client, category);
   if (!chs.length) return;
 
-  // Salva/atualiza no DB
   await prisma.sniperTarget.upsert({
     where:  { username },
     create: { username, category, detectedAt: new Date(detectedAt ?? Date.now()), postedAt: new Date() },
@@ -117,63 +132,91 @@ async function postAvailable(client, username, category, detectedAt) {
   foundCache.add(username);
   setTimeout(() => foundCache.delete(username), REPOST_DAYS * 86_400_000);
 
-  const msg = `🎉 **@${username}**\ndisponível agora · <t:${ts}:R>`;
+  const title   = `@${username}`;
+  const content = `🎉 **@${username}**\ndisponível agora · <t:${ts}:R>`;
+
   for (const ch of chs) {
-    try { await ch.send(msg); } catch (e) {
+    try { await sendOrPost(ch, title, content); } catch (e) {
       console.error(`[SNIPER] Erro ao postar em ${ch.id}:`, e.message);
     }
   }
 }
 
-/** Anuncia "entrou na mira" no canal sniper */
+// ─── Posta "entrou na mira" (sniper channel) ──────────────────────────────────
+
 export async function postSniperAlerta(client, oldUsername, droppedById, newUsername) {
   const chs = await getChannels(client, 'sniper');
   if (!chs.length) return;
 
-  const ts  = Math.floor(Date.now() / 1000);
-  const msg = [
+  const ts    = Math.floor(Date.now() / 1000);
+  const title = `🎯 @${oldUsername} entrou na mira`;
+  const content = [
     `🎯 **@${oldUsername}** entrou na mira`,
     `<@${droppedById}> mudou pra **@${newUsername}** — vou avisar quando **@${oldUsername}** liberar.`,
     `Estimativa: entre **em um dia** e **em 14 dias** (sem regra exata do Discord). Verifico de tempos em tempos.`,
   ].join('\n');
 
-  // Salva no DB
+  // Salva no DB antes de postar
+  const existing = await prisma.sniperTarget.findUnique({ where: { username: oldUsername } });
+
+  let threadId = null;
+  for (const ch of chs) {
+    try {
+      const tid = await sendOrPost(ch, title, content);
+      if (tid) threadId = tid; // salva o ID do thread do último canal (normalmente 1)
+    } catch (e) {
+      console.error(`[SNIPER] Erro ao postar sniper em ${ch.id}:`, e.message);
+    }
+  }
+
   await prisma.sniperTarget.upsert({
     where:  { username: oldUsername },
     create: {
       username: oldUsername, category: 'sniper',
       droppedById, droppedByName: oldUsername, pickedByName: newUsername,
       detectedAt: new Date(), sniperAlerted: true,
+      ...(threadId ? { threadId } : {}),
     },
     update: {
       droppedById, droppedByName: oldUsername, pickedByName: newUsername,
       detectedAt: new Date(), sniperAlerted: true, postedAt: null,
+      ...(threadId ? { threadId } : {}),
     },
   });
-
-  for (const ch of chs) {
-    try { await ch.send(msg); } catch (e) {
-      console.error(`[SNIPER] Erro ao postar sniper em ${ch.id}:`, e.message);
-    }
-  }
 }
 
-/** Anuncia "LIBEROU!" para target do sniper */
+// ─── Posta "LIBEROU!" (sniper channel) ───────────────────────────────────────
+
 async function postSniperLiberou(client, target) {
-  const chs = await getChannels(client, 'sniper');
-  if (!chs.length) return;
-
   const ts  = Math.floor(target.detectedAt.getTime() / 1000);
-  const who = target.droppedById ? `<@${target.droppedById}>` : `**@${target.droppedByName || 'usuário-desconhecido'}**`;
-  const msg = `🎉 **@${target.username}** LIBEROU!\nLargado por ${who} · confirmado livre agora · <t:${ts}:R>`;
+  const who = target.droppedById
+    ? `<@${target.droppedById}>`
+    : `**@${target.droppedByName || 'usuário-desconhecido'}**`;
+  const content = `🎉 **@${target.username}** LIBEROU!\nLargado por ${who} · confirmado livre agora · <t:${ts}:R>`;
 
+  // Marca como postado ANTES de tentar enviar (evita re-tentativas paralelas)
   await prisma.sniperTarget.update({
     where: { id: target.id },
     data:  { postedAt: new Date(), availableAt: new Date() },
   });
 
+  // Se tiver threadId salvo, tenta dar reply no thread do fórum
+  if (target.threadId) {
+    try {
+      const thread = await client.channels.fetch(target.threadId);
+      if (thread) {
+        await thread.send(content);
+        return;
+      }
+    } catch {}
+  }
+
+  // Fallback: cria post novo no canal sniper
+  const chs = await getChannels(client, 'sniper');
   for (const ch of chs) {
-    try { await ch.send(msg); } catch (e) {
+    try {
+      await sendOrPost(ch, `🎉 @${target.username} LIBEROU!`, content);
+    } catch (e) {
       console.error(`[SNIPER] Erro ao postar LIBEROU em ${ch.id}:`, e.message);
     }
   }
@@ -185,8 +228,8 @@ function randomNumbers(count = 10) {
   const nums = [];
   while (nums.length < count) {
     const digits = Math.random() < 0.5 ? 5 : 6;
-    const min    = 10 ** (digits - 1);
-    const max    = 10 ** digits - 1;
+    const min = 10 ** (digits - 1);
+    const max = 10 ** digits - 1;
     nums.push(String(Math.floor(min + Math.random() * (max - min))));
   }
   return nums;
@@ -198,7 +241,6 @@ async function checkBatch(client, words, category) {
   for (const word of words) {
     if (!running) return;
     if (foundCache.has(word)) { await sleep(100); continue; }
-
     const avail = await isAvailable(word);
     if (avail === true) await postAvailable(client, word, category, Date.now());
     await sleep(CHECK_DELAY);
@@ -209,7 +251,6 @@ export async function startMonitor(client) {
   if (running) return;
   running = true;
 
-  // Prepara arrays embaralhados
   ptArr = shuffle([...ptWords]);
   enArr = shuffle([...enWords]);
   ptIdx = 0;
@@ -219,7 +260,7 @@ export async function startMonitor(client) {
 
   while (running) {
     try {
-      // ── Lote PT ─────────────────────────────────────────────────────────
+      // Lote PT
       const ptBatch = [];
       for (let i = 0; i < BATCH_SIZE; i++) {
         ptBatch.push(ptArr[ptIdx % ptArr.length]);
@@ -229,7 +270,7 @@ export async function startMonitor(client) {
       if (!running) break;
       await sleep(CYCLE_PAUSE);
 
-      // ── Lote EN ─────────────────────────────────────────────────────────
+      // Lote EN
       const enBatch = [];
       for (let i = 0; i < BATCH_SIZE; i++) {
         enBatch.push(enArr[enIdx % enArr.length]);
@@ -239,12 +280,12 @@ export async function startMonitor(client) {
       if (!running) break;
       await sleep(CYCLE_PAUSE);
 
-      // ── Números aleatórios ───────────────────────────────────────────────
+      // Números aleatórios
       await checkBatch(client, randomNumbers(8), 'numbers');
       if (!running) break;
       await sleep(CYCLE_PAUSE);
 
-      // ── Targets sniper aguardando confirmação ────────────────────────────
+      // Targets sniper aguardando confirmação
       const targets = await prisma.sniperTarget.findMany({
         where:   { category: 'sniper', sniperAlerted: true, postedAt: null },
         orderBy: { detectedAt: 'asc' },
@@ -258,7 +299,6 @@ export async function startMonitor(client) {
       }
 
       await sleep(CYCLE_PAUSE);
-
     } catch (err) {
       console.error('[SNIPER] Erro no loop:', err.message);
       await sleep(15_000);
@@ -271,8 +311,6 @@ export async function startMonitor(client) {
 export function stopMonitor() {
   running = false;
 }
-
-// ─── Utilitário ───────────────────────────────────────────────────────────────
 
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
