@@ -365,3 +365,35 @@ model VipGrant {
   @@unique([guildId, userId, roleId])
   @@index([expiresAt])
 }
+
+// ─── Sniper de Usernames ──────────────────────────────────────────────────────
+
+model SniperConfig {
+  id                String  @id @default(cuid())
+  guildId           String  @unique
+  channelRealwordPt String?
+  channelRealword   String?
+  channelMixed      String?
+  channelSniper     String?
+  channelNumbers    String?
+  enabled           Boolean @default(true)
+}
+
+/// Rastreia usernames encontrados disponíveis ou "na mira" (sniper).
+model SniperTarget {
+  id            String    @id @default(cuid())
+  username      String    @unique
+  /// realwordpt | realword | mixed | numbers | sniper
+  category      String    @default("sniper")
+  droppedById   String?   // userId de quem soltou (sniper)
+  droppedByName String?   // username de quem soltou
+  pickedByName  String?   // novo username de quem soltou
+  detectedAt    DateTime  @default(now())
+  availableAt   DateTime?
+  postedAt      DateTime? // quando foi anunciado como disponível
+  /// true = já postou alerta "entrou na mira" no canal sniper
+  sniperAlerted Boolean   @default(false)
+
+  @@index([category])
+  @@index([postedAt])
+}
