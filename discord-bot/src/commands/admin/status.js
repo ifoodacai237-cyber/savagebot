@@ -21,9 +21,20 @@ const KEY = Symbol('statusInterval');
 function aplicarStatus(client, tipo, mensagem, url, emoji) {
   const cfg = TIPOS[tipo] ?? TIPOS.jogando;
 
-  const activity = { name: mensagem, type: cfg.type };
-  if (tipo === 'streaming' && url) activity.url = url;
-  if (tipo === 'personalizado' && emoji) activity.state = mensagem, activity.name = emoji + ' ' + mensagem;
+  let activity;
+
+  if (tipo === 'personalizado') {
+    // Custom status: emoji aparece ao lado do texto
+    activity = {
+      type: ActivityType.Custom,
+      name: 'Custom Status',
+      state: mensagem,
+    };
+    if (emoji) activity.emoji = { name: emoji };
+  } else {
+    activity = { name: mensagem, type: cfg.type };
+    if (tipo === 'streaming' && url) activity.url = url;
+  }
 
   client.user.setPresence({ status: 'online', activities: [activity] });
 }
