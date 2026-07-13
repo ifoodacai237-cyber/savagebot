@@ -376,13 +376,14 @@ model SniperConfig {
   channelMixed      String?
   channelSniper     String?
   channelNumbers    String?
-  /// ID do canal-categoria (Discord category) que agrupa os fóruns criados por /sniper-config criar-canais
-  categoryId        String?
-  /// ID do thread "users" persistente de cada fórum (reaproveitado a cada novo username encontrado)
+  /// ID do fórum único criado por /sniper-config criar-canais (todas as categorias abaixo apontam pra ele)
+  forumChannelId    String?
+  /// ID do thread persistente de cada categoria dentro do fórum (reaproveitado a cada novo username encontrado)
   threadRealwordPt  String?
   threadRealword    String?
   threadMixed       String?
   threadNumbers     String?
+  threadSniper      String?
   enabled           Boolean @default(true)
 }
 

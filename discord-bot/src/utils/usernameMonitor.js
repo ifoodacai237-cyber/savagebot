@@ -89,11 +89,11 @@ function buildCard(lines) {
 
 /**
  * Envia o payload no canal. Se for fórum:
- *  - reaproveita a thread "users" já existente (threadId) quando possível;
- *  - cria a thread "users" na primeira vez e retorna o novo ID.
+ *  - reaproveita a thread da categoria já existente (threadId) quando possível;
+ *  - cria a thread (nome = categoria) na primeira vez e retorna o novo ID.
  * Retorna o threadId (novo ou reaproveitado) ou null se for canal de texto.
  */
-async function sendOrPost(ch, threadId, payload) {
+async function sendOrPost(ch, threadId, threadName, payload) {
   if (!ch) return null;
 
   if (ch.type === ChannelType.GuildForum) {
@@ -106,7 +106,7 @@ async function sendOrPost(ch, threadId, payload) {
         }
       } catch { /* thread não existe mais — recria abaixo */ }
     }
-    const thread = await ch.threads.create({ name: 'users', message: payload });
+    const thread = await ch.threads.create({ name: threadName, message: payload });
     return thread.id;
   }
 
@@ -124,13 +124,14 @@ const CATEGORY_FIELD = {
   sniper:     'channelSniper',
 };
 
-// Apenas categorias "lista contínua" têm thread persistente única ("users").
-// O sniper cria uma thread por alvo (precisa responder "LIBEROU" nela depois).
+// Todas as categorias têm uma thread persistente própria (nomeada pela categoria)
+// dentro do fórum configurado — reaproveitada a cada novo username encontrado.
 const THREAD_FIELD = {
   realwordpt: 'threadRealwordPt',
   realword:   'threadRealword',
   mixed:      'threadMixed',
   numbers:    'threadNumbers',
+  sniper:     'threadSniper',
 };
 
 async function getConfigsWithChannel(client, category) {
@@ -149,8 +150,27 @@ async function getConfigsWithChannel(client, category) {
   return out;
 }
 
-async function getChannels(client, category) {
-  return (await getConfigsWithChannel(client, category)).map(x => x.ch);
+/**
+ * Posta o payload na thread persistente da categoria (criando-a na primeira vez)
+ * em todos os canais/fóruns configurados para essa categoria.
+ */
+async function postToCategory(client, category, payload) {
+  const targets     = await getConfigsWithChannel(client, category);
+  const threadField = THREAD_FIELD[category];
+
+  for (const { cfg, ch } of targets) {
+    try {
+      const currentThreadId = threadField ? cfg[threadField] : null;
+      const newThreadId     = await sendOrPost(ch, currentThreadId, category, payload);
+      if (threadField && newThreadId && newThreadId !== currentThreadId) {
+        await prisma.sniperConfig.update({ where: { id: cfg.id }, data: { [threadField]: newThreadId } });
+      }
+    } catch (e) {
+      console.error(`[SNIPER] Erro ao postar em ${ch.id}:`, e.message);
+    }
+  }
+
+  return targets.length > 0;
 }
 
 // ─── Posta username disponível (word channels) ────────────────────────────────
@@ -162,9 +182,10 @@ async function postAvailable(client, username, category, detectedAt) {
   const record = await prisma.sniperTarget.findUnique({ where: { username } });
   if (record?.postedAt && record.postedAt > cutoff) return;
 
-  const ts      = Math.floor((detectedAt ?? Date.now()) / 1000);
-  const targets = await getConfigsWithChannel(client, category);
-  if (!targets.length) return;
+  const ts = Math.floor((detectedAt ?? Date.now()) / 1000);
+
+  const posted = await postToCategory(client, category, buildAvailableCard(username, ts));
+  if (!posted) return;
 
   await prisma.sniperTarget.upsert({
     where:  { username },
@@ -174,48 +195,19 @@ async function postAvailable(client, username, category, detectedAt) {
 
   foundCache.add(username);
   setTimeout(() => foundCache.delete(username), REPOST_DAYS * 86_400_000);
-
-  const payload     = buildAvailableCard(username, ts);
-  const threadField = THREAD_FIELD[category];
-
-  for (const { cfg, ch } of targets) {
-    try {
-      const currentThreadId = threadField ? cfg[threadField] : null;
-      const newThreadId     = await sendOrPost(ch, currentThreadId, payload);
-      if (threadField && newThreadId && newThreadId !== currentThreadId) {
-        await prisma.sniperConfig.update({ where: { id: cfg.id }, data: { [threadField]: newThreadId } });
-      }
-    } catch (e) {
-      console.error(`[SNIPER] Erro ao postar em ${ch.id}:`, e.message);
-    }
-  }
 }
 
 // ─── Posta "entrou na mira" (sniper channel) ──────────────────────────────────
 
 export async function postSniperAlerta(client, oldUsername, droppedById, newUsername) {
-  const chs = await getChannels(client, 'sniper');
-  if (!chs.length) return;
-
   const payload = buildCard([
     `🎯 **@${oldUsername}** entrou na mira`,
     `<@${droppedById}> mudou pra **@${newUsername}** — vou avisar quando **@${oldUsername}** liberar.`,
     `Estimativa: entre **em um dia** e **em 14 dias** (sem regra exata do Discord). Verifico de tempos em tempos.`,
   ]);
 
-  // Salva no DB antes de postar
-  const existing = await prisma.sniperTarget.findUnique({ where: { username: oldUsername } });
-
-  let threadId = null;
-  for (const ch of chs) {
-    try {
-      // sempre cria uma thread nova por alvo (precisa responder "LIBEROU" nela depois)
-      const tid = await sendOrPost(ch, null, payload);
-      if (tid) threadId = tid; // salva o ID do thread do último canal (normalmente 1)
-    } catch (e) {
-      console.error(`[SNIPER] Erro ao postar sniper em ${ch.id}:`, e.message);
-    }
-  }
+  const posted = await postToCategory(client, 'sniper', payload);
+  if (!posted) return;
 
   await prisma.sniperTarget.upsert({
     where:  { username: oldUsername },
@@ -223,12 +215,10 @@ export async function postSniperAlerta(client, oldUsername, droppedById, newUser
       username: oldUsername, category: 'sniper',
       droppedById, droppedByName: oldUsername, pickedByName: newUsername,
       detectedAt: new Date(), sniperAlerted: true,
-      ...(threadId ? { threadId } : {}),
     },
     update: {
       droppedById, droppedByName: oldUsername, pickedByName: newUsername,
       detectedAt: new Date(), sniperAlerted: true, postedAt: null,
-      ...(threadId ? { threadId } : {}),
     },
   });
 }
@@ -251,26 +241,8 @@ async function postSniperLiberou(client, target) {
     data:  { postedAt: new Date(), availableAt: new Date() },
   });
 
-  // Se tiver threadId salvo, tenta dar reply no thread do fórum
-  if (target.threadId) {
-    try {
-      const thread = await client.channels.fetch(target.threadId);
-      if (thread) {
-        await thread.send(payload);
-        return;
-      }
-    } catch {}
-  }
-
-  // Fallback: cria post novo no canal sniper
-  const chs = await getChannels(client, 'sniper');
-  for (const ch of chs) {
-    try {
-      await sendOrPost(ch, null, payload);
-    } catch (e) {
-      console.error(`[SNIPER] Erro ao postar LIBEROU em ${ch.id}:`, e.message);
-    }
-  }
+  // Posta na mesma thread persistente "sniper" (nova mensagem, não thread separada)
+  await postToCategory(client, 'sniper', payload);
 }
 
 // ─── Geradores ───────────────────────────────────────────────────────────────

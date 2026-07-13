@@ -19,14 +19,8 @@ const CATEGORIAS = [
   { value: 'numbers',    label: '🔢 Números',        field: 'channelNumbers'    },
 ];
 
-// Nome do fórum criado automaticamente por /sniper-config criar-canais
-const FORUM_NOME = {
-  realwordpt: 'palavras-pt',
-  realword:   'palavras-en',
-  mixed:      'mixed',
-  sniper:     'sniper',
-  numbers:    'numeros',
-};
+// Nome do fórum único criado automaticamente por /sniper-config criar-canais
+const FORUM_NOME = 'users';
 
 // Aceita canal de texto OU fórum
 const CHANNEL_TYPES = [
@@ -146,41 +140,22 @@ export default {
 
       const cfgAtual = await prisma.sniperConfig.findUnique({ where: { guildId } });
 
-      // Categoria (pasta) que agrupa os fóruns — reaproveita se já existir
-      let parent = null;
-      const catId = cfgAtual?.categoryId;
-      if (catId) {
-        try { parent = await guild.channels.fetch(catId); } catch {}
+      // Fórum único que recebe todas as categorias — reaproveita se já existir
+      let forum = null;
+      const existingId = cfgAtual?.forumChannelId;
+      if (existingId) {
+        try { forum = await guild.channels.fetch(existingId); } catch {}
       }
-      if (!parent) {
-        parent = await guild.channels.create({
-          name: '🎯 sniper de usernames',
-          type: ChannelType.GuildCategory,
+      if (!forum) {
+        forum = await guild.channels.create({
+          name: FORUM_NOME,
+          type: ChannelType.GuildForum,
+          topic: 'Usernames encontrados automaticamente pelo sniper. Cada categoria vira uma thread. Somente leitura.',
         });
       }
 
-      const updateData = { categoryId: parent.id };
-      const linhas = [];
-
-      for (const c of CATEGORIAS) {
-        let channel = null;
-        const existingId = cfgAtual?.[c.field];
-        if (existingId) {
-          try { channel = await guild.channels.fetch(existingId); } catch {}
-        }
-        if (!channel) {
-          channel = await guild.channels.create({
-            name: FORUM_NOME[c.value],
-            type: ChannelType.GuildForum,
-            parent: parent.id,
-            topic: 'Usernames encontrados automaticamente pelo sniper. Somente leitura.',
-          });
-        }
-        updateData[c.field] = channel.id;
-        linhas.push(`${c.label} → <#${channel.id}>`);
-      }
-
-      updateData.enabled = true;
+      const updateData = { forumChannelId: forum.id, enabled: true };
+      for (const c of CATEGORIAS) updateData[c.field] = forum.id;
 
       await prisma.sniperConfig.upsert({
         where:  { guildId },
@@ -194,9 +169,10 @@ export default {
         embeds: [
           new EmbedBuilder()
             .setColor(0x57F287)
-            .setTitle('✅ Canais criados e sniper ativado')
-            .setDescription(linhas.join('\n'))
-            .setFooter({ text: 'Cada categoria posta em uma thread "users" própria no seu fórum.' }),
+            .setTitle('✅ Fórum criado e sniper ativado')
+            .setDescription(
+              `Tudo dentro de ${forum} agora — cada categoria (${CATEGORIAS.map(c => c.label).join(', ')}) vira uma thread própria lá dentro.`,
+            ),
         ],
       });
     }
