@@ -254,11 +254,14 @@ async function postSniperLiberou(client, target) {
 
 // ─── Geradores ───────────────────────────────────────────────────────────────
 
-/** Gera números aleatórios de 4-6 dígitos */
+/** Gera números aleatórios de 7-9 dígitos.
+ *  Testado manualmente: números de 4-6 dígitos já estão quase todos ocupados
+ *  (sniperados há anos), enquanto 7+ dígitos ainda têm disponibilidade real.
+ */
 function generateNumbers(count = 15) {
   const nums = new Set();
   while (nums.size < count) {
-    const digits = [4, 5, 6][Math.floor(Math.random() * 3)];
+    const digits = [7, 8, 9][Math.floor(Math.random() * 3)];
     const min    = 10 ** (digits - 1);
     const max    = 10 ** digits - 1;
     nums.add(String(Math.floor(min + Math.random() * (max - min))));
