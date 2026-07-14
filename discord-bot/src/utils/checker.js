@@ -1,26 +1,23 @@
 /**
  * checker.js — verifica disponibilidade de username no Discord
  *
- * Usa POST /users/@me/pomelo-attempt com tokens de usuário,
- * seguindo a abordagem do repositório y0f/discord-user-checker.
- *
- * Tokens configurados via secret DISCORD_USER_TOKENS (separados por vírgula ou linha).
+ * Baseado em yutomiwana/discord-username-sniper:
+ *  - Endpoint: POST /unique-username/username-attempt-unauthed
+ *  - Headers completos de browser real (Chrome 147)
+ *  - X-Super-Properties atualizado (Chrome 147, build 372050)
+ *  - Token de usuário no Authorization (bypass anti-bot)
+ *  - Rotação automática de tokens com cooldown por rate-limit
  */
 
-const ENDPOINT   = 'https://discord.com/api/v9/users/@me/pomelo-attempt';
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+// X-Super-Properties direto do config.json do repo (Chrome 147, build 372050)
+const X_SUPER_PROPERTIES =
+  'eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiQ2hyb21lIiwiZGV2aWNlIjoiIiwic3lzdGVtX2xvY2FsZSI6ImVuLVVTIiwiYnJvd3Nlcl91c2VyX2FnZW50IjoiTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzE0Ny4wLjAuMCBTYWZhcmkvNTM3LjM2IiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTQ3LjAuMC4wIiwib3NfdmVyc2lvbiI6IjEwIiwicmVmZXJyZXIiOiIiLCJyZWZlcnJpbmdfZG9tYWluIjoiIiwicmVmZXJyZXJfY3VycmVudCI6IiIsInJlZmVycmluZ19kb21haW5fY3VycmVudCI6IiIsInJlbGVhc2VfY2hhbm5lbCI6InN0YWJsZSIsImNsaWVudF9idWlsZF9udW1iZXIiOjM3MjA1MCwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=';
 
-const X_SUPER_PROPERTIES = Buffer.from(JSON.stringify({
-  os:                 'Windows',
-  browser:            'Chrome',
-  device:             '',
-  system_locale:      'en-US',
-  browser_user_agent: USER_AGENT,
-  browser_version:    '120.0.0.0',
-  os_version:         '10',
-  referrer:           '',
-  referring_domain:   '',
-})).toString('base64');
+const USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36';
+
+const CHECK_URL =
+  'https://discord.com/api/v9/unique-username/username-attempt-unauthed';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -43,78 +40,94 @@ function getTokens() {
 }
 
 function pickToken() {
-  const tokens  = getTokens();
-  const now     = Date.now();
-  const available = tokens.filter(t => t.sleepUntil <= now);
+  const now = Date.now();
+  const available = getTokens().filter(t => t.sleepUntil <= now);
   if (!available.length) return null;
-  // Round-robin simples: pega o que tem o menor sleepUntil
   return available.reduce((a, b) => (a.sleepUntil <= b.sleepUntil ? a : b));
 }
 
-// ─── Checagem ─────────────────────────────────────────────────────────────────
+// ─── Headers completos (yutomiwana/discord-username-sniper) ───────────────────
+
+function buildHeaders(token) {
+  const h = {
+    'Content-Type':        'application/json',
+    'User-Agent':          USER_AGENT,
+    'Accept':              '*/*',
+    'Accept-Language':     'en-US,en;q=0.9',
+    'X-Super-Properties':  X_SUPER_PROPERTIES,
+    'X-Discord-Locale':    'en-US',
+    'Referer':             'https://discord.com/channels/@me',
+    'Origin':              'https://discord.com',
+    'Sec-Fetch-Dest':      'empty',
+    'Sec-Fetch-Mode':      'cors',
+    'Sec-Fetch-Site':      'same-origin',
+    'Priority':            'u=1, i',
+    'Sec-Ch-Ua':           '"Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
+    'Sec-Ch-Ua-Mobile':    '?0',
+    'Sec-Ch-Ua-Platform':  '"Windows"',
+    'X-Debug-Options':     'bugReporterEnabled',
+  };
+
+  if (token) h['Authorization'] = token;
+  return h;
+}
+
+// ─── Checagem principal ───────────────────────────────────────────────────────
 
 export async function isAvailable(username) {
   const tokens = getTokens();
-  if (!tokens.length) {
-    console.error('[CHECKER] Nenhum token configurado em DISCORD_USER_TOKENS.');
-    return null;
-  }
 
-  const token = pickToken();
-  if (!token) {
-    // Todos os tokens em cooldown — aguarda o menor cooldown
-    const wait = Math.min(...getTokens().map(t => t.sleepUntil)) - Date.now();
-    if (wait > 0) await sleep(wait);
+  // Escolhe token disponível (ou null se não tiver)
+  const token = tokens.length ? pickToken() : null;
+
+  // Se todos em cooldown, aguarda o menor
+  if (tokens.length && !token) {
+    const wait = Math.min(...tokens.map(t => t.sleepUntil)) - Date.now();
+    if (wait > 0) await sleep(Math.min(wait, 30_000));
     return isAvailable(username);
   }
 
   try {
-    const res = await fetch(ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'authority':           'discord.com',
-        'accept':              '*/*',
-        'accept-language':     'en-US,en;q=0.9',
-        'content-type':        'application/json',
-        'origin':              'https://discord.com',
-        'referer':             'https://discord.com/channels/@me',
-        'user-agent':          USER_AGENT,
-        'x-super-properties':  X_SUPER_PROPERTIES,
-        'authorization':       token.value,
-      },
-      body: JSON.stringify({ username }),
+    const res = await fetch(CHECK_URL, {
+      method:  'POST',
+      headers: buildHeaders(token?.value ?? null),
+      body:    JSON.stringify({ username }),
     });
 
     // Rate limit
     if (res.status === 429) {
-      const retry = Number(res.headers.get('Retry-After') || 5);
-      token.sleepUntil = Date.now() + (retry + 0.5) * 1_000;
-      console.warn(`[CHECKER] Rate limited — aguardando ${retry}s no token.`);
-      return isAvailable(username); // tenta com outro token
+      const retry = parseFloat(res.headers.get('Retry-After') || '5');
+      if (token) {
+        token.sleepUntil = Date.now() + (retry + 1) * 1_000;
+        console.warn(`[CHECKER] Rate limit — token em cooldown por ${retry}s.`);
+        return isAvailable(username); // tenta com outro token
+      }
+      await sleep(retry * 1_000);
+      return null;
     }
 
     const body = await res.json();
 
-    // 200 com taken
+    // 200 — campo taken retornado diretamente
     if (res.status === 200 && typeof body.taken === 'boolean') {
       return !body.taken;
     }
 
-    // 400 com erros de validação
+    // 400 — erros de validação do Discord
     if (res.status === 400) {
       const errs = body?.errors?.username?._errors ?? [];
       if (errs.some(e => e.code === 'USERNAME_ALREADY_TAKEN')) return false;
 
       const raw = JSON.stringify(body);
-      if (raw.includes('PASSWORD_DOES_NOT_MATCH')) return true; // username livre
-      if (raw.includes('BASE_TYPE_BAD_LENGTH'))     return null; // comprimento inválido
+      if (raw.includes('PASSWORD_DOES_NOT_MATCH')) return true;
+      if (raw.includes('BASE_TYPE_BAD_LENGTH'))    return null;
     }
 
-    // 401 — token inválido, remove do pool
-    if (res.status === 401) {
-      console.warn(`[CHECKER] Token inválido/expirado, removendo do pool.`);
+    // 401 — token inválido, desativa do pool
+    if (res.status === 401 && token) {
+      console.warn('[CHECKER] Token inválido/expirado, removido do pool.');
       token.sleepUntil = Date.now() + 999_999_999;
-      return null;
+      return isAvailable(username);
     }
 
     return null;
