@@ -366,3 +366,16 @@ model VipGrant {
   @@index([expiresAt])
 }
 
+/// Usernames monitorados pelos usuários via /snipe_add
+model SniperTarget {
+  id            String    @id @default(cuid())
+  username      String    @unique
+  category      String    @default("sniper")
+  addedByUserId String?
+  addedByName   String?
+  detectedAt    DateTime  @default(now())
+  postedAt      DateTime?
+
+  @@index([addedByUserId])
+}
+
