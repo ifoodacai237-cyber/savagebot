@@ -292,4 +292,75 @@ const canais = {
   },
 };
 
-export default [disponivel, snipe_add, snipe_list, gerar, setup_canal, canais];
+// ─── /publicar_agora ──────────────────────────────────────────────────────────
+
+const publicar_agora = {
+  data: new SlashCommandBuilder()
+    .setName('publicar_agora')
+    .setDescription('Publica usernames disponíveis imediatamente nos canais configurados 📤')
+    .setDefaultMemberPermissions(0x8), // ADMINISTRATOR
+
+  name: 'publicar_agora',
+
+  async execute(interaction, client) {
+    await interaction.deferReply({ flags: 64 });
+
+    const configs = await prisma.publishChannel.findMany({
+      where: { guildId: interaction.guildId },
+    });
+
+    if (!configs.length) {
+      return interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xED4245)
+            .setDescription('❌ Nenhum canal configurado! Use `/setup_canal` primeiro.'),
+        ],
+      });
+    }
+
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    let publicados = 0;
+
+    for (const cfg of configs) {
+      try {
+        const channel = await client.channels.fetch(cfg.channelId).catch(() => null);
+        if (!channel) continue;
+
+        const targets = await prisma.sniperTarget.findMany({
+          where:   { category: cfg.category, postedAt: { not: null, gte: since } },
+          orderBy: { postedAt: 'desc' },
+          take:    50,
+        });
+
+        if (!targets.length) continue;
+
+        const lista = targets.map(t => `✅ \`${t.username}\``).join('\n');
+        await channel.send({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(0x57F287)
+              .setTitle(`🎁 Usernames Disponíveis — ${cfg.category.toUpperCase()}`)
+              .setDescription(lista.length > 2048 ? lista.slice(0, 2000) + '…' : lista)
+              .setFooter({ text: `Total: ${targets.length} | Fallen Angels Sniper` }),
+          ],
+        });
+        publicados++;
+      } catch { /* ignora canal inválido */ }
+    }
+
+    return interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(publicados ? 0x57F287 : 0xFEE75C)
+          .setDescription(
+            publicados
+              ? `✅ Publicado em **${publicados}** canal(is).`
+              : '⚠️ Nenhum username disponível para publicar no momento.',
+          ),
+      ],
+    });
+  },
+};
+
+export default [disponivel, snipe_add, snipe_list, gerar, setup_canal, canais, publicar_agora];

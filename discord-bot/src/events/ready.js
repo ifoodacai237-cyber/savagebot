@@ -3,7 +3,7 @@ import { registerSlashCommands } from '../utils/loader.js';
 import { initEmojis } from '../utils/emojiManager.js';
 import prisma from '../database/client.js';
 
-const PUBLISH_INTERVAL_MS  = 5 * 60 * 1000; // 5 minutos
+const PUBLISH_INTERVAL_MS  = 1 * 60 * 1000; // 1 minuto
 const USERNAMES_PER_MESSAGE = 500;
 
 async function publishAvailableUsernames(client) {
