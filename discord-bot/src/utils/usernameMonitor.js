@@ -18,105 +18,163 @@ import { isAvailable } from './checker.js';
 const WORKERS_PER_CATEGORY = 8;      // workers paralelos por categoria
 const WORKER_START_OFFSET  = 150;    // ms de escalonamento no start (evita burst inicial)
 
-// ─── Listas de palavras ───────────────────────────────────────────────────────
-
 // ─── Geradores ────────────────────────────────────────────────────────────────
-// Geram combinações pronunciáveis/aleatórias quase infinitas — sem lista fixa,
-// igual ao bot de referência que acumula milhares de resultados.
 
 const DIGITS      = '0123456789';
 const ALPHA       = 'abcdefghijklmnopqrstuvwxyz';
 const MIXED_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
-const VOWELS      = 'aeiou';
-const CONSONANTS  = 'bcdfghjklmnprstvwxyz';
-
-// Sílabas comuns do português para realwordpt
-const SILAS_PT = [
-  'al','an','ar','as','at','ba','be','bi','bo','bu','ca','ce','ci','co','cu',
-  'da','de','di','do','du','el','em','en','er','es','fa','fe','fi','fo','fu',
-  'ga','ge','gi','go','gu','ia','im','in','ir','is','it','ja','je','jo','ju',
-  'la','le','li','lo','lu','ma','me','mi','mo','mu','na','ne','ni','no','nu',
-  'ob','oc','od','of','ol','om','on','op','or','os','pa','pe','pi','po','pu',
-  'ra','re','ri','ro','ru','sa','se','si','so','su','ta','te','ti','to','tu',
-  'ul','um','un','ur','us','ut','va','ve','vi','vo','vu','xa','xe','xi','xo',
-  'aba','aca','ada','ado','aga','aia','ala','ama','ana','ando','ando','anha',
-  'ara','arca','ardo','aria','ario','arma','arro','arte','aste','atro','ava',
-  'aza','eco','ecto','ego','eiro','ela','elo','ema','endo','enha','ento','era',
-  'erna','erro','erta','erva','esta','eto','ezes','fica','fico','fora','foro',
-  'gado','galo','gamo','gava','gera','gino','giro','gosa','goto','grao','gura',
-  'inho','ismo','isto','ista','itar','itor','ivel','izou','lada','lado','lago',
-  'lama','lamo','lara','lava','ledo','lela','lemo','lena','leno','lera','lesa',
-  'leva','leza','liça','lida','lido','liga','ligo','lima','lina','lira','liso',
-  'mica','mida','mido','miga','migo','mina','mira','miro','mona','mora','moro',
-  'nada','nado','naga','namo','nara','naro','nasa','nata','nato','nava','neca',
-  'neda','nedo','nega','nego','nela','nelo','nema','nena','neno','nera','nero',
-  'nica','nido','niga','nimo','nina','nino','nira','nita','nito','niva','nivo',
-  'onda','ondo','onga','ongo','onho','onto','onza','opla','opro','orça','ordo',
-  'orna','orro','orsa','orso','orta','orte','orto','otão','ouca','ouco','ould',
-  'oura','ouro','ousa','ouso','outa','outo','pado','pago','para','paro','pata',
-  'pato','pava','peca','peco','peda','pedo','pega','pego','peia','pelo','pena',
-  'peno','pera','pero','pesa','peso','peta','peto','peva','pevo','pica','pico',
-  'rada','rado','raga','rago','raia','rala','ralo','rama','ramo','rana','rano',
-  'rara','raro','rasa','raso','rata','rato','rava','ravo','raza','razo','reca',
-  'reda','redo','rega','rego','reia','rela','relo','rema','remo','rena','reno',
-  'resa','reso','reta','reto','rina','rino','rira','riro','risa','riso','rita',
-  'sada','sado','saga','sago','saia','sala','salo','sama','samo','sana','sano',
-  'sara','saro','sasa','sata','sato','sava','savo','seca','seco','seda','sedo',
-  'sega','sego','sela','selo','sema','semo','sena','seno','sera','sero','sesa',
-  'tado','tago','taia','tala','tamo','tana','tano','tara','taro','tasa','tata',
-  'tato','tava','tavo','teca','teco','teda','tedo','tega','tego','tela','telo',
-  'tema','temo','tena','teno','tera','tico','tina','tino','tira','tiro','tisa',
-  'vada','vado','vaga','vago','vaia','vala','valo','vama','vamo','vana','vano',
-  'vara','varo','vasa','vato','vava','veca','veco','veda','vedo','vega','vego',
-  'zada','zado','zaga','zago','zaia','zala','zalo','zama','zamo','zana','zano',
-];
-
-// Sílabas comuns do inglês para realword
-const SILAS_EN = [
-  'ab','ac','ad','ag','al','am','an','ap','ar','as','at','av','aw','ax','ay',
-  'ba','be','bi','bl','bo','br','bu','by','ca','ce','ch','ci','cl','co','cr',
-  'cu','da','de','di','do','dr','du','dy','ea','ed','el','em','en','er','es',
-  'et','ex','fa','fe','fi','fl','fo','fr','fu','ga','ge','gh','gl','go','gr',
-  'gu','ha','he','hi','ho','hu','hy','id','il','im','in','io','ir','is','it',
-  'ja','je','jo','ju','ke','ki','kn','la','le','li','lo','lu','ly','ma','me',
-  'mi','mo','mu','my','na','ne','ni','no','nu','ob','oc','od','of','ol','om',
-  'on','op','or','os','ov','pa','pe','ph','pi','pl','po','pr','pu','qu','ra',
-  're','ri','ro','ru','sa','sc','se','sh','si','sk','sl','sm','sn','so','sp',
-  'sq','st','su','sw','sy','ta','te','th','ti','to','tr','tu','ty','ul','un',
-  'up','ur','us','va','ve','vi','vo','wa','we','wh','wi','wo','wr','ya','ye',
-  'able','acle','aded','aged','aled','amed','aned','aped','ared','ased','ated',
-  'aved','awed','axed','ayed','bled','ched','cked','cled','dged','died','dled',
-  'dned','eled','emed','ened','ered','esed','eted','eved','ewed','exed','eyed',
-  'fied','fled','fted','gled','gned','gued','ided','iled','imed','ined','iped',
-  'ired','ised','ited','ived','ized','jled','ked','kled','lded','lled','lmed',
-  'lned','lped','lred','lsed','lted','lved','mbed','mied','mmed','mned','mped',
-  'mred','msed','mted','mved','nced','nded','nged','nied','nked','nned','nred',
-  'nsed','nted','nued','nved','oded','oged','oled','omed','oned','oped','ored',
-  'osed','oted','oved','owed','oxed','oyed','ozing','ping','ring','ting','ling',
-  'sing','ding','king','wing','ning','ming','bing','hing','ying','zing','ging',
-  'ness','less','ment','tion','sion','ance','ence','ture','ures','ings','edly',
-  'ably','ibly','edly','erly','enly','erly','ster','ling','ward','wise','like',
-  'ful','ous','ive','ish','ing','est','ier','ied','ing','ity','ize','ise',
-];
 
 function rand(arr)        { return arr[Math.floor(Math.random() * arr.length)]; }
 function randInt(min,max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
-/** Gera string pronunciável usando sílabas e padrões vogal/consoante */
-function pronounceable(silas, minLen, maxLen) {
-  const target = randInt(minLen, maxLen);
-  let word = '';
-  while (word.length < target) {
-    const sila = rand(silas);
-    if (word.length + sila.length <= maxLen) word += sila;
-    else break;
-  }
-  // Completa com vogal/consoante alternados se curto
-  while (word.length < minLen) {
-    word += (word.length % 2 === 0) ? rand([...CONSONANTS]) : rand([...VOWELS]);
-  }
-  return word.slice(0, maxLen);
-}
+// ─── Lista PT (verbos, substantivos, adjetivos reais em português) ─────────────
+const WORDS_PT = [
+  // gerúndio
+  'agonizando','alcancando','almejando','ansiando','apartando','ardendo','arrepiando',
+  'assombrando','atordoando','avancando','brilhando','buscando','caindo','capturando',
+  'carregando','cedendo','cercando','colidindo','conquistando','correndo','cortando',
+  'criando','cruzando','cuidando','deslizando','destruindo','dominando','emergindo',
+  'encontrando','enfrentando','enganando','envolvendo','errando','escapando','espalhando',
+  'esperando','existindo','expandindo','fechando','flutuando','forjando','fugindo',
+  'fundindo','ganhando','girando','governando','guardando','guerreando','iluminando',
+  'implorando','incendiando','invocando','isolando','lancando','libertando','lutando',
+  'mergulhando','mudando','nascendo','navegando','obscurecendo','ondulando','partindo',
+  'perseguindo','persistindo','procurando','projetando','protegendo','quebrando',
+  'queimando','rastejando','reconstruindo','refletindo','reinando','renascendo',
+  'resistindo','ressoando','retornando','revelando','rondando','rugindo','sacrificando',
+  'salvando','sentindo','separando','sonhando','sufocando','superando','sussurrando',
+  'tocando','transformando','tremendo','ultrapassando','unindo','vagando','vencendo',
+  'viajando','vivendo','voando','voltando','absorvendo','aceitando','acolhendo',
+  'admirando','afastando','agarrando','agitando','ajudando','alinhando','alterando',
+  'aniquilando','apagando','aprendendo','arriscando','atravessando','combatendo',
+  'cumpindo','derrotando','desviando','empurrando','encarando','escondendo',
+  'fracassando','glorificando','impedindo','libertando','marchando','permanecendo',
+  'recuando','rejeitando','rompendo','silenciando','sobrevivendo','triunfando',
+  'abarcando','absorvendo','acertando','acompanhando','acorrendo','acrescentando',
+  'adiantando','admirando','adotando','afirmando','agradando','agredindo','aguardando',
+  'alargando','alertando','alivando','amando','ameacando','ampliando','ancorando',
+  'angustiando','aniquilando','antecipando','apagando','apaixonando','aplaudindo',
+  'apontando','apostando','aprovando','arranhando','assolando','atendendo','atingindo',
+  'atirando','atraindo','aumentando','avaliando','batendo','bloqueando','brilhando',
+  'caçando','cativando','causando','celebrando','chegando','chocando','chorando',
+  'clamorando','cobrando','colhendo','completando','comunicando','concluindo',
+  'condenando','confundindo','conseguindo','considerando','construindo','contendo',
+  'contribuindo','convertendo','convivendo','coordenando','copiando','cuidando',
+  'declarando','defendendo','desafiando','descendo','descobrindo','desejando',
+  'desfazendo','desmontando','devorando','dirigindo','discutindo','distorcendo',
+  'dividindo','dobrando','dominando','duvidando','elevando','emitindo','encantando',
+  'encontrando','enfraquecendo','ensinando','entendendo','escolhendo','espalhando',
+  'estabelecendo','estendendo','estudando','evitando','exigindo','explicando',
+  'explorando','expondo','expressando','extinguindo','fazendo','feriando','finalizando',
+  'florescendo','formando','funcionando','gerando','indicando','iniciando','inspirando',
+  'juntando','justificando','liberando','ligando','limpando','marcando','mostrando',
+  'motivando','nomeando','observando','obtendo','parando','pegando','percebendo',
+  'perdendo','permitindo','pesquisando','planejando','praticando','preparando',
+  'produzindo','promovendo','proporcionando','provando','publicando','realizando',
+  'reconhecendo','recuperando','relacionando','removendo','representando','resolvendo',
+  'respondendo','seguindo','selecionando','subindo','tentando','terminando','tirando',
+  'trabalhando','transferindo','transmitindo','utilizando','verificando','visitando',
+  // infinitivo
+  'amortecer','apaziguar','aturdir','caminhar','clamar','desmoronar','despertar',
+  'acalmar','afogar','agredir','aliviar','ampliar','aniquilar','apagar','arriscar',
+  'assombrar','carregar','combater','derrotar','desviar','glorificar','iluminar',
+  'impedir','libertar','marchar','obscurecer','recuar','rejeitar','romper','silenciar',
+  'sobreviver','triunfar','absorver','aceitar','acolher','admirar','afastar','agarrar',
+  'agitar','ajudar','alinhar','alterar','amar','ameacar','ampliar','ancorar',
+  'angustiar','antecipar','apaixonar','aplaudir','apontar','apostar','aprovar',
+  // substantivos e adjetivos
+  'lagrimas','longevidade','sombrio','sangrado','aprisionado','ardente','corajoso',
+  'temerario','valioso','soberano','orgulhoso','destemido','fervoroso','cauteloso',
+  'vigilante','poderoso','glorioso','misterioso','silencioso','furioso','gracioso',
+  'venturoso','perigoso','victorioso','generoso','ansioso','ambicioso','precioso',
+  'harmonioso','laborioso','maravilhoso','luminoso','rigido','fragil','solido',
+  'profundo','intenso','sincero','eterno','sublime','obscuro','nobre','bravo',
+  'leal','fiel','sagrado','maldito','perdido','esquecido','renascido','destruido',
+  'ferido','curado','amado','temido','respeitado','escolhido','marcado','salvo',
+  'abismo','silencio','sombra','chama','tempestade','coragem','esperanca','verdade',
+  'destino','horizonte','eternidade','sofrimento','redenção','jornada','batalha',
+  'gloria','honra','traicao','lealdade','sacrificio','caminho','missao','legado',
+  'conquista','derrota','vitoria','renascimento','transformacao','revelacao',
+  'protecao','libertacao','dominacao','criacao','destruicao','separacao',
+];
+
+// ─── Lista EN (palavras reais inglesas, menos comuns) ─────────────────────────
+const WORDS_EN = [
+  // present participle / gerund
+  'absolving','accruing','aching','adoring','affirming','aligning','alluring',
+  'altering','amusing','angling','arching','arising','arousing','arresting',
+  'ascending','aspiring','asserting','attaining','averting','baffling','beguiling',
+  'bewildering','blending','blinding','blooming','bracing','braiding','bridging',
+  'brooding','burning','calming','carving','cascading','chasing','circling',
+  'claiming','climbing','coiling','confiding','converging','cooling','coursing',
+  'craving','creeping','crossing','crushing','curling','curving','daring','darting',
+  'dawning','deceiving','deepening','deflecting','departing','descending','devouring',
+  'dimming','discerning','dispersing','diving','drifting','drowning','dwelling',
+  'echoing','edging','emerging','enduring','erasing','escaping','evolving','fading',
+  'faltering','fearing','fleeing','floating','flowing','focusing','forging',
+  'forsaking','fracturing','freezing','gathering','gazing','gleaming','gliding',
+  'glowing','grasping','grounding','growing','guiding','haunting','hovering',
+  'hunting','igniting','invoking','isolating','kindling','lasting','leaning',
+  'lifting','lingering','looming','lurking','mending','merging','mirroring',
+  'mourning','narrowing','nearing','observing','orbiting','outlasting','overcoming',
+  'persisting','piercing','plunging','prevailing','prowling','pursuing','reaching',
+  'receding','reflecting','reforming','releasing','remaining','renewing','resisting',
+  'restoring','retreating','returning','revealing','roaming','roaring','rushing',
+  'scaling','scanning','scattering','seeking','sensing','separating','severing',
+  'shadowing','shielding','shifting','shining','silencing','soaring','softening',
+  'soothing','spiraling','spreading','steadying','stirring','striking','striving',
+  'subduing','surging','sustaining','swaying','sweeping','tearing','threading',
+  'tracing','trailing','transcending','traversing','trembling','unfolding',
+  'unraveling','vanishing','wandering','weathering','weaving','withstanding',
+  'yielding','absorbing','accelerating','accomplishing','acquiring','adapting',
+  'advancing','affecting','afflicting','aggravating','aligning','amplifying',
+  'anchoring','annihilating','answering','approaching','arising','awakening',
+  'banishing','battling','beckoning','betraying','blindsiding','blazing',
+  'challenging','channeling','compelling','concealing','condemning','confining',
+  'confronting','conquering','consuming','containing','contracting','controlling',
+  'corroding','countering','crumbling','crashing','darkening','dawning','decaying',
+  'deceiving','deciding','defying','denying','detaching','devastating','devouring',
+  'diffusing','discarding','dissolving','distorting','disturbing','diverting',
+  'dominating','duplicating','eliminating','embracing','empowering','enchanting',
+  'enduring','enforcing','enveloping','exceeding','exhausting','expanding',
+  'expelling','extinguishing','fading','forfeiting','fracturing','fragmenting',
+  'fulfilling','gaining','generating','hardening','hindering','ignoring','imploding',
+  'imprisoning','infiltrating','infusing','inheriting','initiating','intensifying',
+  'intercepting','invading','liberating','manifesting','masking','mastering',
+  'mourning','navigating','neglecting','neutralizing','obliterating','obscuring',
+  'opposing','overcoming','overwhelming','penetrating','persevering','prevailing',
+  'projecting','protecting','questioning','reclaiming','redirecting','regenerating',
+  'reinforcing','rejecting','relocating','remembering','resonating','revolving',
+  'shattering','signaling','silencing','simplifying','solidifying','stabilizing',
+  'succumbing','suppressing','surrendering','surviving','targeting','terminating',
+  'tormenting','transcending','triggering','undermining','unleashing','unmasking',
+  'unraveling','venturing','withering',
+  // adjectives / nouns
+  'bechuana','moviolas','sordidity','submarining','inexhausted','falconry',
+  'glimmers','tethered','vaulting','wistful','zealous','arduous','brittle',
+  'callous','cryptic','devious','elusive','fervent','gallant','ghostly',
+  'hapless','immense','lawless','listless','molten','nebulous','obscure',
+  'ominous','pallid','restless','ruinous','serene','sinuous','somber','spectral',
+  'tenuous','valiant','verdant','voracious','abyssal','arcane','astral','blighted',
+  'brazen','ceaseless','colossal','defiant','desolate','ethereal','exalted',
+  'fearless','forlorn','forsaken','fractured','frenzied','hallowed','hollow',
+  'immovable','infinite','invincible','languid','luminous','merciless','mortal',
+  'mournful','mystic','ominous','primal','relentless','revenant','savage','shadowed',
+  'shattered','silent','solitary','sovereign','steadfast','tempest','timeless',
+  'tormented','unyielding','vanquished','vengeful','vigilant','wanderer','warden',
+  'wretched','abiding','adamant','adverse','ancient','barren','boundless','burning',
+  'cursed','darkened','daunting','dauntless','desperate','dreadful','drifting',
+  'enduring','fallen','fleeting','frozen','gleaming','glorious','grim','hardened',
+  'haunted','hollow','hopeless','hunted','infinite','isolated','jagged','kindred',
+  'lethal','lifeless','looming','lurking','malevolent','merciless','nameless',
+  'nocturnal','numb','obsidian','ordained','primordial','ravaged','reckless',
+  'relentless','remnant','ruinous','ruthless','scarred','severed','shackled',
+  'shattered','shrouded','sightless','sinister','sleepless','smoldering','solemn',
+  'soulless','spectral','stricken','sundered','sworn','tempered','tortured',
+  'treacherous','unbroken','undying','unfettered','unrelenting','unseen',
+  'unyielding','vanishing','vengeful','vigilant','void','volatile','weathered',
+  'withered','wrathful','abandoned','accursed','afflicted','ageless','agonized',
+];
 
 // short: 3-5 letras minúsculas puras
 function generateShort() {
@@ -138,14 +196,14 @@ function generateRare() {
   return Array.from({ length: len }, () => rand([...ALPHA])).join('');
 }
 
-// realword: palavra pronunciável em inglês (6-12 chars)
+// realword: palavra real em inglês
 function generateRealwordEN() {
-  return pronounceable(SILAS_EN, 6, 12);
+  return rand(WORDS_EN);
 }
 
-// realwordpt: palavra pronunciável em português (6-14 chars)
+// realwordpt: palavra/verbo real em português
 function generateRealwordPT() {
-  return pronounceable(SILAS_PT, 6, 14);
+  return rand(WORDS_PT);
 }
 
 // mixed: exatamente 4 chars, ao menos 1 letra e 1 dígito
