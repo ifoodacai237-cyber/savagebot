@@ -1,0 +1,229 @@
+/**
+ * Comandos públicos do sistema de sniper de usernames
+ * Portados do Python gerado pelo Copilot para o bot Node.js existente.
+ *
+ *  /disponivel  — verifica se um username está disponível
+ *  /snipe_add   — adiciona username à lista de monitoramento pessoal
+ *  /snipe_list  — lista seus targets em monitoramento
+ *  /gerar       — mostra usernames disponíveis encontrados recentemente
+ */
+
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import prisma from '../../database/client.js';
+import { isAvailable } from '../../utils/usernameMonitor.js';
+
+// ─── /disponivel ──────────────────────────────────────────────────────────────
+
+const disponivel = {
+  data: new SlashCommandBuilder()
+    .setName('disponivel')
+    .setDescription('Verifica se um username está disponível ✅')
+    .addStringOption(o =>
+      o.setName('username')
+        .setDescription('Username para verificar (sem @)')
+        .setRequired(true)),
+
+  name: 'disponivel',
+
+  async execute(interaction) {
+    const username = interaction.options.getString('username').toLowerCase().replace(/^@/, '');
+    await interaction.deferReply({ flags: 64 });
+
+    const avail = await isAvailable(username);
+
+    if (avail === null) {
+      return interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xFEE75C)
+            .setDescription('⚠️ Não foi possível verificar agora. Tente novamente em instantes.'),
+        ],
+      });
+    }
+
+    return interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(avail ? 0x57F287 : 0xED4245)
+          .setTitle(avail ? '✅ DISPONÍVEL' : '❌ OCUPADO')
+          .setDescription(`Username: **@${username}**`)
+          .setFooter({ text: 'Sistema de Sniper do Fallen Angels' }),
+      ],
+    });
+  },
+};
+
+// ─── /snipe_add ───────────────────────────────────────────────────────────────
+
+const snipe_add = {
+  data: new SlashCommandBuilder()
+    .setName('snipe_add')
+    .setDescription('Adiciona username para monitoramento 🎯')
+    .addStringOption(o =>
+      o.setName('username')
+        .setDescription('Username para monitorar (sem @)')
+        .setRequired(true)),
+
+  name: 'snipe_add',
+
+  async execute(interaction) {
+    const username = interaction.options.getString('username').toLowerCase().replace(/^@/, '');
+    await interaction.deferReply({ flags: 64 });
+
+    if (username.length < 2 || username.length > 32) {
+      return interaction.editReply({ content: '❌ Username deve ter entre 2 e 32 caracteres.' });
+    }
+
+    // Verifica se já está na lista
+    const existing = await prisma.sniperTarget.findUnique({ where: { username } });
+    if (existing) {
+      const dono = existing.droppedById === interaction.user.id
+        ? 'você mesmo já está monitorando'
+        : 'já está sendo monitorado';
+      return interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xFEE75C)
+            .setDescription(`⚠️ **@${username}** ${dono}.`),
+        ],
+      });
+    }
+
+    await prisma.sniperTarget.create({
+      data: {
+        username,
+        category:      'sniper',
+        droppedById:   interaction.user.id,
+        droppedByName: interaction.user.username,
+        sniperAlerted: false,
+      },
+    });
+
+    return interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x57F287)
+          .setTitle('✅ Username Adicionado')
+          .setDescription(`Monitorando: **@${username}**\nSerei notificado assim que ficar disponível.`)
+          .setFooter({ text: 'Sistema de Sniper do Fallen Angels' }),
+      ],
+    });
+  },
+};
+
+// ─── /snipe_list ──────────────────────────────────────────────────────────────
+
+const snipe_list = {
+  data: new SlashCommandBuilder()
+    .setName('snipe_list')
+    .setDescription('Lista seus usernames em monitoramento 📋'),
+
+  name: 'snipe_list',
+
+  async execute(interaction) {
+    await interaction.deferReply({ flags: 64 });
+
+    const targets = await prisma.sniperTarget.findMany({
+      where:   { droppedById: interaction.user.id },
+      orderBy: { detectedAt: 'desc' },
+      take:    25,
+    });
+
+    if (!targets.length) {
+      return interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setDescription('📋 Você não possui usernames em monitoramento.\nUse `/snipe_add` para adicionar um.'),
+        ],
+      });
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle('📋 Seus Alvos de Snipe')
+      .setDescription(`Total: **${targets.length}** username(s)`)
+      .setFooter({ text: 'Sistema de Sniper do Fallen Angels' });
+
+    for (const t of targets) {
+      const ts = Math.floor(new Date(t.detectedAt).getTime() / 1000);
+      const status = t.postedAt ? '✅ Encontrado' : '🔍 Monitorando';
+      embed.addFields({ name: `@${t.username}`, value: `${status} | Adicionado: <t:${ts}:R>`, inline: false });
+    }
+
+    return interaction.editReply({ embeds: [embed] });
+  },
+};
+
+// ─── /gerar ───────────────────────────────────────────────────────────────────
+
+const gerar = {
+  data: new SlashCommandBuilder()
+    .setName('gerar')
+    .setDescription('Mostra usernames disponíveis encontrados recentemente 🔄')
+    .addStringOption(o =>
+      o.setName('categoria')
+        .setDescription('Filtrar por categoria')
+        .setRequired(false)
+        .addChoices(
+          { name: '🇧🇷 Palavras PT (realwordpt)', value: 'realwordpt' },
+          { name: '🌍 Palavras EN (realword)',    value: 'realword'   },
+          { name: '🔀 Mixed',                    value: 'mixed'      },
+          { name: '🎯 Sniper',                   value: 'sniper'     },
+          { name: '🔢 Números',                  value: 'numbers'    },
+        )),
+
+  name: 'gerar',
+
+  async execute(interaction) {
+    const cat = interaction.options.getString('categoria');
+    await interaction.deferReply({ flags: 64 });
+
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000); // últimas 24h
+
+    const where = {
+      postedAt: { not: null, gte: since },
+      ...(cat ? { category: cat } : {}),
+    };
+
+    const results = await prisma.sniperTarget.findMany({
+      where,
+      orderBy: { postedAt: 'desc' },
+      take: 20,
+    });
+
+    // Contagem total por categoria (últimas 24h)
+    const total = await prisma.sniperTarget.count({
+      where: { postedAt: { not: null, gte: since } },
+    });
+
+    const embed = new EmbedBuilder()
+      .setColor(0x57F287)
+      .setTitle('🔄 Usernames Disponíveis — Últimas 24h')
+      .setFooter({ text: 'Sistema de Sniper do Fallen Angels' });
+
+    if (!results.length) {
+      embed.setDescription(
+        cat
+          ? `Nenhum username da categoria **${cat}** encontrado nas últimas 24h.\nO monitor continua rodando em segundo plano.`
+          : 'Nenhum username encontrado nas últimas 24h ainda.\nO monitor roda automaticamente em segundo plano.',
+      );
+    } else {
+      const catLabel = {
+        realwordpt: '🇧🇷', realword: '🌍', mixed: '🔀', sniper: '🎯', numbers: '🔢',
+      };
+      const linhas = results.map(t => {
+        const emoji = catLabel[t.category] ?? '•';
+        return `${emoji} **@${t.username}**`;
+      });
+      embed.setDescription(linhas.join('\n'));
+      embed.addFields({ name: 'Total encontrados (24h)', value: String(total), inline: true });
+    }
+
+    return interaction.editReply({ embeds: [embed] });
+  },
+};
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+
+export default [disponivel, snipe_add, snipe_list, gerar];
