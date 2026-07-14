@@ -146,64 +146,15 @@ const GENERATORS = {
 
 // ─── Monitor ──────────────────────────────────────────────────────────────────
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
 let _running   = false;
 let _stopped   = false;
 let _checked   = 0;
 let _found     = 0;
 let _startedAt = null;
-
-// Categorias ativas = exatamente o que os canais configurados pedem
-async function getActiveCategories() {
-  const channels = await prisma.publishChannel.findMany({});
-  const cats = [...new Set(channels.map(c => c.category))].filter(c => GENERATORS[c]);
-  // Sem canais configurados → gera tudo
-  if (!cats.length) return Object.keys(GENERATORS);
-  return cats;
-}
-
-/** Verifica targets pessoais (/snipe_add) e notifica por DM */
-async function checkPersonalTargets(client) {
-  try {
-    const targets = await prisma.sniperTarget.findMany({
-      where: { addedByUserId: { not: null }, postedAt: null },
-    });
-    if (!targets.length) return;
-
-    for (const target of targets) {
-      const avail = await isAvailable(target.username);
-      if (avail !== true) continue;
-
-      // Marca como encontrado
-      await prisma.sniperTarget.update({
-        where: { id: target.id },
-        data:  { postedAt: new Date() },
-      });
-      _found++;
-
-      // Tenta enviar DM para o usuário
-      try {
-        if (target.addedByUserId) {
-          const user = await client.users.fetch(target.addedByUserId).catch(() => null);
-          if (user) {
-            await user.send({
-              embeds: [{
-                color: 0x57F287,
-                title: '✅ Username Disponível!',
-                description: `O username **@${target.username}** que você adicionou ao monitoramento está **DISPONÍVEL** agora!\n\nCorra para trocar no Discord antes que alguém pegue!`,
-                footer: { text: 'Fallen Angels Sniper' },
-                timestamp: new Date().toISOString(),
-              }],
-            }).catch(() => {});
-          }
-        }
-      } catch {}
-
-      console.log(`[MONITOR] 🎯 Personal target disponível: @${target.username}`);
-    }
-  } catch (err) {
-    console.error('[MONITOR] Erro ao checar targets pessoais:', err.message);
-  }
-}
+// stats por categoria
+const _catStats = {};
 
 /** Posta imediatamente em todos os canais configurados para a categoria */
 async function postToChannels(username, category, client) {
@@ -211,9 +162,7 @@ async function postToChannels(username, category, client) {
   try {
     const configs = await prisma.publishChannel.findMany({ where: { category } });
     if (!configs.length) return;
-
     const ts = Math.floor(Date.now() / 1000);
-
     for (const cfg of configs) {
       const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
       if (!ch) continue;
@@ -238,64 +187,95 @@ async function saveAvailable(username, category, client) {
       update: { postedAt: new Date(), category },
     });
     _found++;
-    console.log(`[MONITOR] ✅ Disponível: @${username} (${category})`);
+    _catStats[category] = (_catStats[category] ?? 0) + 1;
+    console.log(`[MONITOR:${category}] ✅ @${username}`);
     await postToChannels(username, category, client);
   } catch (err) {
     console.error(`[MONITOR] Erro ao salvar @${username}:`, err.message);
   }
 }
 
-/** Loop principal do monitor */
-async function monitorLoop(client) {
-  const seen     = new Set();
-  let   catIndex = 0;
-  let   counter  = 0;
+/** Verifica targets pessoais (/snipe_add) e notifica por DM */
+async function checkPersonalTargets(client) {
+  try {
+    const targets = await prisma.sniperTarget.findMany({
+      where: { addedByUserId: { not: null }, postedAt: null },
+    });
+    for (const target of targets) {
+      if (_stopped) return;
+      const avail = await isAvailable(target.username);
+      if (avail !== true) continue;
+      await prisma.sniperTarget.update({
+        where: { id: target.id },
+        data:  { postedAt: new Date() },
+      });
+      _found++;
+      try {
+        if (target.addedByUserId && client) {
+          const user = await client.users.fetch(target.addedByUserId).catch(() => null);
+          if (user) {
+            await user.send({
+              embeds: [{
+                color: 0x57F287,
+                title: '✅ Username Disponível!',
+                description: `O username **@${target.username}** está **DISPONÍVEL** agora!\n\nCorra para trocar antes que alguém pegue!`,
+                footer: { text: 'Fallen Angels Sniper' },
+                timestamp: new Date().toISOString(),
+              }],
+            }).catch(() => {});
+          }
+        }
+      } catch {}
+      console.log(`[MONITOR] 🎯 Personal target disponível: @${target.username}`);
+      await sleep(DELAY_MS);
+    }
+  } catch (err) {
+    console.error('[MONITOR] Erro ao checar targets pessoais:', err.message);
+  }
+}
+
+/**
+ * Loop independente por categoria.
+ * Cada categoria tem seu próprio Set de seen para evitar duplicatas.
+ * Todos rodam em paralelo — não esperam uns pelos outros.
+ */
+async function categoryLoop(category, client) {
+  const gen  = GENERATORS[category];
+  const seen = new Set();
+
+  console.log(`[MONITOR:${category}] ▶ Loop iniciado.`);
 
   while (!_stopped) {
     try {
-      const categories = await getActiveCategories();
-      const category   = categories[catIndex % categories.length];
-      catIndex++;
+      let username = gen();
 
-      const gen      = GENERATORS[category] ?? generateMixed;
-      const username = gen();
-
-      // Ignora duplicatas nessa sessão
+      // Ignora duplicatas e inválidos
       if (seen.has(username) || username.length < 2 || username.length > 32) {
-        await sleep(50);
-        continue;
+        continue; // sem sleep — só gera outro
       }
       seen.add(username);
-
-      // Limpa o set se ficar muito grande
-      if (seen.size > 50_000) seen.clear();
+      if (seen.size > 20_000) seen.clear();
 
       _checked++;
-      counter++;
 
       const avail = await isAvailable(username);
       if (avail === true) {
         await saveAvailable(username, category, client);
       }
 
-      // A cada N usernames checa também os targets pessoais
-      if (counter % PERSONAL_CHECK_EVERY === 0 && client) {
-        await checkPersonalTargets(client);
-      }
-
       await sleep(DELAY_MS);
     } catch (err) {
-      console.error('[MONITOR] Erro no loop:', err.message);
-      await sleep(5000);
+      console.error(`[MONITOR:${category}] Erro:`, err.message);
+      await sleep(5_000);
     }
   }
+
+  console.log(`[MONITOR:${category}] ⏹ Loop parado.`);
 }
 
 // ─── API pública ──────────────────────────────────────────────────────────────
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-export function startMonitor(client) {
+export async function startMonitor(client) {
   if (_running) {
     console.warn('[MONITOR] Já está rodando.');
     return;
@@ -303,11 +283,28 @@ export function startMonitor(client) {
   _running   = true;
   _stopped   = false;
   _startedAt = new Date();
-  console.log('[MONITOR] 🚀 Monitor de usernames iniciado.');
-  monitorLoop(client).catch(err => {
-    console.error('[MONITOR] Loop encerrado com erro:', err);
-    _running = false;
+
+  // Carrega categorias ativas (canais configurados)
+  const channels = await prisma.publishChannel.findMany({});
+  const cats = [...new Set(channels.map(c => c.category))].filter(c => GENERATORS[c]);
+  const categories = cats.length ? cats : Object.keys(GENERATORS);
+
+  console.log(`[MONITOR] 🚀 Iniciando ${categories.length} loops: ${categories.join(', ')}`);
+
+  // Dispara um loop por categoria, escalonados para não bater na API juntos
+  categories.forEach((cat, i) => {
+    setTimeout(() => {
+      categoryLoop(cat, client).catch(err => {
+        console.error(`[MONITOR:${cat}] Loop encerrado com erro:`, err.message);
+      });
+    }, i * DELAY_MS); // escalonamento: cat[0] agora, cat[1] depois de 1.8s, etc.
   });
+
+  // Targets pessoais checados a cada 5 minutos num loop separado
+  const personalInterval = setInterval(async () => {
+    if (_stopped) { clearInterval(personalInterval); return; }
+    await checkPersonalTargets(client);
+  }, 5 * 60 * 1000);
 }
 
 export function stopMonitor() {
@@ -318,9 +315,10 @@ export function stopMonitor() {
 
 export function getMonitorStats() {
   return {
-    running:  _running,
-    checked:  _checked,
-    found:    _found,
+    running:   _running,
+    checked:   _checked,
+    found:     _found,
     startedAt: _startedAt,
+    porCategoria: { ..._catStats },
   };
 }

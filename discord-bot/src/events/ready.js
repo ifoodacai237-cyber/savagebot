@@ -47,8 +47,8 @@ export default {
       }],
     });
 
-    // Monitor inicia imediatamente — posta em tempo real nos canais configurados
-    startMonitor(client);
+    // Monitor inicia imediatamente — um loop por categoria, em paralelo
+    await startMonitor(client);
 
     await checkExpiredVips(client);
     setInterval(() => checkExpiredVips(client), 5 * 60 * 1000);
