@@ -166,10 +166,33 @@ async function checkPersonalTargets(client) {
   }
 }
 
-/** Salva username disponível no banco */
-async function saveAvailable(username, category) {
+/** Posta imediatamente em todos os canais configurados para a categoria */
+async function postToChannels(username, category, client) {
+  if (!client) return;
   try {
-    // Upsert — se já existir (ex: adicionado via /snipe_add), atualiza
+    const configs = await prisma.publishChannel.findMany({ where: { category } });
+    if (!configs.length) return;
+
+    const ts = Math.floor(Date.now() / 1000);
+
+    for (const cfg of configs) {
+      const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
+      if (!ch) continue;
+      await ch.send({
+        embeds: [{
+          description: `🎇 **@${username}**\ndisponível agora · <t:${ts}:R>`,
+          color: 0x2b2d31,
+        }],
+      }).catch(err => console.error(`[MONITOR] Erro ao postar em ${cfg.channelId}:`, err.message));
+    }
+  } catch (err) {
+    console.error(`[MONITOR] Erro ao buscar canais para ${category}:`, err.message);
+  }
+}
+
+/** Salva username disponível no banco e posta imediatamente nos canais */
+async function saveAvailable(username, category, client) {
+  try {
     await prisma.sniperTarget.upsert({
       where:  { username },
       create: { username, category, postedAt: new Date() },
@@ -177,6 +200,7 @@ async function saveAvailable(username, category) {
     });
     _found++;
     console.log(`[MONITOR] ✅ Disponível: @${username} (${category})`);
+    await postToChannels(username, category, client);
   } catch (err) {
     console.error(`[MONITOR] Erro ao salvar @${username}:`, err.message);
   }
@@ -212,7 +236,7 @@ async function monitorLoop(client) {
 
       const avail = await isAvailable(username);
       if (avail === true) {
-        await saveAvailable(username, category);
+        await saveAvailable(username, category, client);
       }
 
       // A cada N usernames checa também os targets pessoais
