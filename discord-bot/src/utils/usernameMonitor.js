@@ -13,9 +13,8 @@ import { isAvailable } from './checker.js';
 
 // ─── Configuração ─────────────────────────────────────────────────────────────
 
-const DELAY_MS             = 1800;   // ms entre cada checagem (1 req/1.8s ≈ 33/min)
-const PERSONAL_CHECK_EVERY = 60;     // checa targets pessoais a cada N usernames gerados
-const MAX_QUEUE            = 500;    // máx de usernames na fila antes de parar de gerar
+const DELAY_MS             = 600;    // ms entre checks por worker (2 workers/cat = 300ms efetivo)
+const WORKERS_PER_CATEGORY = 2;      // workers paralelos por categoria
 
 // ─── Listas de palavras ───────────────────────────────────────────────────────
 
@@ -235,26 +234,25 @@ async function checkPersonalTargets(client) {
 }
 
 /**
- * Loop independente por categoria.
- * Cada categoria tem seu próprio Set de seen para evitar duplicatas.
- * Todos rodam em paralelo — não esperam uns pelos outros.
+ * Worker de checagem para uma categoria.
+ * Múltiplos workers da mesma categoria compartilham o mesmo `seen` Set
+ * para não checar o mesmo username duas vezes.
  */
-async function categoryLoop(category, client) {
-  const gen  = GENERATORS[category];
-  const seen = new Set();
+async function categoryWorker(category, workerId, seen, client) {
+  const gen = GENERATORS[category];
 
-  console.log(`[MONITOR:${category}] ▶ Loop iniciado.`);
+  console.log(`[MONITOR:${category}#${workerId}] ▶ Worker iniciado.`);
 
   while (!_stopped) {
     try {
-      let username = gen();
+      const username = gen();
 
-      // Ignora duplicatas e inválidos
+      // Ignora duplicatas e inválidos — sem sleep, apenas gera outro
       if (seen.has(username) || username.length < 2 || username.length > 32) {
-        continue; // sem sleep — só gera outro
+        continue;
       }
       seen.add(username);
-      if (seen.size > 20_000) seen.clear();
+      if (seen.size > 30_000) seen.clear();
 
       _checked++;
 
@@ -265,12 +263,12 @@ async function categoryLoop(category, client) {
 
       await sleep(DELAY_MS);
     } catch (err) {
-      console.error(`[MONITOR:${category}] Erro:`, err.message);
+      console.error(`[MONITOR:${category}#${workerId}] Erro:`, err.message);
       await sleep(5_000);
     }
   }
 
-  console.log(`[MONITOR:${category}] ⏹ Loop parado.`);
+  console.log(`[MONITOR:${category}#${workerId}] ⏹ Worker parado.`);
 }
 
 // ─── API pública ──────────────────────────────────────────────────────────────
@@ -289,15 +287,25 @@ export async function startMonitor(client) {
   const cats = [...new Set(channels.map(c => c.category))].filter(c => GENERATORS[c]);
   const categories = cats.length ? cats : Object.keys(GENERATORS);
 
-  console.log(`[MONITOR] 🚀 Iniciando ${categories.length} loops: ${categories.join(', ')}`);
+  const total = categories.length * WORKERS_PER_CATEGORY;
+  console.log(`[MONITOR] 🚀 ${categories.length} categorias × ${WORKERS_PER_CATEGORY} workers = ${total} workers. Cats: ${categories.join(', ')}`);
 
-  // Dispara um loop por categoria, escalonados para não bater na API juntos
-  categories.forEach((cat, i) => {
-    setTimeout(() => {
-      categoryLoop(cat, client).catch(err => {
-        console.error(`[MONITOR:${cat}] Loop encerrado com erro:`, err.message);
-      });
-    }, i * DELAY_MS); // escalonamento: cat[0] agora, cat[1] depois de 1.8s, etc.
+  // Para cada categoria: N workers em paralelo, escalonados por (DELAY_MS / N)
+  // entre si para não bater na API simultaneamente.
+  const workerOffset = Math.floor(DELAY_MS / WORKERS_PER_CATEGORY);
+
+  categories.forEach((cat, catIdx) => {
+    const seen = new Set(); // compartilhado entre workers da mesma categoria
+
+    for (let w = 0; w < WORKERS_PER_CATEGORY; w++) {
+      // Escalonamento: cada categoria separada por DELAY_MS, workers dentro da cat por workerOffset
+      const delay = catIdx * DELAY_MS + w * workerOffset;
+      setTimeout(() => {
+        categoryWorker(cat, w, seen, client).catch(err => {
+          console.error(`[MONITOR:${cat}#${w}] Worker encerrado com erro:`, err.message);
+        });
+      }, delay);
+    }
   });
 
   // Targets pessoais checados a cada 5 minutos num loop separado
