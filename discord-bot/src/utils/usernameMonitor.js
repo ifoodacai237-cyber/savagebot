@@ -20,9 +20,10 @@ import { ContainerBuilder, TextDisplayBuilder, MessageFlags } from 'discord.js';
 
 // ─── Configuração ─────────────────────────────────────────────────────────────
 
-const WORKERS_PER_CATEGORY = 8;     // workers paralelos por categoria
-const WORKER_START_OFFSET  = 100;   // ms de escalonamento no start (evita burst inicial)
-const WORKER_MIN_DELAY_MS  = 0;     // sem delay artificial — o token pool já gerencia o rate-limit
+const WORKERS_PER_CATEGORY = 6;     // workers paralelos por categoria
+const WORKER_START_OFFSET  = 300;   // ms de escalonamento no start — espalha o burst inicial
+const WORKER_MIN_DELAY_MS  = 30;    // delay mínimo entre checks (ms) — evita spin puro
+const WORKER_RATELIMIT_MS  = 800;   // backoff quando a resposta é null (rate-limit/erro)
 
 // ─── Geradores ────────────────────────────────────────────────────────────────
 
@@ -579,6 +580,10 @@ async function categoryWorker(category, workerId, client) {
       const avail = await isAvailable(username);
       if (avail === true) {
         await saveAvailable(username, category, client);
+      } else if (avail === null) {
+        // Rate-limited ou erro — recua antes de tentar de novo
+        await sleep(WORKER_RATELIMIT_MS);
+        continue;
       }
 
       await sleep(WORKER_MIN_DELAY_MS);
