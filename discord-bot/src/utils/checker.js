@@ -146,7 +146,7 @@ class TokenQueue {
     if (status === 401) {
       this.dead = true;
       const remaining = _queues.filter(q => !q.dead).length;
-      console.warn(`[CHECKER:token] 401 — token morto. Restam ${remaining} vivo(s).`);
+      console.warn(`[CHECKER:token] 401 — token morto. Motivo do Discord: ${JSON.stringify(body)}. Restam ${remaining} vivo(s).`);
       return null;
     }
 
