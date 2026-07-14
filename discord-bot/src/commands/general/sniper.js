@@ -204,4 +204,92 @@ const gerar = {
   },
 };
 
-export default [disponivel, snipe_add, snipe_list, gerar];
+// ─── /setup_canal ─────────────────────────────────────────────────────────────
+
+const setup_canal = {
+  data: new SlashCommandBuilder()
+    .setName('setup_canal')
+    .setDescription('Configura um canal para publicação automática de usernames 📡')
+    .setDefaultMemberPermissions(0x8) // ADMINISTRATOR
+    .addStringOption(o =>
+      o.setName('categoria')
+        .setDescription('Categoria de usernames a publicar neste canal')
+        .setRequired(true)
+        .addChoices(
+          { name: 'short (2-5 chars)',        value: 'short'     },
+          { name: 'numbers (com números)',    value: 'numbers'   },
+          { name: 'realword (palavras reais)',value: 'realword'  },
+          { name: 'mixed (misturado)',        value: 'mixed'     },
+          { name: 'rare (raro)',              value: 'rare'      },
+        )),
+
+  name: 'setup_canal',
+
+  async execute(interaction) {
+    const categoria = interaction.options.getString('categoria');
+
+    await prisma.publishChannel.upsert({
+      where:  { guildId_category: { guildId: interaction.guildId, category: categoria } },
+      create: { guildId: interaction.guildId, channelId: interaction.channelId, category: categoria },
+      update: { channelId: interaction.channelId },
+    });
+
+    return interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x57F287)
+          .setTitle('✅ Canal Configurado')
+          .setDescription(
+            `Este canal receberá usernames de categoria: **${categoria}**\n\nPublicação automática a cada **5 minutos**.`,
+          )
+          .setFooter({ text: 'Fallen Angels Sniper' }),
+      ],
+    });
+  },
+};
+
+// ─── /canais ──────────────────────────────────────────────────────────────────
+
+const canais = {
+  data: new SlashCommandBuilder()
+    .setName('canais')
+    .setDescription('Mostra canais configurados para publicação automática 📊'),
+
+  name: 'canais',
+
+  async execute(interaction) {
+    await interaction.deferReply({ flags: 64 });
+
+    const configs = await prisma.publishChannel.findMany({
+      where: { guildId: interaction.guildId },
+    });
+
+    if (!configs.length) {
+      return interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xED4245)
+            .setDescription('❌ Nenhum canal configurado ainda!\nUse `/setup_canal` para configurar.'),
+        ],
+      });
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle('📊 Canais Configurados')
+      .setDescription('Canais ativos para publicação de usernames')
+      .setFooter({ text: 'Fallen Angels Sniper' });
+
+    for (const cfg of configs) {
+      embed.addFields({
+        name:   `📁 ${cfg.category.toUpperCase()}`,
+        value:  `<#${cfg.channelId}> · ID: \`${cfg.channelId}\``,
+        inline: false,
+      });
+    }
+
+    return interaction.editReply({ embeds: [embed] });
+  },
+};
+
+export default [disponivel, snipe_add, snipe_list, gerar, setup_canal, canais];

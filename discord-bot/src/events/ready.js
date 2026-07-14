@@ -1,7 +1,51 @@
-import { ActivityType } from 'discord.js';
+import { ActivityType, EmbedBuilder } from 'discord.js';
 import { registerSlashCommands } from '../utils/loader.js';
 import { initEmojis } from '../utils/emojiManager.js';
 import prisma from '../database/client.js';
+
+const PUBLISH_INTERVAL_MS  = 5 * 60 * 1000; // 5 minutos
+const USERNAMES_PER_MESSAGE = 500;
+
+async function publishAvailableUsernames(client) {
+  try {
+    const configs = await prisma.publishChannel.findMany({});
+    if (!configs.length) return;
+
+    // Usernames encontrados disponíveis nas últimas 24h agrupados por categoria
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    for (const cfg of configs) {
+      try {
+        const channel = await client.channels.fetch(cfg.channelId).catch(() => null);
+        if (!channel) continue;
+
+        const targets = await prisma.sniperTarget.findMany({
+          where:   { category: cfg.category, postedAt: { not: null, gte: since } },
+          orderBy: { postedAt: 'desc' },
+          take:    USERNAMES_PER_MESSAGE,
+        });
+
+        if (!targets.length) continue;
+
+        const lista = targets.map(t => `✅ \`${t.username}\``).join('\n');
+
+        await channel.send({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(0x57F287)
+              .setTitle(`🎁 Usernames Disponíveis — ${cfg.category.toUpperCase()}`)
+              .setDescription(lista)
+              .setFooter({ text: `Total: ${targets.length} | Fallen Angels Sniper` }),
+          ],
+        });
+      } catch (err) {
+        console.error(`[PUBLISH] Erro no canal ${cfg.channelId}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('[PUBLISH] Erro na publicação:', err.message);
+  }
+}
 
 async function checkExpiredVips(client) {
   try {
@@ -51,5 +95,8 @@ export default {
     await checkExpiredVips(client);
     setInterval(() => checkExpiredVips(client), 5 * 60 * 1000);
 
+    // Publicação automática de usernames disponíveis nos canais configurados
+    setInterval(() => publishAvailableUsernames(client), PUBLISH_INTERVAL_MS);
+    console.log('📡 Publisher automático ativo (a cada 5 min).');
   },
 };

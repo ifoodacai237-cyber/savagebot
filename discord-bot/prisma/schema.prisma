@@ -366,6 +366,17 @@ model VipGrant {
   @@index([expiresAt])
 }
 
+/// Canais configurados para publicação automática de usernames por categoria
+model PublishChannel {
+  id        String @id @default(cuid())
+  guildId   String
+  channelId String
+  category  String
+
+  @@unique([guildId, category])
+  @@index([guildId])
+}
+
 /// Usernames monitorados pelos usuários via /snipe_add
 model SniperTarget {
   id            String    @id @default(cuid())
