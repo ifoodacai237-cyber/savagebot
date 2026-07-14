@@ -1,11 +1,15 @@
 /**
  * checker.js — verifica disponibilidade de username no Discord
  *
- * Endpoint: POST /unique-username/username-attempt-unauthed
- * - Funciona SEM token (unauthenticated) mas tokens ajudam com rate-limit
- * - Se todos os tokens estiverem em cooldown ou inválidos, cai em modo tokenless
- * - 401 → token removido permanentemente do pool
- * - 429 → token em cooldown por retry_after (máx 60s), depois tenta outro
+ * Endpoints:
+ *   Autenticado  → POST /api/v9/users/@me/pomelo-attempt        (token obrigatório, rate-limit muito maior)
+ *   Não-autent.  → POST /api/v9/unique-username/username-attempt-unauthed (sem token, rate-limit por IP)
+ *
+ * Lógica:
+ *   - Se há tokens disponíveis, usa o endpoint autenticado (muito mais eficiente)
+ *   - Se todos os tokens estão em cooldown ou mortos, cai em modo tokenless
+ *   - 401 → token removido permanentemente do pool
+ *   - 429 → token em cooldown por retry_after (máx 60s), depois tenta outro
  */
 
 const X_SUPER_PROPERTIES =
@@ -14,10 +18,11 @@ const X_SUPER_PROPERTIES =
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36';
 
-const CHECK_URL =
-  'https://discord.com/api/v9/unique-username/username-attempt-unauthed';
+// Endpoints — conforme github.com/chemix444/discord-username-scraper
+const CHECK_URL_AUTHED   = 'https://discord.com/api/v9/users/@me/pomelo-attempt';
+const CHECK_URL_UNAUTHED = 'https://discord.com/api/v9/unique-username/username-attempt-unauthed';
 
-const MAX_COOLDOWN_MS = 60_000; // máximo que um token fica em cooldown (1 min)
+const MAX_COOLDOWN_MS      = 60_000; // máximo que um token fica em cooldown (1 min)
 const TOKENLESS_COOLDOWN_MS = 5_000; // cooldown de 429 em modo sem token
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -31,7 +36,7 @@ function loadTokens() {
     .map(t => t.trim())
     .filter(Boolean)
     .map(value => ({ value, sleepUntil: 0, dead: false }));
-  console.log(`[CHECKER] Pool carregado: ${tokens.length} token(s).`);
+  console.log(`[CHECKER] Pool carregado: ${tokens.length} token(s). Endpoint: ${tokens.length ? 'autenticado (pomelo-attempt)' : 'não-autenticado'}`);
   return tokens;
 }
 
@@ -46,16 +51,16 @@ function getTokens() {
 function pickToken() {
   const now = Date.now();
   const alive = getTokens().filter(t => !t.dead);
-  if (!alive.length) return null; // todos mortos → tokenless
+  if (!alive.length) return null;
   const available = alive.filter(t => t.sleepUntil <= now);
-  if (!available.length) return null; // todos em cooldown
+  if (!available.length) return null;
   return available.reduce((a, b) => (a.sleepUntil <= b.sleepUntil ? a : b));
 }
 
 /** Quanto tempo até o próximo token estar disponível (ms). 0 se já tem algum. */
 function nextTokenAvailableIn() {
   const alive = getTokens().filter(t => !t.dead);
-  if (!alive.length) return 0; // sem tokens vivos → tokenless imediatamente
+  if (!alive.length) return 0;
   const now = Date.now();
   const soonest = Math.min(...alive.map(t => t.sleepUntil));
   return Math.max(0, soonest - now);
@@ -90,6 +95,8 @@ function buildHeaders(token = null) {
 
 /**
  * Verifica se um username está disponível.
+ * - Com token → usa endpoint autenticado (pomelo-attempt) — rate-limit muito maior
+ * - Sem token → usa endpoint não-autenticado — rate-limit por IP
  * @returns {Promise<boolean|null>} true=disponível, false=tomado, null=erro/inválido
  */
 export async function isAvailable(username) {
@@ -102,15 +109,18 @@ export async function isAvailable(username) {
   if (liveTokens.length && !token) {
     const wait = nextTokenAvailableIn();
     if (wait <= 5_000) {
-      // Cooldown curto: espera e usa token
       await sleep(wait);
       token = pickToken();
     }
-    // Cooldown longo (>5s): usa tokenless agora, token vai ficar disponível depois
+    // Cooldown longo (>5s): usa tokenless agora
   }
 
+  // Com token → endpoint autenticado (muito melhor rate-limit)
+  // Sem token → endpoint público não-autenticado
+  const checkUrl = token ? CHECK_URL_AUTHED : CHECK_URL_UNAUTHED;
+
   try {
-    const res = await fetch(CHECK_URL, {
+    const res = await fetch(checkUrl, {
       method:  'POST',
       headers: buildHeaders(token?.value ?? null),
       body:    JSON.stringify({ username }),
@@ -119,26 +129,22 @@ export async function isAvailable(username) {
     // ── Rate limit ────────────────────────────────────────────────────────────
     if (res.status === 429) {
       let retry = parseFloat(res.headers.get('Retry-After') || '5');
-      retry = Math.min(retry, 60); // nunca mais de 60s de cooldown
+      retry = Math.min(retry, 60);
 
       if (token) {
         token.sleepUntil = Date.now() + (retry + 0.5) * 1_000;
         console.warn(`[CHECKER] 429 — token em cooldown por ${retry}s. Tentando outro...`);
-        // Tenta com outro token ou tokenless (sem recursão infinita)
         const next = pickToken();
         if (next && next !== token) {
           token = next;
-          // Faz uma segunda tentativa imediata com o próximo token
           return isAvailable(username);
         }
-        // Sem outro token: espera brevemente e vai tokenless
         await sleep(Math.min(retry * 1_000, TOKENLESS_COOLDOWN_MS));
         return isAvailable(username);
       } else {
-        // Tokenless: espera obrigatório
         console.warn(`[CHECKER] 429 tokenless — aguardando ${retry}s.`);
         await sleep(retry * 1_000);
-        return null; // retorna null para o caller tentar o próximo username
+        return null;
       }
     }
 
@@ -156,9 +162,8 @@ export async function isAvailable(username) {
       if (errs.some(e => e.code === 'USERNAME_ALREADY_TAKEN')) return false;
 
       const raw = JSON.stringify(body);
-      if (raw.includes('PASSWORD_DOES_NOT_MATCH')) return true;  // disponível mas precisa de senha
-      if (raw.includes('BASE_TYPE_BAD_LENGTH'))    return null;  // username inválido
-      // Outros 400 desconhecidos → log para diagnóstico
+      if (raw.includes('PASSWORD_DOES_NOT_MATCH')) return true;
+      if (raw.includes('BASE_TYPE_BAD_LENGTH'))    return null;
       console.warn(`[CHECKER] 400 desconhecido para "${username}":`, raw.slice(0, 200));
       return null;
     }
@@ -168,11 +173,9 @@ export async function isAvailable(username) {
       token.dead = true;
       const remaining = tokens.filter(t => !t.dead).length;
       console.warn(`[CHECKER] 401 — token inválido removido. Restam ${remaining} token(s) vivo(s).`);
-      // Tenta imediatamente tokenless (sem espera)
       return isAvailable(username);
     }
 
-    // ── outros status ─────────────────────────────────────────────────────────
     console.warn(`[CHECKER] Status inesperado ${res.status} para "${username}".`);
     return null;
 

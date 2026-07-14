@@ -1,13 +1,16 @@
 /**
- * Comandos de sniper de usernames (feitos pelo Copilot, portados para Node.js)
+ * Comandos de sniper de usernames
  *
- *  /disponivel  — verifica se um username está disponível
- *  /snipe_add   — adiciona username à lista de monitoramento pessoal
- *  /snipe_list  — lista seus targets em monitoramento
- *  /gerar       — mostra usernames disponíveis encontrados recentemente
+ *  /disponivel   — verifica se um username está disponível
+ *  /snipe_add    — adiciona username à lista de monitoramento pessoal
+ *  /snipe_list   — lista seus targets em monitoramento
+ *  /gerar        — mostra usernames disponíveis encontrados recentemente
+ *  /setup_canal  — configura canal para publicação automática por categoria
+ *  /canais       — mostra canais configurados
+ *  /publicar_agora — publica usernames imediatamente nos canais configurados
  */
 
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ContainerBuilder, TextDisplayBuilder, MessageFlags } from 'discord.js';
 import prisma from '../../database/client.js';
 import { isAvailable } from '../../utils/checker.js';
 
@@ -65,7 +68,7 @@ const snipe_add = {
 
   name: 'snipe_add',
 
-  async execute(interaction) {
+  async execute(interaction, client) {
     const username = interaction.options.getString('username').toLowerCase().replace(/^@/, '');
     await interaction.deferReply({ flags: 64 });
 
@@ -83,6 +86,7 @@ const snipe_add = {
       });
     }
 
+    // Salva no banco
     await prisma.sniperTarget.create({
       data: {
         username,
@@ -91,6 +95,10 @@ const snipe_add = {
         addedByName:   interaction.user.username,
       },
     });
+
+    // Posta no canal sniper (formato igual ao screenshot)
+    const cl = client ?? interaction.client;
+    await _postarNoCanaiSniper(username, interaction.user.username, cl);
 
     return interaction.editReply({
       embeds: [
@@ -103,6 +111,47 @@ const snipe_add = {
     });
   },
 };
+
+/**
+ * Posta no canal sniper configurado quando um username entra na mira.
+ * Formato dos prints:
+ *   🎯 @target entrou na mira
+ *   @addedBy — vou avisar quando @target liberar.
+ *   Estimativa: entre em um dia e em 14 dias...
+ */
+async function _postarNoCanaiSniper(target, addedByName, client) {
+  if (!client) return;
+  try {
+    const configs = await prisma.publishChannel.findMany({ where: { category: 'sniper' } });
+    if (!configs.length) return;
+
+    const texto =
+      `🎯 **@${target}** entrou na mira\n\n` +
+      `@${addedByName} — vou avisar quando **@${target}** liberar.\n` +
+      `Estimativa: entre **em um dia** e **em 14 dias** (sem regra exata do Discord). Verifico de tempos em tempos.`;
+
+    for (const cfg of configs) {
+      const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
+      if (!ch) continue;
+
+      let sent = false;
+      try {
+        const container = new ContainerBuilder()
+          .addTextDisplayComponents(new TextDisplayBuilder().setContent(texto));
+        await ch.send({ flags: MessageFlags.IsComponentsV2, components: [container] });
+        sent = true;
+      } catch {}
+
+      if (!sent) {
+        await ch.send({
+          embeds: [{ description: texto, color: 0xED4245 }],
+        }).catch(err => console.error(`[SNIPE_ADD] Erro ao postar em ${cfg.channelId}:`, err.message));
+      }
+    }
+  } catch (err) {
+    console.error('[SNIPE_ADD] Erro ao postar no canal sniper:', err.message);
+  }
+}
 
 // ─── /snipe_list ──────────────────────────────────────────────────────────────
 
@@ -209,18 +258,18 @@ const gerar = {
 const setup_canal = {
   data: new SlashCommandBuilder()
     .setName('setup_canal')
-    .setDescription('Configura um canal para publicação automática de usernames 📡')
+    .setDescription('Configura canal para publicação automática de usernames 📡')
     .setDefaultMemberPermissions(0x8) // ADMINISTRATOR
     .addStringOption(o =>
       o.setName('categoria')
         .setDescription('Categoria de usernames a publicar neste canal')
         .setRequired(true)
         .addChoices(
-          { name: 'short (2-5 chars)',        value: 'short'     },
-          { name: 'numbers (com números)',    value: 'numbers'   },
-          { name: 'realword (palavras reais)',value: 'realword'  },
-          { name: 'mixed (misturado)',        value: 'mixed'     },
-          { name: 'rare (raro)',              value: 'rare'      },
+          { name: '🔀 Mixed (letras + números, 4 chars)',  value: 'mixed'      },
+          { name: '🌍 Palavras EN (realword)',              value: 'realword'   },
+          { name: '🇧🇷 Palavras PT (realwordpt)',           value: 'realwordpt' },
+          { name: '🔢 Números (numbers)',                  value: 'numbers'    },
+          { name: '🎯 Sniper (mudanças detectadas)',        value: 'sniper'     },
         )),
 
   name: 'setup_canal',
@@ -234,13 +283,21 @@ const setup_canal = {
       update: { channelId: interaction.channelId },
     });
 
+    const catDesc = {
+      mixed:      '🔀 **Mixed** — usernames de 4 chars com letras e números (ex: sf9d, 8u3g)',
+      realword:   '🌍 **Palavras EN** — palavras reais em inglês',
+      realwordpt: '🇧🇷 **Palavras PT** — palavras reais em português',
+      numbers:    '🔢 **Números** — sequências numéricas de 5-7 dígitos',
+      sniper:     '🎯 **Sniper** — notificações de mudanças de username detectadas automaticamente',
+    };
+
     return interaction.reply({
       embeds: [
         new EmbedBuilder()
           .setColor(0x57F287)
           .setTitle('✅ Canal Configurado')
           .setDescription(
-            `Este canal receberá usernames de categoria: **${categoria}**\n\nPublicação automática a cada **5 minutos**.`,
+            `Este canal receberá usernames de categoria:\n${catDesc[categoria] ?? categoria}\n\nPublicação automática em tempo real.`,
           )
           .setFooter({ text: 'Fallen Angels Sniper' }),
       ],
@@ -274,6 +331,8 @@ const canais = {
       });
     }
 
+    const catEmoji = { mixed: '🔀', realword: '🌍', realwordpt: '🇧🇷', numbers: '🔢', sniper: '🎯' };
+
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle('📊 Canais Configurados')
@@ -281,8 +340,9 @@ const canais = {
       .setFooter({ text: 'Fallen Angels Sniper' });
 
     for (const cfg of configs) {
+      const emoji = catEmoji[cfg.category] ?? '📁';
       embed.addFields({
-        name:   `📁 ${cfg.category.toUpperCase()}`,
+        name:   `${emoji} ${cfg.category.toUpperCase()}`,
         value:  `<#${cfg.channelId}> · ID: \`${cfg.channelId}\``,
         inline: false,
       });
@@ -298,7 +358,7 @@ const publicar_agora = {
   data: new SlashCommandBuilder()
     .setName('publicar_agora')
     .setDescription('Publica usernames disponíveis imediatamente nos canais configurados 📤')
-    .setDefaultMemberPermissions(0x8), // ADMINISTRATOR
+    .setDefaultMemberPermissions(0x8),
 
   name: 'publicar_agora',
 
@@ -322,9 +382,12 @@ const publicar_agora = {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     let publicados = 0;
 
+    const cl = client ?? interaction.client;
+
     for (const cfg of configs) {
+      if (cfg.category === 'sniper') continue; // sniper não tem batch manual
       try {
-        const channel = await client.channels.fetch(cfg.channelId).catch(() => null);
+        const channel = await cl.channels.fetch(cfg.channelId).catch(() => null);
         if (!channel) continue;
 
         const targets = await prisma.sniperTarget.findMany({

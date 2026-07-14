@@ -2,10 +2,16 @@
  * usernameMonitor.js
  *
  * Monitor automático de usernames disponíveis no Discord.
- * - Gera usernames por categoria (short, numbers, realword, realwordpt, mixed)
- * - Checa disponibilidade via checker.js (respeita rate-limit com pool de tokens)
+ * - Gera usernames por categoria (numbers, realword, realwordpt, mixed)
+ * - Checa disponibilidade via checker.js (autenticado quando tokens disponíveis)
  * - Salva no banco (SniperTarget) com postedAt = now() quando disponível
- * - Também checa targets pessoais (/snipe_add) e notifica via DM
+ * - Também checa targets do sniper (userUpdate + snipe_add) e notifica via DM + canal
+ *
+ * Categorias activas:
+ *   mixed      → 4 chars, sempre letra+dígito misturados (ex: sf9d, 8u3g)
+ *   realword   → palavra real em inglês (da wordlist)
+ *   realwordpt → palavra real em português (da wordlist)
+ *   numbers    → sequência numérica pura (5-7 dígitos)
  */
 
 import prisma from '../database/client.js';
@@ -14,11 +20,9 @@ import { ContainerBuilder, TextDisplayBuilder, MessageFlags } from 'discord.js';
 
 // ─── Configuração ─────────────────────────────────────────────────────────────
 
-// Sem delay artificial — a velocidade é governada pelo rate-limit do checker.
-// Com tokens no pool, o checker já espera automaticamente quando necessário.
-const WORKERS_PER_CATEGORY = 4;      // workers paralelos por categoria
-const WORKER_START_OFFSET  = 400;    // ms de escalonamento no start (evita burst inicial)
-const WORKER_MIN_DELAY_MS  = 250;    // delay mínimo entre checks dentro de cada worker
+const WORKERS_PER_CATEGORY = 4;     // workers paralelos por categoria
+const WORKER_START_OFFSET  = 400;   // ms de escalonamento no start (evita burst inicial)
+const WORKER_MIN_DELAY_MS  = 200;   // delay mínimo entre checks dentro de cada worker
 
 // ─── Geradores ────────────────────────────────────────────────────────────────
 
@@ -30,9 +34,6 @@ function rand(arr)        { return arr[Math.floor(Math.random() * arr.length)]; 
 function randInt(min,max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 // ─── Lista PT ─────────────────────────────────────────────────────────────────
-// Gerúndios, infinitivos, pretérito perfeito, condicional, subj. imperfeito,
-// substantivos raros, termos técnicos/médicos, arcaísmos — tudo sem acento
-// pois Discord usernames não aceitam caracteres especiais.
 const WORDS_PT = [
   // ── gerúndio comum ─────────────────────────────────────────────────────────
   'agonizando','alcancando','almejando','ansiando','ardendo','arrepiando',
@@ -75,40 +76,34 @@ const WORDS_PT = [
   'removendo','representando','resolvendo','respondendo','seguindo',
   'selecionando','tentando','terminando','tirando','trabalhando','transferindo',
   'transmitindo','utilizando','verificando','visitando','absolvendo',
-  'aprimorando','canalizando','carinhando','castigando','cativando','corroendo',
-  'desabando','desdenhando','despertando','emanando','encarcerando','evoluindo',
-  'fascinando','fermentando','germinando','habitando','ignorando','impulsionando',
-  'integrando','irradiando','manifestando','neutralizando','orbitando',
-  'precipitando','reagindo','recolhendo','recompondo','redescobrindo',
-  'reerguendo','refazendo','regenerando','reivindicando','renovando',
-  'resgatando','reverberando','subjugando','sucumbindo','transplantando',
-  'ultrajando','vaciando','vasculhando','venerando','vigiando','zarpeando',
-  // ── pretérito perfeito 3ª pessoa do plural (-aram / -eram / -iram) ─────────
+  'aprimorando','canalizando','corroendo','desabando','desdenhando','despertando',
+  'emanando','fascinando','fermentando','germinando','habitando','ignorando',
+  'impulsionando','integrando','irradiando','manifestando','neutralizando',
+  'orbitando','precipitando','reagindo','recolhendo','recompondo','redescobrindo',
+  'reerguendo','refazendo','regenerando','renovando','resgatando','subjugando',
+  'sucumbindo','ultrajando','vasculhando','venerando','vigiando',
+  // ── pretérito perfeito 3ª pessoa do plural ─────────────────────────────────
   'abandonaram','aceitaram','acordaram','alcancaram','amaram','andaram',
   'apareceram','apostaram','aprovaram','arriscaram','assombraram','atacaram',
-  'atravessaram','avancaram','bateram','buscaram','cabiram','calharam',
-  'caminharam','cantaram','capturaram','carregaram','cederam','chegaram',
-  'choraram','cobraram','colocaram','combateram','conquistaram','construiram',
-  'contaram','continuaram','contribuiram','conviveram','correram','cortaram',
-  'criaram','cruzaram','deixaram','derrotaram','descobriram','destruiram',
-  'dominaram','encontraram','enfrentaram','enganaram','escaparam','escolheram',
-  'esperaram','estudaram','evoluiram','existiram','fugiram','ganharam',
-  'governaram','guardaram','guerrearam','habitaram','ignoraram','iluminaram',
-  'iniciaram','invadiram','juntaram','lancaram','libertaram','lutaram',
-  'marcaram','mergulharam','mudaram','nasceram','navegaram','obtiveram',
-  'partiram','pensaram','perderam','permaneceram','persistiram','planejaram',
+  'atravessaram','bateram','buscaram','caminharam','cantaram','capturaram',
+  'carregaram','cederam','chegaram','choraram','cobraram','colocaram',
+  'combateram','conquistaram','construiram','contaram','continuaram',
+  'contribuiram','conviveram','correram','cortaram','criaram','cruzaram',
+  'deixaram','derrotaram','descobriram','destruiram','dominaram','encontraram',
+  'enfrentaram','enganaram','escaparam','escolheram','esperaram','estudaram',
+  'evoluiram','fugiram','ganharam','governaram','guerrearam','habitaram',
+  'ignoraram','iluminaram','iniciaram','invadiram','juntaram','lancaram',
+  'libertaram','lutaram','marcaram','mergulharam','mudaram','nasceram',
+  'navegaram','partiram','perderam','permaneceram','persistiram','planejaram',
   'procuraram','protegeram','quebraram','realizaram','recuaram','reinaram',
   'rejeitaram','renasceram','resistiram','romperam','sacrificaram','salvaram',
-  'seguiram','sentiram','separaram','sobreviveram','sonharam','sumiram',
-  'superaram','tentaram','tocaram','transformaram','triunfaram','uniram',
-  'vagaram','venceram','viajaram','viram','viveram','voltaram','voaram',
-  'zebraram','desviaram','erguiram','falharam','forjaram','fundiram',
-  'invadiram','largaram','marcharam','partiram','rasgaram','retornaram',
-  'revelaram','roubaram','rugeram','silenciaram','sombrearam','sufocaram',
-  // ── pretérito perfeito 3ª pessoa singular (-ou / -eu / -iu / -oi) ──────────
+  'seguiram','sentiram','separaram','sobreviveram','sonharam','superaram',
+  'tentaram','tocaram','transformaram','triunfaram','vagaram','venceram',
+  'viajaram','viveram','voltaram','voaram',
+  // ── pretérito perfeito 3ª pessoa singular ──────────────────────────────────
   'abandonou','acreditou','alcancou','amou','andou','apareceu','apostou',
-  'aproveitou','arriscou','assombrou','atacou','atravessou','avancou','bateu',
-  'buscou','cahiu','caminhou','cantou','capturou','carregou','cedeu','chegou',
+  'aproveitou','arriscou','assombrou','atacou','atravessou','bateu',
+  'buscou','caminhou','cantou','capturou','carregou','cedeu','chegou',
   'chorou','colocou','combateu','conquistou','construiu','contou','continuou',
   'correu','cortou','criou','cruzou','derrotou','descobriu','destruiu',
   'dominou','encontrou','enfrentou','enganou','escolheu','esperou','estudou',
@@ -116,32 +111,26 @@ const WORDS_PT = [
   'habitou','ignorou','iluminou','iniciou','invadiu','lancou','libertou',
   'lutou','marcou','mergulhou','mudou','nasceu','navegou','obteve','partiu',
   'pensou','perdeu','permaneceu','persistiu','planejou','procurou','protegeu',
-  'quebrou','realizou','recuou','reiniciou','rejeitou','renasceu','resistiu',
+  'quebrou','realizou','recuou','rejeitou','renasceu','resistiu',
   'rompeu','sacrificou','salvou','sentiu','separou','sobreviveu','sonhou',
   'sumiu','superou','tentou','tocou','transformou','triunfou','vagou',
-  'venceu','viajou','voltou','voou','desviou','ergueu','falhou','forjou',
-  'fundiu','largou','marchou','rasgou','retornou','revelou','roubou',
-  'rugiu','silenciou','sofreu','sufocou','traiu','tremeu',
-  // ── condicional (-aria / -eria / -iria) ────────────────────────────────────
+  'venceu','viajou','voltou','voou',
+  // ── condicional ────────────────────────────────────────────────────────────
   'abandonaria','aceitaria','alcancaria','amaria','apareceria','arriscaria',
   'atravessaria','bateria','buscaria','caminharia','cantaria','capturaria',
   'carregaria','cederia','chegaria','choraria','chorarias','combateria',
   'conquistaria','construiria','continuaria','correria','cortaria','criaria',
   'cruzaria','derrotaria','descobriria','destruiria','dominaria','encontraria',
   'enfrentaria','enganaria','escolheria','esperaria','estudaria','evoluiria',
-  'existiria','fugiria','ganharia','governaria','guerrearia','habitaria',
-  'ignoraria','iluminaria','iniciaria','invadiria','lancaria','libertaria',
-  'lutaria','marcaria','mergulharia','mudaria','nasceria','navegaria',
-  'partiria','perderia','persistiria','planejaria','procuraria','protegeria',
+  'fugiria','ganharia','governaria','guerrearia','habitaria',
+  'ignoraria','iluminaria','iniciaria','lancaria','libertaria',
+  'lutaria','mergulharia','mudaria','nasceria','navegaria',
+  'perderia','persistiria','planejaria','procuraria','protegeria',
   'quebraria','realizaria','recuaria','reinaria','rejeitaria','renasceria',
   'resistiria','romperia','sacrificaria','salvaria','seguiria','sentiria',
   'sobreviveria','sonharia','superaria','tentaria','tocaria','transformaria',
   'triunfaria','vagaria','venceria','viajaria','viveria','voltaria','voaria',
-  'amarias','viveria','fugiria','buscarias','chorarias','dormitaria',
-  'resistiria','cresceria','valeria','sairia','faria','teria','diria',
-  'saberia','poderia','deveria','quereria','veria','viria','iria',
-  'traria','fariamos','teriamos','seriamos','iriamos','viriamos',
-  // ── subjuntivo imperfeito (-asse / -esse / -isse) ──────────────────────────
+  // ── subjuntivo imperfeito ──────────────────────────────────────────────────
   'abandonasse','aceitasse','alcancasse','amasse','aparecesse','arriscasse',
   'atravessasse','batesse','buscasse','caminhasse','cantasse','capturasse',
   'cedesse','chegasse','chorasse','combatesse','conquistasse','continuasse',
@@ -154,107 +143,80 @@ const WORDS_PT = [
   'rejeitasse','renascesse','resistisse','rompesse','sacrificasse','salvasse',
   'seguisse','sentisse','sobrevivesse','sonhasse','superasse','tentasse',
   'tocasse','transformasse','triunfasse','vagasse','vencesse','viajasse',
-  'vivesse','voltasse','voasse','crescesse','valesse','soubesse','pudesse',
-  'devesse','quisesse','fosse','tivesse','viesse','dissesse','fizesse',
-  'trouxesse','visse','saisse','trouxesse','houvesse',
-  // ── substantivos raros e incomuns ──────────────────────────────────────────
-  'abissobentonica','acrofobia','acronimia','acrospira','acuidade','adagio',
-  'adamancia','adumbrar','aeluropode','aerofobia','agorafobia','agronomia',
-  'agudeza','alcunha','alfeizar','algaravia','alhures','alquebrar','altruismo',
-  'alvissaras','amalgama','ambiencia','ambiguidade','ambulatorio','amebismo',
-  'amordacar','anacoreta','anadiplosse','anarquia','anfibolia','angariacao',
-  'angulosidade','animadversao','anomalia','antagonismo','antropofagia',
-  'aporia','apostasia','aquiescencia','arrepio','assimetria','assombro',
-  'ataraxia','atavistico','autoctone','autonomia','avessia','azimute',
-  'bailado','balbucio','barbarie','beatitude','berberisco','bifurcacao',
-  'bizarria','blandicia','boicote','bravata','brutalidade','burlesco',
-  'calamidade','caligrafia','cansaco','carmesim','catastrofe','cautela',
-  'celeuma','ceticismo','chacota','clamor','claridade','cobica','coerencia',
-  'complacencia','condescendencia','conformidade','conivencia','contenda',
-  'convulsao','copioso','crepusculo','curvatura','desdita','desfecho',
-  'desmembramento','desolacao','destemor','desvario','dicotomia','dilema',
+  'vivesse','voltasse','voasse',
+  // ── substantivos raros ─────────────────────────────────────────────────────
+  'acrofobia','acronimia','agorafobia','agronomia','agudeza','alcunha',
+  'algaravia','altruismo','amalgama','ambiencia','ambiguidade','anacoreta',
+  'anarquia','anomalia','antagonismo','aporia','apostasia','arrepio',
+  'assimetria','ataraxia','autoctone','autonomia','azimute','bailado',
+  'barbarie','beatitude','bifurcacao','bizarria','brutalidade','burlesco',
+  'calamidade','caligrafia','cansaco','catastrofe','cautela','ceticismo',
+  'clamor','claridade','cobica','coerencia','complacencia','condescendencia',
+  'conformidade','conivencia','contenda','copioso','crepusculo','desdita',
+  'desfecho','desolacao','destemor','desvario','dicotomia','dilema',
   'discordancia','displicencia','divergencia','ebulicao','efemeridade',
-  'efusao','elegancia','eloquencia','eminencia','emolientez','empatia',
-  'epifania','erupcao','escassez','escoamento','esgotamento','espiritualidade',
-  'estagnacao','estranheza','euforia','exuberancia','fadiga','falacia',
-  'familiaridade','fastio','fatalidade','fatuidade','feiticeira','fervor',
-  'fetiche','fissura','flagelo','fluidez','fugacidade','fulgor','funesto',
-  'galopante','genealogia','genialidade','grandiosidade','gravidade',
-  'habitualidade','harmonia','hegemonia','heresia','hipocrisia','imobilidade',
-  'imparcialidade','impavido','impertinencia','impotencia','impudencia',
-  'imundice','inadimplencia','incerteza','incongruencia','indiferenca',
-  'indolencia','inercial','inevitabilidade','infamia','insensatez',
-  'insignificancia','insuficiencia','integridade','interminavel','intuicao',
-  'iracundia','isolamento','lamento','languor','lastima','letargia',
-  'levedad','limitacao','lividez','lucidez','lusco','magnetismo','magnificencia',
-  'malevolencia','malfadado','malicia','malignidade','mancebo','mansidao',
-  'melancolia','menosprezo','mesquinhez','metamorfose','misantropia',
-  'mobilidade','modestia','mortalidade','mutabilidade','narcisismo',
-  'necessidade','negatividade','niilismo','nocturnidade','nostalgia',
-  'obstinacao','obsolescencia','obtusidade','ociosidade','ofuscamento',
-  'opressao','ostentacao','otimismo','pantomima','paradoxo','parcimonia',
-  'passividade','penuria','perdulario','perplexidade','perseveranca',
-  'pessimismo','predicamento','prepotencia','produtividade','profundidade',
-  'providencia','pudor','pusilanimidade','querela','quietude','radicalismo',
-  'rancor','rapacidade','receio','resignacao','resiliencia','retrocesso',
-  'rigidez','sagacidade','sarcasmo','satisfacao','serenidade','sevicia',
-  'simplicidade','soberba','sofisticacao','solidariedade','somatorio',
-  'somnolencia','submissao','subversao','sufraganca','suplicio','susceptivel',
-  'tenacidade','tenuidade','testemunho','timidez','tirania','torpor',
-  'totalidade','toxidade','transformacao','transicao','tumulto','turpitude',
-  'ubiquidade','unanimidade','unicidade','uniformidade','urticaria',
-  'usurpacao','vagabundagem','vaidade','valentia','vanidade','variedade',
-  'veemencia','verossimilhanca','versabilidade','vilania','violencia',
-  'volatilidade','vulnerabilidade','xenofobia','zealotismo',
-  // ── termos técnicos / médicos / científicos ────────────────────────────────
+  'efusao','elegancia','eloquencia','eminencia','empatia','epifania',
+  'escassez','esgotamento','estagnacao','estranheza','euforia','exuberancia',
+  'fadiga','falacia','fastio','fatalidade','fervor','fissura','flagelo',
+  'fluidez','fugacidade','fulgor','galopante','genealogia','genialidade',
+  'grandiosidade','gravidade','harmonia','hegemonia','heresia','hipocrisia',
+  'imparcialidade','impotencia','incerteza','incongruencia','indiferenca',
+  'indolencia','inevitabilidade','infamia','insensatez','insignificancia',
+  'integridade','intuicao','iracundia','isolamento','lamento','languor',
+  'lastima','letargia','lucidez','magnetismo','magnificencia','malevolencia',
+  'malicia','malignidade','mansidao','melancolia','menosprezo','mesquinhez',
+  'metamorfose','misantropia','modestia','mortalidade','mutabilidade',
+  'narcisismo','necessidade','niilismo','nostalgia','obstinacao','ociosidade',
+  'opressao','ostentacao','otimismo','paradoxo','parcimonia','passividade',
+  'penuria','perplexidade','perseveranca','pessimismo','profundidade',
+  'providencia','pudor','quietude','radicalismo','rancor','rapacidade',
+  'receio','resignacao','resiliencia','retrocesso','rigidez','sagacidade',
+  'sarcasmo','satisfacao','serenidade','simplicidade','soberba','sofisticacao',
+  'solidariedade','tenacidade','timidez','tirania','torpor','totalidade',
+  'transformacao','tumulto','unanimidade','unicidade','uniformidade',
+  'vaidade','valentia','vanidade','variedade','veemencia','vilania','violencia',
+  'volatilidade','vulnerabilidade',
+  // ── termos técnicos / médicos ──────────────────────────────────────────────
   'esofagenterostomia','fonautografia','hepatoesplenomegalia','cardiomiopatia',
   'arterioesclerose','traqueobronquite','bronquiectasia','glomerulonefrite',
-  'pielonefrite','osteossarcoma','condrossarcoma','hemangiossarcoma',
-  'mielodisplasia','trombocitopenia','eritroblastose','platirrinia',
-  'dolicocefalia','braquicefalia','espondilolistese','espondilodiscite',
+  'pielonefrite','osteossarcoma','mielodisplasia','trombocitopenia',
+  'eritroblastose','dolicocefalia','braquicefalia','espondilolistese',
   'polineuropatia','encefalopatia','miocardiopatia','vasculopatia',
   'flebotomia','endarterectomia','traqueostomia','colostomia','ileostomia',
-  'gastrostomia','cecostomia','jejunostomia','sigmoidoscopia','colonoscopia',
-  'esofagogastroduodenoscopia','laparoscopia','toracoscopia','mediastinoscopia',
-  'broncoscopia','citoscopia','ureteroscopia','nefroscopia','artroscopia',
-  'histeroscopia','fetoscopia','amniocentese','cordocentese','placentocentese',
-  'eritropoiese','hematopoiese','megacariocitopoiese','linfocitopoiese',
-  'granulopoiese','mielopoiese','trombopoiese','angiopoiese',
-  'ferrocinetica','cromossomiopatia','cromossomiopatias','policromatofilia',
-  'hipocromasia','macrocitose','microcitose','anisocitose','poiquilocitose',
-  'esferocitose','eliptocitose','acantocitose','estomatocitose',
+  'gastrostomia','colonoscopia','laparoscopia','toracoscopia','broncoscopia',
+  'citoscopia','artroscopia','histeroscopia','amniocentese','eritropoiese',
+  'hematopoiese','linfocitopoiese','granulopoiese','trombopoiese',
   'fotossintese','quimiossintese','catabolismo','anabolismo','metabolismo',
-  'enzimologia','imunologia','virology','parasitologia','microbiologia',
-  'epidemiologia','endocrinologia','reumatologia','hematologia','oncologia',
-  'radiologia','anestesiologia','neonatologia','gerontologia','psiquiatria',
-  // ── arcaísmos e palavras raras em uso ─────────────────────────────────────
-  'outrossim','dessarte','malgrado','conquanto','porquanto','outrementemente',
-  'dessemelhante','alvorocar','alvorotado','aquilatar','arrazoado','assaz',
-  'aterimo','atuitar','aventalmente','barafunda','bargantear','bazofiar',
-  'benignidade','bisonhice','borralhar','bravear','brunidura','bulhento',
-  'calejar','calhambeque','candura','canseira','capenga','catilagem',
-  'caturrar','cerceamento','cismar','condoer','confabular','coonestar',
-  'corcovear','cotoviar','crepitar','custear','desdenhoso','desestimar',
-  'desmoronar','desvairar','detrator','dimanar','dirimir','discorrer',
-  'embargar','embelecer','embicar','encardir','encoleirar','entabolar',
-  'entrambos','envergonhar','erigir','espoletar','esquadrinhar',
+  'enzimologia','imunologia','parasitologia','microbiologia','epidemiologia',
+  'endocrinologia','reumatologia','hematologia','oncologia','radiologia',
+  'anestesiologia','neonatologia','gerontologia','psiquiatria',
+  // ── arcaísmos e palavras raras ────────────────────────────────────────────
+  'outrossim','malgrado','conquanto','porquanto','dessemelhante','alvorotado',
+  'arrazoado','assaz','barafunda','bazofiar','benignidade','bisonhice',
+  'borralhar','brunidura','calejar','candura','canseira','capenga',
+  'caturrar','cerceamento','cismar','confabular','coonestar','corcovear',
+  'crepitar','desdenhoso','desestimar','desmoronar','desvairar','detrator',
+  'dimanar','dirimir','discorrer','embargar','embelecer','embicar',
+  'encoleirar','entabolar','envergonhar','erigir','espoletar','esquadrinhar',
   'estultice','evadir','exacerbar','exalar','exarar','expungir','extorquir',
-  'faccioso','falaz','fatuo','ferrenho','fugacidade','ganancioso',
-  'gastador','gatuno','glutao','gracejo','grandiloquente','habilidoso',
-  'hesitar','hipocrita','iminente','impertinente','incitar','inculcar',
-  'indagar','indignar','infamar','infestar','infligir','ingrato',
-  'instigar','intimidar','intrigar','invejar','irrisorio','ladino',
-  'lascivo','libertino','lisonjeiro','malfadado','malversacao','mesclado',
+  'faccioso','falaz','fatuo','ferrenho','ganancioso','gastador','gatuno',
+  'glutao','gracejo','grandiloquente','hesitar','hipocrita','iminente',
+  'impertinente','incitar','inculcar','indagar','indignar','infamar',
+  'infestar','infligir','ingrato','instigar','intimidar','intrigar','invejar',
+  'ladino','lascivo','libertino','lisonjeiro','malfadado','malversacao',
   'mofino','motejador','nefasto','nescio','obtuso','odiar','ofender',
   'omitir','oprimir','parvidade','patife','perjuro','pertinaz','perverso',
-  'petulante','pifio','plebeu','ponderar','presunco','procaz','provocar',
-  'rapinar','rebater','rechacar','remendar','renhido','retorquir','revel',
-  'rufianismo','salafrario','sandice','saturar','soberbo','sobrepujar',
-  'sorrateiro','subornar','subverter','tacanho','tergiversar','tolo',
-  'tortuoso','traidor','turvar','usurpar','venal','vilipendiar','vituperar',
+  'petulante','pifio','plebeu','ponderar','presunco','procaz','rapinar',
+  'rebater','rechacar','remendar','renhido','retorquir','rufianismo',
+  'salafrario','sandice','soberbo','sobrepujar','sorrateiro','subornar',
+  'subverter','tacanho','tergiversar','tortuoso','traidor','turvar',
+  'usurpar','venal','vilipendiar','vituperar',
+  // ── verbos no infinitivo ───────────────────────────────────────────────────
+  'jazentio','bechuana','moviolas','sordidity','inexhausted','submarining',
+  'conviveram','chorarias','fonautografia','esofagenterostomia',
 ];
 
-// ─── Lista EN (palavras reais inglesas, raras e incomuns) ─────────────────────
+// ─── Lista EN ─────────────────────────────────────────────────────────────────
 const WORDS_EN = [
   // ── gerunds / present participle ───────────────────────────────────────────
   'absolving','accruing','adoring','affirming','alluring','altering','angling',
@@ -296,24 +258,8 @@ const WORDS_EN = [
   'reinforcing','relocating','remembering','resonating','revolving','shattering',
   'simplifying','solidifying','stabilizing','succumbing','suppressing','surrendering',
   'terminating','tormenting','triggering','undermining','unleashing','unmasking',
-  'venturing','withering','abdicating','absolving','accentuating','acclaiming',
-  'accumulating','acutely','adhering','adjudicating','administering','admonishing',
-  'adorning','aggrandizing','agitating','alienating','alleviating','amalgamating',
-  'amassing','ameliorating','anticipating','arbitrating','articulating','aspiring',
-  'assimilating','attenuating','augmenting','circumventing','collaborating',
-  'commiserating','compelling','contemplating','corroborating','culminating',
-  'deliberating','deteriorating','discerning','dissipating','emulating',
-  'enumerating','epitomizing','eradicating','exacerbating','exaggerating',
-  'exasperating','exhilarating','exonerating','extricating','facilitating',
-  'galvanizing','illuminating','incapacitating','inculcating','indoctrinating',
-  'infiltrating','instigating','intimidating','invigorating','investigating',
-  'legitimizing','manipulating','mitigating','modulating','motivating',
-  'obfuscating','oscillating','permeating','perpetuating','proliferating',
-  'propagating','saturating','scrutinizing','segregating','simulating',
-  'speculating','stimulating','subjugating','subordinating','suffocating',
-  'terminating','transgressing','trespassing','vacillating','validating',
-  'vindicating','violating','visualizing',
-  // ── past tense (irregular & regular) ───────────────────────────────────────
+  'venturing','withering',
+  // ── past tense ─────────────────────────────────────────────────────────────
   'abandoned','abolished','abstained','acclaimed','accrued','achieved','acquiesced',
   'admonished','adorned','afflicted','alienated','alleviated','amalgamated',
   'ambushed','anchored','annihilated','anticipated','arbitrated','ascended',
@@ -352,29 +298,28 @@ const WORDS_EN = [
   'dogmatism','dominance','duplicity','ebullience','effrontery','eloquence',
   'emanation','embitterment','eminence','empathy','endurance','enigma',
   'epiphany','equanimity','erudition','estrangement','euphoria','exasperation',
-  'exuberance','fanaticism','fervency','ferocity','fervidness','forbearance',
+  'exuberance','fanaticism','fervency','ferocity','forbearance',
   'foreboding','fortitude','fragility','gallantry','grandiosity','gravitas',
-  'grievance','groundlessness','hallucination','hegemony','heresy','hubris',
+  'grievance','hallucination','hegemony','heresy','hubris',
   'hypocrisy','idolatry','ignominy','illusion','immovability','impunity',
-  'incorruptibility','indignation','infallibility','insolence','insurgency',
-  'intransigence','invincibility','irrationality','isolation','jadedness',
-  'judgement','jurisdiction','juxtaposition','kinship','languor','lethargy',
-  'lucidity','luminescence','magnanimity','malfeasance','malice','malignancy',
-  'martyrdom','melancholy','mendacity','metamorphosis','misanthropy','moderation',
-  'mortification','mysticism','narcissism','nihilism','nonchalance','nostalgia',
-  'obstinacy','ominousness','omniscience','oppression','ostentation','outrage',
-  'paralysis','paranoia','partiality','passivity','pathology','persecution',
-  'pessimism','piety','platitude','plausibility','polarization','pomposity',
-  'predisposition','prejudice','pretension','profundity','proclivity','prophecy',
-  'prudence','pugnacity','quandary','radicalism','rancor','rationality',
-  'recklessness','redemption','remorse','resentment','resilience','retribution',
-  'reverence','rigidity','ruthlessness','sagacity','sanctimony','sarcasm',
-  'savagery','schism','serenity','severity','skepticism','solemnity','somberness',
-  'sovereignty','steadfastness','stoicism','stubbornness','sublimity','subversion',
-  'suppression','tenacity','temerity','timidity','torment','treachery','turbulence',
-  'tyranny','ubiquity','unyielding','usurpation','validity','vanity','vengeance',
-  'volatility','vulnerability','wickedness','zealotry','zealousness',
-  // ── uncommon verbs (infinitive / base form) ────────────────────────────────
+  'indignation','insolence','insurgency','intransigence','irrationality',
+  'isolation','jadedness','jurisdiction','juxtaposition','kinship','languor',
+  'lethargy','lucidity','luminescence','magnanimity','malfeasance','malice',
+  'malignancy','martyrdom','melancholy','mendacity','metamorphosis','misanthropy',
+  'moderation','mortification','mysticism','narcissism','nihilism','nonchalance',
+  'nostalgia','obstinacy','ominousness','omniscience','oppression','ostentation',
+  'outrage','paralysis','paranoia','partiality','passivity','pathology',
+  'persecution','pessimism','piety','platitude','plausibility','polarization',
+  'pomposity','predisposition','prejudice','pretension','profundity','proclivity',
+  'prophecy','prudence','pugnacity','quandary','radicalism','rancor',
+  'rationality','recklessness','redemption','remorse','resentment','resilience',
+  'retribution','reverence','rigidity','ruthlessness','sagacity','sanctimony',
+  'sarcasm','savagery','schism','serenity','severity','skepticism','solemnity',
+  'somberness','sovereignty','steadfastness','stoicism','stubbornness','sublimity',
+  'subversion','suppression','tenacity','temerity','timidity','torment',
+  'treachery','turbulence','tyranny','ubiquity','usurpation','validity','vanity',
+  'vengeance','volatility','vulnerability','wickedness','zealotry','zealousness',
+  // ── uncommon verbs ─────────────────────────────────────────────────────────
   'abrogate','absolve','accrue','adjudicate','admonish','afflict','alienate',
   'alleviate','amalgamate','ameliorate','arbitrate','attenuate','augment',
   'beseech','bolster','brandish','castigate','circumvent','collaborate',
@@ -387,15 +332,18 @@ const WORDS_EN = [
   'propagate','saturate','scrutinize','segregate','simulate','speculate',
   'stimulate','subjugate','subordinate','transgress','trespass','vacillate',
   'validate','vindicate','violate',
+  // ── extra uncommon words ───────────────────────────────────────────────────
+  'inexhausted','submarining','bechuana','moviolas','sordidity','inexorable',
+  'intemperate','lachrymose','unctuous','obstreperous','recalcitrant',
+  'perspicacious','magniloquent','equivocate','mendacious','pusillanimous',
+  'perfidious','truculent','loquacious','garrulous','sycophantic','obsequious',
+  'incorrigible','fastidious','querulous','temerity','irascible','churlish',
+  'peevish','petulant','supercilious','vainglorious','sanctimonious',
+  'pernicious','deleterious','inimical','invidious','nefarious','egregious',
+  'flagitious','ignominious','perfidious','turpitude','contumely',
 ];
 
-// short: 3-5 letras minúsculas puras
-function generateShort() {
-  const len = randInt(3, 5);
-  return Array.from({ length: len }, () => rand([...ALPHA])).join('');
-}
-
-// numbers: sequência numérica pura (5-7 dígitos)
+// ─── Gerador: numbers — sequência numérica pura (5-7 dígitos) ─────────────────
 function generateNumbers() {
   const digits = randInt(5, 7);
   const min    = Math.pow(10, digits - 1);
@@ -403,78 +351,58 @@ function generateNumbers() {
   return String(randInt(min, max));
 }
 
-// rare: 2-3 letras puras
-function generateRare() {
-  const len = randInt(2, 3);
-  return Array.from({ length: len }, () => rand([...ALPHA])).join('');
-}
-
-// realword: palavra real em inglês
+// ─── Gerador: realword — palavra real em inglês ────────────────────────────────
 function generateRealwordEN() {
   return rand(WORDS_EN);
 }
 
-// realwordpt: palavra/verbo real em português
+// ─── Gerador: realwordpt — palavra/verbo real em português ────────────────────
 function generateRealwordPT() {
   return rand(WORDS_PT);
 }
 
-// mixed: letras + dígitos, vários padrões e comprimentos
-const MIXED_PREFIXES = [
-  'xo','ae','ix','oz','ue','ei','ao','ui','eu','oi','ax','ez','ux','ya','ko',
-  'zk','qr','vx','jy','wq','bz','fx','gv','hj','lm','np','pt','rw','sv','tz',
-];
+// ─── Gerador: mixed — SEMPRE 4 chars, pelo menos 1 letra E 1 dígito ───────────
+// Exemplos dos canais: sf9d, 8u3g, qk3c, ktj8, 3oxb, pt0o
 function generateMixed() {
-  const mode = randInt(0, 5);
-  switch (mode) {
-    case 0: {
-      // letras + 2 dígitos: ex "ae47"
-      const l = randInt(2, 4);
-      const letters = Array.from({ length: l }, () => rand([...ALPHA])).join('');
-      const nums    = String(randInt(10, 999));
-      return letters + nums;
-    }
-    case 1: {
-      // dígito + letras + dígito: ex "3xo8"
-      const l = randInt(1, 3);
-      const mid = Array.from({ length: l }, () => rand([...ALPHA])).join('');
-      return rand([...DIGITS]) + mid + rand([...DIGITS]);
-    }
-    case 2: {
-      // prefixo raro + 2-3 dígitos: ex "zk42"
-      return rand(MIXED_PREFIXES) + String(randInt(10, 9999));
-    }
-    case 3: {
-      // 2-4 letras + 2 dígitos no meio: ex "vx08k"
-      const pre = Array.from({ length: randInt(1, 2) }, () => rand([...ALPHA])).join('');
-      const suf = Array.from({ length: randInt(1, 2) }, () => rand([...ALPHA])).join('');
-      return pre + String(randInt(10, 99)) + suf;
-    }
-    case 4: {
-      // 1-2 dígitos + letras + 1 dígito: ex "7az3"
-      const pre  = String(randInt(1, 99));
-      const mid  = Array.from({ length: randInt(1, 3) }, () => rand([...ALPHA])).join('');
-      const suf  = rand([...DIGITS]);
-      return pre + mid + suf;
-    }
-    default: {
-      // fallback: 4-6 chars aleatórios com pelo menos 1 letra e 1 dígito
-      const len = randInt(4, 6);
-      const arr = Array.from({ length: len }, () => rand([...MIXED_CHARS]));
-      if (!arr.some(c => DIGITS.includes(c))) arr[randInt(1, len - 1)] = rand([...DIGITS]);
-      if (!arr.some(c => ALPHA.includes(c)))  arr[randInt(0, len - 2)] = rand([...ALPHA]);
-      return arr.join('');
-    }
+  const len = 4;
+  const arr = [];
+
+  // Garante pelo menos 1 letra e 1 dígito
+  arr.push(rand([...ALPHA]));
+  arr.push(rand([...DIGITS]));
+
+  // Completa com caracteres aleatórios (letra ou dígito)
+  for (let i = 2; i < len; i++) {
+    arr.push(rand([...MIXED_CHARS]));
   }
+
+  // Embaralha (Fisher-Yates)
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+
+  return arr.join('');
 }
 
+// Validadores de categoria — garante que o username gerado bate com a categoria
+function validaMixed(u)      { return /^[a-z0-9]{4}$/.test(u) && /[a-z]/.test(u) && /[0-9]/.test(u); }
+function validaNumbers(u)    { return /^[0-9]{5,7}$/.test(u); }
+function validaRealword(u)   { return /^[a-z]{4,32}$/.test(u); }
+function validaRealwordPT(u) { return /^[a-z]{4,32}$/.test(u); }
+
 const GENERATORS = {
-  short:      generateShort,
   numbers:    generateNumbers,
   realword:   generateRealwordEN,
   realwordpt: generateRealwordPT,
   mixed:      generateMixed,
-  rare:       generateRare,
+};
+
+const VALIDATORS = {
+  numbers:    validaNumbers,
+  realword:   validaRealword,
+  realwordpt: validaRealwordPT,
+  mixed:      validaMixed,
 };
 
 // ─── Monitor ──────────────────────────────────────────────────────────────────
@@ -486,7 +414,6 @@ let _stopped   = false;
 let _checked   = 0;
 let _found     = 0;
 let _startedAt = null;
-// stats por categoria
 const _catStats = {};
 
 /** Posta imediatamente em todos os canais configurados para a categoria */
@@ -500,7 +427,6 @@ async function postToChannels(username, category, client) {
       const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
       if (!ch) continue;
 
-      // Tenta Components V2 (sem barra lateral colorida)
       let sent = false;
       try {
         const container = new ContainerBuilder()
@@ -514,7 +440,6 @@ async function postToChannels(username, category, client) {
         console.warn(`[MONITOR] V2 falhou em ${cfg.channelId}, usando embed clássico:`, v2err.message);
       }
 
-      // Fallback: embed clássico com o mesmo emoji
       if (!sent) {
         await ch.send({
           embeds: [{
@@ -546,21 +471,60 @@ async function saveAvailable(username, category, client) {
   }
 }
 
-/** Verifica targets pessoais (/snipe_add) e notifica por DM */
-async function checkPersonalTargets(client) {
+/** Posta notificação de "confirmado livre" no canal sniper */
+async function postSniperConfirmed(username, client) {
+  if (!client) return;
+  try {
+    const configs = await prisma.publishChannel.findMany({ where: { category: 'sniper' } });
+    if (!configs.length) return;
+    const ts = Math.floor(Date.now() / 1000);
+    const texto = `<:sorte:1526435450259243180> **@${username}**\nconfirmado livre agora · <t:${ts}:R>`;
+
+    for (const cfg of configs) {
+      const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
+      if (!ch) continue;
+
+      let sent = false;
+      try {
+        const container = new ContainerBuilder()
+          .addTextDisplayComponents(new TextDisplayBuilder().setContent(texto));
+        await ch.send({ flags: MessageFlags.IsComponentsV2, components: [container] });
+        sent = true;
+      } catch {}
+
+      if (!sent) {
+        await ch.send({
+          embeds: [{ description: texto, color: 0x57F287 }],
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.error('[MONITOR] Erro ao postar sniper confirmado:', err.message);
+  }
+}
+
+/** Verifica targets do sniper (pessoais e auto-detectados) e notifica */
+async function checkSniperTargets(client) {
   try {
     const targets = await prisma.sniperTarget.findMany({
-      where: { addedByUserId: { not: null }, postedAt: null },
+      where: { category: 'sniper', postedAt: null },
     });
+
     for (const target of targets) {
       if (_stopped) return;
       const avail = await isAvailable(target.username);
       if (avail !== true) continue;
+
       await prisma.sniperTarget.update({
         where: { id: target.id },
         data:  { postedAt: new Date() },
       });
       _found++;
+
+      // Posta no canal sniper
+      await postSniperConfirmed(target.username, client);
+
+      // DM para quem adicionou pessoalmente
       try {
         if (target.addedByUserId && client) {
           const user = await client.users.fetch(target.addedByUserId).catch(() => null);
@@ -577,21 +541,22 @@ async function checkPersonalTargets(client) {
           }
         }
       } catch {}
-      console.log(`[MONITOR] 🎯 Personal target disponível: @${target.username}`);
+
+      console.log(`[MONITOR] 🎯 Sniper target disponível: @${target.username}`);
       await sleep(1_000);
     }
   } catch (err) {
-    console.error('[MONITOR] Erro ao checar targets pessoais:', err.message);
+    console.error('[MONITOR] Erro ao checar targets sniper:', err.message);
   }
 }
 
 /**
  * Worker de checagem para uma categoria.
- * Múltiplos workers da mesma categoria compartilham o mesmo `seen` Set
- * para não checar o mesmo username duas vezes.
+ * Gera username, valida que bate com a categoria, checa disponibilidade.
  */
 async function categoryWorker(category, workerId, client) {
-  const gen = GENERATORS[category];
+  const gen      = GENERATORS[category];
+  const validate = VALIDATORS[category];
   let localChecked = 0;
 
   console.log(`[MONITOR:${category}#${workerId}] ▶ Worker iniciado.`);
@@ -599,14 +564,16 @@ async function categoryWorker(category, workerId, client) {
   while (!_stopped) {
     try {
       const username = gen();
+
+      // Valida que o username gerado realmente pertence à categoria
+      if (!validate(username)) continue;
       if (username.length < 2 || username.length > 32) continue;
 
       _checked++;
       localChecked++;
 
-      // Log de atividade a cada 200 checks por worker (prova que está vivo)
       if (localChecked % 200 === 0) {
-        console.log(`[MONITOR:${category}#${workerId}] 💓 ${localChecked} checks locais | total global: ${_checked} | encontrados: ${_found}`);
+        console.log(`[MONITOR:${category}#${workerId}] 💓 ${localChecked} checks | total: ${_checked} | encontrados: ${_found}`);
       }
 
       const avail = await isAvailable(username);
@@ -614,7 +581,6 @@ async function categoryWorker(category, workerId, client) {
         await saveAvailable(username, category, client);
       }
 
-      // Delay mínimo entre checks para não martelar o endpoint
       await sleep(WORKER_MIN_DELAY_MS);
     } catch (err) {
       console.error(`[MONITOR:${category}#${workerId}] Erro:`, err.message);
@@ -636,16 +602,16 @@ export async function startMonitor(client) {
   _stopped   = false;
   _startedAt = new Date();
 
-  // Carrega categorias ativas (canais configurados)
-  const channels = await prisma.publishChannel.findMany({});
-  const cats = [...new Set(channels.map(c => c.category))].filter(c => GENERATORS[c]);
-  const categories = cats.length ? cats : Object.keys(GENERATORS);
+  // Busca categorias configuradas nos canais — apenas as que têm generator
+  const channels   = await prisma.publishChannel.findMany({});
+  const configured = [...new Set(channels.map(c => c.category))].filter(c => GENERATORS[c]);
+  // Se não há canais configurados, roda todas as categorias
+  const categories = configured.length ? configured : Object.keys(GENERATORS);
 
   const total = categories.length * WORKERS_PER_CATEGORY;
   console.log(`[MONITOR] 🚀 ${categories.length} cats × ${WORKERS_PER_CATEGORY} workers = ${total} workers | cats: ${categories.join(', ')}`);
 
-  // Escalonamento: workers arrancam com WORKER_START_OFFSET ms de diferença entre si,
-  // espalhando o burst inicial de requisições.
+  // Escalonamento: workers arrancam em sequência para evitar burst inicial
   let slot = 0;
   categories.forEach(cat => {
     for (let w = 0; w < WORKERS_PER_CATEGORY; w++) {
@@ -659,11 +625,14 @@ export async function startMonitor(client) {
     }
   });
 
-  // Targets pessoais checados a cada 5 minutos num loop separado
-  const personalInterval = setInterval(async () => {
-    if (_stopped) { clearInterval(personalInterval); return; }
-    await checkPersonalTargets(client);
+  // Sniper targets checados a cada 5 minutos num loop separado
+  const sniperInterval = setInterval(async () => {
+    if (_stopped) { clearInterval(sniperInterval); return; }
+    await checkSniperTargets(client);
   }, 5 * 60 * 1000);
+
+  // Primeira checagem imediata
+  setTimeout(() => checkSniperTargets(client), 10_000);
 }
 
 export function stopMonitor() {
