@@ -2600,6 +2600,25 @@ export default {
           });
         }
 
+        // ── QUEST TOKEN: salva token do usuário ────────────────────────
+        if (interaction.customId === 'quest_token_modal') {
+          const token = interaction.fields.getTextInputValue('quest_token_input').trim();
+          await prisma.userQuestToken.upsert({
+            where:  { userId: interaction.user.id },
+            create: { userId: interaction.user.id, token },
+            update: { token },
+          });
+          return interaction.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(0x57F287)
+                .setTitle('✅ Token salvo!')
+                .setDescription('Seu token foi salvo com segurança.\nUse `/quest completar` para iniciar a automação ou `/quest status` para ver suas quests.'),
+            ],
+            flags: 64,
+          });
+        }
+
         // ── PAINEL DE CARGOS: Salvar texto ─────────────────────────────
         if (interaction.customId === 'rp_modal_text') {
           const session = getRPSession(interaction.user.id, interaction.guildId);
