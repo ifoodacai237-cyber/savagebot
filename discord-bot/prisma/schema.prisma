@@ -368,10 +368,11 @@ model VipGrant {
 
 /// Canais configurados para publicação automática de usernames por categoria
 model PublishChannel {
-  id        String @id @default(cuid())
-  guildId   String
-  channelId String
-  category  String
+  id          String    @id @default(cuid())
+  guildId     String
+  channelId   String
+  category    String
+  lastRunAt   DateTime?   /// Timestamp da última publicação — usado para enviar só usernames novos
 
   @@unique([guildId, category])
   @@index([guildId])

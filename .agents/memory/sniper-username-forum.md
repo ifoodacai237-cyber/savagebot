@@ -1,24 +1,41 @@
 ---
 name: Sniper de usernames
-description: Estado atual do sistema de sniper após limpeza — o que existe, o que foi removido.
+description: Estado completo do sistema de sniper após implementação do monitor automático.
 ---
 
 ## Estado atual (julho 2026)
 
-O sistema antigo de sniper (monitor automático em background, `/sniper-config`, word lists, `userUpdate` event, `SniperConfig` model) foi **completamente removido**.
+### Monitor automático (NOVO)
+- `discord-bot/src/utils/usernameMonitor.js` — loop que gera e checa usernames continuamente
+- Delay: 1800ms entre checks (~33/min)
+- Categorias: short, numbers, realword, realwordpt, mixed
+- Quando disponível → upsert em `SniperTarget` com `postedAt = now()`
+- A cada 60 checks, checa também targets pessoais (/snipe_add) e envia DM
+- Inicia via `startMonitor(client)` no evento `clientReady`
 
-O que sobrou são apenas os 4 comandos públicos portados do Python (Copilot):
+### Publisher automático
+- Em `ready.js` — publica a cada 5 minutos nos canais configurados
+- APENAS usernames novos (usa `lastRunAt` de `PublishChannel` para não repetir)
+- Após publicar, atualiza `lastRunAt` do canal
 
+### Importante: monitor deve iniciar ANTES do Promise.all de comandos
+- O registro global de comandos (fallback quando Missing Access na guild) pode travar por minutos
+- `startMonitor(client)` deve ser chamado antes de `Promise.all([registerSlashCommands, initEmojis])`
+- O Promise.all usa `.then/.catch` (não awaited) para não bloquear
+
+### Comandos disponíveis
 - `/disponivel` — checa se um username está disponível via API do Discord
 - `/snipe_add` — adiciona username ao monitoramento pessoal do usuário (salva em `SniperTarget`)
 - `/snipe_list` — lista os targets do usuário
 - `/gerar` — mostra usernames encontrados disponíveis nas últimas 24h
+- `/setup_canal` — (ADMIN) configura canal para publicação automática por categoria
+- `/canais` — lista canais configurados
+- `/publicar_agora` — (ADMIN) publica imediatamente
+- `/monitor` — (ADMIN) status / pausar / retomar o monitor
 
-**Arquivos:**
-- `discord-bot/src/commands/general/sniper.js` — os 4 comandos acima
-- `discord-bot/src/utils/checker.js` — função `isAvailable()` (chamada HTTP ao endpoint do Discord)
-- Schema: apenas `SniperTarget` (sem `SniperConfig`)
+### Schema
+- `SniperTarget` — username, category, addedByUserId, detectedAt, postedAt
+- `PublishChannel` — guildId, channelId, category, **lastRunAt** (novo campo)
 
-**Why:** O monitor automático foi removido a pedido do usuário. Os comandos do Copilot foram preservados.
-
-**Atenção:** `SniperTarget` usa `addedByUserId` (não `droppedById`) para rastrear quem adicionou cada target. O campo antigo `droppedById` não existe mais nesse modelo.
+**Why:** O lastRunAt foi adicionado para evitar spam de repostar todos os usernames das últimas 24h a cada 1 minuto.
+**Atenção:** `SniperTarget` usa `addedByUserId` (não `droppedById`).

@@ -1,27 +1,31 @@
 import { ActivityType, EmbedBuilder } from 'discord.js';
 import { registerSlashCommands } from '../utils/loader.js';
 import { initEmojis } from '../utils/emojiManager.js';
+import { startMonitor } from '../utils/usernameMonitor.js';
 import prisma from '../database/client.js';
 
-const PUBLISH_INTERVAL_MS  = 1 * 60 * 1000; // 1 minuto
-const USERNAMES_PER_MESSAGE = 500;
+// ─── Publisher automático ─────────────────────────────────────────────────────
+// Publica APENAS usernames novos (encontrados após a última publicação deste canal)
+
+const PUBLISH_INTERVAL_MS   = 5 * 60 * 1000; // publica a cada 5 minutos
+const USERNAMES_PER_MESSAGE = 80;            // limite por embed (evita embed enorme)
 
 async function publishAvailableUsernames(client) {
   try {
     const configs = await prisma.publishChannel.findMany({});
     if (!configs.length) return;
 
-    // Usernames encontrados disponíveis nas últimas 24h agrupados por categoria
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
     for (const cfg of configs) {
       try {
         const channel = await client.channels.fetch(cfg.channelId).catch(() => null);
         if (!channel) continue;
 
+        // Pega só usernames NOVOS (detectados após a última publicação deste canal)
+        const since = cfg.lastRunAt ?? new Date(Date.now() - 24 * 60 * 60 * 1000);
+
         const targets = await prisma.sniperTarget.findMany({
-          where:   { category: cfg.category, postedAt: { not: null, gte: since } },
-          orderBy: { postedAt: 'desc' },
+          where:   { category: cfg.category, postedAt: { not: null, gt: since } },
+          orderBy: { postedAt: 'asc' },
           take:    USERNAMES_PER_MESSAGE,
         });
 
@@ -35,8 +39,15 @@ async function publishAvailableUsernames(client) {
               .setColor(0x57F287)
               .setTitle(`🎁 Usernames Disponíveis — ${cfg.category.toUpperCase()}`)
               .setDescription(lista)
-              .setFooter({ text: `Total: ${targets.length} | Fallen Angels Sniper` }),
+              .setFooter({ text: `${targets.length} novos | Fallen Angels Sniper` })
+              .setTimestamp(),
           ],
+        });
+
+        // Atualiza o timestamp desta publicação
+        await prisma.publishChannel.update({
+          where: { id: cfg.id },
+          data:  { lastRunAt: new Date() },
         });
       } catch (err) {
         console.error(`[PUBLISH] Erro no canal ${cfg.channelId}:`, err.message);
@@ -46,6 +57,8 @@ async function publishAvailableUsernames(client) {
     console.error('[PUBLISH] Erro na publicação:', err.message);
   }
 }
+
+// ─── VIP expirado ─────────────────────────────────────────────────────────────
 
 async function checkExpiredVips(client) {
   try {
@@ -70,6 +83,8 @@ async function checkExpiredVips(client) {
   }
 }
 
+// ─── Ready ────────────────────────────────────────────────────────────────────
+
 export default {
   name: 'clientReady',
   once: true,
@@ -86,17 +101,22 @@ export default {
       }],
     });
 
-    await Promise.all([
-      registerSlashCommands(client),
-      initEmojis(client),
-    ]);
-    console.log(`🟣 Status de Streaming ativo.`);
+    // Monitor e publisher iniciam imediatamente — não dependem de registro de comandos
+    startMonitor(client);
 
     await checkExpiredVips(client);
     setInterval(() => checkExpiredVips(client), 5 * 60 * 1000);
-
-    // Publicação automática de usernames disponíveis nos canais configurados
     setInterval(() => publishAvailableUsernames(client), PUBLISH_INTERVAL_MS);
-    console.log('📡 Publisher automático ativo (a cada 5 min).');
+    console.log('📡 Publisher automático ativo (a cada 5 min, só novos).');
+
+    // Registro de comandos e emojis em background (não bloqueia o monitor)
+    Promise.all([
+      registerSlashCommands(client),
+      initEmojis(client),
+    ]).then(() => {
+      console.log('🟣 Comandos e emojis prontos.');
+    }).catch(err => {
+      console.error('[SETUP] Erro no registro:', err.message);
+    });
   },
 };
