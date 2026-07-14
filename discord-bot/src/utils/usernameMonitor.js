@@ -599,6 +599,13 @@ export async function startMonitor(client) {
   // Se não há canais configurados, roda todas as categorias
   const categories = configured.length ? configured : Object.keys(GENERATORS);
 
+  // Log detalhado dos canais configurados (ajuda a diagnosticar categorias faltantes)
+  console.log(`[MONITOR] 📋 Canais no banco (${channels.length}):`);
+  for (const ch of channels) {
+    const temGenerator = !!GENERATORS[ch.category];
+    console.log(`  ${temGenerator ? '✅' : '⚠️ sem generator'} categoria="${ch.category}" canal=${ch.channelId}`);
+  }
+
   const total = categories.length * WORKERS_PER_CATEGORY;
   console.log(`[MONITOR] 🚀 ${categories.length} cats × ${WORKERS_PER_CATEGORY} workers = ${total} workers | cats: ${categories.join(', ')}`);
 

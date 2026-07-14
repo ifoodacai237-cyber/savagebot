@@ -20,13 +20,10 @@ const USER_AGENT =
 const CHECK_URL_AUTHED   = 'https://discord.com/api/v9/users/@me/pomelo-attempt';
 const CHECK_URL_UNAUTHED = 'https://discord.com/api/v9/unique-username/username-attempt-unauthed';
 
-// Cadência inicial entre requisições por token (ms). Aumenta no 429, diminui no sucesso.
-const BASE_DELAY_MS    = 400;
-const MIN_DELAY_MS     = 200;
-const MAX_DELAY_MS     = 8_000;
-
-// Fila tokenless separada
-const TOKENLESS_BASE_DELAY = 2_000;
+// Delay fixo entre requisições por token — NÃO adaptativo.
+// O rate-limit do Discord é tratado dormindo o retry-after exato; sem compounding.
+const INTER_REQUEST_MS     = 600;   // ms entre cada request num token (~1.6 req/s por token)
+const TOKENLESS_INTER_MS   = 4_000; // ms entre requests tokenless (conservador)
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -101,7 +98,6 @@ class TokenQueue {
   constructor(tokenValue) {
     this.tokenValue = tokenValue;
     this.dead       = false;
-    this.delay      = BASE_DELAY_MS;   // ms entre requisições (adaptativo)
     this._queue     = [];
     this._running   = false;
     this._total     = 0;
@@ -130,7 +126,7 @@ class TokenQueue {
       const { username, resolve } = this._queue.shift();
       const result = await this._check(username);
       resolve(result);
-      if (this._queue.length > 0) await sleep(this.delay);
+      if (this._queue.length > 0) await sleep(INTER_REQUEST_MS);
     }
     this._running = false;
   }
@@ -140,45 +136,32 @@ class TokenQueue {
     const { status, body, retryAfter } = await rawCheck(CHECK_URL_AUTHED, this.tokenValue, username);
 
     if (status === 429) {
+      // Espera exatamente o retry-after do Discord e retoma na velocidade normal — sem compounding.
       const wait = retryAfter ?? 5;
-      this.delay = Math.min(this.delay * 2, MAX_DELAY_MS);
-      console.warn(`[CHECKER:token] 429 — cooldown ${wait}s | delay agora ${this.delay}ms`);
+      console.warn(`[CHECKER:token] 429 — aguardando ${wait}s`);
       await sleep(wait * 1_000);
-      // Re-tenta com o mesmo username após esperar
       return this._check(username);
     }
 
     if (status === 401) {
       this.dead = true;
       const remaining = _queues.filter(q => !q.dead).length;
-      console.warn(`[CHECKER:token] 401 — token inválido. Restam ${remaining} vivo(s).`);
-      // Resolve como null; workers vão cair no tokenless
+      console.warn(`[CHECKER:token] 401 — token morto. Restam ${remaining} vivo(s).`);
       return null;
     }
 
     if (status === 0) {
-      // Erro de rede
       await sleep(2_000);
       return null;
     }
 
-    // Sucesso → tenta diminuir o delay gradualmente
     const r = parseResult(status, body);
-    if (r !== null) {
-      this._ok++;
-      this.delay = Math.max(this.delay - 50, MIN_DELAY_MS);
-    }
+    if (r !== null) this._ok++;
     return r;
   }
 
   get stats() {
-    return {
-      dead:       this.dead,
-      delay:      this.delay,
-      queueLen:   this._queue.length,
-      total:      this._total,
-      ok:         this._ok,
-    };
+    return { dead: this.dead, queueLen: this._queue.length, total: this._total, ok: this._ok };
   }
 }
 
@@ -186,7 +169,6 @@ class TokenQueue {
 
 class TokenlessQueue {
   constructor() {
-    this.delay    = TOKENLESS_BASE_DELAY;
     this._queue   = [];
     this._running = false;
   }
@@ -208,7 +190,7 @@ class TokenlessQueue {
     while (this._queue.length > 0) {
       const { username, resolve } = this._queue.shift();
       resolve(await this._check(username));
-      if (this._queue.length > 0) await sleep(this.delay);
+      if (this._queue.length > 0) await sleep(TOKENLESS_INTER_MS);
     }
     this._running = false;
   }
@@ -217,15 +199,12 @@ class TokenlessQueue {
     const { status, body, retryAfter } = await rawCheck(CHECK_URL_UNAUTHED, null, username);
     if (status === 429) {
       const wait = retryAfter ?? 30;
-      this.delay = Math.min(this.delay * 2, 30_000);
-      console.warn(`[CHECKER:tokenless] 429 — cooldown ${wait}s | delay agora ${this.delay}ms`);
+      console.warn(`[CHECKER:tokenless] 429 — aguardando ${wait}s`);
       await sleep(wait * 1_000);
       return this._check(username);
     }
     if (status === 0) { await sleep(3_000); return null; }
-    const r = parseResult(status, body);
-    if (r !== null) this.delay = Math.max(this.delay - 200, TOKENLESS_BASE_DELAY);
-    return r;
+    return parseResult(status, body);
   }
 }
 
