@@ -238,7 +238,7 @@ async function checkPersonalTargets(client) {
  * Múltiplos workers da mesma categoria compartilham o mesmo `seen` Set
  * para não checar o mesmo username duas vezes.
  */
-async function categoryWorker(category, workerId, seen, client) {
+async function categoryWorker(category, workerId, client) {
   const gen = GENERATORS[category];
 
   console.log(`[MONITOR:${category}#${workerId}] ▶ Worker iniciado.`);
@@ -247,12 +247,7 @@ async function categoryWorker(category, workerId, seen, client) {
     try {
       const username = gen();
 
-      // Ignora duplicatas e inválidos — sem sleep, apenas gera outro
-      if (seen.has(username) || username.length < 2 || username.length > 32) {
-        continue;
-      }
-      seen.add(username);
-      if (seen.size > 30_000) seen.clear();
+      if (username.length < 2 || username.length > 32) continue;
 
       _checked++;
 
@@ -295,13 +290,11 @@ export async function startMonitor(client) {
   const workerOffset = Math.floor(DELAY_MS / WORKERS_PER_CATEGORY);
 
   categories.forEach((cat, catIdx) => {
-    const seen = new Set(); // compartilhado entre workers da mesma categoria
-
     for (let w = 0; w < WORKERS_PER_CATEGORY; w++) {
       // Escalonamento: cada categoria separada por DELAY_MS, workers dentro da cat por workerOffset
       const delay = catIdx * DELAY_MS + w * workerOffset;
       setTimeout(() => {
-        categoryWorker(cat, w, seen, client).catch(err => {
+        categoryWorker(cat, w, client).catch(err => {
           console.error(`[MONITOR:${cat}#${w}] Worker encerrado com erro:`, err.message);
         });
       }, delay);
