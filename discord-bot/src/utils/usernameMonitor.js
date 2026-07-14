@@ -10,6 +10,7 @@
 
 import prisma from '../database/client.js';
 import { isAvailable } from './checker.js';
+import { ContainerBuilder, TextDisplayBuilder, MessageFlags } from 'discord.js';
 
 // ─── Configuração ─────────────────────────────────────────────────────────────
 
@@ -496,15 +497,14 @@ async function postToChannels(username, category, client) {
     for (const cfg of configs) {
       const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
       if (!ch) continue;
+      const container = new ContainerBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder()
+            .setContent(`<:sorte:1526435450259243180> **@${username}**\ndisponível agora · <t:${ts}:R>`)
+        );
       await ch.send({
-        flags: 1 << 15, // IS_COMPONENTS_V2 — sem barra lateral colorida
-        components: [{
-          type: 17, // Container
-          components: [{
-            type: 10, // TextDisplay
-            content: `<:sorte:1526435450259243180> **@${username}**\ndisponível agora · <t:${ts}:R>`,
-          }],
-        }],
+        flags: MessageFlags.IsComponentsV2,
+        components: [container],
       }).catch(err => console.error(`[MONITOR] Erro ao postar em ${cfg.channelId}:`, err.message));
     }
   } catch (err) {
