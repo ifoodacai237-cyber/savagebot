@@ -24,3 +24,18 @@ tokens morrerem (401 nos logs `[CHECKER:token] 401 — token morto`), sobra pouc
 e aparecem 429 constantes — sintoma parecido de "lento" mas é problema de tokens
 inválidos/banidos, não de código. Checar `/monitor status` para ver quantos tokens estão
 vivos.
+
+**Diagnóstico de token "morto na hora" — corrupção vs. conta inválida de verdade:**
+quando um token (bot ou user) morre imediatamente, primeiro checar a *estrutura* do valor
+salvo no secret antes de assumir que a conta caiu: contar chars, procurar espaço/whitespace
+embutido e bytes fora de `[A-Za-z0-9._-]`, sem nunca imprimir o valor. Já aconteceu do
+`DISCORD_TOKEN` do bot ficar com espaços e um byte corrompido no meio (autocorretor do
+teclado ao copiar/colar) — o log dava `TokenInvalid`/401 igualzinho a uma conta banida, mas
+era só o secret salvo errado. Se a estrutura estiver limpa (mesmo nº de chars, 2 pontos,
+sem lixo) e mesmo assim vier `401: {"message":"401: Unauthorized","code":0}` do Discord, aí
+sim é a conta mesmo (token realmente inválido/banido/deslogado do lado do Discord), não erro
+de cópia.
+
+**Nunca aceitar token/secret colado em texto puro no chat** (nem em campo de formulário
+comum) — trate como comprometido e peça pra gerar de novo usando o fluxo seguro de secrets
+(`requestSecrets`), mesmo que o usuário insista que "sempre funcionou".
