@@ -19,81 +19,120 @@ const MAX_QUEUE            = 500;    // máx de usernames na fila antes de parar
 
 // ─── Listas de palavras ───────────────────────────────────────────────────────
 
+// Palavras em inglês — reais, variadas, sem números (para realword)
 const WORDS_EN = [
-  'storm','ghost','void','apex','nexus','realm','quest','legend','myth','prime',
-  'dark','light','fire','water','earth','wind','shadow','alpha','beta','gamma',
-  'delta','omega','ultra','mega','super','hyper','cyber','matrix','zenith','core',
-  'blade','frost','blaze','echo','nova','pixel','viper','wolf','raven','fox',
-  'hawk','lynx','owl','crow','elk','bear','lion','tiger','crane','swift',
-  'ash','oak','pine','cedar','maple','stone','cliff','ridge','vale','crest',
-  'war','dawn','dusk','night','noon','eve','fate','soul','veil','mark',
-  'ace','arc','ark','aura','bolt','bone','byte','code','coin','cult',
-  'flux','fog','hex','ice','ink','ion','ivy','jade','jet','key',
-  'lab','lake','lore','maze','mode','moon','myth','net','node','null',
-  'orb','path','peak','plex','pod','port','ray','rift','ring','rock',
-  'rune','rush','sage','salt','sand','seal','seed','shard','sign','silk',
-  'sky','slag','snow','span','spec','spin','star','stem','step','sun',
-  'sync','tab','tag','tide','tower','trace','trail','trap','tree','tribe',
-  'tune','twin','type','unit','vex','view','vine','vista','warp','wave',
-  'web','wire','zone','zap','zen',
+  'absolving','accruing','aching','adopting','adoring','adrift','affirming','aglow',
+  'aligning','alluring','aloft','altering','ambling','amusing','anchored','angling',
+  'arching','ardent','arising','arousing','arresting','ascending','ashen','aspiring',
+  'asserting','attaining','attuned','averting','awoken','baffling','beguiling',
+  'believing','bewildering','blending','blinding','blooming','blunting','bracing',
+  'braiding','bridging','brooding','burning','calming','carving','cascading',
+  'catching','chasing','circling','claiming','climbing','clouding','coiling',
+  'collecting','confiding','converging','cooling','coursing','covering','craving',
+  'creeping','crossing','crouching','crushing','curling','curving','cutting',
+  'daring','darting','dawning','deceiving','declaring','deepening','deflecting',
+  'departing','descending','devouring','dimming','discerning','dispersing','diving',
+  'drifting','drowning','dwelling','echoing','edging','emerging','enduring',
+  'erasing','escaping','evolving','fading','falling','faltering','fearing','fleeing',
+  'floating','flowing','flurrying','focusing','following','forging','forsaking',
+  'fracturing','freezing','gathering','gazing','gleaming','gliding','glowing',
+  'grasping','grounding','growing','guiding','haunting','hovering','hunting',
+  'igniting','invoking','isolating','journeying','kindling','lasting','leaning',
+  'lifting','lingering','listening','looming','lurking','mending','merging',
+  'mirroring','mourning','narrowing','nearing','observing','opening','orbiting',
+  'outlasting','overcoming','passing','persisting','piercing','plunging','prevailing',
+  'prowling','pursuing','reaching','receding','reflecting','reforming','releasing',
+  'remaining','renewing','resisting','restoring','retreating','returning','revealing',
+  'rising','roaming','roaring','rushing','scaling','scanning','scattering','seeking',
+  'sensing','separating','severing','shadowing','shielding','shifting','shining',
+  'silencing','soaring','softening','soothing','spiraling','spreading','standing',
+  'steadying','stirring','striking','striving','subduing','surging','sustaining',
+  'swaying','sweeping','swimming','tearing','threading','tracing','trailing',
+  'transcending','transforming','traversing','trembling','turning','unfolding',
+  'unraveling','vanishing','veiling','wandering','watching','weathering','weaving',
+  'withstanding','yielding','bechuana','moviolas','sordidity','submarining',
+  'inexhausted','falconry','glimmers','tethered','vaulting','wistful','zealous',
+  'arduous','blazing','brittle','callous','cryptic','devious','elusive','fervent',
+  'furious','gallant','ghostly','hapless','immense','jagged','lawless','listless',
+  'molten','nebulous','obscure','ominous','pallid','restless','ruinous','serene',
+  'sinuous','somber','spectral','tenuous','valiant','verdant','voracious',
 ];
 
+// Palavras em português — verbos conjugados, adjetivos, substantivos reais
 const WORDS_PT = [
-  'sol','lua','estrela','noite','dia','ceu','vento','agua','fogo','terra',
-  'mar','rio','neve','gelo','raio','trovao','chuva','luz','sombra','brilho',
-  'puro','claro','escuro','veloz','forte','raro','fino','livre','fiel','bravo',
-  'lobo','leao','aguia','onca','urso','falcao','cobra','raposa','corvo','tigre',
-  'rosa','flor','pedra','areia','nuvem','praia','morro','campo','selva','gruta',
-  'ouro','prata','ferro','arame','cristal','rubi','safira','esmeralda','jade',
-  'alma','voz','eco','elo','fio','faca','arco','lanca','escudo','manto',
-  'rei','rainha','heroi','lenda','mito','saga','bardo','guerreiro','mago',
-  'fada','gnomo','elfo','dragao','fenix','kraken','golem','titan','deus',
+  'conviveram','chorarias','jazentio','fonautografia','agonizando','alcancando',
+  'almejando','amortecer','ansiando','apartando','apaziguar','aprisionado',
+  'ardendo','arrepiando','assombrando','atordoando','aturdir','avancando',
+  'brilhando','buscando','caindo','caminhar','capturando','carregando','cedendo',
+  'cercando','clamar','colidindo','conquistando','correndo','cortando','criando',
+  'cruzando','cuidando','deslizando','desmoronar','despertar','destruindo',
+  'dominando','emergindo','encontrando','enfrentando','enganando','envolvendo',
+  'errando','escapando','espalhando','esperando','estilhacando','existindo',
+  'expandindo','fechando','flutuando','forjando','fugindo','fundindo','ganhando',
+  'girando','governando','guardando','guerreando','iluminando','implorando',
+  'incendiando','invocando','isolando','lagrimas','lancando','libertando',
+  'longevidade','lutando','mergulhando','mudando','nascendo','navegando',
+  'obscurecendo','ondulando','partindo','perseguindo','persistindo','procurando',
+  'projetando','protegendo','quebrando','queimando','rastejando','reconstruindo',
+  'refletindo','reinando','renascendo','resistindo','ressoando','retornando',
+  'revelando','rondando','rugindo','sacrificando','salvando','sangrado',
+  'sentindo','separando','sombrio','sonhando','sufocando','superando','sussurrando',
+  'tocando','transformando','tremendo','ultrapassando','unindo','vagando',
+  'vencendo','viajando','vivendo','voando','voltando','acalmar','admirar',
+  'afogar','agredir','alcancar','aliviar','ameacar','ampliar','aniquilar',
+  'apagar','aprender','arriscar','assombrar','atravessar','carregar','combater',
+  'cumprir','derrotar','desviar','empurrar','encarar','esconder','fracassar',
+  'glorificar','iluminar','impedir','libertar','marchar','obscurecer','permanecer',
+  'recuar','rejeitar','romper','seguir','silenciar','sobreviver','triunfar',
 ];
 
 // ─── Gerador ──────────────────────────────────────────────────────────────────
 
-const CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
-const ALPHA = 'abcdefghijklmnopqrstuvwxyz';
+const DIGITS = '0123456789';
+const ALPHA  = 'abcdefghijklmnopqrstuvwxyz';
+// MIXED_CHARS tem letras e dígitos em proporção equilibrada para gerar padrões tipo sf9d
+const MIXED_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
 function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
+// short: 3-5 letras minúsculas puras
 function generateShort() {
-  const len = randInt(2, 5);
-  return Array.from({ length: len }, () => rand([...CHARS])).join('');
+  const len = randInt(3, 5);
+  return Array.from({ length: len }, () => rand([...ALPHA])).join('');
 }
 
+// numbers: sequência numérica pura (5-7 dígitos) — igual ao print: 82571, 548941
 function generateNumbers() {
-  const word = rand(WORDS_EN).slice(0, 10);
-  const n    = randInt(1, 9999);
-  return `${word}${n}`;
+  const digits = randInt(5, 7);
+  const min    = Math.pow(10, digits - 1);
+  const max    = Math.pow(10, digits) - 1;
+  return String(randInt(min, max));
 }
 
+// rare: 2-3 letras puras (ultra raros e disputados)
 function generateRare() {
-  // Usernames curtos e raros: 2-3 letras puras (altamente disputados)
   const len = randInt(2, 3);
   return Array.from({ length: len }, () => rand([...ALPHA])).join('');
 }
 
+// realword: palavra real em inglês, sem números — igual ao print: inexhausted, submarining
 function generateRealwordEN() {
-  const word = rand(WORDS_EN);
-  // às vezes adiciona sufixo numérico pequeno
-  const suffix = Math.random() < 0.3 ? String(randInt(1, 99)) : '';
-  return `${word}${suffix}`;
+  return rand(WORDS_EN);
 }
 
+// realwordpt: palavra/verbo real em português, sem números — igual ao print: conviveram, chorarias
 function generateRealwordPT() {
-  const word = rand(WORDS_PT);
-  const suffix = Math.random() < 0.3 ? String(randInt(1, 99)) : '';
-  return `${word}${suffix}`;
+  return rand(WORDS_PT);
 }
 
+// mixed: exatamente 4 chars, pelo menos 1 letra e 1 dígito — igual ao print: sf9d, 8u3g, qk3c
 function generateMixed() {
-  const word = rand([...WORDS_EN, ...WORDS_PT]).slice(0, 12);
-  const pick = randInt(0, 2);
-  if (pick === 0) return `${word}${randInt(0, 999)}`;
-  if (pick === 1) return `${word}_${rand([...ALPHA])}`;
-  return `${rand([...ALPHA])}_${word}`;
+  // Gera 4 chars e garante ao menos 1 dígito e 1 letra
+  const arr = Array.from({ length: 4 }, () => rand([...MIXED_CHARS]));
+  if (!arr.some(c => DIGITS.includes(c)))   arr[randInt(1, 3)] = rand([...DIGITS]);
+  if (!arr.some(c => ALPHA.includes(c)))    arr[randInt(0, 2)] = rand([...ALPHA]);
+  return arr.join('');
 }
 
 const GENERATORS = {
