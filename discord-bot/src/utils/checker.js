@@ -103,16 +103,17 @@ export async function isAvailable(username) {
   const tokens = getTokens();
   const liveTokens = tokens.filter(t => !t.dead);
 
-  // Escolhe token: se todos em cooldown, espera o menor (máx 5s) ou usa tokenless
+  // Escolhe token disponível agora; se todos em cooldown curto (≤1s) espera,
+  // senão cai em tokenless imediatamente para não bloquear o worker.
   let token = liveTokens.length ? pickToken() : null;
 
   if (liveTokens.length && !token) {
     const wait = nextTokenAvailableIn();
-    if (wait <= 5_000) {
+    if (wait <= 1_000) {
       await sleep(wait);
       token = pickToken();
     }
-    // Cooldown longo (>5s): usa tokenless agora
+    // Cooldown longo (>1s): usa tokenless agora, não bloqueia
   }
 
   // Com token → endpoint autenticado (muito melhor rate-limit)

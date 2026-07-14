@@ -20,9 +20,9 @@ import { ContainerBuilder, TextDisplayBuilder, MessageFlags } from 'discord.js';
 
 // ─── Configuração ─────────────────────────────────────────────────────────────
 
-const WORKERS_PER_CATEGORY = 4;     // workers paralelos por categoria
-const WORKER_START_OFFSET  = 400;   // ms de escalonamento no start (evita burst inicial)
-const WORKER_MIN_DELAY_MS  = 200;   // delay mínimo entre checks dentro de cada worker
+const WORKERS_PER_CATEGORY = 8;     // workers paralelos por categoria
+const WORKER_START_OFFSET  = 100;   // ms de escalonamento no start (evita burst inicial)
+const WORKER_MIN_DELAY_MS  = 0;     // sem delay artificial — o token pool já gerencia o rate-limit
 
 // ─── Geradores ────────────────────────────────────────────────────────────────
 
