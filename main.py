@@ -8,7 +8,6 @@ import traceback
 
 load_dotenv()
 
-# Adiciona diretório sniper_bot ao path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
 from sniper_bot.db import Database
@@ -16,38 +15,37 @@ from sniper_bot.generator import UsernameGenerator
 from sniper_bot.sniper import UsernameSniper
 from sniper_bot.checker import AvailabilityChecker
 
-# Setup bot com intents completos
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-# Initialize modules
 db = None
 generator = None
 sniper = None
 checker = None
 
+PUBLISH_CHANNELS = {}
+PUBLISH_INTERVAL = 5  # minutos
+USERNAMES_PER_MESSAGE = 500
+
 @bot.event
 async def on_ready():
     global db, generator, sniper, checker
     
-    print(f"\n{'='*50}")
+    print(f"\n{'='*60}")
     print(f"✅ Bot conectado como {bot.user}")
     print(f"🆔 Bot ID: {bot.user.id}")
-    print(f"{'='*50}\n")
+    print(f"{'='*60}\n")
     
     try:
-        # Initialize database
         db = Database()
         await db.init()
         print("✅ Database inicializado")
         
-        # Initialize modules
         generator = UsernameGenerator(db)
         checker = AvailabilityChecker(db)
         sniper = UsernameSniper(bot, db, checker)
         print("✅ Módulos inicializados")
         
-        # Start background tasks
         if not generator_task.is_running():
             generator_task.start()
             print("✅ Gerador iniciado")
@@ -57,8 +55,10 @@ async def on_ready():
         if not cleanup_task.is_running():
             cleanup_task.start()
             print("✅ Cleanup iniciado")
+        if not publish_task.is_running():
+            publish_task.start()
+            print("✅ Publisher iniciado")
         
-        # Sync commands
         print("\n🔄 Sincronizando comandos...")
         try:
             synced = await bot.tree.sync()
@@ -79,8 +79,7 @@ async def generator_task():
     if generator is None:
         return
     try:
-        print(f"🔄 Gerando batch de usernames...")
-        await generator.generate_batch(batch_size=5000)
+        await generator.generate_batch(batch_size=5000, category="mixed")
     except Exception as e:
         print(f"❌ Erro em generator_task: {e}")
 
@@ -104,9 +103,113 @@ async def cleanup_task():
     except Exception as e:
         print(f"❌ Erro em cleanup_task: {e}")
 
+@tasks.loop(minutes=PUBLISH_INTERVAL)
+async def publish_task():
+    """Tarefa de publicação de usernames nos canais"""
+    if db is None or not PUBLISH_CHANNELS:
+        return
+    
+    try:
+        for category, channel_id in PUBLISH_CHANNELS.items():
+            await publish_available_usernames(category, channel_id)
+    except Exception as e:
+        print(f"❌ Erro em publish_task: {e}")
+
+async def publish_available_usernames(category: str, channel_id: int):
+    """Publica usernames disponíveis em um canal"""
+    try:
+        channel = bot.get_channel(channel_id)
+        if not channel:
+            print(f"❌ Canal {channel_id} não encontrado")
+            return
+        
+        # Busca usernames disponíveis
+        usernames = await db.get_available_usernames(category=category, limit=USERNAMES_PER_MESSAGE)
+        
+        if not usernames:
+            return
+        
+        # Cria lista de usernames
+        username_list = "\n".join([f"✅ `{u[0]}`" for u in usernames])
+        
+        # Cria embed
+        embed = discord.Embed(
+            title=f"🎁 Usernames Disponíveis - {category.upper()}",
+            color=discord.Color.green(),
+            description=username_list
+        )
+        embed.set_footer(text=f"Total: {len(usernames)} | Fallen Angels Sniper")
+        
+        # Envia
+        await channel.send(embed=embed)
+        print(f"✅ {len(usernames)} usernames de '{category}' publicados em #{channel.name}")
+        
+    except Exception as e:
+        print(f"❌ Erro ao publicar usernames: {e}")
+        traceback.print_exc()
+
 # ========== SLASH COMMANDS ==========
 
-@bot.tree.command(name="gerar", description="Inicia geração automática de usernames 🔄")
+@bot.tree.command(name="setup_canal", description="Configura um canal para publicação automática")
+@discord.app_commands.choices(
+    categoria=[
+        discord.app_commands.Choice(name="short (2-5 chars)", value="short"),
+        discord.app_commands.Choice(name="numbers (com números)", value="numbers"),
+        discord.app_commands.Choice(name="realword (palavras reais)", value="realword"),
+        discord.app_commands.Choice(name="mixed (misturado)", value="mixed"),
+        discord.app_commands.Choice(name="rare (raro)", value="rare"),
+    ]
+)
+@discord.app_commands.describe(
+    categoria="Categoria de usernames a publicar neste canal"
+)
+async def setup_canal(interaction: discord.Interaction, categoria: str):
+    """Configura um canal para receber usernames de uma categoria"""
+    # Verifica permissões de admin
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ Você precisa ser administrador!", ephemeral=True)
+        return
+    
+    global PUBLISH_CHANNELS
+    
+    PUBLISH_CHANNELS[categoria] = interaction.channel_id
+    
+    embed = discord.Embed(
+        title="✅ Canal Configurado",
+        color=discord.Color.green(),
+        description=f"Este canal receberá usernames de categoria: **{categoria}**\n\nPublicação automática a cada {PUBLISH_INTERVAL} minutos"
+    )
+    embed.set_footer(text="Fallen Angels Sniper")
+    
+    await interaction.response.send_message(embed=embed)
+    print(f"✅ Canal #{interaction.channel.name} configurado para categoria '{categoria}'")
+
+@bot.tree.command(name="canais", description="Mostra canais configurados para publicação")
+async def canais(interaction: discord.Interaction):
+    """Lista canais configurados"""
+    if not PUBLISH_CHANNELS:
+        await interaction.response.send_message("❌ Nenhum canal configurado ainda!", ephemeral=True)
+        return
+    
+    embed = discord.Embed(
+        title="📊 Canais Configurados",
+        color=discord.Color.blue(),
+        description="Canais ativos para publicação de usernames"
+    )
+    
+    for category, channel_id in PUBLISH_CHANNELS.items():
+        channel = bot.get_channel(channel_id)
+        channel_mention = channel.mention if channel else f"Canal {channel_id}"
+        embed.add_field(
+            name=f"📁 {category.upper()}",
+            value=f"{channel_mention} | ID: {channel_id}",
+            inline=False
+        )
+    
+    embed.set_footer(text="Fallen Angels Sniper")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="gerar", description="Inicia geração automática de usernames")
 @discord.app_commands.choices(
     categoria=[
         discord.app_commands.Choice(name="short (2-5 chars)", value="short"),
@@ -135,14 +238,13 @@ async def gerar(interaction: discord.Interaction, categoria: str = "mixed"):
             color=discord.Color.green(),
             description=f"**Categoria:** {categoria}\n**Usernames gerados:** {count:,}"
         )
-        embed.set_footer(text="Sistema de Sniper do Fallen Angels")
+        embed.set_footer(text="Fallen Angels Sniper")
         await interaction.followup.send(embed=embed)
     except Exception as e:
         await interaction.followup.send(f"❌ Erro: {str(e)}")
-        print(f"Erro em gerar: {e}")
         traceback.print_exc()
 
-@bot.tree.command(name="snipe_add", description="Adiciona username para monitoramento 🎯")
+@bot.tree.command(name="snipe_add", description="Adiciona username para monitoramento")
 @discord.app_commands.describe(
     username="Username para monitorar (3-32 caracteres)"
 )
@@ -167,16 +269,15 @@ async def snipe_add(interaction: discord.Interaction, username: str):
                 color=discord.Color.green(),
                 description=f"Monitorando: **{username}**"
             )
-            embed.set_footer(text="Sistema de Sniper do Fallen Angels")
+            embed.set_footer(text="Fallen Angels Sniper")
             await interaction.followup.send(embed=embed)
         else:
             await interaction.followup.send(f"❌ Username {username} já está sendo monitorado!")
     except Exception as e:
         await interaction.followup.send(f"❌ Erro: {str(e)}")
-        print(f"Erro em snipe_add: {e}")
         traceback.print_exc()
 
-@bot.tree.command(name="snipe_list", description="Lista seus usernames em monitoramento 📋")
+@bot.tree.command(name="snipe_list", description="Lista seus usernames em monitoramento")
 async def snipe_list(interaction: discord.Interaction):
     """Lista usernames em snipe"""
     if sniper is None:
@@ -205,14 +306,13 @@ async def snipe_list(interaction: discord.Interaction):
                 inline=False
             )
         
-        embed.set_footer(text="Sistema de Sniper do Fallen Angels")
+        embed.set_footer(text="Fallen Angels Sniper")
         await interaction.followup.send(embed=embed)
     except Exception as e:
         await interaction.followup.send(f"❌ Erro: {str(e)}")
-        print(f"Erro em snipe_list: {e}")
         traceback.print_exc()
 
-@bot.tree.command(name="disponivel", description="Verifica se um username está disponível ✅")
+@bot.tree.command(name="disponivel", description="Verifica se um username está disponível")
 @discord.app_commands.describe(
     username="Username para verificar"
 )
@@ -235,15 +335,14 @@ async def disponivel(interaction: discord.Interaction, username: str):
             color=color,
             description=f"Username: **{username}**"
         )
-        embed.set_footer(text="Sistema de Sniper do Fallen Angels")
+        embed.set_footer(text="Fallen Angels Sniper")
         
         await interaction.followup.send(embed=embed)
     except Exception as e:
         await interaction.followup.send(f"❌ Erro: {str(e)}")
-        print(f"Erro em disponivel: {e}")
         traceback.print_exc()
 
-@bot.tree.command(name="status", description="Mostra status geral do sistema 📊")
+@bot.tree.command(name="status", description="Mostra status geral do sistema")
 async def status(interaction: discord.Interaction):
     """Mostra status do sistema"""
     if db is None:
@@ -269,19 +368,19 @@ async def status(interaction: discord.Interaction):
         
         gen_status = "✅ Ativo" if generator_task.is_running() else "❌ Parado"
         sniper_status = "✅ Ativo" if sniper_task.is_running() else "❌ Parado"
+        publish_status = "✅ Ativo" if publish_task.is_running() else "❌ Parado"
         
         embed.add_field(name="🔄 Gerador", value=gen_status, inline=True)
         embed.add_field(name="🎯 Sniper", value=sniper_status, inline=True)
+        embed.add_field(name="💼 Publisher", value=publish_status, inline=True)
         
-        embed.set_footer(text="Sistema de Sniper do Fallen Angels")
+        embed.set_footer(text="Fallen Angels Sniper")
         
         await interaction.followup.send(embed=embed)
     except Exception as e:
         await interaction.followup.send(f"❌ Erro: {str(e)}")
-        print(f"Erro em status: {e}")
         traceback.print_exc()
 
-# Run bot
 if __name__ == "__main__":
     token = os.getenv("DISCORD_TOKEN")
     if not token:
