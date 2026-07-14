@@ -6,7 +6,7 @@
  *   2. Posta no canal sniper: "@oldname entrou na mira"
  */
 
-import { ContainerBuilder, TextDisplayBuilder, MessageFlags } from 'discord.js';
+import { ChannelType } from 'discord.js';
 import prisma from '../database/client.js';
 import { isAvailable } from '../utils/checker.js';
 
@@ -83,22 +83,19 @@ export async function postarSniper(target, newName, confirmado, client) {
         `Estimativa: entre **em um dia** e **em 14 dias** (sem regra exata do Discord). Verifico de tempos em tempos.`;
     }
 
+    const embed = { description: texto, color: confirmado ? 0x57F287 : 0xED4245 };
+
     for (const cfg of configs) {
       const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
       if (!ch) continue;
-
-      let sent = false;
       try {
-        const container = new ContainerBuilder()
-          .addTextDisplayComponents(new TextDisplayBuilder().setContent(texto));
-        await ch.send({ flags: MessageFlags.IsComponentsV2, components: [container] });
-        sent = true;
-      } catch {}
-
-      if (!sent) {
-        await ch.send({
-          embeds: [{ description: texto, color: confirmado ? 0x57F287 : 0xED4245 }],
-        }).catch(err => console.error(`[SNIPER] Erro ao postar em ${cfg.channelId}:`, err.message));
+        if (ch.type === ChannelType.GuildForum) {
+          await ch.threads.create({ name: target, message: { embeds: [embed] } });
+        } else {
+          await ch.send({ embeds: [embed] });
+        }
+      } catch (err) {
+        console.error(`[SNIPER] Erro ao postar em ${cfg.channelId}:`, err.message);
       }
     }
   } catch (err) {

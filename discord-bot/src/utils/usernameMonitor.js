@@ -16,7 +16,7 @@
 
 import prisma from '../database/client.js';
 import { isAvailable } from './checker.js';
-import { ContainerBuilder, TextDisplayBuilder, MessageFlags } from 'discord.js';
+import { ChannelType } from 'discord.js';
 
 // ─── Configuração ─────────────────────────────────────────────────────────────
 
@@ -423,31 +423,21 @@ async function postToChannels(username, category, client) {
   try {
     const configs = await prisma.publishChannel.findMany({ where: { category } });
     if (!configs.length) return;
-    const ts = Math.floor(Date.now() / 1000);
+    const ts    = Math.floor(Date.now() / 1000);
+    const texto = `<:sorte:1526435450259243180> **@${username}**\ndisponível agora · <t:${ts}:R>`;
+    const embed = { description: texto, color: 0x2b2d31 };
+
     for (const cfg of configs) {
       const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
       if (!ch) continue;
-
-      let sent = false;
       try {
-        const container = new ContainerBuilder()
-          .addTextDisplayComponents(
-            new TextDisplayBuilder()
-              .setContent(`<:sorte:1526435450259243180> **@${username}**\ndisponível agora · <t:${ts}:R>`)
-          );
-        await ch.send({ flags: MessageFlags.IsComponentsV2, components: [container] });
-        sent = true;
-      } catch (v2err) {
-        console.warn(`[MONITOR] V2 falhou em ${cfg.channelId}, usando embed clássico:`, v2err.message);
-      }
-
-      if (!sent) {
-        await ch.send({
-          embeds: [{
-            description: `<:sorte:1526435450259243180> **@${username}**\ndisponível agora · <t:${ts}:R>`,
-            color: 0x2b2d31,
-          }],
-        }).catch(err => console.error(`[MONITOR] Erro ao postar (fallback) em ${cfg.channelId}:`, err.message));
+        if (ch.type === ChannelType.GuildForum) {
+          await ch.threads.create({ name: username, message: { embeds: [embed] } });
+        } else {
+          await ch.send({ embeds: [embed] });
+        }
+      } catch (err) {
+        console.error(`[MONITOR] Erro ao postar em ${cfg.channelId}:`, err.message);
       }
     }
   } catch (err) {
@@ -478,25 +468,21 @@ async function postSniperConfirmed(username, client) {
   try {
     const configs = await prisma.publishChannel.findMany({ where: { category: 'sniper' } });
     if (!configs.length) return;
-    const ts = Math.floor(Date.now() / 1000);
+    const ts    = Math.floor(Date.now() / 1000);
     const texto = `<:sorte:1526435450259243180> **@${username}**\nconfirmado livre agora · <t:${ts}:R>`;
+    const embed = { description: texto, color: 0x57F287 };
 
     for (const cfg of configs) {
       const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
       if (!ch) continue;
-
-      let sent = false;
       try {
-        const container = new ContainerBuilder()
-          .addTextDisplayComponents(new TextDisplayBuilder().setContent(texto));
-        await ch.send({ flags: MessageFlags.IsComponentsV2, components: [container] });
-        sent = true;
-      } catch {}
-
-      if (!sent) {
-        await ch.send({
-          embeds: [{ description: texto, color: 0x57F287 }],
-        }).catch(() => {});
+        if (ch.type === ChannelType.GuildForum) {
+          await ch.threads.create({ name: username, message: { embeds: [embed] } });
+        } else {
+          await ch.send({ embeds: [embed] });
+        }
+      } catch (err) {
+        console.error(`[MONITOR] Erro ao postar sniper confirmado em ${cfg.channelId}:`, err.message);
       }
     }
   } catch (err) {

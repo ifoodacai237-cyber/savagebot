@@ -10,7 +10,7 @@
  *  /publicar_agora — publica usernames imediatamente nos canais configurados
  */
 
-import { SlashCommandBuilder, EmbedBuilder, ContainerBuilder, TextDisplayBuilder, MessageFlags } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChannelType } from 'discord.js';
 import prisma from '../../database/client.js';
 import { isAvailable } from '../../utils/checker.js';
 
@@ -130,22 +130,19 @@ async function _postarNoCanaiSniper(target, addedByName, client) {
       `@${addedByName} — vou avisar quando **@${target}** liberar.\n` +
       `Estimativa: entre **em um dia** e **em 14 dias** (sem regra exata do Discord). Verifico de tempos em tempos.`;
 
+    const embed = { description: texto, color: 0xED4245 };
+
     for (const cfg of configs) {
       const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
       if (!ch) continue;
-
-      let sent = false;
       try {
-        const container = new ContainerBuilder()
-          .addTextDisplayComponents(new TextDisplayBuilder().setContent(texto));
-        await ch.send({ flags: MessageFlags.IsComponentsV2, components: [container] });
-        sent = true;
-      } catch {}
-
-      if (!sent) {
-        await ch.send({
-          embeds: [{ description: texto, color: 0xED4245 }],
-        }).catch(err => console.error(`[SNIPE_ADD] Erro ao postar em ${cfg.channelId}:`, err.message));
+        if (ch.type === ChannelType.GuildForum) {
+          await ch.threads.create({ name: target, message: { embeds: [embed] } });
+        } else {
+          await ch.send({ embeds: [embed] });
+        }
+      } catch (err) {
+        console.error(`[SNIPE_ADD] Erro ao postar em ${cfg.channelId}:`, err.message);
       }
     }
   } catch (err) {
