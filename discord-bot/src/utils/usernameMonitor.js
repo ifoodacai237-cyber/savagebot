@@ -497,9 +497,13 @@ async function postToChannels(username, category, client) {
       const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
       if (!ch) continue;
       await ch.send({
-        embeds: [{
-          description: `🎇 **@${username}**\ndisponível agora · <t:${ts}:R>`,
-          color: 0x2b2d31,
+        flags: 1 << 15, // IS_COMPONENTS_V2 — sem barra lateral colorida
+        components: [{
+          type: 17, // Container
+          components: [{
+            type: 10, // TextDisplay
+            content: `<:sorte:1526435450259243180> **@${username}**\ndisponível agora · <t:${ts}:R>`,
+          }],
         }],
       }).catch(err => console.error(`[MONITOR] Erro ao postar em ${cfg.channelId}:`, err.message));
     }
