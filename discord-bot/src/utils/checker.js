@@ -23,7 +23,13 @@ const CHECK_URL_UNAUTHED = 'https://discord.com/api/v9/unique-username/username-
 // Delay fixo entre requisições por token — NÃO adaptativo.
 // O rate-limit do Discord é tratado dormindo o retry-after exato; sem compounding.
 const INTER_REQUEST_MS     = 600;   // ms entre cada request num token (~1.6 req/s por token)
-const TOKENLESS_INTER_MS   = 4_000; // ms entre requests tokenless (conservador)
+const TOKENLESS_INTER_MS   = 2_500; // ms entre requests tokenless — mais rápido que o antigo 4s,
+                                     // mas ainda abaixo do limiar que dispara bloqueio punitivo de IP
+
+// Modo tokens autenticados desativado por decisão do usuário: contas usadas em
+// pomelo-attempt "queimam" (401) em minutos de uso automatizado — não compensa o custo
+// de gerenciar tokens descartáveis. Todo o tráfego roda pelo endpoint não-autenticado.
+const USE_TOKEN_POOL = false;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -55,9 +61,11 @@ function buildHeaders(token = null) {
 // ─── Requisição HTTP bruta ────────────────────────────────────────────────────
 
 /**
+ * @param {number} maxRetryAfter — teto (s) pro backoff de 429; sem endereço fixo de 120s
+ *   pra não martelar de novo um bloqueio punitivo de IP que dura mais que isso.
  * @returns {{ status: number, body: object|null, retryAfter: number|null }}
  */
-async function rawCheck(url, token, username) {
+async function rawCheck(url, token, username, maxRetryAfter = 120) {
   try {
     const res = await fetch(url, {
       method:  'POST',
@@ -66,7 +74,7 @@ async function rawCheck(url, token, username) {
     });
 
     const retryAfter = res.status === 429
-      ? Math.min(parseFloat(res.headers.get('Retry-After') || '5'), 120)
+      ? Math.min(parseFloat(res.headers.get('Retry-After') || '5'), maxRetryAfter)
       : null;
 
     const body = await res.json().catch(() => null);
@@ -196,7 +204,9 @@ class TokenlessQueue {
   }
 
   async _check(username) {
-    const { status, body, retryAfter } = await rawCheck(CHECK_URL_UNAUTHED, null, username);
+    // Teto de 30min — respeita bloqueio punitivo de IP em vez de martelar de novo em 120s
+    // (o que só reinicia/estende o bloqueio).
+    const { status, body, retryAfter } = await rawCheck(CHECK_URL_UNAUTHED, null, username, 1_800);
     if (status === 429) {
       const wait = retryAfter ?? 30;
       console.warn(`[CHECKER:tokenless] 429 — aguardando ${wait}s`);
@@ -215,7 +225,7 @@ let _tokenlessQueue  = null;
 let _rrIndex         = 0;
 
 function initPool() {
-  const raw = process.env.DISCORD_USER_TOKENS ?? '';
+  const raw = USE_TOKEN_POOL ? (process.env.DISCORD_USER_TOKENS ?? '') : '';
   const tokens = raw
     .split(/[\n,]+/)
     .map(t => t.trim())
