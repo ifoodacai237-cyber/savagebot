@@ -4,4 +4,4 @@
 - [Welcome System](welcome-system.md) — sistema de boas-vindas com painel wcfg_, evento guildMemberAdd.js, comando /boas-vindas. Campos no GuildConfig: welcomeChannel/Color/Banner/Thumb/Footer/Title/Text/Roles/Channels.
 - [FUT card system removed](discord-bot-personalization-ai.md) — sistema FUT (fut.js, futManager.js etc.) foi totalmente removido do bot; não recriar sem pedido explícito.
 - [Personalização por servidor + IA](discord-bot-personalization-ai.md) — /personalizar usa PATCH /guilds/{id}/members/@me (avatar/banner/bio por servidor); /ia usa chave própria da OpenAI (não o proxy do Replit) pois o bot roda na Railway.
-- [Sniper de usernames — fórum + rate limit](sniper-username-forum.md) — cards precisam ser embed clássico (não Components V2) + fórum em ListView; endpoint de checagem tem bloqueio punitivo (~23min) se martelado rápido demais.
+- [Sniper de usernames — REMOVIDO](sniper-username-forum.md) — sistema todo (checker/monitor/comandos/tabelas) foi apagado a pedido do usuário; não recriar sem pedido explícito novo.

@@ -1,7 +1,14 @@
 ---
-name: Sniper de usernames — fórum + rate limit
-description: Por que o feed de usernames disponíveis ficava lento/incompleto e como foi corrigido.
+name: Sniper de usernames — REMOVIDO
+description: Sistema de sniper/checker de usernames existiu, teve vários bugs corrigidos, e foi totalmente removido a pedido do usuário em 14/07/2026. Não recriar sem pedido explícito.
 ---
+
+**Status atual: removido por completo.** Código (checker.js, usernameMonitor.js,
+publishChannels.js, comandos sniper/monitor, detector de troca de username) e tabelas do
+banco (`PublishChannel`, `SniperTarget`) foram apagados. O usuário cansou de gerenciar
+contas/tokens descartáveis para o checker autenticado. Se pedir de volta, tratar como
+feature nova — não tentar restaurar do histórico. As notas abaixo documentam bugs e
+lições técnicas encontradas enquanto o sistema existia, úteis apenas se for reconstruído.
 
 Cards de username disponível devem ser mensagens normais (`channel.send`), nunca uma
 thread de fórum nova por username. Criar thread por mensagem bate no rate limit de

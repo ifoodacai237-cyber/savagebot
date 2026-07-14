@@ -366,36 +366,11 @@ model VipGrant {
   @@index([expiresAt])
 }
 
-/// Canais configurados para publicação automática de usernames por categoria
-model PublishChannel {
-  id          String    @id @default(cuid())
-  guildId     String
-  channelId   String
-  category    String
-  lastRunAt   DateTime?   /// Timestamp da última publicação — usado para enviar só usernames novos
-
-  @@unique([guildId, category])
-  @@index([guildId])
-}
-
 /// Token do usuário para automação de Discord Quests (/quest)
 model UserQuestToken {
   id        String   @id @default(cuid())
   userId    String   @unique
   token     String
   updatedAt DateTime @updatedAt
-}
-
-/// Usernames monitorados pelos usuários via /snipe_add
-model SniperTarget {
-  id            String    @id @default(cuid())
-  username      String    @unique
-  category      String    @default("sniper")
-  addedByUserId String?
-  addedByName   String?
-  detectedAt    DateTime  @default(now())
-  postedAt      DateTime?
-
-  @@index([addedByUserId])
 }
 

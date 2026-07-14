@@ -1,7 +1,6 @@
 import { ActivityType } from 'discord.js';
 import { registerSlashCommands } from '../utils/loader.js';
 import { initEmojis } from '../utils/emojiManager.js';
-import { startMonitor } from '../utils/usernameMonitor.js';
 import prisma from '../database/client.js';
 
 // ─── VIP expirado ─────────────────────────────────────────────────────────────
@@ -46,9 +45,6 @@ export default {
         url: 'https://www.twitch.tv/savagge',
       }],
     });
-
-    // Monitor inicia imediatamente — um loop por categoria, em paralelo
-    await startMonitor(client);
 
     await checkExpiredVips(client);
     setInterval(() => checkExpiredVips(client), 5 * 60 * 1000);
