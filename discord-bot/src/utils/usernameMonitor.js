@@ -16,8 +16,9 @@ import { ContainerBuilder, TextDisplayBuilder, MessageFlags } from 'discord.js';
 
 // Sem delay artificial — a velocidade é governada pelo rate-limit do checker.
 // Com tokens no pool, o checker já espera automaticamente quando necessário.
-const WORKERS_PER_CATEGORY = 8;      // workers paralelos por categoria
-const WORKER_START_OFFSET  = 150;    // ms de escalonamento no start (evita burst inicial)
+const WORKERS_PER_CATEGORY = 4;      // workers paralelos por categoria
+const WORKER_START_OFFSET  = 400;    // ms de escalonamento no start (evita burst inicial)
+const WORKER_MIN_DELAY_MS  = 250;    // delay mínimo entre checks dentro de cada worker
 
 // ─── Geradores ────────────────────────────────────────────────────────────────
 
@@ -444,9 +445,10 @@ function generateMixed() {
       return rand(MIXED_PREFIXES) + String(randInt(10, 9999));
     }
     case 3: {
-      // 3 letras + underscore + 2 dígitos: ex "vxk_08" — Discord permite _
-      const letters = Array.from({ length: randInt(2, 4) }, () => rand([...ALPHA])).join('');
-      return letters + '_' + String(randInt(0, 99)).padStart(2, '0');
+      // 2-4 letras + 2 dígitos no meio: ex "vx08k"
+      const pre = Array.from({ length: randInt(1, 2) }, () => rand([...ALPHA])).join('');
+      const suf = Array.from({ length: randInt(1, 2) }, () => rand([...ALPHA])).join('');
+      return pre + String(randInt(10, 99)) + suf;
     }
     case 4: {
       // 1-2 dígitos + letras + 1 dígito: ex "7az3"
@@ -497,15 +499,30 @@ async function postToChannels(username, category, client) {
     for (const cfg of configs) {
       const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
       if (!ch) continue;
-      const container = new ContainerBuilder()
-        .addTextDisplayComponents(
-          new TextDisplayBuilder()
-            .setContent(`<:sorte:1526435450259243180> **@${username}**\ndisponível agora · <t:${ts}:R>`)
-        );
-      await ch.send({
-        flags: MessageFlags.IsComponentsV2,
-        components: [container],
-      }).catch(err => console.error(`[MONITOR] Erro ao postar em ${cfg.channelId}:`, err.message));
+
+      // Tenta Components V2 (sem barra lateral colorida)
+      let sent = false;
+      try {
+        const container = new ContainerBuilder()
+          .addTextDisplayComponents(
+            new TextDisplayBuilder()
+              .setContent(`<:sorte:1526435450259243180> **@${username}**\ndisponível agora · <t:${ts}:R>`)
+          );
+        await ch.send({ flags: MessageFlags.IsComponentsV2, components: [container] });
+        sent = true;
+      } catch (v2err) {
+        console.warn(`[MONITOR] V2 falhou em ${cfg.channelId}, usando embed clássico:`, v2err.message);
+      }
+
+      // Fallback: embed clássico com o mesmo emoji
+      if (!sent) {
+        await ch.send({
+          embeds: [{
+            description: `<:sorte:1526435450259243180> **@${username}**\ndisponível agora · <t:${ts}:R>`,
+            color: 0x2b2d31,
+          }],
+        }).catch(err => console.error(`[MONITOR] Erro ao postar (fallback) em ${cfg.channelId}:`, err.message));
+      }
     }
   } catch (err) {
     console.error(`[MONITOR] Erro ao buscar canais para ${category}:`, err.message);
@@ -561,7 +578,7 @@ async function checkPersonalTargets(client) {
         }
       } catch {}
       console.log(`[MONITOR] 🎯 Personal target disponível: @${target.username}`);
-      await sleep(DELAY_MS);
+      await sleep(1_000);
     }
   } catch (err) {
     console.error('[MONITOR] Erro ao checar targets pessoais:', err.message);
@@ -575,6 +592,7 @@ async function checkPersonalTargets(client) {
  */
 async function categoryWorker(category, workerId, client) {
   const gen = GENERATORS[category];
+  let localChecked = 0;
 
   console.log(`[MONITOR:${category}#${workerId}] ▶ Worker iniciado.`);
 
@@ -584,13 +602,20 @@ async function categoryWorker(category, workerId, client) {
       if (username.length < 2 || username.length > 32) continue;
 
       _checked++;
+      localChecked++;
+
+      // Log de atividade a cada 200 checks por worker (prova que está vivo)
+      if (localChecked % 200 === 0) {
+        console.log(`[MONITOR:${category}#${workerId}] 💓 ${localChecked} checks locais | total global: ${_checked} | encontrados: ${_found}`);
+      }
 
       const avail = await isAvailable(username);
       if (avail === true) {
         await saveAvailable(username, category, client);
       }
-      // Sem sleep aqui — o checker.js já governa velocidade via rate-limit do Discord.
-      // Quando todos os tokens estão em cooldown, isAvailable() aguarda automaticamente.
+
+      // Delay mínimo entre checks para não martelar o endpoint
+      await sleep(WORKER_MIN_DELAY_MS);
     } catch (err) {
       console.error(`[MONITOR:${category}#${workerId}] Erro:`, err.message);
       await sleep(5_000);
