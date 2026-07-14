@@ -13,87 +13,110 @@ import { isAvailable } from './checker.js';
 
 // ─── Configuração ─────────────────────────────────────────────────────────────
 
-const DELAY_MS             = 600;    // ms entre checks por worker (2 workers/cat = 300ms efetivo)
-const WORKERS_PER_CATEGORY = 2;      // workers paralelos por categoria
+// Sem delay artificial — a velocidade é governada pelo rate-limit do checker.
+// Com tokens no pool, o checker já espera automaticamente quando necessário.
+const WORKERS_PER_CATEGORY = 8;      // workers paralelos por categoria
+const WORKER_START_OFFSET  = 150;    // ms de escalonamento no start (evita burst inicial)
 
 // ─── Listas de palavras ───────────────────────────────────────────────────────
 
-// Palavras em inglês — reais, variadas, sem números (para realword)
-const WORDS_EN = [
-  'absolving','accruing','aching','adopting','adoring','adrift','affirming','aglow',
-  'aligning','alluring','aloft','altering','ambling','amusing','anchored','angling',
-  'arching','ardent','arising','arousing','arresting','ascending','ashen','aspiring',
-  'asserting','attaining','attuned','averting','awoken','baffling','beguiling',
-  'believing','bewildering','blending','blinding','blooming','blunting','bracing',
-  'braiding','bridging','brooding','burning','calming','carving','cascading',
-  'catching','chasing','circling','claiming','climbing','clouding','coiling',
-  'collecting','confiding','converging','cooling','coursing','covering','craving',
-  'creeping','crossing','crouching','crushing','curling','curving','cutting',
-  'daring','darting','dawning','deceiving','declaring','deepening','deflecting',
-  'departing','descending','devouring','dimming','discerning','dispersing','diving',
-  'drifting','drowning','dwelling','echoing','edging','emerging','enduring',
-  'erasing','escaping','evolving','fading','falling','faltering','fearing','fleeing',
-  'floating','flowing','flurrying','focusing','following','forging','forsaking',
-  'fracturing','freezing','gathering','gazing','gleaming','gliding','glowing',
-  'grasping','grounding','growing','guiding','haunting','hovering','hunting',
-  'igniting','invoking','isolating','journeying','kindling','lasting','leaning',
-  'lifting','lingering','listening','looming','lurking','mending','merging',
-  'mirroring','mourning','narrowing','nearing','observing','opening','orbiting',
-  'outlasting','overcoming','passing','persisting','piercing','plunging','prevailing',
-  'prowling','pursuing','reaching','receding','reflecting','reforming','releasing',
-  'remaining','renewing','resisting','restoring','retreating','returning','revealing',
-  'rising','roaming','roaring','rushing','scaling','scanning','scattering','seeking',
-  'sensing','separating','severing','shadowing','shielding','shifting','shining',
-  'silencing','soaring','softening','soothing','spiraling','spreading','standing',
-  'steadying','stirring','striking','striving','subduing','surging','sustaining',
-  'swaying','sweeping','swimming','tearing','threading','tracing','trailing',
-  'transcending','transforming','traversing','trembling','turning','unfolding',
-  'unraveling','vanishing','veiling','wandering','watching','weathering','weaving',
-  'withstanding','yielding','bechuana','moviolas','sordidity','submarining',
-  'inexhausted','falconry','glimmers','tethered','vaulting','wistful','zealous',
-  'arduous','blazing','brittle','callous','cryptic','devious','elusive','fervent',
-  'furious','gallant','ghostly','hapless','immense','jagged','lawless','listless',
-  'molten','nebulous','obscure','ominous','pallid','restless','ruinous','serene',
-  'sinuous','somber','spectral','tenuous','valiant','verdant','voracious',
-];
+// ─── Geradores ────────────────────────────────────────────────────────────────
+// Geram combinações pronunciáveis/aleatórias quase infinitas — sem lista fixa,
+// igual ao bot de referência que acumula milhares de resultados.
 
-// Palavras em português — verbos conjugados, adjetivos, substantivos reais
-const WORDS_PT = [
-  'conviveram','chorarias','jazentio','fonautografia','agonizando','alcancando',
-  'almejando','amortecer','ansiando','apartando','apaziguar','aprisionado',
-  'ardendo','arrepiando','assombrando','atordoando','aturdir','avancando',
-  'brilhando','buscando','caindo','caminhar','capturando','carregando','cedendo',
-  'cercando','clamar','colidindo','conquistando','correndo','cortando','criando',
-  'cruzando','cuidando','deslizando','desmoronar','despertar','destruindo',
-  'dominando','emergindo','encontrando','enfrentando','enganando','envolvendo',
-  'errando','escapando','espalhando','esperando','estilhacando','existindo',
-  'expandindo','fechando','flutuando','forjando','fugindo','fundindo','ganhando',
-  'girando','governando','guardando','guerreando','iluminando','implorando',
-  'incendiando','invocando','isolando','lagrimas','lancando','libertando',
-  'longevidade','lutando','mergulhando','mudando','nascendo','navegando',
-  'obscurecendo','ondulando','partindo','perseguindo','persistindo','procurando',
-  'projetando','protegendo','quebrando','queimando','rastejando','reconstruindo',
-  'refletindo','reinando','renascendo','resistindo','ressoando','retornando',
-  'revelando','rondando','rugindo','sacrificando','salvando','sangrado',
-  'sentindo','separando','sombrio','sonhando','sufocando','superando','sussurrando',
-  'tocando','transformando','tremendo','ultrapassando','unindo','vagando',
-  'vencendo','viajando','vivendo','voando','voltando','acalmar','admirar',
-  'afogar','agredir','alcancar','aliviar','ameacar','ampliar','aniquilar',
-  'apagar','aprender','arriscar','assombrar','atravessar','carregar','combater',
-  'cumprir','derrotar','desviar','empurrar','encarar','esconder','fracassar',
-  'glorificar','iluminar','impedir','libertar','marchar','obscurecer','permanecer',
-  'recuar','rejeitar','romper','seguir','silenciar','sobreviver','triunfar',
-];
-
-// ─── Gerador ──────────────────────────────────────────────────────────────────
-
-const DIGITS = '0123456789';
-const ALPHA  = 'abcdefghijklmnopqrstuvwxyz';
-// MIXED_CHARS tem letras e dígitos em proporção equilibrada para gerar padrões tipo sf9d
+const DIGITS      = '0123456789';
+const ALPHA       = 'abcdefghijklmnopqrstuvwxyz';
 const MIXED_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+const VOWELS      = 'aeiou';
+const CONSONANTS  = 'bcdfghjklmnprstvwxyz';
 
-function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+// Sílabas comuns do português para realwordpt
+const SILAS_PT = [
+  'al','an','ar','as','at','ba','be','bi','bo','bu','ca','ce','ci','co','cu',
+  'da','de','di','do','du','el','em','en','er','es','fa','fe','fi','fo','fu',
+  'ga','ge','gi','go','gu','ia','im','in','ir','is','it','ja','je','jo','ju',
+  'la','le','li','lo','lu','ma','me','mi','mo','mu','na','ne','ni','no','nu',
+  'ob','oc','od','of','ol','om','on','op','or','os','pa','pe','pi','po','pu',
+  'ra','re','ri','ro','ru','sa','se','si','so','su','ta','te','ti','to','tu',
+  'ul','um','un','ur','us','ut','va','ve','vi','vo','vu','xa','xe','xi','xo',
+  'aba','aca','ada','ado','aga','aia','ala','ama','ana','ando','ando','anha',
+  'ara','arca','ardo','aria','ario','arma','arro','arte','aste','atro','ava',
+  'aza','eco','ecto','ego','eiro','ela','elo','ema','endo','enha','ento','era',
+  'erna','erro','erta','erva','esta','eto','ezes','fica','fico','fora','foro',
+  'gado','galo','gamo','gava','gera','gino','giro','gosa','goto','grao','gura',
+  'inho','ismo','isto','ista','itar','itor','ivel','izou','lada','lado','lago',
+  'lama','lamo','lara','lava','ledo','lela','lemo','lena','leno','lera','lesa',
+  'leva','leza','liça','lida','lido','liga','ligo','lima','lina','lira','liso',
+  'mica','mida','mido','miga','migo','mina','mira','miro','mona','mora','moro',
+  'nada','nado','naga','namo','nara','naro','nasa','nata','nato','nava','neca',
+  'neda','nedo','nega','nego','nela','nelo','nema','nena','neno','nera','nero',
+  'nica','nido','niga','nimo','nina','nino','nira','nita','nito','niva','nivo',
+  'onda','ondo','onga','ongo','onho','onto','onza','opla','opro','orça','ordo',
+  'orna','orro','orsa','orso','orta','orte','orto','otão','ouca','ouco','ould',
+  'oura','ouro','ousa','ouso','outa','outo','pado','pago','para','paro','pata',
+  'pato','pava','peca','peco','peda','pedo','pega','pego','peia','pelo','pena',
+  'peno','pera','pero','pesa','peso','peta','peto','peva','pevo','pica','pico',
+  'rada','rado','raga','rago','raia','rala','ralo','rama','ramo','rana','rano',
+  'rara','raro','rasa','raso','rata','rato','rava','ravo','raza','razo','reca',
+  'reda','redo','rega','rego','reia','rela','relo','rema','remo','rena','reno',
+  'resa','reso','reta','reto','rina','rino','rira','riro','risa','riso','rita',
+  'sada','sado','saga','sago','saia','sala','salo','sama','samo','sana','sano',
+  'sara','saro','sasa','sata','sato','sava','savo','seca','seco','seda','sedo',
+  'sega','sego','sela','selo','sema','semo','sena','seno','sera','sero','sesa',
+  'tado','tago','taia','tala','tamo','tana','tano','tara','taro','tasa','tata',
+  'tato','tava','tavo','teca','teco','teda','tedo','tega','tego','tela','telo',
+  'tema','temo','tena','teno','tera','tico','tina','tino','tira','tiro','tisa',
+  'vada','vado','vaga','vago','vaia','vala','valo','vama','vamo','vana','vano',
+  'vara','varo','vasa','vato','vava','veca','veco','veda','vedo','vega','vego',
+  'zada','zado','zaga','zago','zaia','zala','zalo','zama','zamo','zana','zano',
+];
+
+// Sílabas comuns do inglês para realword
+const SILAS_EN = [
+  'ab','ac','ad','ag','al','am','an','ap','ar','as','at','av','aw','ax','ay',
+  'ba','be','bi','bl','bo','br','bu','by','ca','ce','ch','ci','cl','co','cr',
+  'cu','da','de','di','do','dr','du','dy','ea','ed','el','em','en','er','es',
+  'et','ex','fa','fe','fi','fl','fo','fr','fu','ga','ge','gh','gl','go','gr',
+  'gu','ha','he','hi','ho','hu','hy','id','il','im','in','io','ir','is','it',
+  'ja','je','jo','ju','ke','ki','kn','la','le','li','lo','lu','ly','ma','me',
+  'mi','mo','mu','my','na','ne','ni','no','nu','ob','oc','od','of','ol','om',
+  'on','op','or','os','ov','pa','pe','ph','pi','pl','po','pr','pu','qu','ra',
+  're','ri','ro','ru','sa','sc','se','sh','si','sk','sl','sm','sn','so','sp',
+  'sq','st','su','sw','sy','ta','te','th','ti','to','tr','tu','ty','ul','un',
+  'up','ur','us','va','ve','vi','vo','wa','we','wh','wi','wo','wr','ya','ye',
+  'able','acle','aded','aged','aled','amed','aned','aped','ared','ased','ated',
+  'aved','awed','axed','ayed','bled','ched','cked','cled','dged','died','dled',
+  'dned','eled','emed','ened','ered','esed','eted','eved','ewed','exed','eyed',
+  'fied','fled','fted','gled','gned','gued','ided','iled','imed','ined','iped',
+  'ired','ised','ited','ived','ized','jled','ked','kled','lded','lled','lmed',
+  'lned','lped','lred','lsed','lted','lved','mbed','mied','mmed','mned','mped',
+  'mred','msed','mted','mved','nced','nded','nged','nied','nked','nned','nred',
+  'nsed','nted','nued','nved','oded','oged','oled','omed','oned','oped','ored',
+  'osed','oted','oved','owed','oxed','oyed','ozing','ping','ring','ting','ling',
+  'sing','ding','king','wing','ning','ming','bing','hing','ying','zing','ging',
+  'ness','less','ment','tion','sion','ance','ence','ture','ures','ings','edly',
+  'ably','ibly','edly','erly','enly','erly','ster','ling','ward','wise','like',
+  'ful','ous','ive','ish','ing','est','ier','ied','ing','ity','ize','ise',
+];
+
+function rand(arr)        { return arr[Math.floor(Math.random() * arr.length)]; }
+function randInt(min,max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+/** Gera string pronunciável usando sílabas e padrões vogal/consoante */
+function pronounceable(silas, minLen, maxLen) {
+  const target = randInt(minLen, maxLen);
+  let word = '';
+  while (word.length < target) {
+    const sila = rand(silas);
+    if (word.length + sila.length <= maxLen) word += sila;
+    else break;
+  }
+  // Completa com vogal/consoante alternados se curto
+  while (word.length < minLen) {
+    word += (word.length % 2 === 0) ? rand([...CONSONANTS]) : rand([...VOWELS]);
+  }
+  return word.slice(0, maxLen);
+}
 
 // short: 3-5 letras minúsculas puras
 function generateShort() {
@@ -101,7 +124,7 @@ function generateShort() {
   return Array.from({ length: len }, () => rand([...ALPHA])).join('');
 }
 
-// numbers: sequência numérica pura (5-7 dígitos) — igual ao print: 82571, 548941
+// numbers: sequência numérica pura (5-7 dígitos)
 function generateNumbers() {
   const digits = randInt(5, 7);
   const min    = Math.pow(10, digits - 1);
@@ -109,25 +132,24 @@ function generateNumbers() {
   return String(randInt(min, max));
 }
 
-// rare: 2-3 letras puras (ultra raros e disputados)
+// rare: 2-3 letras puras
 function generateRare() {
   const len = randInt(2, 3);
   return Array.from({ length: len }, () => rand([...ALPHA])).join('');
 }
 
-// realword: palavra real em inglês, sem números — igual ao print: inexhausted, submarining
+// realword: palavra pronunciável em inglês (6-12 chars)
 function generateRealwordEN() {
-  return rand(WORDS_EN);
+  return pronounceable(SILAS_EN, 6, 12);
 }
 
-// realwordpt: palavra/verbo real em português, sem números — igual ao print: conviveram, chorarias
+// realwordpt: palavra pronunciável em português (6-14 chars)
 function generateRealwordPT() {
-  return rand(WORDS_PT);
+  return pronounceable(SILAS_PT, 6, 14);
 }
 
-// mixed: exatamente 4 chars, pelo menos 1 letra e 1 dígito — igual ao print: sf9d, 8u3g, qk3c
+// mixed: exatamente 4 chars, ao menos 1 letra e 1 dígito
 function generateMixed() {
-  // Gera 4 chars e garante ao menos 1 dígito e 1 letra
   const arr = Array.from({ length: 4 }, () => rand([...MIXED_CHARS]));
   if (!arr.some(c => DIGITS.includes(c)))   arr[randInt(1, 3)] = rand([...DIGITS]);
   if (!arr.some(c => ALPHA.includes(c)))    arr[randInt(0, 2)] = rand([...ALPHA]);
@@ -246,7 +268,6 @@ async function categoryWorker(category, workerId, client) {
   while (!_stopped) {
     try {
       const username = gen();
-
       if (username.length < 2 || username.length > 32) continue;
 
       _checked++;
@@ -255,8 +276,8 @@ async function categoryWorker(category, workerId, client) {
       if (avail === true) {
         await saveAvailable(username, category, client);
       }
-
-      await sleep(DELAY_MS);
+      // Sem sleep aqui — o checker.js já governa velocidade via rate-limit do Discord.
+      // Quando todos os tokens estão em cooldown, isAvailable() aguarda automaticamente.
     } catch (err) {
       console.error(`[MONITOR:${category}#${workerId}] Erro:`, err.message);
       await sleep(5_000);
@@ -283,16 +304,15 @@ export async function startMonitor(client) {
   const categories = cats.length ? cats : Object.keys(GENERATORS);
 
   const total = categories.length * WORKERS_PER_CATEGORY;
-  console.log(`[MONITOR] 🚀 ${categories.length} categorias × ${WORKERS_PER_CATEGORY} workers = ${total} workers. Cats: ${categories.join(', ')}`);
+  console.log(`[MONITOR] 🚀 ${categories.length} cats × ${WORKERS_PER_CATEGORY} workers = ${total} workers | cats: ${categories.join(', ')}`);
 
-  // Para cada categoria: N workers em paralelo, escalonados por (DELAY_MS / N)
-  // entre si para não bater na API simultaneamente.
-  const workerOffset = Math.floor(DELAY_MS / WORKERS_PER_CATEGORY);
-
-  categories.forEach((cat, catIdx) => {
+  // Escalonamento: workers arrancam com WORKER_START_OFFSET ms de diferença entre si,
+  // espalhando o burst inicial de requisições.
+  let slot = 0;
+  categories.forEach(cat => {
     for (let w = 0; w < WORKERS_PER_CATEGORY; w++) {
-      // Escalonamento: cada categoria separada por DELAY_MS, workers dentro da cat por workerOffset
-      const delay = catIdx * DELAY_MS + w * workerOffset;
+      const delay = slot * WORKER_START_OFFSET;
+      slot++;
       setTimeout(() => {
         categoryWorker(cat, w, client).catch(err => {
           console.error(`[MONITOR:${cat}#${w}] Worker encerrado com erro:`, err.message);
