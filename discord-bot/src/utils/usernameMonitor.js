@@ -64,9 +64,15 @@ function generateShort() {
 }
 
 function generateNumbers() {
-  const word = rand([...WORDS_EN, ...WORDS_PT]).slice(0, 10);
+  const word = rand(WORDS_EN).slice(0, 10);
   const n    = randInt(1, 9999);
   return `${word}${n}`;
+}
+
+function generateRare() {
+  // Usernames curtos e raros: 2-3 letras puras (altamente disputados)
+  const len = randInt(2, 3);
+  return Array.from({ length: len }, () => rand([...ALPHA])).join('');
 }
 
 function generateRealwordEN() {
@@ -96,6 +102,7 @@ const GENERATORS = {
   realword:   generateRealwordEN,
   realwordpt: generateRealwordPT,
   mixed:      generateMixed,
+  rare:       generateRare,
 };
 
 // ─── Monitor ──────────────────────────────────────────────────────────────────
@@ -106,15 +113,13 @@ let _checked   = 0;
 let _found     = 0;
 let _startedAt = null;
 
-// Categorias ativas com base nos canais configurados + lista padrão
+// Categorias ativas = exatamente o que os canais configurados pedem
 async function getActiveCategories() {
   const channels = await prisma.publishChannel.findMany({});
-  const cats = channels.map(c => c.category).filter(c => GENERATORS[c]);
-  // Sempre inclui ao menos essas se não tiver canais configurados
-  if (!cats.length) return ['short', 'numbers', 'realword', 'realwordpt', 'mixed'];
-  // Adiciona categorias extra para variedade
-  const extra = ['short', 'numbers'].filter(c => !cats.includes(c));
-  return [...new Set([...cats, ...extra])];
+  const cats = [...new Set(channels.map(c => c.category))].filter(c => GENERATORS[c]);
+  // Sem canais configurados → gera tudo
+  if (!cats.length) return Object.keys(GENERATORS);
+  return cats;
 }
 
 /** Verifica targets pessoais (/snipe_add) e notifica por DM */
