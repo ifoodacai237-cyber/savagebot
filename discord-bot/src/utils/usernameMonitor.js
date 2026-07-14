@@ -16,7 +16,7 @@
 
 import prisma from '../database/client.js';
 import { isAvailable } from './checker.js';
-import { ChannelType } from 'discord.js';
+import { postEmbedToCategory } from './publishChannels.js';
 
 // ─── Configuração ─────────────────────────────────────────────────────────────
 
@@ -419,30 +419,10 @@ const _catStats = {};
 
 /** Posta imediatamente em todos os canais configurados para a categoria */
 async function postToChannels(username, category, client) {
-  if (!client) return;
-  try {
-    const configs = await prisma.publishChannel.findMany({ where: { category } });
-    if (!configs.length) return;
-    const ts    = Math.floor(Date.now() / 1000);
-    const texto = `<:sorte:1526435450259243180> **@${username}**\ndisponível agora · <t:${ts}:R>`;
-    const embed = { description: texto, color: 0x2b2d31 };
-
-    for (const cfg of configs) {
-      const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
-      if (!ch) continue;
-      try {
-        if (ch.type === ChannelType.GuildForum) {
-          await ch.threads.create({ name: username, message: { embeds: [embed] } });
-        } else {
-          await ch.send({ embeds: [embed] });
-        }
-      } catch (err) {
-        console.error(`[MONITOR] Erro ao postar em ${cfg.channelId}:`, err.message);
-      }
-    }
-  } catch (err) {
-    console.error(`[MONITOR] Erro ao buscar canais para ${category}:`, err.message);
-  }
+  const ts    = Math.floor(Date.now() / 1000);
+  const texto = `<:sorte:1526435450259243180> **@${username}**\ndisponível agora · <t:${ts}:R>`;
+  const embed = { description: texto, color: 0x2b2d31 };
+  await postEmbedToCategory(client, category, embed, 'MONITOR');
 }
 
 /** Salva username disponível no banco e posta imediatamente nos canais */
@@ -464,30 +444,10 @@ async function saveAvailable(username, category, client) {
 
 /** Posta notificação de "confirmado livre" no canal sniper */
 async function postSniperConfirmed(username, client) {
-  if (!client) return;
-  try {
-    const configs = await prisma.publishChannel.findMany({ where: { category: 'sniper' } });
-    if (!configs.length) return;
-    const ts    = Math.floor(Date.now() / 1000);
-    const texto = `<:sorte:1526435450259243180> **@${username}**\nconfirmado livre agora · <t:${ts}:R>`;
-    const embed = { description: texto, color: 0x57F287 };
-
-    for (const cfg of configs) {
-      const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
-      if (!ch) continue;
-      try {
-        if (ch.type === ChannelType.GuildForum) {
-          await ch.threads.create({ name: username, message: { embeds: [embed] } });
-        } else {
-          await ch.send({ embeds: [embed] });
-        }
-      } catch (err) {
-        console.error(`[MONITOR] Erro ao postar sniper confirmado em ${cfg.channelId}:`, err.message);
-      }
-    }
-  } catch (err) {
-    console.error('[MONITOR] Erro ao postar sniper confirmado:', err.message);
-  }
+  const ts    = Math.floor(Date.now() / 1000);
+  const texto = `<:sorte:1526435450259243180> **@${username}**\nconfirmado livre agora · <t:${ts}:R>`;
+  const embed = { description: texto, color: 0x57F287 };
+  await postEmbedToCategory(client, 'sniper', embed, 'MONITOR');
 }
 
 /** Verifica targets do sniper (pessoais e auto-detectados) e notifica */

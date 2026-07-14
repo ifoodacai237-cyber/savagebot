@@ -6,9 +6,9 @@
  *   2. Posta no canal sniper: "@oldname entrou na mira"
  */
 
-import { ChannelType } from 'discord.js';
 import prisma from '../database/client.js';
 import { isAvailable } from '../utils/checker.js';
+import { postEmbedToCategory } from '../utils/publishChannels.js';
 
 export default {
   name: 'userUpdate',
@@ -68,9 +68,6 @@ export default {
 export async function postarSniper(target, newName, confirmado, client) {
   if (!client) return;
   try {
-    const configs = await prisma.publishChannel.findMany({ where: { category: 'sniper' } });
-    if (!configs.length) return;
-
     const ts = Math.floor(Date.now() / 1000);
 
     let texto;
@@ -85,19 +82,7 @@ export async function postarSniper(target, newName, confirmado, client) {
 
     const embed = { description: texto, color: confirmado ? 0x57F287 : 0xED4245 };
 
-    for (const cfg of configs) {
-      const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
-      if (!ch) continue;
-      try {
-        if (ch.type === ChannelType.GuildForum) {
-          await ch.threads.create({ name: target, message: { embeds: [embed] } });
-        } else {
-          await ch.send({ embeds: [embed] });
-        }
-      } catch (err) {
-        console.error(`[SNIPER] Erro ao postar em ${cfg.channelId}:`, err.message);
-      }
-    }
+    await postEmbedToCategory(client, 'sniper', embed, 'SNIPER');
   } catch (err) {
     console.error('[SNIPER] Erro ao postar no canal sniper:', err.message);
   }

@@ -10,9 +10,10 @@
  *  /publicar_agora — publica usernames imediatamente nos canais configurados
  */
 
-import { SlashCommandBuilder, EmbedBuilder, ChannelType } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
 import { isAvailable } from '../../utils/checker.js';
+import { postEmbedToCategory, resolveChannel } from '../../utils/publishChannels.js';
 
 // ─── /disponivel ──────────────────────────────────────────────────────────────
 
@@ -120,34 +121,13 @@ const snipe_add = {
  *   Estimativa: entre em um dia e em 14 dias...
  */
 async function _postarNoCanaiSniper(target, addedByName, client) {
-  if (!client) return;
-  try {
-    const configs = await prisma.publishChannel.findMany({ where: { category: 'sniper' } });
-    if (!configs.length) return;
+  const texto =
+    `🎯 **@${target}** entrou na mira\n\n` +
+    `@${addedByName} — vou avisar quando **@${target}** liberar.\n` +
+    `Estimativa: entre **em um dia** e **em 14 dias** (sem regra exata do Discord). Verifico de tempos em tempos.`;
 
-    const texto =
-      `🎯 **@${target}** entrou na mira\n\n` +
-      `@${addedByName} — vou avisar quando **@${target}** liberar.\n` +
-      `Estimativa: entre **em um dia** e **em 14 dias** (sem regra exata do Discord). Verifico de tempos em tempos.`;
-
-    const embed = { description: texto, color: 0xED4245 };
-
-    for (const cfg of configs) {
-      const ch = await client.channels.fetch(cfg.channelId).catch(() => null);
-      if (!ch) continue;
-      try {
-        if (ch.type === ChannelType.GuildForum) {
-          await ch.threads.create({ name: target, message: { embeds: [embed] } });
-        } else {
-          await ch.send({ embeds: [embed] });
-        }
-      } catch (err) {
-        console.error(`[SNIPE_ADD] Erro ao postar em ${cfg.channelId}:`, err.message);
-      }
-    }
-  } catch (err) {
-    console.error('[SNIPE_ADD] Erro ao postar no canal sniper:', err.message);
-  }
+  const embed = { description: texto, color: 0xED4245 };
+  await postEmbedToCategory(client, 'sniper', embed, 'SNIPE_ADD');
 }
 
 // ─── /snipe_list ──────────────────────────────────────────────────────────────
@@ -384,7 +364,7 @@ const publicar_agora = {
     for (const cfg of configs) {
       if (cfg.category === 'sniper') continue; // sniper não tem batch manual
       try {
-        const channel = await cl.channels.fetch(cfg.channelId).catch(() => null);
+        const channel = await resolveChannel(cl, cfg);
         if (!channel) continue;
 
         const targets = await prisma.sniperTarget.findMany({
