@@ -2,7 +2,6 @@ import { ActivityType } from 'discord.js';
 import { registerSlashCommands } from '../utils/loader.js';
 import { initEmojis } from '../utils/emojiManager.js';
 import prisma from '../database/client.js';
-import { startMonitor } from '../utils/usernameMonitor.js';
 
 async function checkExpiredVips(client) {
   try {
@@ -52,13 +51,5 @@ export default {
     await checkExpiredVips(client);
     setInterval(() => checkExpiredVips(client), 5 * 60 * 1000);
 
-    // Inicia monitor de usernames (sniper) se houver configs habilitadas
-    const sniperAtivo = await prisma.sniperConfig.findFirst({ where: { enabled: true } });
-    if (sniperAtivo) {
-      startMonitor(client);
-      console.log('[SNIPER] Monitor automático iniciado.');
-    } else {
-      console.log('[SNIPER] Nenhum servidor com sniper ativo. Use /sniper-config ativar para começar.');
-    }
   },
 };
