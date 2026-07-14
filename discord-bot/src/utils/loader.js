@@ -59,20 +59,25 @@ export async function registerSlashCommands(client) {
   }
 
   // ── Registro: guild (instantâneo) se GUILD_ID definido, senão global ─────
-  // IMPORTANTE: registrar apenas em UM lugar e limpar o outro escopo para
-  // evitar comandos duplicados no Discord (guild + global = dois /perfil).
+  // Tenta guild primeiro (instantâneo); se falhar, registra globalmente como fallback.
+  // NUNCA limpa comandos globais antes de confirmar que o guild registration funcionou.
   if (guildId) {
     try {
-      // Limpa comandos globais antigos (evita duplicatas no Discord)
-      await rest.put(Routes.applicationCommands(client.user.id), { body: [] }).catch(() => {});
-      // Registra no servidor (instantâneo)
       await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body });
+      // Só limpa globais se o guild funcionou (evita sumiço de comandos)
+      await rest.put(Routes.applicationCommands(client.user.id), { body: [] }).catch(() => {});
       const guild = client.guilds.cache.get(guildId)
         ?? await client.guilds.fetch(guildId).catch(() => null);
       console.log(`⚡ ${body.length} comandos registrados em "${guild?.name ?? guildId}" (instantâneo).`);
     } catch (err) {
-      console.error('❌ Erro no registro do servidor:', err.message);
-      if (err.rawError) console.error('   Detalhes:', JSON.stringify(err.rawError, null, 2));
+      console.error('⚠️  Registro por guild falhou, usando registro global:', err.message);
+      try {
+        await rest.put(Routes.applicationCommands(client.user.id), { body });
+        console.log(`🌐 ${body.length} comandos registrados globalmente (fallback).`);
+      } catch (err2) {
+        console.error('❌ Erro no registro global:', err2.message);
+        if (err2.rawError) console.error('   Detalhes:', JSON.stringify(err2.rawError, null, 2));
+      }
     }
   } else {
     // Sem GUILD_ID → registra globalmente (pode levar até 1h para propagar)
