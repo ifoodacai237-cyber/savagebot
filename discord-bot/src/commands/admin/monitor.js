@@ -9,6 +9,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { startMonitor, stopMonitor, getMonitorStats } from '../../utils/usernameMonitor.js';
 import { getTokenPoolStatus } from '../../utils/checker.js';
+import prisma from '../../database/client.js';
 
 const monitor = {
   data: new SlashCommandBuilder()
@@ -23,7 +24,10 @@ const monitor = {
         .setDescription('Para o monitor automático'))
     .addSubcommand(s =>
       s.setName('retomar')
-        .setDescription('Reinicia o monitor automático')),
+        .setDescription('Reinicia o monitor automático'))
+    .addSubcommand(s =>
+      s.setName('resetar_canais')
+        .setDescription('Remove todos os canais configurados para recomeçar do zero')),
 
   name: 'monitor',
 
@@ -97,6 +101,25 @@ const monitor = {
             .setDescription('✅ Monitor retomado! Checando usernames automaticamente.'),
         ],
         flags: 64,
+      });
+    }
+
+    if (sub === 'resetar_canais') {
+      await interaction.deferReply({ flags: 64 });
+      const { count } = await prisma.publishChannel.deleteMany({
+        where: { guildId: interaction.guildId },
+      });
+      return interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xFEE75C)
+            .setTitle('🗑️ Canais Resetados')
+            .setDescription(
+              `${count} configuração(ões) removida(s).\n\n` +
+              `Use \`/setup_canal\` para ativar as categorias novamente:\n` +
+              `> \`short\` · \`numbers\` · \`realword\` · \`realwordpt\` · \`mixed\` · \`rare\``
+            ),
+        ],
       });
     }
   },
