@@ -1,15 +1,13 @@
 /**
  * checker.js — verifica disponibilidade de username no Discord
  *
- * Baseado em yutomiwana/discord-username-sniper:
- *  - Endpoint: POST /unique-username/username-attempt-unauthed
- *  - Headers completos de browser real (Chrome 147)
- *  - X-Super-Properties atualizado (Chrome 147, build 372050)
- *  - Token de usuário no Authorization (bypass anti-bot)
- *  - Rotação automática de tokens com cooldown por rate-limit
+ * Endpoint: POST /unique-username/username-attempt-unauthed
+ * - Funciona SEM token (unauthenticated) mas tokens ajudam com rate-limit
+ * - Se todos os tokens estiverem em cooldown ou inválidos, cai em modo tokenless
+ * - 401 → token removido permanentemente do pool
+ * - 429 → token em cooldown por retry_after (máx 60s), depois tenta outro
  */
 
-// X-Super-Properties direto do config.json do repo (Chrome 147, build 372050)
 const X_SUPER_PROPERTIES =
   'eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiQ2hyb21lIiwiZGV2aWNlIjoiIiwic3lzdGVtX2xvY2FsZSI6ImVuLVVTIiwiYnJvd3Nlcl91c2VyX2FnZW50IjoiTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzE0Ny4wLjAuMCBTYWZhcmkvNTM3LjM2IiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTQ3LjAuMC4wIiwib3NfdmVyc2lvbiI6IjEwIiwicmVmZXJyZXIiOiIiLCJyZWZlcnJpbmdfZG9tYWluIjoiIiwicmVmZXJyZXJfY3VycmVudCI6IiIsInJlZmVycmluZ19kb21haW5fY3VycmVudCI6IiIsInJlbGVhc2VfY2hhbm5lbCI6InN0YWJsZSIsImNsaWVudF9idWlsZF9udW1iZXIiOjM3MjA1MCwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=';
 
@@ -19,17 +17,22 @@ const USER_AGENT =
 const CHECK_URL =
   'https://discord.com/api/v9/unique-username/username-attempt-unauthed';
 
+const MAX_COOLDOWN_MS = 60_000; // máximo que um token fica em cooldown (1 min)
+const TOKENLESS_COOLDOWN_MS = 5_000; // cooldown de 429 em modo sem token
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// ─── Pool de tokens ───────────────────────────────────────────────────────────
+// ─── Pool de tokens ────────────────────────────────────────────────────────────
 
 function loadTokens() {
   const raw = process.env.DISCORD_USER_TOKENS ?? '';
-  return raw
+  const tokens = raw
     .split(/[\n,]+/)
     .map(t => t.trim())
     .filter(Boolean)
-    .map(value => ({ value, sleepUntil: 0 }));
+    .map(value => ({ value, sleepUntil: 0, dead: false }));
+  console.log(`[CHECKER] Pool carregado: ${tokens.length} token(s).`);
+  return tokens;
 }
 
 let _tokens = null;
@@ -39,16 +42,28 @@ function getTokens() {
   return _tokens;
 }
 
+/** Retorna o token disponível com menor tempo de espera, ou null se nenhum disponível agora. */
 function pickToken() {
   const now = Date.now();
-  const available = getTokens().filter(t => t.sleepUntil <= now);
-  if (!available.length) return null;
+  const alive = getTokens().filter(t => !t.dead);
+  if (!alive.length) return null; // todos mortos → tokenless
+  const available = alive.filter(t => t.sleepUntil <= now);
+  if (!available.length) return null; // todos em cooldown
   return available.reduce((a, b) => (a.sleepUntil <= b.sleepUntil ? a : b));
 }
 
-// ─── Headers completos (yutomiwana/discord-username-sniper) ───────────────────
+/** Quanto tempo até o próximo token estar disponível (ms). 0 se já tem algum. */
+function nextTokenAvailableIn() {
+  const alive = getTokens().filter(t => !t.dead);
+  if (!alive.length) return 0; // sem tokens vivos → tokenless imediatamente
+  const now = Date.now();
+  const soonest = Math.min(...alive.map(t => t.sleepUntil));
+  return Math.max(0, soonest - now);
+}
 
-function buildHeaders(token) {
+// ─── Headers ──────────────────────────────────────────────────────────────────
+
+function buildHeaders(token = null) {
   const h = {
     'Content-Type':        'application/json',
     'User-Agent':          USER_AGENT,
@@ -67,24 +82,31 @@ function buildHeaders(token) {
     'Sec-Ch-Ua-Platform':  '"Windows"',
     'X-Debug-Options':     'bugReporterEnabled',
   };
-
   if (token) h['Authorization'] = token;
   return h;
 }
 
 // ─── Checagem principal ───────────────────────────────────────────────────────
 
+/**
+ * Verifica se um username está disponível.
+ * @returns {Promise<boolean|null>} true=disponível, false=tomado, null=erro/inválido
+ */
 export async function isAvailable(username) {
   const tokens = getTokens();
+  const liveTokens = tokens.filter(t => !t.dead);
 
-  // Escolhe token disponível (ou null se não tiver)
-  const token = tokens.length ? pickToken() : null;
+  // Escolhe token: se todos em cooldown, espera o menor (máx 5s) ou usa tokenless
+  let token = liveTokens.length ? pickToken() : null;
 
-  // Se todos em cooldown, aguarda o menor
-  if (tokens.length && !token) {
-    const wait = Math.min(...tokens.map(t => t.sleepUntil)) - Date.now();
-    if (wait > 0) await sleep(Math.min(wait, 30_000));
-    return isAvailable(username);
+  if (liveTokens.length && !token) {
+    const wait = nextTokenAvailableIn();
+    if (wait <= 5_000) {
+      // Cooldown curto: espera e usa token
+      await sleep(wait);
+      token = pickToken();
+    }
+    // Cooldown longo (>5s): usa tokenless agora, token vai ficar disponível depois
   }
 
   try {
@@ -94,45 +116,78 @@ export async function isAvailable(username) {
       body:    JSON.stringify({ username }),
     });
 
-    // Rate limit
+    // ── Rate limit ────────────────────────────────────────────────────────────
     if (res.status === 429) {
-      const retry = parseFloat(res.headers.get('Retry-After') || '5');
+      let retry = parseFloat(res.headers.get('Retry-After') || '5');
+      retry = Math.min(retry, 60); // nunca mais de 60s de cooldown
+
       if (token) {
-        token.sleepUntil = Date.now() + (retry + 1) * 1_000;
-        console.warn(`[CHECKER] Rate limit — token em cooldown por ${retry}s.`);
-        return isAvailable(username); // tenta com outro token
+        token.sleepUntil = Date.now() + (retry + 0.5) * 1_000;
+        console.warn(`[CHECKER] 429 — token em cooldown por ${retry}s. Tentando outro...`);
+        // Tenta com outro token ou tokenless (sem recursão infinita)
+        const next = pickToken();
+        if (next && next !== token) {
+          token = next;
+          // Faz uma segunda tentativa imediata com o próximo token
+          return isAvailable(username);
+        }
+        // Sem outro token: espera brevemente e vai tokenless
+        await sleep(Math.min(retry * 1_000, TOKENLESS_COOLDOWN_MS));
+        return isAvailable(username);
+      } else {
+        // Tokenless: espera obrigatório
+        console.warn(`[CHECKER] 429 tokenless — aguardando ${retry}s.`);
+        await sleep(retry * 1_000);
+        return null; // retorna null para o caller tentar o próximo username
       }
-      await sleep(retry * 1_000);
-      return null;
     }
 
-    const body = await res.json();
+    const body = await res.json().catch(() => null);
+    if (!body) return null;
 
-    // 200 — campo taken retornado diretamente
+    // ── 200 → campo taken ─────────────────────────────────────────────────────
     if (res.status === 200 && typeof body.taken === 'boolean') {
       return !body.taken;
     }
 
-    // 400 — erros de validação do Discord
+    // ── 400 → validação do Discord ────────────────────────────────────────────
     if (res.status === 400) {
       const errs = body?.errors?.username?._errors ?? [];
       if (errs.some(e => e.code === 'USERNAME_ALREADY_TAKEN')) return false;
 
       const raw = JSON.stringify(body);
-      if (raw.includes('PASSWORD_DOES_NOT_MATCH')) return true;
-      if (raw.includes('BASE_TYPE_BAD_LENGTH'))    return null;
+      if (raw.includes('PASSWORD_DOES_NOT_MATCH')) return true;  // disponível mas precisa de senha
+      if (raw.includes('BASE_TYPE_BAD_LENGTH'))    return null;  // username inválido
+      // Outros 400 desconhecidos → log para diagnóstico
+      console.warn(`[CHECKER] 400 desconhecido para "${username}":`, raw.slice(0, 200));
+      return null;
     }
 
-    // 401 — token inválido, desativa do pool
+    // ── 401 → token inválido, remove permanentemente ──────────────────────────
     if (res.status === 401 && token) {
-      console.warn('[CHECKER] Token inválido/expirado, removido do pool.');
-      token.sleepUntil = Date.now() + 999_999_999;
+      token.dead = true;
+      const remaining = tokens.filter(t => !t.dead).length;
+      console.warn(`[CHECKER] 401 — token inválido removido. Restam ${remaining} token(s) vivo(s).`);
+      // Tenta imediatamente tokenless (sem espera)
       return isAvailable(username);
     }
 
+    // ── outros status ─────────────────────────────────────────────────────────
+    console.warn(`[CHECKER] Status inesperado ${res.status} para "${username}".`);
     return null;
+
   } catch (err) {
     console.error('[CHECKER] Erro de rede:', err.message);
+    await sleep(2_000);
     return null;
   }
+}
+
+/** Retorna status do pool para diagnóstico (/monitor status) */
+export function getTokenPoolStatus() {
+  const tokens = getTokens();
+  const dead    = tokens.filter(t => t.dead).length;
+  const cooling = tokens.filter(t => !t.dead && t.sleepUntil > Date.now()).length;
+  const ready   = tokens.filter(t => !t.dead && t.sleepUntil <= Date.now()).length;
+  return { total: tokens.length, dead, cooling, ready };
 }

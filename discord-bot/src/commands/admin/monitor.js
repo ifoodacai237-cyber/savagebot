@@ -8,6 +8,7 @@
 
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { startMonitor, stopMonitor, getMonitorStats } from '../../utils/usernameMonitor.js';
+import { getTokenPoolStatus } from '../../utils/checker.js';
 
 const monitor = {
   data: new SlashCommandBuilder()
@@ -32,6 +33,7 @@ const monitor = {
     if (sub === 'status') {
       await interaction.deferReply({ flags: 64 });
       const stats = getMonitorStats();
+      const pool  = getTokenPoolStatus();
 
       const uptime = stats.startedAt
         ? Math.floor((Date.now() - new Date(stats.startedAt).getTime()) / 1000)
@@ -45,6 +47,10 @@ const monitor = {
 
       const rate = uptime > 0 ? ((stats.checked / uptime) * 60).toFixed(1) : '0';
 
+      const tokenLine = pool.total === 0
+        ? '⚠️ Nenhum — modo tokenless'
+        : `${pool.ready} prontos · ${pool.cooling} em cooldown · ${pool.dead} mortos`;
+
       return interaction.editReply({
         embeds: [
           new EmbedBuilder()
@@ -55,8 +61,8 @@ const monitor = {
               { name: '⏱️ Uptime',       value: stats.startedAt ? uptimeFmt : '—',         inline: true },
               { name: '🔍 Checados',     value: stats.checked.toLocaleString('pt-BR'),      inline: true },
               { name: '✅ Encontrados',  value: stats.found.toLocaleString('pt-BR'),        inline: true },
-              { name: '⚡ Taxa',         value: `~${rate}/min`,                              inline: true },
-              { name: '📤 Publisher',    value: 'A cada 5 min (só novos)',                   inline: true },
+              { name: '⚡ Taxa',         value: `~${rate}/min`,                             inline: true },
+              { name: '🔑 Tokens',       value: tokenLine,                                  inline: false },
             )
             .setFooter({ text: 'Use /setup_canal para configurar canais de publicação' }),
         ],
