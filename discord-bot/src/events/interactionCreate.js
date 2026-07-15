@@ -39,6 +39,7 @@ import {
   COLOR_MAP,
 } from '../utils/containerSessions.js';
 import { handleShopInteraction } from '../utils/shopHandlers.js';
+import { handleVipButton }       from '../commands/loja/vip.js';
 import { handleBJHit, handleBJStand, handleMinesCell, handleMinesCashout } from '../utils/gameHandlers.js';
 import { handleAjudaCatSel } from '../commands/general/ajuda.js';
 import { radioSessions, createRadioSession } from '../utils/radioManager.js';
@@ -592,6 +593,11 @@ export default {
           return handleAjudaCatSel(interaction);
         }
 
+        // ── VIP ────────────────────────────────────────────────────────────
+        if (interaction.customId.startsWith('vip_')) {
+          return handleVipButton(interaction);
+        }
+
         // ── LOJA / PERFIL / ADMIN: Menus da loja e banner ──────────────────
         if (
           interaction.customId.startsWith('shop_') ||
@@ -800,6 +806,11 @@ export default {
             .setFooter({ text: 'Conquistas desbloqueadas aparecem como emoji no seu perfil' });
 
           return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
+        // ── VIP ────────────────────────────────────────────────────────────
+        if (customId.startsWith('vip_')) {
+          return handleVipButton(interaction);
         }
 
         // ── LOJA / PERFIL: Botões da loja, config e perfil ──────────────

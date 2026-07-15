@@ -148,14 +148,21 @@ export default {
       if (!isAdmin && diff < DAILY_CD) {
         return interaction.reply({ ...v2Err(`Daily indisponível. Volte em **${msToHuman(DAILY_CD - diff)}**!`) });
       }
-      const amount = DAILY_AMOUNT();
+      // Streak: mantém se coletou dentro de 48h, reseta se passou mais
+      const streak   = diff < 48 * 60 * 60 * 1000 ? (eco.dailyStreak ?? 0) + 1 : 1;
+      const bonus    = Math.min(streak - 1, 30) * 0.02; // +2% por dia, cap 30 dias (60%)
+      const base     = DAILY_AMOUNT();
+      const amount   = Math.floor(base * (1 + bonus));
       await prisma.economy.update({
         where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
-        data:  { balance: { increment: amount }, lastDaily: new Date() },
+        data:  { balance: { increment: amount }, lastDaily: new Date(), dailyStreak: streak },
       });
+      const streakLine = streak > 1
+        ? `\n⭐ Streak: **${streak}d** (+${Math.round(bonus * 100)}%)`
+        : '';
       return interaction.reply(v2Rich({
         color: COL_OK,
-        text: `## 💰 Daily Coletado!\nVocê recebeu **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> ⏰ Volte em **24 horas** para coletar novamente.`,
+        text:  `## ✨ 📅 Daily resgatado\n${COIN} **+${amount.toLocaleString('pt-BR')}**${streakLine}\n\n⏰ Próximo em **24h** base`,
         thumbnailUrl: interaction.user.displayAvatarURL(),
         gif: pickGif('daily'),
       }));
@@ -193,12 +200,19 @@ export default {
       if (target.bot) return interaction.reply({ ...v2Err('Não é possível pagar bots.') });
       const eco = await getEco(interaction.user.id, interaction.guildId);
       if (eco.balance < valor) return interaction.reply({ ...v2Err(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}** na carteira.`) });
+      const taxa   = Math.floor(valor * 0.03);
+      const recebe = valor - taxa;
       await getEco(target.id, interaction.guildId);
       await prisma.economy.update({ where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } }, data: { balance: { decrement: valor } } });
-      await prisma.economy.update({ where: { userId_guildId: { userId: target.id,            guildId: interaction.guildId } }, data: { balance: { increment: valor } } });
+      await prisma.economy.update({ where: { userId_guildId: { userId: target.id,            guildId: interaction.guildId } }, data: { balance: { increment: recebe } } });
       return interaction.reply(v2Rich({
         color: COL_OK,
-        text: `## 💸 Transferência Realizada!\n${interaction.user} enviou **${valor.toLocaleString('pt-BR')} ${COIN}** para ${target}!`,
+        text: [
+          `## ✅ Transferencia concluida`,
+          `${interaction.user} enviou **${valor.toLocaleString('pt-BR')}** ${COIN} para ${target}.`,
+          `${COIN} Taxa de 3%: **${taxa.toLocaleString('pt-BR')}**`,
+          `${COIN} ${target.username} recebeu: **${recebe.toLocaleString('pt-BR')}**`,
+        ].join('\n'),
         gif: pickGif('pagar'),
       }));
     }
@@ -283,14 +297,20 @@ export default {
       if (!isAdmin && diff < DAILY_CD) {
         return replyV2(v2Err(`Daily indisponível. Volte em **${msToHuman(DAILY_CD - diff)}**!`));
       }
-      const amount = DAILY_AMOUNT();
+      const streak  = diff < 48 * 60 * 60 * 1000 ? (eco.dailyStreak ?? 0) + 1 : 1;
+      const bonus   = Math.min(streak - 1, 30) * 0.02;
+      const base    = DAILY_AMOUNT();
+      const amount  = Math.floor(base * (1 + bonus));
       await prisma.economy.update({
         where: { userId_guildId: { userId: message.author.id, guildId: message.guildId } },
-        data:  { balance: { increment: amount }, lastDaily: new Date() },
+        data:  { balance: { increment: amount }, lastDaily: new Date(), dailyStreak: streak },
       });
+      const streakLine = streak > 1
+        ? `\n⭐ Streak: **${streak}d** (+${Math.round(bonus * 100)}%)`
+        : '';
       return replyV2(v2Rich({
         color: COL_OK,
-        text: `## 💰 Daily Coletado!\nVocê recebeu **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> ⏰ Volte em **24 horas** para coletar novamente.`,
+        text:  `## ✨ 📅 Daily resgatado\n${COIN} **+${amount.toLocaleString('pt-BR')}**${streakLine}\n\n⏰ Próximo em **24h** base`,
         thumbnailUrl: message.author.displayAvatarURL(),
         gif: pickGif('daily'),
       }));
@@ -330,12 +350,19 @@ export default {
       if (isNaN(valor) || valor <= 0) return replyV2(v2Err('Informe o valor. Ex: `fallen eco pagar @user 500`'));
       const eco = await getEco(message.author.id, message.guildId);
       if (eco.balance < valor) return replyV2(v2Err(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN}** na carteira.`));
+      const taxa   = Math.floor(valor * 0.03);
+      const recebe = valor - taxa;
       await getEco(target.id, message.guildId);
       await prisma.economy.update({ where: { userId_guildId: { userId: message.author.id, guildId: message.guildId } }, data: { balance: { decrement: valor } } });
-      await prisma.economy.update({ where: { userId_guildId: { userId: target.id,           guildId: message.guildId } }, data: { balance: { increment: valor } } });
+      await prisma.economy.update({ where: { userId_guildId: { userId: target.id,           guildId: message.guildId } }, data: { balance: { increment: recebe } } });
       return replyV2(v2Rich({
         color: COL_OK,
-        text: `## 💸 Transferência Realizada!\n${message.author} enviou **${valor.toLocaleString('pt-BR')} ${COIN}** para ${target}!`,
+        text: [
+          `## ✅ Transferencia concluida`,
+          `${message.author} enviou **${valor.toLocaleString('pt-BR')}** ${COIN} para ${target}.`,
+          `${COIN} Taxa de 3%: **${taxa.toLocaleString('pt-BR')}**`,
+          `${COIN} ${target.username} recebeu: **${recebe.toLocaleString('pt-BR')}**`,
+        ].join('\n'),
         gif: pickGif('pagar'),
       }));
     }
