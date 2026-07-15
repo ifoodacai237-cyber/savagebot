@@ -165,11 +165,12 @@ export default {
     // ── TOP ────────────────────────────────────────────────────────────────
     if (sub === 'top') {
       await interaction.deferReply();
-      const rows = await prisma.economy.findMany({
-        where:   { guildId: interaction.guildId },
-        orderBy: [{ balance: 'desc' }],
-        take:    10,
+      const allRows = await prisma.economy.findMany({
+        where: { guildId: interaction.guildId },
       });
+      const rows = allRows
+        .sort((a, b) => (b.balance + b.bank) - (a.balance + a.bank))
+        .slice(0, 10);
       if (!rows.length) return interaction.editReply(v2Err('Ninguém tem coins ainda!'));
       const entries = await Promise.all(rows.map(async (r, i) => {
         const member = await interaction.guild.members.fetch(r.userId).catch(() => null);
@@ -309,11 +310,12 @@ export default {
 
     // ── TOP ────────────────────────────────────────────────────────────────
     if (sub === 'top' || sub === 'ranking' || sub === 'rank') {
-      const rows = await prisma.economy.findMany({
-        where:   { guildId: message.guildId },
-        orderBy: [{ balance: 'desc' }],
-        take:    10,
+      const allRows = await prisma.economy.findMany({
+        where: { guildId: message.guildId },
       });
+      const rows = allRows
+        .sort((a, b) => (b.balance + b.bank) - (a.balance + a.bank))
+        .slice(0, 10);
       if (!rows.length) return message.reply(v2Err('Ninguém tem coins ainda!'));
       const entries = await Promise.all(rows.map(async (r, i) => {
         const member = await message.guild.members.fetch(r.userId).catch(() => null);
