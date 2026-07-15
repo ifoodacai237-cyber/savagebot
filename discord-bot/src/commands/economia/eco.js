@@ -46,8 +46,8 @@ const COIN = '<a:emoji_1:1516993823665033286>';
 
 // ─── V2 helpers ───────────────────────────────────────────────────────────────
 
-function v2Rich({ text, color, thumbnailUrl, gif }) {
-  const c = new ContainerBuilder().setAccentColor(color);
+function v2Rich({ text, thumbnailUrl, gif }) {
+  const c = new ContainerBuilder();
 
   if (thumbnailUrl) {
     const section = new SectionBuilder()
@@ -71,7 +71,7 @@ function v2Rich({ text, color, thumbnailUrl, gif }) {
 }
 
 function v2Err(text) {
-  const c = new ContainerBuilder().setAccentColor(COL_ERR);
+  const c = new ContainerBuilder();
   c.addTextDisplayComponents(new TextDisplayBuilder().setContent(`❌  ${text}`));
   return { components: [c], flags: MessageFlags.IsComponentsV2, ephemeral: true };
 }
@@ -161,7 +161,6 @@ export default {
         ? `\n⭐ Streak: **${streak}d** (+${Math.round(bonus * 100)}%)`
         : '';
       return interaction.reply(v2Rich({
-        color: COL_OK,
         text:  `## ✨ 📅 Daily resgatado\n${COIN} **+${amount.toLocaleString('pt-BR')}**${streakLine}\n\n⏰ Próximo em **24h** base`,
         thumbnailUrl: interaction.user.displayAvatarURL(),
         gif: pickGif('daily'),
@@ -185,7 +184,6 @@ export default {
         data:  { balance: { increment: amount }, lastWork: new Date() },
       });
       return interaction.reply(v2Rich({
-        color: COL_WARN,
         text: `## 💼 Trabalho Concluído!\n**${msg}** e ganhou **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> 🕐 Volte em **1 hora** para trabalhar novamente.`,
         thumbnailUrl: interaction.user.displayAvatarURL(),
         gif: pickGif('work'),
@@ -206,7 +204,6 @@ export default {
       await prisma.economy.update({ where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } }, data: { balance: { decrement: valor } } });
       await prisma.economy.update({ where: { userId_guildId: { userId: target.id,            guildId: interaction.guildId } }, data: { balance: { increment: recebe } } });
       return interaction.reply(v2Rich({
-        color: COL_OK,
         text: [
           `## ✅ Transferencia concluida`,
           `${interaction.user} enviou **${valor.toLocaleString('pt-BR')}** ${COIN} para ${target}.`,
@@ -246,7 +243,6 @@ export default {
         data:  { balance: { decrement: valor }, bank: { increment: valor } },
       });
       return interaction.reply(v2Rich({
-        color: COL_BLUE,
         text: `## 🏦 Depósito Realizado!\n**${valor.toLocaleString('pt-BR')} ${COIN}** depositados com segurança!\n\n> 🔒 Coins no banco estão protegidos de roubos.`,
         gif: pickGif('deposit'),
       }));
@@ -264,7 +260,6 @@ export default {
         data:  { bank: { decrement: valor }, balance: { increment: valor } },
       });
       return interaction.reply(v2Rich({
-        color: COL_OK,
         text: `## 🏧 Saque Realizado!\n**${valor.toLocaleString('pt-BR')} ${COIN}** sacados para sua carteira!\n\n> 🪙 Pronto para apostar nos jogos.`,
         gif: pickGif('sacar'),
       }));
@@ -309,7 +304,6 @@ export default {
         ? `\n⭐ Streak: **${streak}d** (+${Math.round(bonus * 100)}%)`
         : '';
       return replyV2(v2Rich({
-        color: COL_OK,
         text:  `## ✨ 📅 Daily resgatado\n${COIN} **+${amount.toLocaleString('pt-BR')}**${streakLine}\n\n⏰ Próximo em **24h** base`,
         thumbnailUrl: message.author.displayAvatarURL(),
         gif: pickGif('daily'),
@@ -333,7 +327,6 @@ export default {
         data:  { balance: { increment: amount }, lastWork: new Date() },
       });
       return replyV2(v2Rich({
-        color: COL_WARN,
         text: `## 💼 Trabalho Concluído!\n**${msg}** e ganhou **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> 🕐 Volte em **1 hora** para trabalhar novamente.`,
         thumbnailUrl: message.author.displayAvatarURL(),
         gif: pickGif('work'),
@@ -356,7 +349,6 @@ export default {
       await prisma.economy.update({ where: { userId_guildId: { userId: message.author.id, guildId: message.guildId } }, data: { balance: { decrement: valor } } });
       await prisma.economy.update({ where: { userId_guildId: { userId: target.id,           guildId: message.guildId } }, data: { balance: { increment: recebe } } });
       return replyV2(v2Rich({
-        color: COL_OK,
         text: [
           `## ✅ Transferencia concluida`,
           `${message.author} enviou **${valor.toLocaleString('pt-BR')}** ${COIN} para ${target}.`,
@@ -395,7 +387,6 @@ export default {
         data:  { balance: { decrement: valor }, bank: { increment: valor } },
       });
       return replyV2(v2Rich({
-        color: COL_BLUE,
         text: `## 🏦 Depósito Realizado!\n**${valor.toLocaleString('pt-BR')} ${COIN}** depositados com segurança!\n\n> 🔒 Coins no banco estão protegidos de roubos.`,
         gif: pickGif('deposit'),
       }));
@@ -413,7 +404,6 @@ export default {
         data:  { bank: { decrement: valor }, balance: { increment: valor } },
       });
       return replyV2(v2Rich({
-        color: COL_OK,
         text: `## 🏧 Saque Realizado!\n**${valor.toLocaleString('pt-BR')} ${COIN}** sacados para sua carteira!\n\n> 🪙 Pronto para apostar nos jogos.`,
         gif: pickGif('sacar'),
       }));
@@ -421,7 +411,6 @@ export default {
 
     // ── AJUDA ──────────────────────────────────────────────────────────────
     return replyV2(v2Rich({
-      color: COL_OK,
       text: `## 💰 Eco — Comandos de Prefixo\n\`fallen eco saldo [@user]\` — ver saldo\n\`fallen eco daily\` — recompensa diária\n\`fallen eco trabalho\` — trabalhar (1h cooldown)\n\`fallen eco pagar @user <valor>\` — transferir coins\n\`fallen eco top\` — ranking do servidor\n\`fallen eco dep <valor|tudo>\` — depositar no banco\n\`fallen eco sacar <valor|tudo>\` — sacar do banco`,
     }));
   },
