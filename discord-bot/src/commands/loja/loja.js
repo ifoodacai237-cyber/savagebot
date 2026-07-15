@@ -4,12 +4,18 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SectionBuilder,
+  ThumbnailBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
+  MessageFlags,
 } from 'discord.js';
 import prisma from '../../database/client.js';
 import { buildLojaAdminPayload } from '../../utils/shopHandlers.js';
 
-const DEFAULT_COLOR = 0x9B4FD6;
 const COIN          = '<a:emoji_1:1516993823665033286>';
 const DEFAULT_CONV  = `> \`1000 mensagens\` → **500 ${COIN}**\n> \`1 hora em call\` → **500 ${COIN}**`;
 const DEFAULT_TEXT  =
@@ -24,29 +30,44 @@ function parseEmoji(str) {
   return str;
 }
 
+// ─── Painel público em Components V2 (sem barra lateral por padrão) ──────────
 export function buildShopMain(guild, cfg = {}) {
-  const color    = cfg.lojaColor  ? parseInt(cfg.lojaColor, 16) : DEFAULT_COLOR;
   const title    = cfg.lojaTitle  ?? `🛒 Loja do ${guild.name}`;
   const conv     = cfg.lojaConversao ?? DEFAULT_CONV;
   const bodyText = cfg.lojaText   ?? DEFAULT_TEXT;
   const useDivider = cfg.lojaUseDivider ?? false;
 
-  const sep  = useDivider ? `\n${DIVIDER}\n` : '\n\n';
-  const desc = bodyText + sep + '**Conversão 🪙**\n' + conv;
+  const sep  = useDivider ? `\n${DIVIDER}\n\n` : '\n\n';
+  const fullText = `## ${title}\n\n${bodyText}${sep}**Conversão 🪙**\n${conv}`;
 
-  const embed = new EmbedBuilder()
-    .setColor(color)
-    .setTitle(title)
-    .setDescription(desc)
-    .setFooter({ text: 'Fallen Bot · Loja' })
-    .setTimestamp();
+  const container = new ContainerBuilder();
 
-  if (cfg.lojaBanner) embed.setImage(cfg.lojaBanner);
-  if (cfg.lojaThumb)  embed.setThumbnail(cfg.lojaThumb);
-  else                embed.setThumbnail(guild.iconURL({ size: 128 }) ?? null);
+  // Só define accentColor se o admin configurou uma cor — sem cor = sem barra lateral
+  if (cfg.lojaColor) {
+    const parsed = parseInt(cfg.lojaColor, 16);
+    if (!isNaN(parsed)) container.setAccentColor(parsed);
+  }
+
+  // Banner no topo
+  if (cfg.lojaBanner) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(cfg.lojaBanner)),
+    );
+  }
+
+  const thumbUrl = cfg.lojaThumb || guild.iconURL({ size: 128 }) || null;
+  if (thumbUrl) {
+    const section = new SectionBuilder()
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText))
+      .setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbUrl));
+    container.addSectionComponents(section);
+  } else {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText));
+  }
 
   if (useDivider) {
-    embed.addFields({ name: DIVIDER, value: '*Clique em um botão abaixo para começar.*' });
+    container.addSeparatorComponents(new SeparatorBuilder());
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('-# Clique em um botão abaixo para começar.'));
   }
 
   const eComprar   = parseEmoji(cfg.shopEmojiComprar)   ?? '🛒';
@@ -63,7 +84,7 @@ export function buildShopMain(guild, cfg = {}) {
     new ButtonBuilder().setCustomId('shop_gift').setLabel('Presentear').setEmoji(eGift).setStyle(ButtonStyle.Secondary),
   );
 
-  return { embeds: [embed], components: [row] };
+  return { components: [container, row], flags: MessageFlags.IsComponentsV2 };
 }
 
 async function getCfg(guildId) {

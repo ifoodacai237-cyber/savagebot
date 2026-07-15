@@ -106,6 +106,15 @@ model GuildConfig {
   shopEmojiSaldo     String?
   shopEmojiGift      String?
 
+  vipTitle            String?
+  vipText             String?
+  vipBanner           String?
+  vipThumb            String?
+  vipColor            String?
+  vipPriceLabel       String?
+  vipBtnEscolherLabel String?
+  vipBtnCarrinhoLabel String?
+
   welcomeEnabled      Boolean @default(true)
   welcomeChannel      String?
   welcomeColor        String?

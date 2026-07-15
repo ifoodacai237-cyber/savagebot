@@ -39,7 +39,7 @@ import {
   COLOR_MAP,
 } from '../utils/containerSessions.js';
 import { handleShopInteraction } from '../utils/shopHandlers.js';
-import { handleVipButton }       from '../commands/loja/vip.js';
+import { handleVipButton, handleVipConfigModal } from '../commands/loja/vip.js';
 import { handleBJHit, handleBJStand, handleMinesCell, handleMinesCashout } from '../utils/gameHandlers.js';
 import { handleAjudaCatSel } from '../commands/general/ajuda.js';
 import { radioSessions, createRadioSession } from '../utils/radioManager.js';
@@ -2667,6 +2667,11 @@ export default {
           interaction.customId.startsWith('wallet_ring')
         ) {
           return handleShopInteraction(interaction, client);
+        }
+
+        // ── VIP: Modais de configuração ─────────────────────────────────
+        if (interaction.customId.startsWith('vip_cfg_modal_')) {
+          return handleVipConfigModal(interaction);
         }
 
         // ── INSTAGRAM: Comentário enviado ───────────────────────────────

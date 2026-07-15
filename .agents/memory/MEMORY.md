@@ -5,3 +5,7 @@
 - [FUT card system removed](discord-bot-personalization-ai.md) — sistema FUT (fut.js, futManager.js etc.) foi totalmente removido do bot; não recriar sem pedido explícito.
 - [Personalização por servidor + IA](discord-bot-personalization-ai.md) — /personalizar usa PATCH /guilds/{id}/members/@me (avatar/banner/bio por servidor); /ia usa chave própria da OpenAI (não o proxy do Replit) pois o bot roda na Railway.
 - [Sniper de usernames — REMOVIDO](sniper-username-forum.md) — sistema todo (checker/monitor/comandos/tabelas) foi apagado a pedido do usuário; não recriar sem pedido explícito novo.
+- [Edit tool 
+ bug](edit-tool-dollar-quote-bug.md) — a literal `
+` in old_string/new_string silently corrupts files (String.replace special token); use `"$"` instead of `'
+` etc.

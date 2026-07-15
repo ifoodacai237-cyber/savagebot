@@ -173,9 +173,14 @@ export default {
       if (!rows.length) return interaction.editReply(v2Err('Ninguém tem coins ainda!'));
       const entries = await Promise.all(rows.map(async (r, i) => {
         const member = await interaction.guild.members.fetch(r.userId).catch(() => null);
-        return { rank: i + 1, username: member?.displayName ?? 'User', total: r.balance + r.bank };
+        return {
+          rank:      i + 1,
+          username:  member?.displayName ?? 'User',
+          total:     r.balance + r.bank,
+          avatarUrl: member?.displayAvatarURL({ extension: 'png', size: 256 }) ?? null,
+        };
       }));
-      const buf = generateTopCard(entries);
+      const buf = await generateTopCard(entries);
       return interaction.editReply({ files: [new AttachmentBuilder(buf, { name: 'top.png' })] });
     }
 
@@ -312,9 +317,14 @@ export default {
       if (!rows.length) return message.reply(v2Err('Ninguém tem coins ainda!'));
       const entries = await Promise.all(rows.map(async (r, i) => {
         const member = await message.guild.members.fetch(r.userId).catch(() => null);
-        return { rank: i + 1, username: member?.displayName ?? 'User', total: r.balance + r.bank };
+        return {
+          rank:      i + 1,
+          username:  member?.displayName ?? 'User',
+          total:     r.balance + r.bank,
+          avatarUrl: member?.displayAvatarURL({ extension: 'png', size: 256 }) ?? null,
+        };
       }));
-      const buf = generateTopCard(entries);
+      const buf = await generateTopCard(entries);
       return message.reply({ files: [new AttachmentBuilder(buf, { name: 'top.png' })] });
     }
 
