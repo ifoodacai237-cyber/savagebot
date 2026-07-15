@@ -4,6 +4,7 @@ import {
   ContainerBuilder,
   TextDisplayBuilder,
   SectionBuilder,
+  SeparatorBuilder,
   ThumbnailBuilder,
   MediaGalleryBuilder,
   MediaGalleryItemBuilder,
@@ -46,7 +47,7 @@ const COIN = '<a:emoji_1:1516993823665033286>';
 
 // ─── V2 helpers ───────────────────────────────────────────────────────────────
 
-function v2Rich({ text, thumbnailUrl, gif }) {
+function v2Rich({ text, thumbnailUrl, gif, footerText }) {
   const c = new ContainerBuilder();
 
   if (thumbnailUrl) {
@@ -56,6 +57,11 @@ function v2Rich({ text, thumbnailUrl, gif }) {
     c.addSectionComponents(section);
   } else {
     c.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+  }
+
+  if (footerText) {
+    c.addSeparatorComponents(new SeparatorBuilder());
+    c.addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
   }
 
   const files = [];
@@ -161,7 +167,8 @@ export default {
         ? `\n⭐ Streak: **${streak}d** (+${Math.round(bonus * 100)}%)`
         : '';
       return interaction.reply(v2Rich({
-        text:  `## ✨ 📅 Daily resgatado\n${COIN} **+${amount.toLocaleString('pt-BR')}**${streakLine}\n\n⏰ Próximo em **24h** base`,
+        text:        `## ✨ 📅 Daily resgatado\n${COIN} **+${amount.toLocaleString('pt-BR')}**${streakLine}`,
+        footerText:  `⏰ Próximo em 24h base`,
         thumbnailUrl: interaction.user.displayAvatarURL(),
         gif: pickGif('daily'),
       }));
@@ -184,7 +191,8 @@ export default {
         data:  { balance: { increment: amount }, lastWork: new Date() },
       });
       return interaction.reply(v2Rich({
-        text: `## 💼 Trabalho Concluído!\n**${msg}** e ganhou **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> 🕐 Volte em **1 hora** para trabalhar novamente.`,
+        text:        `## 💼 Trabalho Concluído!\n**${msg}** e ganhou **${amount.toLocaleString('pt-BR')} ${COIN}**!`,
+        footerText:  `⏰ Volte em **1 hora** para trabalhar novamente.`,
         thumbnailUrl: interaction.user.displayAvatarURL(),
         gif: pickGif('work'),
       }));
@@ -304,7 +312,8 @@ export default {
         ? `\n⭐ Streak: **${streak}d** (+${Math.round(bonus * 100)}%)`
         : '';
       return replyV2(v2Rich({
-        text:  `## ✨ 📅 Daily resgatado\n${COIN} **+${amount.toLocaleString('pt-BR')}**${streakLine}\n\n⏰ Próximo em **24h** base`,
+        text:        `## ✨ 📅 Daily resgatado\n${COIN} **+${amount.toLocaleString('pt-BR')}**${streakLine}`,
+        footerText:  `⏰ Próximo em 24h base`,
         thumbnailUrl: message.author.displayAvatarURL(),
         gif: pickGif('daily'),
       }));
@@ -327,7 +336,8 @@ export default {
         data:  { balance: { increment: amount }, lastWork: new Date() },
       });
       return replyV2(v2Rich({
-        text: `## 💼 Trabalho Concluído!\n**${msg}** e ganhou **${amount.toLocaleString('pt-BR')} ${COIN}**!\n\n> 🕐 Volte em **1 hora** para trabalhar novamente.`,
+        text:        `## 💼 Trabalho Concluído!\n**${msg}** e ganhou **${amount.toLocaleString('pt-BR')} ${COIN}**!`,
+        footerText:  `⏰ Volte em **1 hora** para trabalhar novamente.`,
         thumbnailUrl: message.author.displayAvatarURL(),
         gif: pickGif('work'),
       }));
