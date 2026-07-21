@@ -70,6 +70,13 @@ import {
   RP_COLOR_MAP,
 } from '../utils/rolePanelSessions.js';
 import { handleDropClaim, handleDropItemSelect } from '../utils/dropHandlers.js';
+import {
+  handlePainelFuncoes,
+  handlePainelVoltar,
+  handlePainelModuloSel,
+  handleInstaCfgBtn,
+  handleInstaCfgModal,
+} from '../utils/painelHandlers.js';
 
 // ─── Emoji resolver ───────────────────────────────────────────────────────────
 
@@ -593,6 +600,11 @@ export default {
           return handleAjudaCatSel(interaction);
         }
 
+        // ── PAINEL CENTRAL: Seleção de módulo ───────────────────────────────
+        if (interaction.customId === 'painel_modulo_sel') {
+          return handlePainelModuloSel(interaction);
+        }
+
         // ── VIP ────────────────────────────────────────────────────────────
         if (interaction.customId.startsWith('vip_')) {
           return handleVipButton(interaction);
@@ -824,6 +836,19 @@ export default {
           customId.startsWith('wallet_ring')
         ) {
           return handleShopInteraction(interaction, client);
+        }
+
+        // ── PAINEL CENTRAL: Navegação ───────────────────────────────────
+        if (customId === 'painel_funcoes' || customId === 'painel_refresh') {
+          return handlePainelFuncoes(interaction);
+        }
+        if (customId === 'painel_voltar') {
+          return handlePainelVoltar(interaction);
+        }
+
+        // ── PAINEL CENTRAL: Botões mini-config Instagram ─────────────────
+        if (customId.startsWith('insta_cfg_')) {
+          return handleInstaCfgBtn(interaction);
         }
 
         // ── INSTAGRAM: Toggle like ───────────────────────────────────────
@@ -2590,6 +2615,11 @@ export default {
 
       // ── MODALS ─────────────────────────────────────────────────────────────
       if (interaction.isModalSubmit()) {
+
+        // ── PAINEL CENTRAL: Modals do mini-config Instagram ───────────
+        if (interaction.customId.startsWith('insta_cfg_modal_')) {
+          return handleInstaCfgModal(interaction);
+        }
 
         // ── STATUS DO BOT (Transmitindo) ───────────────────────────────
         if (interaction.customId === 'status_modal') {
