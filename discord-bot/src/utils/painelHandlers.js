@@ -7,10 +7,7 @@ import {
   SeparatorBuilder,
   SectionBuilder,
   ThumbnailBuilder,
-  StringSelectMenuBuilder,
-  StringSelectMenuOptionBuilder,
   MessageFlags,
-  EmbedBuilder,
 } from 'discord.js';
 import prisma from '../database/client.js';
 import { buildWelcomeConfigPayload } from './configPanels.js';
@@ -26,12 +23,20 @@ async function getCfg(guildId) {
   return prisma.guildConfig.upsert({ where: { guildId }, create: { guildId }, update: {} });
 }
 
-function statusDot(active) {
-  return active ? '🟢' : '🔴';
+const D = (ok) => (ok ? '🟢' : '🔴');
+
+/** Botão "Configurar" padrão dentro do container */
+function cfgBtn(customId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(customId)
+      .setLabel('Configurar')
+      .setStyle(ButtonStyle.Secondary),
+  );
 }
 
-// Botão de voltar ao painel de funções
-function backRow() {
+/** Linha de voltar — fica fora do container, abaixo */
+function voltarRow() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('painel_voltar')
@@ -40,44 +45,58 @@ function backRow() {
   );
 }
 
-// ─── Painel Principal ─────────────────────────────────────────────────────────
+// ─── Tela Inicial (Screen 1) ──────────────────────────────────────────────────
+//
+// ┌──────────────────────────────────────┐
+// │ 🤖 Painel                  [thumb]   │
+// │ Painel › Inicial                     │
+// │ **Servidor** · Nome#0000             │
+// │ ⚙️ **Funções** · boas-vindas, …     │
+// │ Tudo o que dá pra configurar aqui.   │
+// │                                      │
+// │ [Abrir Funções]  [Meu Premium]       │
+// └──────────────────────────────────────┘
+// [⟳ Atualizar]
+// ─────────────────────────────────────────
 
 export function buildPainelMain(guild, cfg) {
+  const iconUrl = guild.iconURL({ size: 128 }) ?? null;
+
+  const headerText = [
+    '🤖 **Painel**',
+    'Painel › Inicial',
+    `**Servidor** · ${guild.name}`,
+    '⚙️ **Funções** · boas-vindas, ticket, instagram, tellonym e mais',
+    'Tudo o que dá pra configurar nesse servidor.',
+  ].join('\n');
+
   const container = new ContainerBuilder().setAccentColor(0x5865F2);
-
-  const iconUrl = guild.iconURL({ size: 128 }) || null;
-  const moduleSummary = [
-    '🎉 **Boas-Vindas**', '🎫 **Ticket**', '💌 **Tellonym**',
-    '📸 **Instagram**', '🤝 **Parceria**', '🛒 **Loja**',
-    '⭐ **VIP**', '⚙️ **Status**',
-  ].join('  ·  ');
-
-  const mainText =
-    `## ⚙️ Painel — ${guild.name}\n\n` +
-    `Configure todos os módulos do seu servidor em um só lugar.\n\n` +
-    `**Módulos disponíveis:**\n${moduleSummary}`;
 
   if (iconUrl) {
     container.addSectionComponents(
       new SectionBuilder()
-        .addTextDisplayComponents(new TextDisplayBuilder().setContent(mainText))
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(headerText))
         .setThumbnailAccessory(new ThumbnailBuilder().setURL(iconUrl)),
     );
   } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(mainText));
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(headerText));
   }
 
-  container.addSeparatorComponents(new SeparatorBuilder());
-  container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('-# Clique em **Abrir Funções** para configurar cada módulo.'),
+  container.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('painel_funcoes')
+        .setLabel('Abrir Funções')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('painel_premium')
+        .setLabel('Meu Premium')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true),
+    ),
   );
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('painel_funcoes')
-      .setLabel('Abrir Funções')
-      .setEmoji('⚙️')
-      .setStyle(ButtonStyle.Primary),
+  const refreshRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('painel_refresh')
       .setLabel('Atualizar')
@@ -85,267 +104,274 @@ export function buildPainelMain(guild, cfg) {
       .setStyle(ButtonStyle.Secondary),
   );
 
-  return { components: [container, row], flags: MessageFlags.IsComponentsV2 };
+  return { components: [container, refreshRow], flags: MessageFlags.IsComponentsV2 };
 }
 
-// ─── Lista de Funções ─────────────────────────────────────────────────────────
+// ─── Lista de Funções (Screens 2–5) ───────────────────────────────────────────
+//
+// Cada módulo:
+//   🟢 **Nome**
+//   Descrição curta do módulo
+//   [Configurar]
+//
+// Separadores entre categorias.
+// Botão "← Voltar" fora do container.
+// ──────────────────────────────────────────
 
 export function buildPainelFuncoes(guild, cfg) {
-  const container = new ContainerBuilder().setAccentColor(0x5865F2);
-
-  // Status de cada módulo
   const boasVindasOk = !!(cfg.welcomeChannel);
-  const ticketOk     = !!(cfg.ticketCategory);
-  const tellonymOk   = !!(cfg.tellonymChannel);
+  const ticketOk     = !!(cfg.ticketChannel || cfg.ticketCategory);
   const instaOk      = !!(cfg.instaChannel);
+  const tellonymOk   = !!(cfg.tellonymChannel);
   const parceiraOk   = !!(cfg.partnerEnabled && cfg.partnerChannel);
-  const lojaOk       = true;
-  const vipOk        = true;
-  const statusOk     = true;
 
-  const lines = [
-    `## ⚙️ Funções — ${guild.name}\n`,
-    `**Boas-Vindas**`,
-    `${statusDot(boasVindasOk)} **Boas-Vindas** — Mensagem ao entrar no servidor`,
-    boasVindasOk
-      ? `-# Canal: <#${cfg.welcomeChannel}>`
-      : `-# ⚠️ Canal de boas-vindas não configurado`,
-    ``,
-    `**Suporte**`,
-    `${statusDot(ticketOk)} **Ticket** — Sistema de suporte via threads privadas`,
-    ticketOk
-      ? `-# Categoria: <#${cfg.ticketCategory}>`
-      : `-# ⚠️ Sem categoria definida — não está funcionando`,
-    ``,
-    `**Engajamento**`,
-    `${statusDot(instaOk)} **Instagram** — Feed automático de fotos e vídeos`,
-    instaOk
-      ? `-# Canal: <#${cfg.instaChannel}>`
-      : `-# ⚠️ Módulo desativado`,
-    `${statusDot(tellonymOk)} **Tellonym** — Mensagens anônimas entre membros`,
-    tellonymOk
-      ? `-# Canal: <#${cfg.tellonymChannel}>`
-      : `-# ⚠️ Canal não configurado`,
-    `${statusDot(parceiraOk)} **Parceria** — Sistema de parcerias do servidor`,
-    parceiraOk
-      ? `-# Canal: <#${cfg.partnerChannel}>`
-      : `-# ⚠️ Sistema ${cfg.partnerEnabled ? 'ativo mas sem canal' : 'desativado'}`,
-    ``,
-    `**Loja & VIP**`,
-    `${statusDot(lojaOk)} **Loja** — Loja do servidor com cargos e banners`,
-    `-# Sempre disponível — configure via botão`,
-    `${statusDot(vipOk)} **VIP** — Plano VIP com benefícios na economia`,
-    `-# Sempre disponível — configure via botão`,
-    ``,
-    `**Ferramentas**`,
-    `${statusDot(statusOk)} **Status** — Streaming exibido no perfil do bot`,
-    `-# Sempre disponível — configure via botão`,
-  ].join('\n');
+  const c = new ContainerBuilder().setAccentColor(0x5865F2);
 
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(lines));
-  container.addSeparatorComponents(new SeparatorBuilder());
-  container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('-# Selecione um módulo no menu abaixo para configurá-lo.'),
+  // ── Boas-Vindas ──────────────────────────────────────────────────────────
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder()
+      .setContent(`${D(boasVindasOk)} **Boas-Vindas**\nMensagem e cargos ao entrar no servidor`),
   );
+  c.addActionRowComponents(cfgBtn('painel_cfg_boasvindas'));
 
-  const select = new StringSelectMenuBuilder()
-    .setCustomId('painel_modulo_sel')
-    .setPlaceholder('🔧 Selecione um módulo para configurar...')
-    .addOptions(
-      new StringSelectMenuOptionBuilder()
-        .setLabel('🎉 Boas-Vindas')
-        .setValue('boasvindas')
-        .setDescription('Mensagem de entrada no servidor'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('🎫 Ticket')
-        .setValue('ticket')
-        .setDescription('Sistema de suporte via threads'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('📸 Instagram')
-        .setValue('instagram')
-        .setDescription('Feed automático de fotos e vídeos'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('💌 Tellonym')
-        .setValue('tellonym')
-        .setDescription('Mensagens anônimas entre membros'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('🤝 Parceria')
-        .setValue('parceria')
-        .setDescription('Sistema de parcerias do servidor'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('🛒 Loja')
-        .setValue('loja')
-        .setDescription('Loja do servidor com cargos e banners'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('⭐ VIP')
-        .setValue('vip')
-        .setDescription('Plano VIP com benefícios na economia'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('⚙️ Status')
-        .setValue('status')
-        .setDescription('Streaming exibido no perfil do bot'),
-    );
+  c.addSeparatorComponents(new SeparatorBuilder());
 
-  const selectRow = new ActionRowBuilder().addComponents(select);
+  // ── Suporte ───────────────────────────────────────────────────────────────
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent('**Suporte**'),
+  );
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder()
+      .setContent(`${D(ticketOk)} **Ticket**\nSuporte via thread privada com a equipe`),
+  );
+  c.addActionRowComponents(cfgBtn('painel_cfg_ticket'));
 
-  return { components: [container, selectRow], flags: MessageFlags.IsComponentsV2 };
+  c.addSeparatorComponents(new SeparatorBuilder());
+
+  // ── Engajamento ───────────────────────────────────────────────────────────
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent('**Engajamento**'),
+  );
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder()
+      .setContent(`${D(instaOk)} **Instagram**\nFeed de fotos com curtidas e comentários`),
+  );
+  c.addActionRowComponents(cfgBtn('painel_cfg_instagram'));
+
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder()
+      .setContent(`${D(tellonymOk)} **Tellonym**\nMensagens anônimas entre os membros`),
+  );
+  c.addActionRowComponents(cfgBtn('painel_cfg_tellonym'));
+
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder()
+      .setContent(`${D(parceiraOk)} **Parceria**\nSistema de parcerias do servidor`),
+  );
+  c.addActionRowComponents(cfgBtn('painel_cfg_parceria'));
+
+  c.addSeparatorComponents(new SeparatorBuilder());
+
+  // ── Loja & Economia ───────────────────────────────────────────────────────
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent('**Loja & Economia**'),
+  );
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder()
+      .setContent('**Loja**\nLoja do servidor com cargos e banners personalizados'),
+  );
+  c.addActionRowComponents(cfgBtn('painel_cfg_loja'));
+
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder()
+      .setContent('**VIP**\nPlano VIP com benefícios e cargos exclusivos'),
+  );
+  c.addActionRowComponents(cfgBtn('painel_cfg_vip'));
+
+  c.addSeparatorComponents(new SeparatorBuilder());
+
+  // ── Ferramentas ───────────────────────────────────────────────────────────
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent('**Ferramentas**'),
+  );
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder()
+      .setContent('**Status**\nStatus de streaming exibido no perfil do bot'),
+  );
+  c.addActionRowComponents(cfgBtn('painel_cfg_status'));
+
+  return { components: [c, voltarRow()], flags: MessageFlags.IsComponentsV2 };
 }
 
-// ─── Mini config do Instagram (aberto via painel) ─────────────────────────────
+// ─── Mini-config do Instagram (abre pelo painel) ──────────────────────────────
 
 export function buildInstaConfigPayload(cfg) {
   const ativo  = !!(cfg.instaChannel);
-  const cor    = cfg.instaColor ? `#${cfg.instaColor}` : 'Sem cor (sem barra lateral)';
+  const cor    = cfg.instaColor ? `#${cfg.instaColor}` : 'Sem cor';
   const emoji  = cfg.instaEmoji ?? '💜';
   const handle = cfg.instaHandle ? `@${cfg.instaHandle}` : 'Não definido';
 
-  const embed = new EmbedBuilder()
-    .setColor(ativo ? 0xE1306C : 0x555555)
-    .setTitle('📸 Configuração — Instagram')
-    .setDescription(
-      (ativo ? '🟢 **Feed ATIVO**' : '🔴 **Feed DESATIVADO**') +
-      '\n\nO bot transforma automaticamente imagens e vídeos do canal configurado em posts estilo Instagram.',
-    )
-    .addFields(
-      { name: '📣 Canal',    value: cfg.instaChannel ? `<#${cfg.instaChannel}>` : '*(não configurado)*', inline: true },
-      { name: '🎨 Cor',      value: cor,                                                                  inline: true },
-      { name: '❤️ Emoji',   value: emoji,                                                                 inline: true },
-      { name: '🔗 Handle',   value: handle,                                                               inline: true },
-    )
-    .setFooter({ text: 'Dica: ative o módulo configurando um canal com /instagram ativar' });
+  const c = new ContainerBuilder().setAccentColor(ativo ? 0xE1306C : 0x555555);
 
-  const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('insta_cfg_canal')
-      .setLabel(ativo ? 'Alterar Canal' : 'Ativar (definir canal)')
-      .setEmoji('📣')
-      .setStyle(ativo ? ButtonStyle.Secondary : ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId('insta_cfg_desativar')
-      .setLabel('Desativar Feed')
-      .setEmoji('🔴')
-      .setStyle(ButtonStyle.Danger)
-      .setDisabled(!ativo),
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      [
+        `${D(ativo)} **Instagram** — ${ativo ? 'Feed ATIVO' : 'Feed DESATIVADO'}`,
+        '',
+        `📣 **Canal:** ${cfg.instaChannel ? `<#${cfg.instaChannel}>` : '*(não configurado)*'}`,
+        `🎨 **Cor:** ${cor}   ❤️ **Emoji:** ${emoji}   🔗 **Handle:** ${handle}`,
+      ].join('\n'),
+    ),
   );
 
-  const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('insta_cfg_cor')
-      .setLabel('Alterar Cor')
-      .setEmoji('🎨')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('insta_cfg_sem_cor')
-      .setLabel('Sem Lateral')
-      .setEmoji('◻️')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('insta_cfg_emoji')
-      .setLabel('Emoji do Like')
-      .setEmoji('❤️')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('insta_cfg_handle')
-      .setLabel('@ do Instagram')
-      .setEmoji('🔗')
-      .setStyle(ButtonStyle.Secondary),
+  c.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('insta_cfg_canal')
+        .setLabel(ativo ? 'Alterar Canal' : 'Ativar (definir canal)')
+        .setStyle(ativo ? ButtonStyle.Secondary : ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('insta_cfg_desativar')
+        .setLabel('Desativar')
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(!ativo),
+    ),
   );
 
-  return { embeds: [embed], components: [row1, row2, backRow()] };
+  c.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('insta_cfg_cor')
+        .setLabel('Cor')
+        .setEmoji('🎨')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('insta_cfg_sem_cor')
+        .setLabel('Sem Lateral')
+        .setEmoji('◻️')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('insta_cfg_emoji')
+        .setLabel('Emoji Like')
+        .setEmoji('❤️')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('insta_cfg_handle')
+        .setLabel('@ Instagram')
+        .setEmoji('🔗')
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  );
+
+  return { components: [c, voltarRow()], flags: MessageFlags.IsComponentsV2 };
 }
 
-// ─── Mini config do Status (aberto via painel) ────────────────────────────────
+// ─── Mini-config do Status (abre pelo painel) ─────────────────────────────────
 
 export function buildStatusConfigPayload() {
-  const embed = new EmbedBuilder()
-    .setColor(0x5865F2)
-    .setTitle('⚙️ Configuração — Status do Bot')
-    .setDescription(
-      'Configure o status de **Transmitindo** exibido no perfil do bot.\n\n' +
-      '**Subcomandos disponíveis:**\n' +
-      '`/status definir` — abre editor de emoji + texto\n' +
-      '`/status automatico [textos]` — rotação automática separada por `|`\n' +
-      '`/status parar` — para a rotação e restaura o padrão',
-    )
-    .setFooter({ text: 'Use os comandos /status para alterar o streaming do bot' });
+  const c = new ContainerBuilder().setAccentColor(0x5865F2);
 
-  return { embeds: [embed], components: [backRow()] };
+  c.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      [
+        '**Status** — Status de streaming do bot',
+        '',
+        'Configure o status de **Transmitindo** exibido no perfil do bot.',
+        '',
+        '`/status definir` — abre editor de emoji + texto',
+        '`/status automatico [textos]` — rotação automática separada por `|`',
+        '`/status parar` — para a rotação e restaura o padrão',
+      ].join('\n'),
+    ),
+  );
+
+  return { components: [c, voltarRow()], flags: MessageFlags.IsComponentsV2 };
 }
 
-// ─── Dispatcher principal ─────────────────────────────────────────────────────
+// ─── Handler: clique em "Configurar" de qualquer módulo ─────────────────────
 
-export async function handlePainelModuloSel(interaction) {
-  if (!interaction.memberPermissions?.has(0x20n)) { // ManageGuild
-    return interaction.reply({ content: '❌ Sem permissão.', ephemeral: true });
+export async function handlePainelCfgBtn(interaction) {
+  if (!interaction.memberPermissions?.has(0x20n)) {
+    return interaction.reply({ content: '❌ Sem permissão.', flags: 64 });
   }
 
-  const modulo = interaction.values[0];
-  const cfg    = await getCfg(interaction.guildId);
+  const { customId } = interaction;
+  const cfg = await getCfg(interaction.guildId);
+
+  const modulo = customId.replace('painel_cfg_', '');
 
   let payload;
 
   switch (modulo) {
     case 'boasvindas': {
       const base = buildWelcomeConfigPayload(cfg);
-      payload = { ...base, components: [...base.components, backRow()] };
+      payload = { ...base, components: [...(base.components ?? []), voltarRow()] };
       break;
     }
     case 'ticket': {
       const base = buildTicketConfigPayload(cfg);
-      payload = { ...base, components: [...base.components, backRow()] };
+      payload = { ...base, components: [...(base.components ?? []), voltarRow()] };
       break;
     }
     case 'tellonym': {
       const base = buildTellonymConfigPayload(cfg);
-      payload = { ...base, components: [...base.components, backRow()] };
+      payload = { ...base, components: [...(base.components ?? []), voltarRow()] };
       break;
     }
     case 'parceria': {
       const base = buildPartnerConfigPayload(cfg);
-      payload = { ...base, components: [...base.components, backRow()] };
+      payload = { ...base, components: [...(base.components ?? []), voltarRow()] };
       break;
     }
     case 'loja': {
       const base = buildLojaAdminPayload(cfg);
-      payload = { ...base, components: [...base.components, backRow()] };
+      payload = { ...base, components: [...(base.components ?? []), voltarRow()] };
       break;
     }
     case 'vip': {
       const base = buildVipConfigPayload(cfg);
-      payload = { ...base, components: [...base.components, backRow()] };
+      payload = { ...base, components: [...(base.components ?? []), voltarRow()] };
       break;
     }
-    case 'instagram': {
+    case 'instagram':
       payload = buildInstaConfigPayload(cfg);
       break;
-    }
-    case 'status': {
+    case 'status':
       payload = buildStatusConfigPayload();
       break;
-    }
     default:
-      return interaction.reply({ content: '❌ Módulo desconhecido.', ephemeral: true });
+      return interaction.reply({ content: '❌ Módulo desconhecido.', flags: 64 });
   }
 
   return interaction.update(payload);
 }
 
-// ─── Handlers de botões do painel ─────────────────────────────────────────────
+// ─── Handler: botão "Abrir Funções" / "Atualizar" ────────────────────────────
 
 export async function handlePainelFuncoes(interaction) {
   if (!interaction.memberPermissions?.has(0x20n)) {
-    return interaction.reply({ content: '❌ Sem permissão.', ephemeral: true });
+    return interaction.reply({ content: '❌ Sem permissão.', flags: 64 });
   }
   const cfg = await getCfg(interaction.guildId);
   return interaction.update(buildPainelFuncoes(interaction.guild, cfg));
 }
+
+// ─── Handler: botão "← Voltar ao Painel" ─────────────────────────────────────
 
 export async function handlePainelVoltar(interaction) {
   const cfg = await getCfg(interaction.guildId);
   return interaction.update(buildPainelMain(interaction.guild, cfg));
 }
 
-// ─── Handlers de botões do mini-Instagram ─────────────────────────────────────
+// ─── Handler: select de módulo (mantido por compatibilidade) ─────────────────
+
+export async function handlePainelModuloSel(interaction) {
+  // Redireciona para o handler de botão simulando o customId
+  interaction.customId = `painel_cfg_${interaction.values[0]}`;
+  return handlePainelCfgBtn(interaction);
+}
+
+// ─── Handlers: mini-config Instagram ─────────────────────────────────────────
 
 export async function handleInstaCfgBtn(interaction) {
   const { customId } = interaction;
@@ -356,8 +382,7 @@ export async function handleInstaCfgBtn(interaction) {
       create: { guildId: interaction.guildId },
       update: { instaChannel: null },
     });
-    const cfg = await getCfg(interaction.guildId);
-    return interaction.update(buildInstaConfigPayload(cfg));
+    return interaction.update(buildInstaConfigPayload(await getCfg(interaction.guildId)));
   }
 
   if (customId === 'insta_cfg_sem_cor') {
@@ -366,16 +391,14 @@ export async function handleInstaCfgBtn(interaction) {
       create: { guildId: interaction.guildId },
       update: { instaColor: null },
     });
-    const cfg = await getCfg(interaction.guildId);
-    return interaction.update(buildInstaConfigPayload(cfg));
+    return interaction.update(buildInstaConfigPayload(await getCfg(interaction.guildId)));
   }
 
-  // Botões que abrem modal de texto
   const MODAL_MAP = {
-    insta_cfg_canal:  { customId: 'insta_cfg_modal_canal',  title: 'Canal do Feed (ID ou #canal)',    label: 'ID do canal',       max: 30,  ph: '123456789012345678' },
-    insta_cfg_cor:    { customId: 'insta_cfg_modal_cor',    title: 'Cor da barra lateral',            label: 'Cor hex (sem #)',    max: 6,   ph: 'E1306C' },
-    insta_cfg_emoji:  { customId: 'insta_cfg_modal_emoji',  title: 'Emoji do botão de curtir',        label: 'Emoji',             max: 32,  ph: '💜' },
-    insta_cfg_handle: { customId: 'insta_cfg_modal_handle', title: '@ do Instagram do servidor',     label: '@ do Instagram',    max: 50,  ph: 'fallen.angels' },
+    insta_cfg_canal:  { customId: 'insta_cfg_modal_canal',  title: 'Canal do Feed',         label: 'ID do canal',     max: 30, ph: '123456789012345678' },
+    insta_cfg_cor:    { customId: 'insta_cfg_modal_cor',    title: 'Cor da barra lateral',  label: 'Hex sem #',       max: 6,  ph: 'E1306C' },
+    insta_cfg_emoji:  { customId: 'insta_cfg_modal_emoji',  title: 'Emoji de curtir',       label: 'Emoji',           max: 32, ph: '💜' },
+    insta_cfg_handle: { customId: 'insta_cfg_modal_handle', title: '@ do Instagram',        label: '@ do Instagram',  max: 50, ph: 'fallen.angels' },
   };
 
   const def = MODAL_MAP[customId];
@@ -403,20 +426,12 @@ export async function handleInstaCfgModal(interaction) {
   const { customId } = interaction;
   const raw   = interaction.fields.getTextInputValue('value').trim();
   const value = raw || null;
+  let   update = {};
 
-  let update = {};
-
-  if (customId === 'insta_cfg_modal_canal') {
-    // Aceita ID direto ou <#ID>
-    const id = value ? value.replace(/[<#>]/g, '') : null;
-    update = { instaChannel: id };
-  } else if (customId === 'insta_cfg_modal_cor') {
-    update = { instaColor: value ? value.replace(/^#/, '').toUpperCase().slice(0, 6) : null };
-  } else if (customId === 'insta_cfg_modal_emoji') {
-    update = { instaEmoji: value ?? '💜' };
-  } else if (customId === 'insta_cfg_modal_handle') {
-    update = { instaHandle: value ? value.replace(/^@/, '') : null };
-  }
+  if      (customId === 'insta_cfg_modal_canal')  update = { instaChannel: value ? value.replace(/[<#>]/g, '') : null };
+  else if (customId === 'insta_cfg_modal_cor')    update = { instaColor: value ? value.replace(/^#/, '').toUpperCase().slice(0, 6) : null };
+  else if (customId === 'insta_cfg_modal_emoji')  update = { instaEmoji: value ?? '💜' };
+  else if (customId === 'insta_cfg_modal_handle') update = { instaHandle: value ? value.replace(/^@/, '') : null };
 
   await prisma.guildConfig.upsert({
     where:  { guildId: interaction.guildId },

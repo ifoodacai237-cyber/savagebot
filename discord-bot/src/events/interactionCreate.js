@@ -74,6 +74,7 @@ import {
   handlePainelFuncoes,
   handlePainelVoltar,
   handlePainelModuloSel,
+  handlePainelCfgBtn,
   handleInstaCfgBtn,
   handleInstaCfgModal,
 } from '../utils/painelHandlers.js';
@@ -844,6 +845,11 @@ export default {
         }
         if (customId === 'painel_voltar') {
           return handlePainelVoltar(interaction);
+        }
+
+        // ── PAINEL CENTRAL: Botões "Configurar" de cada módulo ───────────
+        if (customId.startsWith('painel_cfg_')) {
+          return handlePainelCfgBtn(interaction);
         }
 
         // ── PAINEL CENTRAL: Botões mini-config Instagram ─────────────────
