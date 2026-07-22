@@ -46,18 +46,42 @@ async function getCfg(guildId) {
   return prisma.guildConfig.upsert({ where: { guildId }, create: { guildId }, update: {} });
 }
 
+async function getCfgWithPlans(guildId) {
+  return prisma.guildConfig.upsert({
+    where:   { guildId },
+    create:  { guildId },
+    update:  {},
+    include: { vipPlans: { orderBy: { position: 'asc' } } },
+  });
+}
+
+function safeEmoji(raw) {
+  if (!raw) return null;
+  const s = raw.trim();
+  const match = s.match(/^<(a?):([^:>\s]+):(\d+)>$/);
+  if (match) {
+    const id = match[3];
+    if (id.length < 17 || id.length > 20) return null;
+    return { animated: match[1] === 'a', name: match[2], id };
+  }
+  return s || null;
+}
+
 // ─── Build do painel VIP em Components V2 (sem barra lateral por padrão) ─────
-export function buildVipPanel(cfg = {}) {
+export function buildVipPanel(cfg = {}, plans = []) {
   const container = new ContainerBuilder();
 
-  // Só define accentColor se o admin configurou uma cor — sem cor = sem barra lateral
+  // Sem cor = sem barra lateral
   if (cfg.vipColor) {
     const parsed = parseInt(cfg.vipColor, 16);
     if (!isNaN(parsed)) container.setAccentColor(parsed);
   }
 
-  const title = cfg.vipTitle || DEFAULT_VIP_TITLE;
-  const introText = `## ${title}\n${DEFAULT_VIP_INTRO}`;
+  const coin  = cfg.vipEmojiCoin || COIN;
+  const tag   = cfg.vipEmojiTag  || VIP_TAG;
+  const title = cfg.vipTitle     || DEFAULT_VIP_TITLE;
+  const intro = cfg.vipIntro     || DEFAULT_VIP_INTRO;
+  const introText = `## ${title}\n${intro}`;
 
   // Banner no topo
   if (cfg.vipBanner) {
@@ -67,15 +91,15 @@ export function buildVipPanel(cfg = {}) {
   }
 
   if (cfg.vipThumb) {
-    const section = new SectionBuilder()
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(introText))
-      .setThumbnailAccessory(new ThumbnailBuilder().setURL(cfg.vipThumb));
-    container.addSectionComponents(section);
+    container.addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(introText))
+        .setThumbnailAccessory(new ThumbnailBuilder().setURL(cfg.vipThumb)),
+    );
   } else {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(introText));
   }
 
-  // Separador
   container.addSeparatorComponents(new SeparatorBuilder());
 
   // Benefícios
@@ -84,86 +108,147 @@ export function buildVipPanel(cfg = {}) {
     new TextDisplayBuilder().setContent(`### ⭐ Beneficios VIP\n${beneficios}`),
   );
 
-  // Separador
   container.addSeparatorComponents(new SeparatorBuilder());
 
-  // Plano
-  const priceLabel = cfg.vipPriceLabel || DEFAULT_VIP_PRICE_LABEL;
-  container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(
-      `### ${COIN} Plano principal\n${VIP_TAG} **${priceLabel}**`,
-    ),
-  );
-
-  // Botões
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
+  // Planos
+  if (plans && plans.length > 0) {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`### ${coin} Planos disponíveis`),
+    );
+    // Máx 5 botões por row — divide em grupos de 5
+    for (let i = 0; i < Math.min(plans.length, 10); i += 5) {
+      const slice = plans.slice(i, i + 5);
+      const btns = slice.map(p => {
+        const b = new ButtonBuilder()
+          .setCustomId(`vip_escolher_plano:${p.id}`)
+          .setLabel(`${p.name} · ${p.price}`)
+          .setStyle(ButtonStyle.Primary);
+        const e = safeEmoji(p.emoji);
+        if (e) { try { b.setEmoji(e); } catch {} }
+        return b;
+      });
+      container.addActionRowComponents(new ActionRowBuilder().addComponents(...btns));
+    }
+  } else {
+    const priceLabel = cfg.vipPriceLabel || DEFAULT_VIP_PRICE_LABEL;
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`### ${coin} Plano principal\n${tag} **${priceLabel}**`),
+    );
+    const escolherBtn = new ButtonBuilder()
       .setCustomId('vip_escolher')
       .setLabel(cfg.vipBtnEscolherLabel || DEFAULT_VIP_BTN_ESCOLHER)
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
+      .setStyle(ButtonStyle.Primary);
+    const e1 = safeEmoji(cfg.vipEmojiBtn1);
+    if (e1) { try { escolherBtn.setEmoji(e1); } catch {} }
+
+    const carrinhoBtn = new ButtonBuilder()
       .setCustomId('vip_carrinho')
       .setLabel(cfg.vipBtnCarrinhoLabel || DEFAULT_VIP_BTN_CARRINHO)
-      .setStyle(ButtonStyle.Secondary),
-  );
+      .setStyle(ButtonStyle.Secondary);
+    const e2 = safeEmoji(cfg.vipEmojiBtn2);
+    if (e2) { try { carrinhoBtn.setEmoji(e2); } catch {} }
 
-  return {
-    components: [container, row],
-    flags: MessageFlags.IsComponentsV2,
-  };
+    container.addActionRowComponents(new ActionRowBuilder().addComponents(escolherBtn, carrinhoBtn));
+  }
+
+  return { components: [container], flags: MessageFlags.IsComponentsV2 };
 }
 
 // ─── Configuração (admin) ─────────────────────────────────────────────────────
 
 const VIP_CFG_FIELDS = {
-  titulo:   { label: 'Título',                     db: 'vipTitle',           max: 100,  paragraph: false },
-  texto:    { label: 'Texto de Benefícios',         db: 'vipText',            max: 1000, paragraph: true  },
-  banner:   { label: 'URL do Banner',               db: 'vipBanner',          max: 500,  paragraph: false },
-  thumb:    { label: 'URL da Thumbnail',            db: 'vipThumb',           max: 500,  paragraph: false },
-  cor:      { label: 'Cor Hex (sem #)',             db: 'vipColor',           max: 6,    paragraph: false },
-  preco:    { label: 'Rótulo do Preço',             db: 'vipPriceLabel',      max: 60,   paragraph: false },
-  escolher: { label: 'Rótulo botão "Escolher VIP"', db: 'vipBtnEscolherLabel', max: 40,  paragraph: false },
-  carrinho: { label: 'Rótulo botão "Meu carrinho"', db: 'vipBtnCarrinhoLabel', max: 40,  paragraph: false },
+  titulo:     { label: 'Título',                          db: 'vipTitle',            max: 100,  paragraph: false },
+  intro:      { label: 'Texto Introdutório',              db: 'vipIntro',            max: 200,  paragraph: true  },
+  texto:      { label: 'Texto de Benefícios',             db: 'vipText',             max: 1000, paragraph: true  },
+  banner:     { label: 'URL do Banner',                   db: 'vipBanner',           max: 500,  paragraph: false },
+  thumb:      { label: 'URL da Thumbnail',                db: 'vipThumb',            max: 500,  paragraph: false },
+  cor:        { label: 'Cor Hex (sem #)',                 db: 'vipColor',            max: 6,    paragraph: false },
+  preco:      { label: 'Rótulo do Preço',                 db: 'vipPriceLabel',       max: 60,   paragraph: false },
+  escolher:   { label: 'Rótulo botão "Escolher VIP"',    db: 'vipBtnEscolherLabel', max: 40,   paragraph: false },
+  carrinho:   { label: 'Rótulo botão "Meu carrinho"',    db: 'vipBtnCarrinhoLabel', max: 40,   paragraph: false },
+  emoji_coin: { label: 'Emoji da Moeda (<a:name:ID>)',    db: 'vipEmojiCoin',        max: 100,  paragraph: false },
+  emoji_tag:  { label: 'Emoji VIP (<:name:ID>)',          db: 'vipEmojiTag',         max: 100,  paragraph: false },
+  emoji_btn1: { label: 'Emoji Botão "Escolher VIP"',     db: 'vipEmojiBtn1',        max: 100,  paragraph: false },
+  emoji_btn2: { label: 'Emoji Botão "Meu Carrinho"',     db: 'vipEmojiBtn2',        max: 100,  paragraph: false },
 };
 
-export function buildVipConfigPayload(cfg) {
-  const color = cfg.vipColor ? parseInt(cfg.vipColor, 16) : VIP_COLOR;
+// V2 — sem embed, com ContainerBuilder
+export function buildVipConfigPayload(cfg, plans = []) {
+  // ── Container 1: campos de texto ─────────────────────────────────────────
+  const c1 = new ContainerBuilder();
+  if (cfg.vipColor) {
+    const p = parseInt(cfg.vipColor, 16);
+    if (!isNaN(p)) c1.setAccentColor(p);
+  }
 
-  const embed = new EmbedBuilder()
-    .setColor(color)
-    .setTitle('⚙️ Configuração — Painel VIP')
-    .setDescription('Clique em um campo para editar. As alterações aparecem no próximo `/vip painel`.\n\n*Sem cor definida = sem barra lateral no painel.*')
-    .addFields(
-      { name: '🏷️ Título',   value: cfg.vipTitle          ? `\`${cfg.vipTitle}\``          : '*padrão*', inline: true },
-      { name: '🎨 Cor',      value: cfg.vipColor          ? `\`#${cfg.vipColor}\``          : '*sem lateral*', inline: true },
-      { name: '💰 Preço',    value: cfg.vipPriceLabel     ? `\`${cfg.vipPriceLabel}\``      : `\`${DEFAULT_VIP_PRICE_LABEL}\``, inline: true },
-      { name: '🖼️ Banner',  value: cfg.vipBanner         ? `[Ver](<${cfg.vipBanner}>)`     : '*nenhum*', inline: true },
-      { name: '🖼️ Thumbnail', value: cfg.vipThumb        ? `[Ver](<${cfg.vipThumb}>)`      : '*nenhuma*', inline: true },
-      { name: '🔘 Botão Escolher', value: cfg.vipBtnEscolherLabel ? `\`${cfg.vipBtnEscolherLabel}\`` : `\`${DEFAULT_VIP_BTN_ESCOLHER}\``, inline: true },
-      { name: '🔘 Botão Carrinho', value: cfg.vipBtnCarrinhoLabel ? `\`${cfg.vipBtnCarrinhoLabel}\`` : `\`${DEFAULT_VIP_BTN_CARRINHO}\``, inline: true },
-      { name: '⭐ Benefícios', value: (cfg.vipText || DEFAULT_VIP_TEXT).slice(0, 200) + ((cfg.vipText || DEFAULT_VIP_TEXT).length > 200 ? '…' : '') },
-    )
-    .setFooter({ text: 'Fallen Bot · Configuração VIP' });
+  const coin = cfg.vipEmojiCoin || COIN;
+  const tag  = cfg.vipEmojiTag  || VIP_TAG;
 
-  if (cfg.vipBanner) embed.setImage(cfg.vipBanner);
-  if (cfg.vipThumb)  embed.setThumbnail(cfg.vipThumb);
+  c1.addTextDisplayComponents(new TextDisplayBuilder().setContent(
+    [
+      '⚙️ **Configuração — VIP**',
+      `🏷️ **Título:** ${cfg.vipTitle || '*(padrão)*'}`,
+      `📝 **Intro:** ${cfg.vipIntro ? cfg.vipIntro.slice(0, 80) + (cfg.vipIntro.length > 80 ? '…' : '') : '*(padrão)*'}`,
+      `🎨 **Cor lateral:** ${cfg.vipColor ? `#${cfg.vipColor}` : '*(sem lateral)*'}`,
+      `🖼️ **Banner:** ${cfg.vipBanner ? `[Ver](<${cfg.vipBanner}>)` : '*(nenhum)*'}  📷 **Thumb:** ${cfg.vipThumb ? `[Ver](<${cfg.vipThumb}>)` : '*(nenhuma)*'}`,
+      `💰 **Preço:** ${cfg.vipPriceLabel || DEFAULT_VIP_PRICE_LABEL}`,
+      `${coin} Emoji moeda · ${tag} Emoji VIP`,
+      `⭐ **Benefícios:** ${(cfg.vipText || DEFAULT_VIP_TEXT).split('\n').slice(0, 3).join(' · ')}${(cfg.vipText || DEFAULT_VIP_TEXT).split('\n').length > 3 ? ' …' : ''}`,
+    ].join('\n'),
+  ));
 
-  const row1 = new ActionRowBuilder().addComponents(
+  // Linha 1: campos de texto
+  c1.addActionRowComponents(new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('vip_cfg_titulo').setLabel('Título').setEmoji('🏷️').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('vip_cfg_intro').setLabel('Intro').setEmoji('📝').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('vip_cfg_texto').setLabel('Benefícios').setEmoji('⭐').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('vip_cfg_banner').setLabel('Banner').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('vip_cfg_thumb').setLabel('Thumbnail').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('vip_cfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
-  );
-
-  const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('vip_cfg_preco').setLabel('Preço').setEmoji('💰').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('vip_cfg_escolher').setLabel('Botão Escolher').setEmoji('🔘').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('vip_cfg_carrinho').setLabel('Botão Carrinho').setEmoji('🔘').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('vip_cfg_reset').setLabel('Resetar Tudo').setEmoji('♻️').setStyle(ButtonStyle.Danger),
-  );
+    new ButtonBuilder().setCustomId('vip_cfg_escolher').setLabel('Btn Escolher').setStyle(ButtonStyle.Secondary),
+  ));
 
-  return { embeds: [embed], components: [row1, row2] };
+  // Linha 2: visual
+  c1.addActionRowComponents(new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('vip_cfg_banner').setLabel('Banner').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('vip_cfg_thumb').setLabel('Thumb').setEmoji('📷').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('vip_cfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('vip_cfg_sem_cor').setLabel('Sem Lateral').setEmoji('◻️').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('vip_cfg_carrinho').setLabel('Btn Carrinho').setStyle(ButtonStyle.Secondary),
+  ));
+
+  // Linha 3: emojis + reset
+  c1.addActionRowComponents(new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('vip_cfg_emoji_coin').setLabel('Emoji Moeda').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('vip_cfg_emoji_tag').setLabel('Emoji VIP').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('vip_cfg_emoji_btn1').setLabel('Emoji Btn1').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('vip_cfg_emoji_btn2').setLabel('Emoji Btn2').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('vip_cfg_reset').setLabel('Resetar').setEmoji('♻️').setStyle(ButtonStyle.Danger),
+  ));
+
+  // ── Container 2: planos ───────────────────────────────────────────────────
+  const c2 = new ContainerBuilder();
+
+  if (plans.length > 0) {
+    c2.addTextDisplayComponents(new TextDisplayBuilder().setContent('**📋 Planos VIP**'));
+    for (const plan of plans.slice(0, 4)) {
+      const emoji = plan.emoji ? `${plan.emoji} ` : '';
+      c2.addActionRowComponents(new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`pm_vip_plano_del:${plan.id}`)
+          .setLabel(`${emoji}${plan.name} · ${plan.price} — Remover`)
+          .setStyle(ButtonStyle.Danger),
+      ));
+    }
+  } else {
+    c2.addTextDisplayComponents(new TextDisplayBuilder().setContent(
+      '**📋 Planos VIP** — *nenhum configurado*\nAdicione planos para o painel VIP mostrar opções de compra.',
+    ));
+  }
+
+  c2.addActionRowComponents(new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('pm_vip_plano_add').setLabel('+ Adicionar Plano').setStyle(ButtonStyle.Success),
+  ));
+
+  return { components: [c1, new SeparatorBuilder(), c2], flags: MessageFlags.IsComponentsV2 };
 }
 
 async function handleVipConfig(interaction) {
@@ -186,12 +271,23 @@ async function handleVipCfgBtn(interaction) {
       where:  { guildId: interaction.guildId },
       create: { guildId: interaction.guildId },
       update: {
-        vipTitle: null, vipText: null, vipBanner: null, vipThumb: null,
+        vipTitle: null, vipIntro: null, vipText: null, vipBanner: null, vipThumb: null,
         vipColor: null, vipPriceLabel: null, vipBtnEscolherLabel: null, vipBtnCarrinhoLabel: null,
+        vipEmojiCoin: null, vipEmojiTag: null, vipEmojiBtn1: null, vipEmojiBtn2: null,
       },
     });
-    const cfg = await getCfg(interaction.guildId);
-    return interaction.update(buildVipConfigPayload(cfg));
+    const cfg = await getCfgWithPlans(interaction.guildId);
+    return interaction.update(buildVipConfigPayload(cfg, cfg.vipPlans));
+  }
+
+  if (field === 'sem_cor') {
+    await prisma.guildConfig.upsert({
+      where:  { guildId: interaction.guildId },
+      create: { guildId: interaction.guildId },
+      update: { vipColor: null },
+    });
+    const cfg = await getCfgWithPlans(interaction.guildId);
+    return interaction.update(buildVipConfigPayload(cfg, cfg.vipPlans));
   }
 
   const def = VIP_CFG_FIELDS[field];
@@ -219,11 +315,11 @@ async function handleVipCfgBtn(interaction) {
 }
 
 export async function handleVipConfigModal(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferUpdate();
 
   const field = interaction.customId.replace('vip_cfg_modal_', '');
   const def   = VIP_CFG_FIELDS[field];
-  if (!def) return interaction.editReply({ content: '❌ Campo inválido.' });
+  if (!def) return;
 
   let value = interaction.fields.getTextInputValue('value').trim() || null;
   if (value && field === 'cor') value = value.replace(/^#/, '').toUpperCase().slice(0, 6);
@@ -234,13 +330,8 @@ export async function handleVipConfigModal(interaction) {
     update: { [def.db]: value },
   });
 
-  const cfg     = await getCfg(interaction.guildId);
-  const payload = buildVipConfigPayload(cfg);
-
-  return interaction.editReply({
-    content: `✅ **${def.label}** ${value ? 'atualizado!' : 'resetado para o padrão!'}`,
-    ...payload,
-  });
+  const cfg = await getCfgWithPlans(interaction.guildId);
+  await interaction.message.edit(buildVipConfigPayload(cfg, cfg.vipPlans));
 }
 
 // ─── Handler dos botões VIP ───────────────────────────────────────────────────
@@ -333,8 +424,8 @@ export default {
     const sub = interaction.options.getSubcommand();
 
     if (sub === 'painel') {
-      const cfg = await getCfg(interaction.guildId);
-      return interaction.reply(buildVipPanel(cfg));
+      const cfg = await getCfgWithPlans(interaction.guildId);
+      return interaction.reply(buildVipPanel(cfg, cfg.vipPlans));
     }
 
     if (sub === 'config') {
@@ -357,7 +448,7 @@ export default {
       return message.reply({ ...buildVipConfigPayload(cfg) });
     }
 
-    const cfg = await getCfg(message.guildId);
-    return message.reply(buildVipPanel(cfg));
+    const cfg = await getCfgWithPlans(message.guildId);
+    return message.reply(buildVipPanel(cfg, cfg.vipPlans));
   },
 };

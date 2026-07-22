@@ -77,6 +77,8 @@ import {
   handlePainelCfgBtn,
   handleInstaCfgBtn,
   handleInstaCfgModal,
+  handlePainelModuleBtn,
+  handlePainelModuleModal,
 } from '../utils/painelHandlers.js';
 
 // ─── Emoji resolver ───────────────────────────────────────────────────────────
@@ -855,6 +857,11 @@ export default {
         // ── PAINEL CENTRAL: Botões mini-config Instagram ─────────────────
         if (customId.startsWith('insta_cfg_')) {
           return handleInstaCfgBtn(interaction);
+        }
+
+        // ── PAINEL CENTRAL: Botões pm_* (planos VIP etc.) ────────────────
+        if (customId.startsWith('pm_')) {
+          return handlePainelModuleBtn(interaction);
         }
 
         // ── INSTAGRAM: Toggle like ───────────────────────────────────────
@@ -2625,6 +2632,11 @@ export default {
         // ── PAINEL CENTRAL: Modals do mini-config Instagram ───────────
         if (interaction.customId.startsWith('insta_cfg_modal_')) {
           return handleInstaCfgModal(interaction);
+        }
+
+        // ── PAINEL CENTRAL: Modals pm_modal_* (planos VIP etc.) ───────
+        if (interaction.customId.startsWith('pm_modal_')) {
+          return handlePainelModuleModal(interaction);
         }
 
         // ── STATUS DO BOT (Transmitindo) ───────────────────────────────

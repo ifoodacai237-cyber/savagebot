@@ -107,6 +107,7 @@ model GuildConfig {
   shopEmojiGift      String?
 
   vipTitle            String?
+  vipIntro            String?
   vipText             String?
   vipBanner           String?
   vipThumb            String?
@@ -114,6 +115,11 @@ model GuildConfig {
   vipPriceLabel       String?
   vipBtnEscolherLabel String?
   vipBtnCarrinhoLabel String?
+  vipEmojiCoin        String?
+  vipEmojiTag         String?
+  vipEmojiBtn1        String?
+  vipEmojiBtn2        String?
+  vipPlans            VipPlan[]
 
   welcomeEnabled      Boolean @default(true)
   welcomeChannel      String?
@@ -149,6 +155,17 @@ model GuildConfig {
   botBio       String?
 
   aiChannelId  String?
+}
+
+model VipPlan {
+  id       String      @id @default(cuid())
+  guildId  String
+  name     String
+  price    String
+  emoji    String?
+  roleId   String?
+  position Int         @default(0)
+  config   GuildConfig @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
 }
 
 model Partnership {

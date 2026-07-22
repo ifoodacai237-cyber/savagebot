@@ -23,6 +23,15 @@ async function getCfg(guildId) {
   return prisma.guildConfig.upsert({ where: { guildId }, create: { guildId }, update: {} });
 }
 
+async function getCfgWithPlans(guildId) {
+  return prisma.guildConfig.upsert({
+    where:   { guildId },
+    create:  { guildId },
+    update:  {},
+    include: { vipPlans: { orderBy: { position: 'asc' } } },
+  });
+}
+
 const D = (ok) => (ok ? '🟢' : '🔴');
 
 /** Botão "Configurar" padrão dentro do container */
@@ -329,7 +338,8 @@ export async function handlePainelCfgBtn(interaction) {
       break;
     }
     case 'vip': {
-      const base = buildVipConfigPayload(cfg);
+      const cfgVip = await getCfgWithPlans(interaction.guildId);
+      const base = buildVipConfigPayload(cfgVip, cfgVip.vipPlans);
       payload = { ...base, components: [...(base.components ?? []), voltarRow()] };
       break;
     }
@@ -344,6 +354,86 @@ export async function handlePainelCfgBtn(interaction) {
   }
 
   return interaction.update(payload);
+}
+
+// ─── Handler: botões pm_* (planos VIP etc.) ───────────────────────────────────
+
+export async function handlePainelModuleBtn(interaction) {
+  if (!interaction.memberPermissions?.has(0x20n)) {
+    return interaction.reply({ content: '❌ Sem permissão.', flags: 64 });
+  }
+
+  const { customId } = interaction;
+  const guildId = interaction.guildId;
+
+  // ── VIP: remover plano ───────────────────────────────────────────────────
+  if (customId.startsWith('pm_vip_plano_del:')) {
+    const planId = customId.slice('pm_vip_plano_del:'.length);
+    await prisma.vipPlan.delete({ where: { id: planId } }).catch(() => {});
+    // Redireciona para handlePainelCfgBtn que reconstrói com voltarRow
+    interaction.customId = 'painel_cfg_vip';
+    return handlePainelCfgBtn(interaction);
+  }
+
+  // ── VIP: adicionar plano (modal) ─────────────────────────────────────────
+  if (customId === 'pm_vip_plano_add') {
+    const { ModalBuilder, TextInputBuilder, TextInputStyle } = await import('discord.js');
+    const modal = new ModalBuilder()
+      .setCustomId('pm_modal_vip_plano_add')
+      .setTitle('Adicionar Plano VIP');
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('name').setLabel('Nome do Plano').setStyle(TextInputStyle.Short)
+          .setRequired(true).setMaxLength(50).setPlaceholder('Ex: VIP Gold'),
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('price').setLabel('Preço').setStyle(TextInputStyle.Short)
+          .setRequired(true).setMaxLength(50).setPlaceholder('Ex: R$ 20/mês'),
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('emoji').setLabel('Emoji (opcional)').setStyle(TextInputStyle.Short)
+          .setRequired(false).setMaxLength(100).setPlaceholder('Ex: ⭐ ou <:vip:123>'),
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('roleId').setLabel('ID do Cargo VIP (opcional)').setStyle(TextInputStyle.Short)
+          .setRequired(false).setMaxLength(25).setPlaceholder('Ex: 123456789012345678'),
+      ),
+    );
+    return interaction.showModal(modal);
+  }
+}
+
+// ─── Handler: modais pm_modal_* ───────────────────────────────────────────────
+
+export async function handlePainelModuleModal(interaction) {
+  await interaction.deferUpdate();
+
+  const { customId } = interaction;
+  const guildId = interaction.guildId;
+
+  // ── VIP: salvar novo plano ───────────────────────────────────────────────
+  if (customId === 'pm_modal_vip_plano_add') {
+    const name   = interaction.fields.getTextInputValue('name').trim();
+    const price  = interaction.fields.getTextInputValue('price').trim();
+    const emoji  = interaction.fields.getTextInputValue('emoji').trim() || null;
+    const roleId = interaction.fields.getTextInputValue('roleId').trim().replace(/[<@&>]/g, '') || null;
+
+    const count = await prisma.vipPlan.count({ where: { guildId } });
+    await prisma.vipPlan.create({
+      data: { guildId, name, price, emoji, roleId: roleId || null, position: count },
+    });
+
+    const cfg  = await getCfgWithPlans(guildId);
+    const base = buildVipConfigPayload(cfg, cfg.vipPlans);
+    await interaction.message.edit({
+      ...base,
+      components: [...base.components, voltarRow()],
+    });
+  }
 }
 
 // ─── Handler: botão "Abrir Funções" / "Atualizar" ────────────────────────────
