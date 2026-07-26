@@ -1,14 +1,1 @@
-[variables]
-NIXPACKS_NODE_VERSION = "22"
-
-[phases.setup]
-nixPkgs = ["ffmpeg"]
-
-[phases.install]
-cmds = ["npm install --legacy-peer-deps"]
-
-[phases.build]
-cmds = ["npx prisma generate"]
-
-[start]
-cmd = "npx prisma db push --accept-data-loss && node src/index.js"
+# Usando railpack.toml (apt) para build — não forçar nixpacks
