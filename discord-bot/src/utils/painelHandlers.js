@@ -72,14 +72,14 @@ export function buildPainelMain(guild, cfg) {
   const iconUrl = guild.iconURL({ size: 128 }) ?? null;
 
   const headerText = [
-    '🤖 **Painel**',
+    '<:rx_bran:1531143576556277780> **Painel**',
     'Painel › Inicial',
     `**Servidor** · ${guild.name}`,
-    '⚙️ **Funções** · boas-vindas, ticket, instagram, tellonym e mais',
+    '⚙️ **Funções** · streaming, usernames, engajamento, registros e segurança',
     'Tudo o que dá pra configurar nesse servidor.',
   ].join('\n');
 
-  const container = new ContainerBuilder().setAccentColor(0x5865F2);
+  const container = new ContainerBuilder();
 
   if (iconUrl) {
     container.addSectionComponents(
@@ -96,7 +96,7 @@ export function buildPainelMain(guild, cfg) {
       new ButtonBuilder()
         .setCustomId('painel_funcoes')
         .setLabel('Abrir Funções')
-        .setStyle(ButtonStyle.Primary),
+        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('painel_premium')
         .setLabel('Meu Premium')
@@ -109,7 +109,7 @@ export function buildPainelMain(guild, cfg) {
     new ButtonBuilder()
       .setCustomId('painel_refresh')
       .setLabel('Atualizar')
-      .setEmoji('🔄')
+      .setEmoji({ id: '1531143576556277780', name: 'rx_bran' })
       .setStyle(ButtonStyle.Secondary),
   );
 
@@ -134,7 +134,7 @@ export function buildPainelFuncoes(guild, cfg) {
   const tellonymOk   = !!(cfg.tellonymChannel);
   const parceiraOk   = !!(cfg.partnerEnabled && cfg.partnerChannel);
 
-  const c = new ContainerBuilder().setAccentColor(0x5865F2);
+  const c = new ContainerBuilder();
 
   // ── Boas-Vindas ──────────────────────────────────────────────────────────
   c.addTextDisplayComponents(
@@ -220,7 +220,7 @@ export function buildInstaConfigPayload(cfg) {
   const emoji  = cfg.instaEmoji ?? '💜';
   const handle = cfg.instaHandle ? `@${cfg.instaHandle}` : 'Não definido';
 
-  const c = new ContainerBuilder().setAccentColor(ativo ? 0xE1306C : 0x555555);
+  const c = new ContainerBuilder();
 
   c.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
@@ -278,7 +278,7 @@ export function buildInstaConfigPayload(cfg) {
 // ─── Mini-config do Status (abre pelo painel) ─────────────────────────────────
 
 export function buildStatusConfigPayload() {
-  const c = new ContainerBuilder().setAccentColor(0x5865F2);
+  const c = new ContainerBuilder();
 
   c.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
