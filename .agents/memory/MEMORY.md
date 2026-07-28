@@ -5,7 +5,7 @@
 - [FUT card system removed](discord-bot-personalization-ai.md) — sistema FUT (fut.js, futManager.js etc.) foi totalmente removido do bot; não recriar sem pedido explícito.
 - [Personalização por servidor + IA](discord-bot-personalization-ai.md) — /personalizar usa PATCH /guilds/{id}/members/@me (avatar/banner/bio por servidor); /ia usa chave própria da OpenAI (não o proxy do Replit) pois o bot roda na Railway.
 - [Sniper de usernames — REMOVIDO](sniper-username-forum.md) — sistema todo (checker/monitor/comandos/tabelas) foi apagado a pedido do usuário; não recriar sem pedido explícito novo.
-- [Edit tool 
- bug](edit-tool-dollar-quote-bug.md) — a literal `
-` in old_string/new_string silently corrupts files (String.replace special token); use `"$"` instead of `'
-` etc.
+- [Edit tool $ bug](edit-tool-dollar-quote-bug.md) — a literal `$` in old_string/new_string silently corrupts files (String.replace special token); use `"$"` instead of `'$` etc.
+- [Bot só roda no Railway](bot-railway-guard.md) — index.js tem guard que encerra se RAILWAY_ENVIRONMENT_NAME e RAILWAY_PROJECT_ID não estiverem definidos; workflow Discord Bot foi removido do Replit para evitar instância dupla.
+- [Estrutura de comandos slash](slash-commands-structure.md) — prefixo de texto: "savage "; eco.js exporta array de 7 comandos individuais (/saldo /daily /trabalho /pagar /top /depositar /sacar); interacoes.js exporta 1 comando /interacao com subcomandos (kiss/hug/slap/punch/poke/bite/pat/push); loader.js suporta export default array.
+- [Application Emojis + V2 panels](app-emojis-v2-panels.md) — emojiManager.js registra 11 emojis como Application Emojis; COIN/CAL/STAR/CLK são funções lazy () => getEmoji(); shopHandlers.js, partnershipPanels.js todos convertidos para ContainerBuilder V2 com IsComponentsV2; SHOP_COLOR = 0x000000 (preto).
