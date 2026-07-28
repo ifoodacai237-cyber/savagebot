@@ -1,4 +1,13 @@
 import 'dotenv/config';
+
+// ─── Bloqueia execução fora do Railway ───────────────────────────────────────
+// Impede o bot de subir no Replit (ou qualquer ambiente que não seja Railway),
+// evitando comandos/interações duplicados com a instância de produção.
+if (!process.env.RAILWAY_ENVIRONMENT_NAME && !process.env.RAILWAY_PROJECT_ID) {
+  console.error('[BLOQUEADO] Este bot só pode rodar no Railway. Encerrando.');
+  process.exit(0);
+}
+
 import { Client, GatewayIntentBits, Partials, Collection } from 'discord.js';
 import { loadCommands } from './utils/loader.js';
 import { readdirSync } from 'fs';
