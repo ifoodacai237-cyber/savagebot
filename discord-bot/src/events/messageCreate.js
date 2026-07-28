@@ -17,7 +17,7 @@ import { likesMap, threadsMap, postDataMap } from '../utils/instaState.js';
 import { buildPartnershipPost } from '../utils/partnershipPanels.js';
 import { askAI, generateAIImage, isAIConfigured } from '../utils/aiManager.js';
 
-const PREFIX = 'fallen ';
+const PREFIX = 'savage ';
 
 const IMAGE_INTENT_REGEX = /\b(imagem|foto|desenh\w*|ilustra[çc][ãa]o|wallpaper|logo|arte)\b/i;
 

@@ -254,44 +254,51 @@ async function runAction(type, actor, target, replyFn) {
   return replyFn(payload);
 }
 
-function makeCommand(type) {
-  const action = ACTIONS[type];
-  return {
-    data: new SlashCommandBuilder()
-      .setName(type)
+// ─── Slash command único /interacao com subcomandos ──────────────────────────
+const builder = new SlashCommandBuilder()
+  .setName('interacao')
+  .setDescription('💕 Interações com outros membros do servidor');
+
+for (const [type, action] of Object.entries(ACTIONS)) {
+  builder.addSubcommand(sub =>
+    sub.setName(type)
       .setDescription(action.desc)
       .addUserOption(o => o.setName('usuario').setDescription('Usuário alvo').setRequired(true)),
-    name:    type,
-    aliases: action.aliases,
-
-    async execute(interaction) {
-      await interaction.deferReply();
-      const target = interaction.options.getUser('usuario');
-      const member = await interaction.guild.members.fetch(target.id).catch(() => target);
-      await runAction(
-        type,
-        interaction.member ?? interaction.user,
-        member,
-        opts => interaction.editReply(opts),
-      );
-    },
-
-    async executePrefix(message, args) {
-      const target = message.mentions.users.first();
-      if (!target) {
-        return message.reply({
-          embeds: [errorEmbed(`Mencione o usuário. Ex: \`fallen ${type} @user\` ou \`fallen ${action.aliases[0]} @user\``)],
-        });
-      }
-      const member = await message.guild.members.fetch(target.id).catch(() => target);
-      await runAction(
-        type,
-        message.member ?? message.author,
-        member,
-        opts => message.reply(opts),
-      );
-    },
-  };
+  );
 }
 
-export default Object.keys(ACTIONS).map(makeCommand);
+// Todos os aliases de todas as ações (para prefix: savage kiss @u, savage hug @u…)
+const allAliases = Object.entries(ACTIONS).flatMap(([type, action]) => [type, ...action.aliases]);
+
+export default [{
+  data: builder,
+  name: 'interacao',
+  aliases: allAliases,
+
+  async execute(interaction) {
+    const type   = interaction.options.getSubcommand();
+    await interaction.deferReply();
+    const target = interaction.options.getUser('usuario');
+    const member = await interaction.guild.members.fetch(target.id).catch(() => target);
+    await runAction(type, interaction.member ?? interaction.user, member, opts => interaction.editReply(opts));
+  },
+
+  // Prefix: "savage kiss @user", "savage hug @user", etc.
+  // commandName = o alias usado (kiss, hug, slap…)
+  async executePrefix(message, args, client, commandName) {
+    // Resolve o tipo real a partir do commandName (pode ser alias)
+    const type = Object.keys(ACTIONS).find(t =>
+      t === commandName || ACTIONS[t].aliases.includes(commandName),
+    );
+    if (!type) return;
+    const action = ACTIONS[type];
+    const target = message.mentions.users.first();
+    if (!target) {
+      return message.reply({
+        embeds: [errorEmbed(`Mencione o usuário. Ex: \`savage ${type} @user\``)],
+      });
+    }
+    const member = await message.guild.members.fetch(target.id).catch(() => target);
+    await runAction(type, message.member ?? message.author, member, opts => message.reply(opts));
+  },
+}];
