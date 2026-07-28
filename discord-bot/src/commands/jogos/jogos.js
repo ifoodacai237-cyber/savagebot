@@ -3,7 +3,8 @@ import prisma from '../../database/client.js';
 import { errorEmbed } from '../../utils/embed.js';
 import { startBlackjack, startMines } from '../../utils/gameHandlers.js';
 
-const COIN = '<a:emoji_1:1516993823665033286>';
+import { getEmoji } from '../../utils/emojiManager.js';
+const COIN = () => getEmoji('emoji_1');
 
 function parseBet(input, balance) {
   const s = String(input).toLowerCase().trim();

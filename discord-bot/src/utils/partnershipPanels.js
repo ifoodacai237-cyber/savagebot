@@ -2,7 +2,6 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
   ContainerBuilder,
   TextDisplayBuilder,
   SeparatorBuilder,
@@ -47,40 +46,28 @@ export function partnerConfigButtons(cfg = {}) {
 
 export function buildPartnerConfigPayload(cfg = {}) {
   const enabled = cfg.partnerEnabled ?? false;
-  const color   = cfg.partnerColor ? (parseInt(cfg.partnerColor, 16) || 0xA020F0) : 0xA020F0;
 
-  const embed = new EmbedBuilder()
-    .setColor(enabled ? color : 0x555555)
-    .setTitle('🤝 Sistema de Parcerias')
-    .addFields(
-      { name: '🔘 Status', value: enabled ? '🟢 **Ativado**' : '🔴 **Desativado**', inline: false },
-      { name: '💛 Obrigatório informar:', value: '\u200b', inline: false },
-      { name: '💌 Canal de parcerias',   value: cfg.partnerChannel          ? `<#${cfg.partnerChannel}>`          : 'Nenhum',      inline: true },
-      { name: '👑 Cargo responsável',    value: cfg.partnerResponsibleRole  ? `<@&${cfg.partnerResponsibleRole}>` : 'Nenhum',      inline: true },
-      { name: '💛 Opcional:', value: '\u200b', inline: false },
-      { name: '🔔 Cargo de ping',        value: cfg.partnerPingRole         ? `<@&${cfg.partnerPingRole}>`        : 'Nenhum',      inline: true },
-      { name: '🤝 Cargo de parceiros',   value: cfg.partnerRole             ? `<@&${cfg.partnerRole}>`            : 'Nenhum',      inline: true },
-      { name: '📩 Notif. no privado',    value: cfg.partnerNotifyDm         ? 'Ativado'                           : 'Desativado',  inline: true },
-      { name: '✏️ Mensagem',            value: cfg.partnerMessage           ? cfg.partnerMessage.slice(0, 80)     : 'Padrão',      inline: true },
-      { name: '🖼️ Imagem',             value: cfg.partnerImage             ? '✅ Definida'                        : 'Padrão',      inline: true },
-      { name: '📷 Thumbnail',           value: cfg.partnerThumbnail         ? '✅ Definida'                        : 'Padrão',      inline: true },
-      { name: '👇 Rodapé',              value: cfg.partnerFooter            ? cfg.partnerFooter.slice(0, 50)      : 'Nenhum',      inline: true },
-      { name: '🎨 Cor da Embed',         value: `#${cfg.partnerColor || 'A020F0'}`,                                                inline: true },
-      { name: '🚪 Remover ao Sair',      value: cfg.partnerRemoveOnLeave    ? 'Ativado'                           : 'Desativado',  inline: true },
-    )
-    .addFields({
-      name: '👑 O que posso fazer com esse sistema:',
-      value: [
-        '👑 Sempre que for feita uma parceria notificarei os membros com o cargo de Ping',
-        '👑 Só aceitarei parcerias de membros com o cargo responsável no canal configurado',
-        '👑 Darei o cargo de parceiro ao representante quando a parceria for realizada',
-        '👑 Para a parceria contar, envie o texto com o link de convite do servidor',
-        '👑 Ao marcar um membro no texto ele se torna o representante\n    Exemplo: `Rep: @membro` ou `Representante: @membro`',
-      ].join('\n'),
-      inline: false,
-    });
+  const info = [
+    `## 🤝 Parcerias — ${enabled ? '🟢 ATIVO' : '🔴 DESATIVADO'}`,
+    '',
+    '**Obrigatório:**',
+    `💌 **Canal:** ${cfg.partnerChannel ? `<#${cfg.partnerChannel}>` : '*(não definido)*'}`,
+    `👑 **Cargo Responsável:** ${cfg.partnerResponsibleRole ? `<@&${cfg.partnerResponsibleRole}>` : '*(não definido)*'}`,
+    '',
+    '**Opcional:**',
+    `🔔 **Cargo Ping:** ${cfg.partnerPingRole ? `<@&${cfg.partnerPingRole}>` : '*(nenhum)*'}   🤝 **Cargo Parceiro:** ${cfg.partnerRole ? `<@&${cfg.partnerRole}>` : '*(nenhum)*'}`,
+    `📩 **Notif. DM:** ${cfg.partnerNotifyDm ? 'Ativado' : 'Desativado'}   🚪 **Remover ao Sair:** ${cfg.partnerRemoveOnLeave ? 'Ativado' : 'Desativado'}`,
+    `🎨 **Cor:** \`#${cfg.partnerColor || 'A020F0'}\`   🖼️ **Imagem:** ${cfg.partnerImage ? '✅' : '*(padrão)*'}   📷 **Thumb:** ${cfg.partnerThumbnail ? '✅' : '*(padrão)*'}`,
+    `👇 **Rodapé:** ${cfg.partnerFooter ? cfg.partnerFooter.slice(0, 60) : '*(nenhum)*'}`,
+    `✏️ **Mensagem:** ${cfg.partnerMessage ? cfg.partnerMessage.slice(0, 80) : '*(padrão)*'}`,
+    '',
+    '-# Envie o convite do servidor no canal configurado para registrar uma parceria.',
+  ].join('\n');
 
-  return { embeds: [embed], components: partnerConfigButtons(cfg) };
+  const container = new ContainerBuilder();
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(info));
+
+  return { components: [container, ...partnerConfigButtons(cfg)], flags: MessageFlags.IsComponentsV2 };
 }
 
 export function buildPartnershipPost({ cfg, promoterId, partnerName, inviteCode, partnershipCount, rank, thumbUrl, imageUrl, messageUrl }) {

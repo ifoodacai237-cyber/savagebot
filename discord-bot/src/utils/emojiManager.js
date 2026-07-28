@@ -1,6 +1,22 @@
 const REQUIRED_EMOJIS = [
-  { name: 'f_3bat',     sourceId: '1420292544255889451', animated: true  },
-  { name: 'c_flymoney', sourceId: '997485969303420978',  animated: false },
+  // ── Originais ──────────────────────────────────────────────────────────────
+  { name: 'f_3bat',              sourceId: '1420292544255889451', animated: true  },
+  { name: 'c_flymoney',          sourceId: '997485969303420978',  animated: false },
+  // ── Moeda principal (usada em todo o bot) ───────────────────────────────────
+  { name: 'emoji_1',             sourceId: '1516993823665033286', animated: true  },
+  // ── Painel principal ────────────────────────────────────────────────────────
+  { name: 'rx_bran',             sourceId: '1531143576556277780', animated: false },
+  { name: 's7aaranha',           sourceId: '1527850818743697440', animated: false },
+  // ── Economia (/daily, /work, /top) ──────────────────────────────────────────
+  { name: 'futecoins',           sourceId: '1526801406378508358', animated: false },
+  { name: 'calendario',          sourceId: '1526801404851781742', animated: false },
+  { name: '4branco_estrela',     sourceId: '1526801408307761303', animated: false },
+  { name: 'relogio',             sourceId: '1526801409595412644', animated: false },
+  // ── Jogos (Mines / Blackjack) ────────────────────────────────────────────────
+  { name: 'p_bom',               sourceId: '997485486803271720',  animated: false },
+  { name: 'Diamante',            sourceId: '1482392803299430451', animated: true  },
+  { name: '05_angels',           sourceId: '1510663251598512279', animated: true  },
+  { name: 'dinheiro_kingbuxx',   sourceId: '1452430513519198281', animated: false },
 ];
 
 const cache = new Map();

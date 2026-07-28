@@ -1,7 +1,8 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
 
-const COIN = '<a:emoji_1:1516993823665033286>';
+import { getEmoji } from '../../utils/emojiManager.js';
+const COIN = () => getEmoji('emoji_1');
 
 function getEmojiCdnUrl(emojiStr) {
   const animated = emojiStr?.match(/<a:(\w+):(\d+)>/);
@@ -59,7 +60,7 @@ export default {
         (emojiUrl ? '*A imagem do emoji já é usada automaticamente nas interações.*' : '')
       )
       .addFields(
-        { name: '💰 Preço',      value: `**${preco.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
+        { name: '💰 Preço',      value: `**${preco.toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
         { name: '📝 Descrição',  value: desc ?? '—',                                     inline: true },
         { name: '🆔 ID Interno', value: `\`${pet.id}\``,                                 inline: false },
       )

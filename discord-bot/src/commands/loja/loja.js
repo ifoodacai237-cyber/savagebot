@@ -14,13 +14,14 @@ import {
   MessageFlags,
 } from 'discord.js';
 import prisma from '../../database/client.js';
+import { getEmoji } from '../../utils/emojiManager.js';
 import { buildLojaAdminPayload } from '../../utils/shopHandlers.js';
 
-const COIN          = '<a:emoji_1:1516993823665033286>';
-const DEFAULT_CONV  = `> \`1000 mensagens\` → **500 ${COIN}**\n> \`1 hora em call\` → **500 ${COIN}**`;
-const DEFAULT_TEXT  =
+const COIN          = () => getEmoji('emoji_1');
+const DEFAULT_CONV  = () => `> \`1000 mensagens\` → **500 ${COIN()}**\n> \`1 hora em call\` → **500 ${COIN()}**`;
+const DEFAULT_TEXT  = () =>
   `Deseja adquirir **cargos** e **banners de perfil** exclusivos?\n` +
-  `Aqui você pode comprar tudo com as suas **${COIN}**!`;
+  `Aqui você pode comprar tudo com as suas **${COIN()}**!`;
 const DIVIDER = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
 
 function parseEmoji(str) {
@@ -33,8 +34,8 @@ function parseEmoji(str) {
 // ─── Painel público em Components V2 (sem barra lateral por padrão) ──────────
 export function buildShopMain(guild, cfg = {}) {
   const title    = cfg.lojaTitle  ?? `🛒 Loja do ${guild.name}`;
-  const conv     = cfg.lojaConversao ?? DEFAULT_CONV;
-  const bodyText = cfg.lojaText   ?? DEFAULT_TEXT;
+  const conv     = cfg.lojaConversao ?? DEFAULT_CONV();
+  const bodyText = cfg.lojaText   ?? DEFAULT_TEXT();
   const useDivider = cfg.lojaUseDivider ?? false;
 
   const sep  = useDivider ? `\n${DIVIDER}\n\n` : '\n\n';

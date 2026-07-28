@@ -21,7 +21,7 @@ import { generateBlackjackCard } from './economyCards.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, '../../public/games');
 
-const COIN = '<a:emoji_1:1516993823665033286>';
+const COIN = () => getEmoji('emoji_1');
 
 // ─── In-memory game states ────────────────────────────────────────────────────
 export const blackjackGames = new Map();
@@ -186,7 +186,7 @@ export async function startBlackjack(ctx, bet, sendFn) {
 
   const eco = await getEco(userId, guildId);
   if (bet > eco.balance)
-    return sendFn({ content: `❌ Saldo insuficiente. Você tem **${fmtNum(eco.balance)} ${COIN}**.` });
+    return sendFn({ content: `❌ Saldo insuficiente. Você tem **${fmtNum(eco.balance)} ${COIN()}**.` });
 
   await deductBet(userId, guildId, bet);
 
@@ -278,19 +278,19 @@ async function buildMinesPayload(state) {
 
   const accentColor = 0x000000;
 
-  const titleLine = state.status === 'lost'   ? '## <a:05_angels:1510663251598512279> Fim de jogo!'
-    : state.status === 'cashed'               ? '## <:dinheiro_kingbuxx:1452430513519198281> Fim de jogo!'
-    : '## <a:Diamante:1482392803299430451> Mines';
+  const titleLine = state.status === 'lost'   ? `## ${getEmoji('05_angels')} Fim de jogo!`
+    : state.status === 'cashed'               ? `## ${getEmoji('dinheiro_kingbuxx')} Fim de jogo!`
+    : `## ${getEmoji('Diamante')} Mines`;
 
   const gainLine = state.status === 'lost'
-    ? `> ${getEmoji('c_flymoney')} **Ganhos:** 0 ${COIN}`
-    : `> ${getEmoji('c_flymoney')} **Ganhos:** ${fmtNum(payout)} ${COIN}`;
+    ? `> ${getEmoji('c_flymoney')} **Ganhos:** 0 ${COIN()}`
+    : `> ${getEmoji('c_flymoney')} **Ganhos:** ${fmtNum(payout)} ${COIN()}`;
 
   const statusLine = state.status === 'playing'
-    ? `\n> <:p_bom:997485486803271720> **Minas:** ${state.bombs} | <a:Diamante:1482392803299430451> **Reveladas:** ${state.gems}`
+    ? `\n> ${getEmoji('p_bom')} **Minas:** ${state.bombs} | ${getEmoji('Diamante')} **Reveladas:** ${state.gems}`
     : '';
 
-  const text = `${titleLine}\n\n> ${getEmoji('f_3bat')} **Aposta:** ${fmtNum(state.bet)} ${COIN}\n${gainLine}${statusLine}`;
+  const text = `${titleLine}\n\n> ${getEmoji('f_3bat')} **Aposta:** ${fmtNum(state.bet)} ${COIN()}\n${gainLine}${statusLine}`;
 
   const container = new ContainerBuilder().setAccentColor(accentColor);
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
@@ -330,11 +330,11 @@ function buildMinesComponents(state) {
       let disabled = done;
 
       if (isRevealed) {
-        emoji    = isBomb ? '<:p_bom:997485486803271720>' : '<a:Diamante:1482392803299430451>';
+        emoji    = isBomb ? getEmoji('p_bom') : getEmoji('Diamante');
         style    = isBomb ? ButtonStyle.Danger : ButtonStyle.Success;
         disabled = true;
       } else if (done && isBomb) {
-        emoji    = '<:p_bom:997485486803271720>';
+        emoji    = getEmoji('p_bom');
         style    = ButtonStyle.Danger;
         disabled = true;
       } else if (done) {
@@ -383,7 +383,7 @@ export async function startMines(ctx, bet, bombs, sendFn) {
 
   const eco = await getEco(userId, guildId);
   if (bet > eco.balance)
-    return sendFn({ content: `❌ Saldo insuficiente. Você tem **${fmtNum(eco.balance)} ${COIN}**.` });
+    return sendFn({ content: `❌ Saldo insuficiente. Você tem **${fmtNum(eco.balance)} ${COIN()}**.` });
 
   await deductBet(userId, guildId, bet);
 

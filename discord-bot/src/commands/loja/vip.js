@@ -18,17 +18,18 @@ import {
   MessageFlags,
 } from 'discord.js';
 import prisma from '../../database/client.js';
+import { getEmoji } from '../../utils/emojiManager.js';
 
-// ─── Emojis ───────────────────────────────────────────────────────────────────
-const COIN    = '<a:emoji_1:1516993823665033286>';
-const VIP_TAG = '<:vip:1526994000000000000>'; // substitua pelo ID real do emoji VIP
+// ─── Emojis — resolvidos como application emojis ────────────────────────────
+const COIN    = () => getEmoji('emoji_1');
+const VIP_TAG = '⭐'; // emoji unicode padrão (substitua por getEmoji se criar emoji VIP na app)
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 const VIP_COLOR = 0x5865F2;
 const DEFAULT_VIP_TITLE = `${VIP_TAG} Painel VIP`;
 const DEFAULT_VIP_INTRO = 'Compre VIP com carrinho publico e libere bonus reais na economia.';
-const DEFAULT_VIP_TEXT  = [
-  `${COIN} +35% em recompensas`,
+const DEFAULT_VIP_TEXT  = () => [
+  `${COIN()} +35% em recompensas`,
   `🕒 Cooldowns reduzidos`,
   `🛡️ Mais proteção contra roubos`,
   `🌿 Bonus extra na mineração`,
@@ -77,7 +78,7 @@ export function buildVipPanel(cfg = {}, plans = []) {
     if (!isNaN(parsed)) container.setAccentColor(parsed);
   }
 
-  const coin  = cfg.vipEmojiCoin || COIN;
+  const coin  = cfg.vipEmojiCoin || COIN();
   const tag   = cfg.vipEmojiTag  || VIP_TAG;
   const title = cfg.vipTitle     || DEFAULT_VIP_TITLE;
   const intro = cfg.vipIntro     || DEFAULT_VIP_INTRO;
@@ -103,7 +104,7 @@ export function buildVipPanel(cfg = {}, plans = []) {
   container.addSeparatorComponents(new SeparatorBuilder());
 
   // Benefícios
-  const beneficios = cfg.vipText || DEFAULT_VIP_TEXT;
+  const beneficios = cfg.vipText || DEFAULT_VIP_TEXT();
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(`### ⭐ Beneficios VIP\n${beneficios}`),
   );
@@ -193,7 +194,7 @@ export function buildVipConfigPayload(cfg, plans = []) {
       `🖼️ **Banner:** ${cfg.vipBanner ? `[Ver](<${cfg.vipBanner}>)` : '*(nenhum)*'}  📷 **Thumb:** ${cfg.vipThumb ? `[Ver](<${cfg.vipThumb}>)` : '*(nenhuma)*'}`,
       `💰 **Preço:** ${cfg.vipPriceLabel || DEFAULT_VIP_PRICE_LABEL}`,
       `${coin} Emoji moeda · ${tag} Emoji VIP`,
-      `⭐ **Benefícios:** ${(cfg.vipText || DEFAULT_VIP_TEXT).split('\n').slice(0, 3).join(' · ')}${(cfg.vipText || DEFAULT_VIP_TEXT).split('\n').length > 3 ? ' …' : ''}`,
+      `⭐ **Benefícios:** ${(cfg.vipText || DEFAULT_VIP_TEXT()).split('\n').slice(0, 3).join(' · ')}${(cfg.vipText || DEFAULT_VIP_TEXT()).split('\n').length > 3 ? ' …' : ''}`,
     ].join('\n'),
   ));
 
@@ -354,7 +355,7 @@ export async function handleVipButton(interaction) {
         `## ${VIP_TAG} Adquirir VIP\n` +
         `Para comprar o VIP, entre em contato com a equipe do servidor.\n\n` +
         `**Plano:** ${VIP_TAG} ${priceLabel}\n` +
-        `${COIN} Após ativação, seus bônus são aplicados automaticamente.`,
+        `${COIN()} Após ativação, seus bônus são aplicados automaticamente.`,
       ),
     );
     return interaction.reply({

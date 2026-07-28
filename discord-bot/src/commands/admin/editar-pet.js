@@ -1,7 +1,8 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
 
-const COIN = '<a:emoji_1:1516993823665033286>';
+import { getEmoji } from '../../utils/emojiManager.js';
+const COIN = () => getEmoji('emoji_1');
 
 function getEmojiCdnUrl(emojiStr) {
   const animated = emojiStr?.match(/<a:(\w+):(\d+)>/);
@@ -74,7 +75,7 @@ export default {
 
     const changes = [];
     if (emoji)       changes.push(`🐾 Emoji → ${emoji}`);
-    if (preco)       changes.push(`💰 Preço → **${preco.toLocaleString('pt-BR')} ${COIN}**`);
+    if (preco)       changes.push(`💰 Preço → **${preco.toLocaleString('pt-BR')} ${COIN()}**`);
     if (descricao)   changes.push(`📝 Descrição → ${descricao}`);
     if (removerFoto) changes.push('🗑️ Foto removida — usando emoji');
     else if (foto)   changes.push(`🖼️ Foto → [ver imagem](${foto})`);
@@ -84,7 +85,7 @@ export default {
       .setTitle(`✏️ ${displayName} — atualizado!`)
       .setDescription(changes.join('\n'))
       .addFields(
-        { name: '💰 Preço atual',     value: `**${updated.price.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
+        { name: '💰 Preço atual',     value: `**${updated.price.toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
         { name: '📝 Descrição atual', value: updated.description ?? '—',                              inline: true },
         { name: '🆔 ID',              value: `\`${updated.id}\``,                                     inline: false },
       )

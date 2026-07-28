@@ -7,13 +7,14 @@ import {
   PermissionFlagsBits,
 } from 'discord.js';
 import prisma from '../../database/client.js';
+import { getEmoji } from '../../utils/emojiManager.js';
 import { generateBalanceCard, generateTopCard } from '../../utils/economyCards.js';
 
-// ─── Emojis custom do servidor ────────────────────────────────────────────────
-const COIN = '<:futecoins:1526801406378508358>';
-const CAL  = '<:calendario:1526801404851781742>';
-const STAR = '<:4branco_estrela:1526801408307761303>';
-const CLK  = '<:relogio:1526801409595412644>';
+// ─── Emojis — resolvidos como application emojis (sem dependência de boost) ──
+const COIN = () => getEmoji('futecoins');
+const CAL  = () => getEmoji('calendario');
+const STAR = () => getEmoji('4branco_estrela');
+const CLK  = () => getEmoji('relogio');
 
 // ─── V2 helpers ───────────────────────────────────────────────────────────────
 
@@ -111,10 +112,10 @@ export default {
         data:  { balance: { increment: amount }, lastDaily: new Date(), dailyStreak: streak },
       });
       return interaction.reply(v2Rich(
-        `## ✨ ${CAL} Daily resgatado\n` +
-        `${COIN} **+${amount.toLocaleString('pt-BR')}**\n` +
-        `${STAR} Streak: **${streak}d** (+${Math.round(bonus * 100)}%)\n\n` +
-        `${CLK} Próximo em **24h base**`
+        `## ✨ ${CAL()} Daily resgatado\n` +
+        `${COIN()} **+${amount.toLocaleString('pt-BR')}**\n` +
+        `${STAR()} Streak: **${streak}d** (+${Math.round(bonus * 100)}%)\n\n` +
+        `${CLK()} Próximo em **24h base**`
       ));
     }
 
@@ -136,8 +137,8 @@ export default {
       });
       return interaction.reply(v2Rich(
         `## 💼 Trabalho Concluído!\n` +
-        `**${msg}** e ganhou ${COIN} **${amount.toLocaleString('pt-BR')}**!\n\n` +
-        `${CLK} Volte em **1 hora** para trabalhar novamente.`
+        `**${msg}** e ganhou ${COIN()} **${amount.toLocaleString('pt-BR')}**!\n\n` +
+        `${CLK()} Volte em **1 hora** para trabalhar novamente.`
       ));
     }
 
@@ -148,7 +149,7 @@ export default {
       if (target.id === interaction.user.id) return interaction.reply(v2Err('Você não pode pagar a si mesmo.'));
       if (target.bot) return interaction.reply(v2Err('Não é possível pagar bots.'));
       const eco = await getEco(interaction.user.id, interaction.guildId);
-      if (eco.balance < valor) return interaction.reply(v2Err(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')}** ${COIN} na carteira.`));
+      if (eco.balance < valor) return interaction.reply(v2Err(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')}** ${COIN()} na carteira.`));
       const taxa   = Math.floor(valor * 0.03);
       const recebe = valor - taxa;
       await getEco(target.id, interaction.guildId);
@@ -156,9 +157,9 @@ export default {
       await prisma.economy.update({ where: { userId_guildId: { userId: target.id,            guildId: interaction.guildId } }, data: { balance: { increment: recebe } } });
       return interaction.reply(v2Rich(
         `## ✅ Transferência concluída\n` +
-        `${interaction.user} enviou ${COIN} **${valor.toLocaleString('pt-BR')}** para ${target}.\n` +
-        `${COIN} Taxa de 3%: **${taxa.toLocaleString('pt-BR')}**\n` +
-        `${COIN} ${target.username} recebeu: **${recebe.toLocaleString('pt-BR')}**`
+        `${interaction.user} enviou ${COIN()} **${valor.toLocaleString('pt-BR')}** para ${target}.\n` +
+        `${COIN()} Taxa de 3%: **${taxa.toLocaleString('pt-BR')}**\n` +
+        `${COIN()} ${target.username} recebeu: **${recebe.toLocaleString('pt-BR')}**`
       ));
     }
 
@@ -191,14 +192,14 @@ export default {
       const input = interaction.options.getString('valor').toLowerCase();
       const valor = input === 'tudo' ? eco.balance : parseInt(input);
       if (isNaN(valor) || valor <= 0) return interaction.reply(v2Err('Valor inválido.'));
-      if (eco.balance < valor) return interaction.reply(v2Err(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')}** ${COIN} na carteira.`));
+      if (eco.balance < valor) return interaction.reply(v2Err(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')}** ${COIN()} na carteira.`));
       await prisma.economy.update({
         where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
         data:  { balance: { decrement: valor }, bank: { increment: valor } },
       });
       return interaction.reply(v2Rich(
         `## 🏦 Depósito Realizado!\n` +
-        `${COIN} **${valor.toLocaleString('pt-BR')}** depositados com segurança!\n\n` +
+        `${COIN()} **${valor.toLocaleString('pt-BR')}** depositados com segurança!\n\n` +
         `🔒 Coins no banco estão protegidos de roubos.`
       ));
     }
@@ -209,14 +210,14 @@ export default {
       const input = interaction.options.getString('valor').toLowerCase();
       const valor = input === 'tudo' ? eco.bank : parseInt(input);
       if (isNaN(valor) || valor <= 0) return interaction.reply(v2Err('Valor inválido.'));
-      if (eco.bank < valor) return interaction.reply(v2Err(`Banco insuficiente. Você tem **${eco.bank.toLocaleString('pt-BR')}** ${COIN} no banco.`));
+      if (eco.bank < valor) return interaction.reply(v2Err(`Banco insuficiente. Você tem **${eco.bank.toLocaleString('pt-BR')}** ${COIN()} no banco.`));
       await prisma.economy.update({
         where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
         data:  { bank: { decrement: valor }, balance: { increment: valor } },
       });
       return interaction.reply(v2Rich(
         `## 🏧 Saque Realizado!\n` +
-        `${COIN} **${valor.toLocaleString('pt-BR')}** sacados para sua carteira!\n\n` +
+        `${COIN()} **${valor.toLocaleString('pt-BR')}** sacados para sua carteira!\n\n` +
         `🎰 Pronto para apostar nos jogos.`
       ));
     }
@@ -255,10 +256,10 @@ export default {
         data:  { balance: { increment: amount }, lastDaily: new Date(), dailyStreak: streak },
       });
       return message.reply(v2Rich(
-        `## ✨ ${CAL} Daily resgatado\n` +
-        `${COIN} **+${amount.toLocaleString('pt-BR')}**\n` +
-        `${STAR} Streak: **${streak}d** (+${Math.round(bonus * 100)}%)\n\n` +
-        `${CLK} Próximo em **24h base**`
+        `## ✨ ${CAL()} Daily resgatado\n` +
+        `${COIN()} **+${amount.toLocaleString('pt-BR')}**\n` +
+        `${STAR()} Streak: **${streak}d** (+${Math.round(bonus * 100)}%)\n\n` +
+        `${CLK()} Próximo em **24h base**`
       ));
     }
 
@@ -280,8 +281,8 @@ export default {
       });
       return message.reply(v2Rich(
         `## 💼 Trabalho Concluído!\n` +
-        `**${msg}** e ganhou ${COIN} **${amount.toLocaleString('pt-BR')}**!\n\n` +
-        `${CLK} Volte em **1 hora** para trabalhar novamente.`
+        `**${msg}** e ganhou ${COIN()} **${amount.toLocaleString('pt-BR')}**!\n\n` +
+        `${CLK()} Volte em **1 hora** para trabalhar novamente.`
       ));
     }
 
@@ -294,7 +295,7 @@ export default {
       if (target.bot) return message.reply(v2Err('Não é possível pagar bots.'));
       if (isNaN(valor) || valor <= 0) return message.reply(v2Err('Informe o valor. Ex: `fallen eco pagar @user 500`'));
       const eco = await getEco(message.author.id, message.guildId);
-      if (eco.balance < valor) return message.reply(v2Err(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')}** ${COIN} na carteira.`));
+      if (eco.balance < valor) return message.reply(v2Err(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')}** ${COIN()} na carteira.`));
       const taxa   = Math.floor(valor * 0.03);
       const recebe = valor - taxa;
       await getEco(target.id, message.guildId);
@@ -302,9 +303,9 @@ export default {
       await prisma.economy.update({ where: { userId_guildId: { userId: target.id,           guildId: message.guildId } }, data: { balance: { increment: recebe } } });
       return message.reply(v2Rich(
         `## ✅ Transferência concluída\n` +
-        `${message.author} enviou ${COIN} **${valor.toLocaleString('pt-BR')}** para ${target}.\n` +
-        `${COIN} Taxa de 3%: **${taxa.toLocaleString('pt-BR')}**\n` +
-        `${COIN} ${target.username} recebeu: **${recebe.toLocaleString('pt-BR')}**`
+        `${message.author} enviou ${COIN()} **${valor.toLocaleString('pt-BR')}** para ${target}.\n` +
+        `${COIN()} Taxa de 3%: **${taxa.toLocaleString('pt-BR')}**\n` +
+        `${COIN()} ${target.username} recebeu: **${recebe.toLocaleString('pt-BR')}**`
       ));
     }
 
@@ -336,14 +337,14 @@ export default {
       const input = (args[1] ?? '').toLowerCase();
       const valor = input === 'tudo' ? eco.balance : parseInt(input);
       if (isNaN(valor) || valor <= 0) return message.reply(v2Err('Informe o valor ou "tudo". Ex: `fallen eco dep 1000`'));
-      if (eco.balance < valor) return message.reply(v2Err(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')}** ${COIN} na carteira.`));
+      if (eco.balance < valor) return message.reply(v2Err(`Saldo insuficiente. Você tem **${eco.balance.toLocaleString('pt-BR')}** ${COIN()} na carteira.`));
       await prisma.economy.update({
         where: { userId_guildId: { userId: message.author.id, guildId: message.guildId } },
         data:  { balance: { decrement: valor }, bank: { increment: valor } },
       });
       return message.reply(v2Rich(
         `## 🏦 Depósito Realizado!\n` +
-        `${COIN} **${valor.toLocaleString('pt-BR')}** depositados com segurança!\n\n` +
+        `${COIN()} **${valor.toLocaleString('pt-BR')}** depositados com segurança!\n\n` +
         `🔒 Coins no banco estão protegidos de roubos.`
       ));
     }
@@ -354,14 +355,14 @@ export default {
       const input = (args[1] ?? '').toLowerCase();
       const valor = input === 'tudo' ? eco.bank : parseInt(input);
       if (isNaN(valor) || valor <= 0) return message.reply(v2Err('Informe o valor ou "tudo". Ex: `fallen eco saque 1000`'));
-      if (eco.bank < valor) return message.reply(v2Err(`Banco insuficiente. Você tem **${eco.bank.toLocaleString('pt-BR')}** ${COIN} no banco.`));
+      if (eco.bank < valor) return message.reply(v2Err(`Banco insuficiente. Você tem **${eco.bank.toLocaleString('pt-BR')}** ${COIN()} no banco.`));
       await prisma.economy.update({
         where: { userId_guildId: { userId: message.author.id, guildId: message.guildId } },
         data:  { bank: { decrement: valor }, balance: { increment: valor } },
       });
       return message.reply(v2Rich(
         `## 🏧 Saque Realizado!\n` +
-        `${COIN} **${valor.toLocaleString('pt-BR')}** sacados para sua carteira!\n\n` +
+        `${COIN()} **${valor.toLocaleString('pt-BR')}** sacados para sua carteira!\n\n` +
         `🎰 Pronto para apostar nos jogos.`
       ));
     }

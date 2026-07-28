@@ -10,6 +10,7 @@ import {
   MessageFlags,
 } from 'discord.js';
 import prisma from '../database/client.js';
+import { getEmoji } from './emojiManager.js';
 import { buildWelcomeConfigPayload } from './configPanels.js';
 import { buildTicketConfigPayload } from './configPanels.js';
 import { buildTellonymConfigPayload } from './configPanels.js';
@@ -72,10 +73,10 @@ export function buildPainelMain(guild, cfg) {
   const iconUrl = guild.iconURL({ size: 128 }) ?? null;
 
   const headerText = [
-    '<:rx_bran:1531143576556277780> **Painel**',
+    `${getEmoji('rx_bran')} **Painel**`,
     'Painel › Inicial',
     `**Servidor** · ${guild.name}`,
-    '⚙️ **Funções** · streaming, usernames, engajamento, registros e segurança',
+    `${getEmoji('s7aaranha')} **Funções** · streaming, usernames, engajamento, registros e segurança`,
     'Tudo o que dá pra configurar nesse servidor.',
   ].join('\n');
 
@@ -109,7 +110,7 @@ export function buildPainelMain(guild, cfg) {
     new ButtonBuilder()
       .setCustomId('painel_refresh')
       .setLabel('Atualizar')
-      .setEmoji({ id: '1531143576556277780', name: 'rx_bran' })
+      .setEmoji(getEmoji('rx_bran'))
       .setStyle(ButtonStyle.Secondary),
   );
 

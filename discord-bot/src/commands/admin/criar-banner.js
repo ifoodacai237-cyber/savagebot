@@ -2,7 +2,8 @@ import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.
 import prisma from '../../database/client.js';
 import { BANNERS } from '../../utils/shopData.js';
 
-const COIN = '<a:emoji_1:1516993823665033286>';
+import { getEmoji } from '../../utils/emojiManager.js';
+const COIN = () => getEmoji('emoji_1');
 
 async function validateImageUrl(imageUrl) {
   const controller = new AbortController();
@@ -120,7 +121,7 @@ export default {
           .setDescription(`O banner **${nome}** foi adicionado à loja!\nOs membros já podem comprar e equipar.`)
           .setImage(imagem)
           .addFields(
-            { name: '💰 Preço', value: `**${priceVal.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
+            { name: '💰 Preço', value: `**${priceVal.toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
             { name: '🔑 Chave', value: `\`${finalKey}\``, inline: true },
           )
           .setFooter({ text: 'Guarde a chave para atualizar a imagem com /criar-banner chave:...' }),

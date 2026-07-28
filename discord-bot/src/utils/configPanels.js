@@ -318,68 +318,45 @@ const BTN_STYLE_LABELS = {
 };
 
 export function buildTicketConfigPayload(cfg) {
-  const color = cfg.ticketColor ? (parseInt(cfg.ticketColor, 16) || Colors.PRIMARY) : Colors.PRIMARY;
   const texto    = cfg.ticketText    || DEFAULT_TICKET_TEXT;
   const openText = cfg.ticketOpenText || DEFAULT_TICKET_OPEN_TEXT;
-
   const btnStyleLabel = BTN_STYLE_LABELS[cfg.ticketBtnStyle] ?? '🔵 Azul (Primary)';
-  const sepStatus     = cfg.ticketUseSeparator ? '✅ Ativado' : '❌ Desativado';
-  const semLateral    = !cfg.ticketColor;
+  const sepStatus = cfg.ticketUseSeparator ? '✅' : '❌';
 
-  const configEmbed = new EmbedBuilder()
-    .setColor(color)
-    .setTitle('🎫 Configuração — Tickets')
-    .setDescription('Edite cada campo pelos botões abaixo. O preview atualiza a cada alteração.')
-    .addFields(
-      { name: '🎨 Cor',          value: cfg.ticketColor  ? `\`#${cfg.ticketColor}\`` : '*(sem lateral)*', inline: true },
-      { name: '📝 Título',       value: cfg.ticketTitle  || '*(não definido)*',                           inline: true },
-      { name: '👇 Rodapé',       value: cfg.ticketFooter || '*(não definido)*',                           inline: true },
-      { name: '🖼️ Banner',      value: cfg.ticketBanner ? `✅ definido — ${(cfg.ticketBannerPosition ?? 'top') === 'top' ? '⬆️ cima' : '⬇️ baixo'}${cfg.ticketOnlyBanner ? ' · **Só Banner**' : ''}` : '*(não definido)*', inline: true },
-      { name: '📷 Thumbnail',    value: cfg.ticketThumb  ? '✅ definido' : '*(não definido)*',            inline: true },
-      { name: '📂 Categoria',    value: cfg.ticketCategory ? `<#${cfg.ticketCategory}>` : '*(não definido)*', inline: true },
-      { name: '🔔 Ping Cargos',   value: cfg.ticketPingRole ? cfg.ticketPingRole.split(',').map(id => `<@&${id.trim()}>`).join(' ') : '*(desativado)*', inline: true },
-      { name: '👤 Ping Usuários', value: cfg.ticketPingUser ? cfg.ticketPingUser.split(',').map(id => `<@${id.trim()}>`).join(' ') : '*(desativado)*', inline: true },
-      { name: '🔘 Botão',        value: `\`${cfg.ticketBtnLabel || 'Abrir Ticket'}\` ${cfg.ticketBtnEmoji || '🎫'} — ${btnStyleLabel}`, inline: true },
-      { name: '➖ Separador',     value: sepStatus,                                                        inline: true },
-      { name: '✏️ Texto (Painel)',    value: texto.length > 100   ? texto.slice(0, 97) + '...'   : texto,   inline: false },
-      { name: '💬 Texto (Abertura)', value: openText.length > 100 ? openText.slice(0, 97) + '...' : openText, inline: false },
-    );
+  const info = [
+    '## 🎫 Tickets',
+    `🎨 **Cor:** ${cfg.ticketColor ? `\`#${cfg.ticketColor}\`` : '*(sem lateral)*'}   📝 **Título:** ${cfg.ticketTitle || '*(não definido)*'}   👇 **Rodapé:** ${cfg.ticketFooter || '*(não definido)*'}`,
+    `🖼️ **Banner:** ${cfg.ticketBanner ? `✅ — ${(cfg.ticketBannerPosition ?? 'top') === 'top' ? '⬆️ cima' : '⬇️ baixo'}${cfg.ticketOnlyBanner ? ' · Só Banner' : ''}` : '*(não definido)*'}   📷 **Thumb:** ${cfg.ticketThumb ? '✅' : '*(não definido)*'}`,
+    `📂 **Categoria:** ${cfg.ticketCategory ? `<#${cfg.ticketCategory}>` : '*(não definido)*'}`,
+    `🔔 **Ping Cargos:** ${cfg.ticketPingRole ? cfg.ticketPingRole.split(',').map(id => `<@&${id.trim()}>`).join(' ') : '*(desativado)*'}`,
+    `👤 **Ping Usuários:** ${cfg.ticketPingUser ? cfg.ticketPingUser.split(',').map(id => `<@${id.trim()}>`).join(' ') : '*(desativado)*'}`,
+    `🔘 **Botão:** \`${cfg.ticketBtnLabel || 'Abrir Ticket'}\` ${cfg.ticketBtnEmoji || '🎫'} — ${btnStyleLabel}   ➖ **Separador:** ${sepStatus}`,
+    `✏️ **Texto painel:** ${texto.length > 80 ? texto.slice(0, 77) + '...' : texto}`,
+    `💬 **Texto abertura:** ${openText.length > 80 ? openText.slice(0, 77) + '...' : openText}`,
+  ].join('\n');
 
-  const previewEmbed = buildConfigEmbed({
-    color: semLateral ? null : cfg.ticketColor,
-    banner: cfg.ticketBanner, thumbnail: cfg.ticketThumb,
-    footer: cfg.ticketFooter, title: cfg.ticketTitle, description: texto,
-  }).setAuthor({ name: semLateral ? '👁️ Preview — sem barra lateral' : '👁️ Preview — como o painel vai aparecer' });
+  const container = new ContainerBuilder();
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(info));
 
-  return { embeds: [configEmbed, previewEmbed], components: ticketConfigButtons(cfg) };
+  return { components: [container, ...ticketConfigButtons(cfg)], flags: MessageFlags.IsComponentsV2 };
 }
 
 export function buildTellonymConfigPayload(cfg) {
-  const color = cfg.tellonymColor ? (parseInt(cfg.tellonymColor, 16) || Colors.TELLONYM) : Colors.TELLONYM;
   const texto = cfg.tellonymText ?? DEFAULT_TELLONYM_TEXT;
-  const semLateral = !cfg.tellonymColor;
 
-  const configEmbed = new EmbedBuilder()
-    .setColor(color)
-    .setTitle('💌 Configuração — Tellonym')
-    .setDescription('Edite cada campo pelos botões abaixo. O preview atualiza a cada alteração.')
-    .addFields(
-      { name: '🎨 Cor',       value: cfg.tellonymColor  ? `\`#${cfg.tellonymColor}\`` : '*(sem lateral)*', inline: true },
-      { name: '📝 Título',    value: cfg.tellonymTitle   || '*(não definido)*',                             inline: true },
-      { name: '👇 Rodapé',    value: cfg.tellonymFooter  || '*(não definido)*',                             inline: true },
-      { name: '🖼️ Banner',   value: cfg.tellonymBanner  ? '✅ definido' : '*(não definido)*',              inline: true },
-      { name: '📷 Thumbnail', value: cfg.tellonymThumb   ? '✅ definido' : '*(não definido)*',              inline: true },
-      { name: '📣 Canal',     value: cfg.tellonymChannel ? `<#${cfg.tellonymChannel}>` : '*(não definido)*', inline: true },
-      { name: '✏️ Texto',     value: texto.length > 100  ? texto.slice(0, 97) + '...' : texto,              inline: false },
-    );
+  const info = [
+    '## 💌 Tellonym',
+    `🎨 **Cor:** ${cfg.tellonymColor ? `\`#${cfg.tellonymColor}\`` : '*(sem lateral)*'}   📝 **Título:** ${cfg.tellonymTitle || '*(não definido)*'}`,
+    `👇 **Rodapé:** ${cfg.tellonymFooter || '*(não definido)*'}`,
+    `🖼️ **Banner:** ${cfg.tellonymBanner ? '✅' : '*(não definido)*'}   📷 **Thumb:** ${cfg.tellonymThumb ? '✅' : '*(não definido)*'}`,
+    `📣 **Canal:** ${cfg.tellonymChannel ? `<#${cfg.tellonymChannel}>` : '*(não definido)*'}`,
+    `✏️ **Texto:** ${texto.length > 100 ? texto.slice(0, 97) + '...' : texto}`,
+  ].join('\n');
 
-  const previewEmbed = buildConfigEmbed({
-    color: semLateral ? null : cfg.tellonymColor,
-    banner: cfg.tellonymBanner, thumbnail: cfg.tellonymThumb,
-    footer: cfg.tellonymFooter, title: cfg.tellonymTitle, description: texto,
-  }).setAuthor({ name: semLateral ? '👁️ Preview — sem barra lateral' : '👁️ Preview — como o painel vai aparecer' });
+  const container = new ContainerBuilder();
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(info));
 
-  return { embeds: [configEmbed, previewEmbed], components: tellonymConfigButtons() };
+  return { components: [container, ...tellonymConfigButtons()], flags: MessageFlags.IsComponentsV2 };
 }
 
 export function buildWelcomeV2(cfg, vars) {
@@ -457,32 +434,21 @@ export function buildWelcomeConfigPayload(cfg) {
     ? cfg.welcomeChannels.split(',').filter(Boolean).map(id => `<#${id.trim()}>`).join(' ') || '*(nenhum)*'
     : '*(nenhum)*';
 
-  const color = cfg.welcomeColor ? (parseInt(cfg.welcomeColor, 16) || 0x5865F2) : 0x5865F2;
+  const info = [
+    `## 🎉 Boas-Vindas — ${enabled ? '🟢 ATIVO' : '🔴 DESATIVADO'}`,
+    `Placeholders: \`{user}\` \`{username}\` \`{server}\` \`{count}\` \`{sep}\``,
+    `📣 **Canal:** ${cfg.welcomeChannel ? `<#${cfg.welcomeChannel}>` : '*(não definido)*'}   🎨 **Cor:** ${cfg.welcomeColor ? `\`#${cfg.welcomeColor}\`` : '*(sem lateral)*'}`,
+    `📝 **Título:** ${titulo.length > 60 ? titulo.slice(0, 57) + '...' : titulo}`,
+    `👇 **Rodapé:** ${cfg.welcomeFooter || '*(não definido)*'}`,
+    `🖼️ **Banner:** ${cfg.welcomeBanner ? `✅ — ${(cfg.welcomeBannerPosition ?? 'top') === 'top' ? '⬆️ cima' : '⬇️ baixo'}` : '*(não definido)*'}   📷 **Thumb:** ${cfg.welcomeThumb ? '✅' : '*(avatar)*'}`,
+    `➖ **Divisória:** ${sepOn ? '✅' : '❌'}   🔤 **Título:** ${(cfg.welcomeShowTitle ?? true) ? '✅' : '❌'}   👤 **Avatar:** ${(cfg.welcomeShowAvatar ?? true) ? '✅' : '❌'}`,
+    `⏱️ **Sumir:** ${cfg.welcomeDeleteAfter ? `após ${formatDeleteTime(cfg.welcomeDeleteAfter)}` : '*(desativado)*'}`,
+    `🔔 **Cargos:** ${rolesStr}   🔗 **Canais:** ${chansStr}`,
+    `✏️ **Texto:** ${texto.length > 100 ? texto.slice(0, 97) + '...' : texto}`,
+  ].join('\n');
 
-  const configEmbed = new EmbedBuilder()
-    .setColor(enabled ? color : 0x6B6B6B)
-    .setTitle('🎉 Configuração — Boas-Vindas (V2)')
-    .setDescription(
-      (enabled ? '✅ **Sistema ATIVO**' : '🔴 **Sistema DESATIVADO**') +
-      '\nMensagem enviada como componente V2. Placeholders:\n' +
-      '`{user}` `{username}` `{server}` `{count}`\n' +
-      '`{sep}` — divisória na posição que você quiser no texto',
-    )
-    .addFields(
-      { name: '🎨 Cor',       value: cfg.welcomeColor  ? `\`#${cfg.welcomeColor}\`` : '*(sem lateral)*',   inline: true },
-      { name: '📝 Título',    value: titulo.length > 50 ? titulo.slice(0, 47) + '...' : titulo,            inline: true },
-      { name: '👇 Rodapé',    value: cfg.welcomeFooter  || '*(não definido)*',                              inline: true },
-      { name: '🖼️ Banner',   value: cfg.welcomeBanner  ? `✅ definido — ${(cfg.welcomeBannerPosition ?? 'top') === 'top' ? '⬆️ cima' : '⬇️ baixo'}` : '*(não definido)*', inline: true },
-      { name: '📷 Thumbnail', value: cfg.welcomeThumb   ? '✅ definido' : '*(avatar do usuário)*',         inline: true },
-      { name: '📣 Canal',     value: cfg.welcomeChannel ? `<#${cfg.welcomeChannel}>` : '*(não definido)*', inline: true },
-      { name: '➖ Divisória',  value: sepOn ? '✅ Ativada' : '❌ Desativada',                               inline: true },
-      { name: '🔤 Título',    value: (cfg.welcomeShowTitle ?? true) ? '✅ Visível' : '❌ Oculto',                                        inline: true },
-      { name: '👤 Avatar',    value: (cfg.welcomeShowAvatar ?? true) ? '✅ Visível' : '❌ Oculto',                                       inline: true },
-      { name: '⏱️ Sumir',    value: cfg.welcomeDeleteAfter ? `Após **${formatDeleteTime(cfg.welcomeDeleteAfter)}**` : '*(desativado)*', inline: true },
-      { name: '🔔 Cargos',    value: rolesStr,                                                              inline: true },
-      { name: '🔗 Canais',    value: chansStr,                                                              inline: true },
-      { name: '✏️ Texto',     value: texto.length > 120  ? texto.slice(0, 117) + '...' : texto,            inline: false },
-    );
+  const container = new ContainerBuilder();
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(info));
 
-  return { embeds: [configEmbed], components: welcomeConfigButtons(cfg) };
+  return { components: [container, ...welcomeConfigButtons(cfg)], flags: MessageFlags.IsComponentsV2 };
 }

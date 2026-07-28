@@ -1,7 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
 
-const COIN = '<a:emoji_1:1516993823665033286>';
+import { getEmoji } from '../../utils/emojiManager.js';
+const COIN = () => getEmoji('emoji_1');
 
 const PLAY_CD  = 4 * 60 * 60 * 1000;
 const FEED_CD  = 2 * 60 * 60 * 1000;
@@ -167,11 +168,11 @@ async function handleBrincar(interaction) {
     .setTitle(`🎾 Brincadeira com ${petDisplayName(pet)}!`)
     .setDescription(
       `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
-      `Seu pet ficou tão feliz que te deu **+${reward.toLocaleString('pt-BR')} ${COIN}**!`
+      `Seu pet ficou tão feliz que te deu **+${reward.toLocaleString('pt-BR')} ${COIN()}**!`
     )
     .addFields(
-      { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
-      { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN}**`, inline: true },
+      { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
+      { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
     )
     .setFooter({ text: `Próxima brincadeira em ${formatMs(PLAY_CD)}` })
     .setTimestamp();
@@ -216,11 +217,11 @@ async function handleAlimentar(interaction) {
     .setTitle(`🍖 Alimentando ${petDisplayName(pet)}!`)
     .setDescription(
       `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
-      `Como agradecimento, você ganhou **+${reward.toLocaleString('pt-BR')} ${COIN}**!`
+      `Como agradecimento, você ganhou **+${reward.toLocaleString('pt-BR')} ${COIN()}**!`
     )
     .addFields(
-      { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
-      { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN}**`, inline: true },
+      { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
+      { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
     )
     .setFooter({ text: `Próxima alimentação em ${formatMs(FEED_CD)}` })
     .setTimestamp();
@@ -265,11 +266,11 @@ async function handleAcariciar(interaction) {
     .setTitle(`💜 Carinhoso com ${petDisplayName(pet)}!`)
     .setDescription(
       `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
-      `O carinho valeu **+${reward.toLocaleString('pt-BR')} ${COIN}**!`
+      `O carinho valeu **+${reward.toLocaleString('pt-BR')} ${COIN()}**!`
     )
     .addFields(
-      { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN}**`, inline: true },
-      { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN}**`, inline: true },
+      { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
+      { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
     )
     .setFooter({ text: `Próximo carinho em ${formatMs(PET_CD)}` })
     .setTimestamp();
@@ -301,9 +302,9 @@ async function handleStatus(interaction) {
     .setTitle(`${petDisplayName(pet)} — Status`)
     .setDescription(
       `Cooldowns das interações com seu pet:\n\n` +
-      `🎾 ${cdLine(eco.lastPetPlay, PLAY_CD, 'Brincar')} (CD: 4h — até **300 ${COIN}**)\n` +
-      `🍖 ${cdLine(eco.lastPetFeed, FEED_CD, 'Alimentar')} (CD: 2h — até **160 ${COIN}**)\n` +
-      `💜 ${cdLine(eco.lastPetPet, PET_CD, 'Acariciar')} (CD: 1h — até **100 ${COIN}**)`
+      `🎾 ${cdLine(eco.lastPetPlay, PLAY_CD, 'Brincar')} (CD: 4h — até **300 ${COIN()}**)\n` +
+      `🍖 ${cdLine(eco.lastPetFeed, FEED_CD, 'Alimentar')} (CD: 2h — até **160 ${COIN()}**)\n` +
+      `💜 ${cdLine(eco.lastPetPet, PET_CD, 'Acariciar')} (CD: 1h — até **100 ${COIN()}**)`
     )
     .setFooter({ text: 'Use /pet brincar, /pet alimentar ou /pet acariciar' });
   applyPetImage(embed, pet);
