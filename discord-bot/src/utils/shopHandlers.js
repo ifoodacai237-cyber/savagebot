@@ -19,7 +19,7 @@ import { getEmoji } from './emojiManager.js';
 import { BANNERS, WALLET_BACKGROUNDS, getBanner, RING_PRESETS, getRing, FRAME_PRESETS, getFrame, buildBannerUrl } from './shopData.js';
 import { renderRingPreview } from './ringPreview.js';
 
-const SHOP_COLOR = 0x9B4FD6;
+const SHOP_COLOR = 0x000000;
 const DIVIDER    = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
 const COIN       = () => getEmoji('emoji_1');
 
