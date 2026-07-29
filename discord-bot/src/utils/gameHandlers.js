@@ -21,7 +21,7 @@ import { generateBlackjackCard } from './economyCards.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, '../../public/games');
 
-const COIN = () => getEmoji('emoji_1');
+const COIN = () => getEmoji('futecoins');
 
 // ─── In-memory game states ────────────────────────────────────────────────────
 export const blackjackGames = new Map();

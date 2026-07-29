@@ -4,7 +4,7 @@ import { errorEmbed } from '../../utils/embed.js';
 import { startBlackjack, startMines } from '../../utils/gameHandlers.js';
 
 import { getEmoji } from '../../utils/emojiManager.js';
-const COIN = () => getEmoji('emoji_1');
+const COIN = () => getEmoji('futecoins');
 
 function parseBet(input, balance) {
   const s = String(input).toLowerCase().trim();

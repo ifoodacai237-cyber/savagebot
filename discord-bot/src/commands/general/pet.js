@@ -2,7 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
 
 import { getEmoji } from '../../utils/emojiManager.js';
-const COIN = () => getEmoji('emoji_1');
+const COIN = () => getEmoji('futecoins');
 
 const PLAY_CD  = 4 * 60 * 60 * 1000;
 const FEED_CD  = 2 * 60 * 60 * 1000;

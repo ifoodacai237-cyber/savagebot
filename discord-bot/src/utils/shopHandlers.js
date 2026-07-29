@@ -21,7 +21,7 @@ import { renderRingPreview } from './ringPreview.js';
 
 const SHOP_COLOR = 0x000000;
 const DIVIDER    = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
-const COIN       = () => getEmoji('emoji_1');
+const COIN       = () => getEmoji('futecoins');
 
 function formatK(n) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
@@ -953,48 +953,52 @@ function buildPetCarousel(p, index, total, eco, owned) {
 }
 
 async function handleCarouselBannerNav(interaction) {
+  await interaction.deferUpdate();
   const index = parseInt(interaction.customId.slice('shop_car_b:'.length), 10);
   const [allBanners, eco, allOwned] = await Promise.all([
     getAllBannersForGuild(interaction.guildId),
     getEco(interaction.user.id, interaction.guildId),
     prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } }),
   ]);
-  if (!allBanners.length) return interaction.update({ content: '❌ Nenhum banner disponível.', embeds: [], components: [] });
+  if (!allBanners.length) return interaction.editReply({ content: '❌ Nenhum banner disponível.', embeds: [], components: [] });
   const safeIdx  = Math.min(index, allBanners.length - 1);
   const ownedSet = new Set(allOwned.map(o => o.itemRef));
   const b        = allBanners[safeIdx];
-  return interaction.update(buildBannerCarousel(b, safeIdx, allBanners.length, eco, ownedSet.has(b.key)));
+  return interaction.editReply(buildBannerCarousel(b, safeIdx, allBanners.length, eco, ownedSet.has(b.key)));
 }
 
 async function handleCarouselRoleNav(interaction) {
+  await interaction.deferUpdate();
   const index = parseInt(interaction.customId.slice('shop_car_r:'.length), 10);
   const [roles, eco, allOwned] = await Promise.all([
     prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } }),
     getEco(interaction.user.id, interaction.guildId),
     prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'role' } }),
   ]);
-  if (!roles.length) return interaction.update({ content: '❌ Nenhum cargo disponível.', embeds: [], components: [] });
+  if (!roles.length) return interaction.editReply({ content: '❌ Nenhum cargo disponível.', embeds: [], components: [] });
   const safeIdx  = Math.min(index, roles.length - 1);
   const ownedSet = new Set(allOwned.map(o => o.itemRef));
   const r        = roles[safeIdx];
-  return interaction.update(buildRoleCarousel(r, safeIdx, roles.length, eco, ownedSet.has(r.roleId)));
+  return interaction.editReply(buildRoleCarousel(r, safeIdx, roles.length, eco, ownedSet.has(r.roleId)));
 }
 
 async function handleCarouselPetNav(interaction) {
+  await interaction.deferUpdate();
   const index = parseInt(interaction.customId.slice('shop_car_p:'.length), 10);
   const [pets, eco, allOwned] = await Promise.all([
     prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
     getEco(interaction.user.id, interaction.guildId),
     prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'pet' } }),
   ]);
-  if (!pets.length) return interaction.update({ content: '❌ Nenhum pet disponível.', embeds: [], components: [] });
+  if (!pets.length) return interaction.editReply({ content: '❌ Nenhum pet disponível.', embeds: [], components: [] });
   const safeIdx  = Math.min(index, pets.length - 1);
   const ownedSet = new Set(allOwned.map(o => o.itemRef));
   const p        = pets[safeIdx];
-  return interaction.update(buildPetCarousel(p, safeIdx, pets.length, eco, ownedSet.has(p.id)));
+  return interaction.editReply(buildPetCarousel(p, safeIdx, pets.length, eco, ownedSet.has(p.id)));
 }
 
 async function handleCarouselBack(interaction) {
+  await interaction.deferUpdate();
   const [roles, pets, allBanners] = await Promise.all([
     prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } }),
     prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
@@ -1020,7 +1024,7 @@ async function handleCarouselBack(interaction) {
       new StringSelectMenuOptionBuilder().setLabel('🐾 Pets').setValue('pets').setDescription(`${pets.length} pets disponíveis`),
     );
 
-  return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(sel)] });
+  return interaction.editReply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(sel)] });
 }
 
 // ─── 🛒 Comprar ────────────────────────────────────────────────────────────────

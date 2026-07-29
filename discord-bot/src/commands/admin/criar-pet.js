@@ -2,7 +2,7 @@ import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.
 import prisma from '../../database/client.js';
 
 import { getEmoji } from '../../utils/emojiManager.js';
-const COIN = () => getEmoji('emoji_1');
+const COIN = () => getEmoji('futecoins');
 
 function getEmojiCdnUrl(emojiStr) {
   const animated = emojiStr?.match(/<a:(\w+):(\d+)>/);

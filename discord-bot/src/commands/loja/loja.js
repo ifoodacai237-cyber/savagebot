@@ -17,7 +17,7 @@ import prisma from '../../database/client.js';
 import { getEmoji } from '../../utils/emojiManager.js';
 import { buildLojaAdminPayload } from '../../utils/shopHandlers.js';
 
-const COIN          = () => getEmoji('emoji_1');
+const COIN          = () => getEmoji('futecoins');
 const DEFAULT_CONV  = () => `> \`1000 mensagens\` → **500 ${COIN()}**\n> \`1 hora em call\` → **500 ${COIN()}**`;
 const DEFAULT_TEXT  = () =>
   `Deseja adquirir **cargos** e **banners de perfil** exclusivos?\n` +

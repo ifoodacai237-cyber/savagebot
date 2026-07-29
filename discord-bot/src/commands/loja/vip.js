@@ -21,7 +21,7 @@ import prisma from '../../database/client.js';
 import { getEmoji } from '../../utils/emojiManager.js';
 
 // ─── Emojis — resolvidos como application emojis ────────────────────────────
-const COIN    = () => getEmoji('emoji_1');
+const COIN    = () => getEmoji('futecoins');
 const VIP_TAG = '⭐'; // emoji unicode padrão (substitua por getEmoji se criar emoji VIP na app)
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────

@@ -3,7 +3,7 @@ import prisma from '../../database/client.js';
 import { BANNERS } from '../../utils/shopData.js';
 
 import { getEmoji } from '../../utils/emojiManager.js';
-const COIN = () => getEmoji('emoji_1');
+const COIN = () => getEmoji('futecoins');
 
 async function validateImageUrl(imageUrl) {
   const controller = new AbortController();
