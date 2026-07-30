@@ -29,80 +29,8 @@ export const WALLET_BACKGROUNDS = [
   { key: 'wbg_gold',     name: '✨ Glitter Dourado', emoji: '✨', url: 'https://images.unsplash.com/photo-1533158307587-828f0a76ef46?w=900&q=90' },
 ];
 
-export const BANNERS = [
-  {
-    key: 'galaxy',
-    name: '🌌 Galáxia Roxa',
-    description: 'Nebulosas e estrelas em tons de roxo profundo. Um fundo cósmico deslumbrante.',
-    price: 2500,
-    imageUrl: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=1200&q=80',
-    gradient: ['#1a0533', '#4a1a8a'],
-    emoji: '🌌',
-  },
-  {
-    key: 'neon',
-    name: '🏙️ Cidade Neon',
-    description: 'Skyline cyberpunk iluminada por luzes neon vibrantes na noite.',
-    price: 3000,
-    imageUrl: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=1200&q=80',
-    gradient: ['#0a0a1a', '#1a0040'],
-    emoji: '🏙️',
-  },
-  {
-    key: 'ocean',
-    name: '🌊 Oceano Profundo',
-    description: 'As profundezas do mar em azul intenso, calmo e misterioso.',
-    price: 2000,
-    imageUrl: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=1200&q=80',
-    gradient: ['#001433', '#0033aa'],
-    emoji: '🌊',
-  },
-  {
-    key: 'sakura',
-    name: '🌸 Sakura',
-    description: 'Flores de cerejeira japonesas dançando ao vento da primavera.',
-    price: 1800,
-    imageUrl: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1200&q=80',
-    gradient: ['#4a0020', '#cc4488'],
-    emoji: '🌸',
-  },
-  {
-    key: 'aurora',
-    name: '✨ Aurora Boreal',
-    description: 'As luzes dançantes e hipnotizantes do Ártico iluminando o céu.',
-    price: 4000,
-    imageUrl: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=1200&q=80',
-    gradient: ['#001a0a', '#003322'],
-    emoji: '✨',
-  },
-  {
-    key: 'fire',
-    name: '🔥 Chamas',
-    description: 'Fundo de chamas vibrantes e intensas em tons de laranja e vermelho.',
-    price: 2200,
-    imageUrl: '__local__fire.jpg',
-    gradient: ['#2a0a00', '#aa3300'],
-    emoji: '🔥',
-  },
-  {
-    key: 'forest',
-    name: '🌲 Floresta Mágica',
-    description: 'Uma floresta encantada com raios de luz suave entre as árvores antigas.',
-    price: 1500,
-    imageUrl: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1200&q=80',
-    gradient: ['#0a1a0a', '#1a3a1a'],
-    emoji: '🌲',
-  },
-  {
-    key: 'sunset',
-    name: '🌅 Pôr do Sol',
-    description: 'Cores quentes e vibrantes de um pôr do sol perfeito sobre o horizonte.',
-    price: 1800,
-    imageUrl: 'https://images.unsplash.com/photo-1495344517868-8ebaf0a2044a?w=1200&q=80',
-    gradient: ['#1a0a00', '#aa5500'],
-    emoji: '🌅',
-  },
-];
+// Banners estáticos removidos — todos os banners são criados pelo painel de admin.
+export const BANNERS = [];
 
 // ── Discord CDN URL refresh ─────────────────────────────────────────────────
 // URLs do Discord CDN expiram (parâmetro ?ex=HEX_TIMESTAMP).

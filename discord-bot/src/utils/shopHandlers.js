@@ -16,7 +16,7 @@ import {
 } from 'discord.js';
 import prisma from '../database/client.js';
 import { getEmoji } from './emojiManager.js';
-import { BANNERS, WALLET_BACKGROUNDS, getBanner, RING_PRESETS, getRing, FRAME_PRESETS, getFrame, buildBannerUrl } from './shopData.js';
+import { WALLET_BACKGROUNDS, RING_PRESETS, getRing, FRAME_PRESETS, getFrame, buildBannerUrl } from './shopData.js';
 import { renderRingPreview } from './ringPreview.js';
 
 const SHOP_COLOR = 0x000000;
@@ -44,33 +44,24 @@ async function getCfg(guildId) {
 }
 
 async function getAllBannersForGuild(guildId) {
-  const custom = guildId ? await prisma.customBanner.findMany({ where: { guildId, active: true } }) : [];
-  const customMapped = custom.map(c => ({
+  if (!guildId) return [];
+  const custom = await prisma.customBanner.findMany({ where: { guildId, active: true }, orderBy: { createdAt: 'asc' } });
+  return custom.map(c => ({
     key: c.key, name: c.name, description: c.description || '',
     price: c.price, imageUrl: buildBannerUrl(c.imageUrl),
     gradient: [c.gradient1, c.gradient2], emoji: c.emoji, isCustom: true,
   }));
-  // Se um banner personalizado do servidor usa a mesma chave de um banner estático,
-  // o personalizado "vence" — remove o estático da lista para não haver 2 opções
-  // com o mesmo valor no select (o que fazia clicar em um banner equipar outro).
-  const customKeys = new Set(customMapped.map(c => c.key));
-  const statics     = BANNERS.filter(b => !customKeys.has(b.key));
-  return [...statics, ...customMapped];
 }
 
 async function resolveBannerForGuild(key, guildId) {
-  // Banners personalizados do servidor têm prioridade sobre os estáticos.
-  if (guildId) {
-    const custom = await prisma.customBanner.findFirst({ where: { key, guildId, active: true } });
-    if (custom) {
-      return {
-        key: custom.key, name: custom.name, description: custom.description || '',
-        price: custom.price, imageUrl: buildBannerUrl(custom.imageUrl),
-        gradient: [custom.gradient1, custom.gradient2], emoji: custom.emoji, isCustom: true,
-      };
-    }
-  }
-  return getBanner(key);
+  if (!guildId) return null;
+  const custom = await prisma.customBanner.findFirst({ where: { key, guildId, active: true } });
+  if (!custom) return null;
+  return {
+    key: custom.key, name: custom.name, description: custom.description || '',
+    price: custom.price, imageUrl: buildBannerUrl(custom.imageUrl),
+    gradient: [custom.gradient1, custom.gradient2], emoji: custom.emoji, isCustom: true,
+  };
 }
 
 // ─── Painel Admin ─────────────────────────────────────────────────────────────
@@ -82,14 +73,19 @@ export function buildLojaAdminPayload(cfg) {
       '## ⚙️ Administração da Loja\n\n' +
       '**Gerencie tudo da sua loja pelo painel abaixo.**\n\n' +
       '📦 **Cargos** — adicione, remova e veja os cargos à venda\n' +
+      '🖼️ **Banners** — crie banners personalizados para a loja\n' +
       '🎨 **Personalizar** — altere título, banner, cor, texto e mais',
     ),
   );
-  const row = new ActionRowBuilder().addComponents(
+  const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('loja_admin_cargos').setLabel('Cargos em Estoque').setEmoji('📦').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('loja_admin_criar_banner').setLabel('Criar Banner').setEmoji('🖼️').setStyle(ButtonStyle.Success),
+  );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('loja_admin_gerenciar_banners').setLabel('Gerenciar Banners').setEmoji('🗑️').setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setCustomId('loja_admin_personalizar').setLabel('Personalizar Painel').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
   );
-  return { components: [container, row], flags: MessageFlags.IsComponentsV2 };
+  return { components: [container, row1, row2], flags: MessageFlags.IsComponentsV2 };
 }
 
 // ─── Admin: Gerenciar Cargos ──────────────────────────────────────────────────
@@ -222,6 +218,180 @@ async function handleLojaAdminRemoveSel(interaction) {
       ));
     rows.push(new ActionRowBuilder().addComponents(sel));
   }
+
+  return interaction.update({ components: [c, ...rows], flags: MessageFlags.IsComponentsV2 });
+}
+
+// ─── Admin: Criar Banner pelo Painel ──────────────────────────────────────────
+
+async function handleLojaAdminCriarBanner(interaction) {
+  const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+  if (!isAdmin) return interaction.reply({ content: '❌ Sem permissão.', ephemeral: true });
+
+  const modal = new ModalBuilder()
+    .setCustomId('loja_admin_modal_criar_banner')
+    .setTitle('🖼️ Criar Banner para a Loja');
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('nome')
+        .setLabel('Nome do banner')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(50)
+        .setPlaceholder('Ex: Gang Angel'),
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('imagem')
+        .setLabel('URL direta da imagem (Imgur, imgbb, Discord CDN)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('https://i.imgur.com/exemplo.png'),
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('preco')
+        .setLabel('Preço (em coins)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('1000'),
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('descricao')
+        .setLabel('Descrição (opcional)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setMaxLength(100)
+        .setPlaceholder('Banner exclusivo do servidor...'),
+    ),
+  );
+
+  return interaction.showModal(modal);
+}
+
+async function handleLojaAdminCriarBannerModal(interaction) {
+  await interaction.deferUpdate();
+
+  const nome    = interaction.fields.getTextInputValue('nome').trim();
+  const imagem  = interaction.fields.getTextInputValue('imagem').trim();
+  const rawPrc  = interaction.fields.getTextInputValue('preco').trim().replace(/\D/g, '');
+  const desc    = interaction.fields.getTextInputValue('descricao')?.trim() || '';
+  const preco   = parseInt(rawPrc);
+
+  if (!imagem.startsWith('http')) {
+    const c = new ContainerBuilder();
+    c.addTextDisplayComponents(new TextDisplayBuilder().setContent('❌ URL da imagem inválida. Use um link direto (http/https).'));
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('loja_admin_voltar').setLabel('← Voltar').setStyle(ButtonStyle.Secondary),
+    );
+    return interaction.editReply({ components: [c, row], flags: MessageFlags.IsComponentsV2 });
+  }
+
+  if (isNaN(preco) || preco < 1) {
+    const c = new ContainerBuilder();
+    c.addTextDisplayComponents(new TextDisplayBuilder().setContent('❌ Preço inválido. Digite apenas números.'));
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('loja_admin_voltar').setLabel('← Voltar').setStyle(ButtonStyle.Secondary),
+    );
+    return interaction.editReply({ components: [c, row], flags: MessageFlags.IsComponentsV2 });
+  }
+
+  const slug = nome.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, '').trim().replace(/\s+/g, '_').slice(0, 30);
+  const chaveBase = `c_${slug}`;
+
+  const existing = await prisma.customBanner.findUnique({
+    where: { guildId_key: { guildId: interaction.guildId, key: chaveBase } },
+  });
+  const finalKey = existing ? `${chaveBase}_${Date.now().toString(36)}` : chaveBase;
+
+  await prisma.customBanner.create({
+    data: {
+      guildId:     interaction.guildId,
+      key:         finalKey,
+      name:        nome,
+      description: desc,
+      price:       preco,
+      imageUrl:    imagem,
+      gradient1:   '#1a0533',
+      gradient2:   '#4a1a8a',
+      emoji:       '🖼️',
+      active:      true,
+    },
+  });
+
+  const cfg = await getCfg(interaction.guildId);
+  const c = new ContainerBuilder();
+  c.addTextDisplayComponents(new TextDisplayBuilder().setContent(
+    `## ✅ Banner Criado!\n\n` +
+    `**${nome}** foi adicionado à loja!\n\n` +
+    `💰 **Preço:** ${preco.toLocaleString('pt-BR')} coins\n` +
+    `🔑 **Chave:** \`${finalKey}\``,
+  ));
+  if (imagem.startsWith('http')) {
+    const { MediaGalleryBuilder, MediaGalleryItemBuilder } = await import('discord.js');
+    c.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(imagem)),
+    );
+  }
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('loja_admin_criar_banner').setLabel('Criar Outro Banner').setEmoji('🖼️').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('loja_admin_gerenciar_banners').setLabel('Ver Banners').setEmoji('📋').setStyle(ButtonStyle.Secondary),
+  );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('loja_admin_voltar').setLabel('← Voltar ao Painel').setStyle(ButtonStyle.Secondary),
+  );
+  return interaction.editReply({ components: [c, row1, row2], flags: MessageFlags.IsComponentsV2 });
+}
+
+async function handleLojaAdminGerenciarBanners(interaction) {
+  const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+  if (!isAdmin) return interaction.reply({ content: '❌ Sem permissão.', ephemeral: true });
+
+  const banners = await prisma.customBanner.findMany({
+    where: { guildId: interaction.guildId, active: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const c = new ContainerBuilder();
+
+  if (!banners.length) {
+    c.addTextDisplayComponents(new TextDisplayBuilder().setContent(
+      '## 🖼️ Banners da Loja\n\n*Nenhum banner cadastrado ainda.*\n\nUse **Criar Banner** para adicionar o primeiro!',
+    ));
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('loja_admin_criar_banner').setLabel('Criar Banner').setEmoji('🖼️').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('loja_admin_voltar').setLabel('← Voltar').setStyle(ButtonStyle.Secondary),
+    );
+    return interaction.update({ components: [c, row], flags: MessageFlags.IsComponentsV2 });
+  }
+
+  const lines = banners.map(b => `> 🖼️ **${b.name}** — ${b.price.toLocaleString('pt-BR')} coins\n> \`${b.key}\``).join('\n\n');
+  c.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🖼️ Banners da Loja\n\n${lines}`));
+
+  const rows = [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('loja_admin_criar_banner').setLabel('Criar Banner').setEmoji('➕').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('loja_admin_voltar').setLabel('← Voltar').setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+
+  // Select para remover (máx 25 opções no Discord)
+  const opts = banners.slice(0, 25).map(b =>
+    new StringSelectMenuOptionBuilder()
+      .setLabel(b.name.slice(0, 100))
+      .setValue(b.key)
+      .setDescription(`${b.price.toLocaleString('pt-BR')} coins`),
+  );
+  const sel = new StringSelectMenuBuilder()
+    .setCustomId('banner_admin_remove_sel')
+    .setPlaceholder('🗑️ Selecione um banner para remover')
+    .addOptions(opts);
+  rows.push(new ActionRowBuilder().addComponents(sel));
 
   return interaction.update({ components: [c, ...rows], flags: MessageFlags.IsComponentsV2 });
 }
@@ -515,6 +685,8 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'loja_admin_cargos')              return handleLojaAdminCargos(interaction);
     if (id === 'loja_admin_personalizar')        return handleLojaConfig(interaction);
     if (id === 'loja_admin_add_cargo')           return handleLojaAdminAddCargo(interaction);
+    if (id === 'loja_admin_criar_banner')        return handleLojaAdminCriarBanner(interaction);
+    if (id === 'loja_admin_gerenciar_banners')   return handleLojaAdminGerenciarBanners(interaction);
     if (id.startsWith('banner_admin_remove_confirm:')) return handleBannerAdminRemoveConfirm(interaction);
     if (id === 'banner_admin_remove_cancel') {
       const cfg = await getCfg(interaction.guildId);
@@ -543,6 +715,7 @@ export async function handleShopInteraction(interaction, client) {
     if (id.startsWith('loja_cfg_modal_'))        return handleLojaConfigModal(interaction);
     if (id === 'shop_gift_modal')                return handleGiftModal(interaction, client);
     if (id === 'loja_admin_modal_add_cargo')     return handleLojaAdminAddCargoModal(interaction);
+    if (id === 'loja_admin_modal_criar_banner')  return handleLojaAdminCriarBannerModal(interaction);
     if (id === 'profile_ring_custom_modal' || id === 'wallet_ring_custom_modal') return handleRingCustomModal(interaction, ringMode(id));
     if (id === 'profile_ring_border_modal' || id === 'wallet_ring_border_modal') return handleRingBorderModal(interaction, ringMode(id));
     if (id === 'profile_bg_solid_modal')         return handleProfileBgSolidModal(interaction);
@@ -603,7 +776,7 @@ async function handleGiftModal(interaction, client) {
     .setPlaceholder('Selecione o tipo de item')
     .addOptions(
       new StringSelectMenuOptionBuilder().setLabel('👑 Cargos').setValue('roles').setDescription(`${roles.length} cargos disponíveis`),
-      new StringSelectMenuOptionBuilder().setLabel('🖼️ Banners').setValue('banners').setDescription(`${BANNERS.length} banners disponíveis`),
+      new StringSelectMenuOptionBuilder().setLabel('🖼️ Banners').setValue('banners').setDescription('banners disponíveis'),
     );
 
   return interaction.editReply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(sel)] });
@@ -953,45 +1126,48 @@ function buildPetCarousel(p, index, total, eco, owned) {
 }
 
 async function handleCarouselBannerNav(interaction) {
+  await interaction.deferUpdate();
   const index = parseInt(interaction.customId.slice('shop_car_b:'.length), 10);
   const [allBanners, eco, allOwned] = await Promise.all([
     getAllBannersForGuild(interaction.guildId),
     getEco(interaction.user.id, interaction.guildId),
     prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } }),
   ]);
-  if (!allBanners.length) return interaction.update({ content: '❌ Nenhum banner disponível.', embeds: [], components: [] });
+  if (!allBanners.length) return interaction.editReply({ content: '❌ Nenhum banner disponível.', embeds: [], components: [] });
   const safeIdx  = Math.min(index, allBanners.length - 1);
   const ownedSet = new Set(allOwned.map(o => o.itemRef));
   const b        = allBanners[safeIdx];
-  return interaction.update(buildBannerCarousel(b, safeIdx, allBanners.length, eco, ownedSet.has(b.key)));
+  return interaction.editReply(buildBannerCarousel(b, safeIdx, allBanners.length, eco, ownedSet.has(b.key)));
 }
 
 async function handleCarouselRoleNav(interaction) {
+  await interaction.deferUpdate();
   const index = parseInt(interaction.customId.slice('shop_car_r:'.length), 10);
   const [roles, eco, allOwned] = await Promise.all([
     prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } }),
     getEco(interaction.user.id, interaction.guildId),
     prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'role' } }),
   ]);
-  if (!roles.length) return interaction.update({ content: '❌ Nenhum cargo disponível.', embeds: [], components: [] });
+  if (!roles.length) return interaction.editReply({ content: '❌ Nenhum cargo disponível.', embeds: [], components: [] });
   const safeIdx  = Math.min(index, roles.length - 1);
   const ownedSet = new Set(allOwned.map(o => o.itemRef));
   const r        = roles[safeIdx];
-  return interaction.update(buildRoleCarousel(r, safeIdx, roles.length, eco, ownedSet.has(r.roleId)));
+  return interaction.editReply(buildRoleCarousel(r, safeIdx, roles.length, eco, ownedSet.has(r.roleId)));
 }
 
 async function handleCarouselPetNav(interaction) {
+  await interaction.deferUpdate();
   const index = parseInt(interaction.customId.slice('shop_car_p:'.length), 10);
   const [pets, eco, allOwned] = await Promise.all([
     prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
     getEco(interaction.user.id, interaction.guildId),
     prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'pet' } }),
   ]);
-  if (!pets.length) return interaction.update({ content: '❌ Nenhum pet disponível.', embeds: [], components: [] });
+  if (!pets.length) return interaction.editReply({ content: '❌ Nenhum pet disponível.', embeds: [], components: [] });
   const safeIdx  = Math.min(index, pets.length - 1);
   const ownedSet = new Set(allOwned.map(o => o.itemRef));
   const p        = pets[safeIdx];
-  return interaction.update(buildPetCarousel(p, safeIdx, pets.length, eco, ownedSet.has(p.id)));
+  return interaction.editReply(buildPetCarousel(p, safeIdx, pets.length, eco, ownedSet.has(p.id)));
 }
 
 async function handleCarouselBack(interaction) {
