@@ -105,6 +105,7 @@ model GuildConfig {
   shopEmojiConverter String?
   shopEmojiSaldo     String?
   shopEmojiGift      String?
+  shopBtnStyles      String?
 
   vipTitle            String?
   vipIntro            String?

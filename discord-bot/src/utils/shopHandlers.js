@@ -29,6 +29,24 @@ function formatK(n) {
   return String(n);
 }
 
+// ─── Button style helpers ──────────────────────────────────────────────────────
+
+function btnStyleFromStr(str, def = ButtonStyle.Secondary) {
+  return {
+    primary:   ButtonStyle.Primary,
+    secondary: ButtonStyle.Secondary,
+    success:   ButtonStyle.Success,
+    danger:    ButtonStyle.Danger,
+  }[str?.toLowerCase()] ?? def;
+}
+
+function getBtnStyles(cfg) {
+  const defs = { comprar: 'success', nav: 'secondary', back: 'secondary' };
+  if (!cfg?.shopBtnStyles) return defs;
+  try { return { ...defs, ...JSON.parse(cfg.shopBtnStyles) }; }
+  catch { return defs; }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function getEco(userId, guildId) {
@@ -273,7 +291,7 @@ async function handleLojaAdminCriarBanner(interaction) {
 }
 
 async function handleLojaAdminCriarBannerModal(interaction) {
-  await interaction.deferUpdate();
+  await interaction.deferReply({ ephemeral: true });
 
   const nome    = interaction.fields.getTextInputValue('nome').trim();
   const imagem  = interaction.fields.getTextInputValue('imagem').trim();
@@ -460,7 +478,8 @@ function fmtEmoji(val) {
 }
 
 export function buildLojaConfigPayload(cfg) {
-  const divOn = cfg.lojaUseDivider ?? false;
+  const divOn  = cfg.lojaUseDivider ?? false;
+  const styles = getBtnStyles(cfg);
 
   const info = [
     '## 🎨 Personalizar Painel da Loja',
@@ -475,6 +494,10 @@ export function buildLojaConfigPayload(cfg) {
     '**😀 Emojis dos Botões:**',
     `🛒 Comprar: ${fmtEmoji(cfg.shopEmojiComprar)}   🖼️ Vitrine: ${fmtEmoji(cfg.shopEmojiVitrine)}   🔄 Converter: ${fmtEmoji(cfg.shopEmojiConverter)}`,
     `💰 Saldo: ${fmtEmoji(cfg.shopEmojiSaldo)}   🎁 Presentear: ${fmtEmoji(cfg.shopEmojiGift)}`,
+    '',
+    '**🎨 Cores dos Botões do Carrossel:**',
+    `🛒 Comprar: \`${styles.comprar}\`   ◀▶ Navegar: \`${styles.nav}\`   ↩ Voltar: \`${styles.back}\``,
+    '*Valores: `primary` · `secondary` · `success` · `danger`*',
   ].join('\n');
 
   const container = new ContainerBuilder();
@@ -492,6 +515,7 @@ export function buildLojaConfigPayload(cfg) {
     new ButtonBuilder().setCustomId('loja_cfg_conversao').setLabel('Conversão').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('loja_cfg_divider').setLabel(divOn ? 'Divisória: ON' : 'Divisória: OFF').setEmoji('➖').setStyle(divOn ? ButtonStyle.Primary : ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('loja_cfg_emojis').setLabel('Emojis dos Botões').setEmoji('😀').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('loja_cfg_cores').setLabel('Cores dos Botões').setEmoji('🎨').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('loja_cfg_reset').setLabel('Resetar Tudo').setEmoji('♻️').setStyle(ButtonStyle.Danger),
   );
 
@@ -521,11 +545,35 @@ async function handleLojaCfgBtn(interaction) {
         lojaTitle: null, lojaText: null, lojaBanner: null, lojaThumb: null,
         lojaColor: null, lojaConversao: null, lojaUseDivider: false,
         shopEmojiComprar: null, shopEmojiVitrine: null, shopEmojiConverter: null,
-        shopEmojiSaldo: null, shopEmojiGift: null,
+        shopEmojiSaldo: null, shopEmojiGift: null, shopBtnStyles: null,
       },
     });
     const cfg = await getCfg(interaction.guildId);
     return interaction.update(buildLojaConfigPayload(cfg));
+  }
+
+  if (field === 'cores') {
+    const cfg = await getCfg(interaction.guildId);
+    const cur = getBtnStyles(cfg);
+    const modal = new ModalBuilder().setCustomId('loja_cfg_modal_cores').setTitle('🎨 Cores dos Botões do Carrossel');
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('comprar').setLabel('Botão Comprar (primary/secondary/success/danger)')
+          .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(20)
+          .setPlaceholder('success').setValue(cur.comprar),
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('nav').setLabel('Botões Navegar ◀ ▶ (primary/secondary/success/danger)')
+          .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(20)
+          .setPlaceholder('secondary').setValue(cur.nav),
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('back').setLabel('Botão Voltar (primary/secondary/success/danger)')
+          .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(20)
+          .setPlaceholder('secondary').setValue(cur.back),
+      ),
+    );
+    return interaction.showModal(modal);
   }
 
   if (field === 'emojis') {
@@ -615,6 +663,29 @@ async function handleLojaConfigModal(interaction) {
 
     const cfg = await getCfg(interaction.guildId);
     return interaction.editReply({ content: '✅ **Emojis dos botões** atualizados!', ...buildLojaConfigPayload(cfg) });
+  }
+
+  if (field === 'cores') {
+    const comprar = interaction.fields.getTextInputValue('comprar').trim().toLowerCase() || null;
+    const nav     = interaction.fields.getTextInputValue('nav').trim().toLowerCase()     || null;
+    const back    = interaction.fields.getTextInputValue('back').trim().toLowerCase()    || null;
+
+    const valid = new Set(['primary', 'secondary', 'success', 'danger']);
+    const sanitize = v => (v && valid.has(v)) ? v : null;
+    const styles = {
+      comprar: sanitize(comprar) ?? 'success',
+      nav:     sanitize(nav)     ?? 'secondary',
+      back:    sanitize(back)    ?? 'secondary',
+    };
+
+    await prisma.guildConfig.upsert({
+      where:  { guildId: interaction.guildId },
+      create: { guildId: interaction.guildId, shopBtnStyles: JSON.stringify(styles) },
+      update: { shopBtnStyles: JSON.stringify(styles) },
+    });
+
+    const cfg = await getCfg(interaction.guildId);
+    return interaction.editReply({ content: '✅ **Cores dos botões** atualizadas!', ...buildLojaConfigPayload(cfg) });
   }
 
   const def = LOJA_CFG_FIELDS[field];
@@ -998,176 +1069,203 @@ async function handleGiftBuyExecute(interaction, client) {
   return interaction.editReply({ embeds: [embed] });
 }
 
-// ─── 🛒 Comprar ───────────────────────────────────────────────────────────────
+// ─── 🛒 Carousel builders (Components V2) ────────────────────────────────────
 
-// ─── 🛒 Carousel builders ──────────────────────────────────────────────────────
+function _navBtns(prevId, nextId, voltarId, styles) {
+  return [
+    new ButtonBuilder().setCustomId(prevId).setLabel('Anterior').setEmoji('◀').setStyle(btnStyleFromStr(styles.nav)),
+    new ButtonBuilder().setCustomId(nextId).setLabel('Próxima').setEmoji('▶').setStyle(btnStyleFromStr(styles.nav)),
+  ];
+}
 
-function buildBannerCarousel(b, index, total, eco, owned) {
+async function buildBannerCarousel(b, index, total, eco, owned, cfg = null) {
+  const styles    = getBtnStyles(cfg);
   const canAfford = eco.balance >= b.price;
-  const embed = new EmbedBuilder()
-    .setColor(SHOP_COLOR)
-    .setTitle(b.name)
-    .setDescription(
-      `${b.description ? b.description + '\n' : ''}` +
-      `▶ Valor: **${b.price.toLocaleString('pt-BR')} (${formatK(b.price)}) ${COIN()}**\n` +
-      `⚫ **Comum**`
-    )
-    .setImage(b.imageUrl || null)
-    .setFooter({ text: `${index + 1} / ${total} banners` });
+
+  const c = new ContainerBuilder();
+  const lines = [
+    `🖼️ **${b.name}**`,
+    b.description || null,
+    `▶ Valor: **${b.price.toLocaleString('pt-BR')} (${formatK(b.price)}) ${COIN()}**`,
+    `👛 Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`,
+  ].filter(Boolean);
+  c.addTextDisplayComponents(new TextDisplayBuilder().setContent(lines.join('\n')));
+
+  if (b.imageUrl) {
+    const { MediaGalleryBuilder, MediaGalleryItemBuilder } = await import('discord.js');
+    c.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(b.imageUrl)),
+    );
+  }
+
+  c.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${index + 1} / ${total} banners`));
 
   const buyBtn = new ButtonBuilder()
     .setCustomId(`shop_buy_banner:${b.key}`)
     .setLabel(owned ? 'Já Possui' : !canAfford ? 'Sem Saldo' : 'Comprar')
     .setEmoji(owned ? '✅' : '🛒')
-    .setStyle(owned ? ButtonStyle.Secondary : ButtonStyle.Success)
+    .setStyle(owned ? ButtonStyle.Secondary : btnStyleFromStr(styles.comprar, ButtonStyle.Success))
     .setDisabled(owned || !canAfford);
 
-  const prevBtn = new ButtonBuilder()
-    .setCustomId(`shop_car_b:${(index - 1 + total) % total}`)
-    .setLabel('Anterior').setEmoji('◀').setStyle(ButtonStyle.Secondary);
-
-  const nextBtn = new ButtonBuilder()
-    .setCustomId(`shop_car_b:${(index + 1) % total}`)
-    .setLabel('Próxima').setEmoji('▶').setStyle(ButtonStyle.Secondary);
-
   const voltarBtn = new ButtonBuilder()
-    .setCustomId('shop_car_back')
-    .setLabel('Voltar').setEmoji('↩').setStyle(ButtonStyle.Secondary);
+    .setCustomId('shop_car_back').setLabel('Voltar').setEmoji('↩').setStyle(btnStyleFromStr(styles.back));
 
   return {
-    embeds: [embed],
     components: [
-      new ActionRowBuilder().addComponents(buyBtn, prevBtn),
-      new ActionRowBuilder().addComponents(nextBtn, voltarBtn),
+      c,
+      new ActionRowBuilder().addComponents(..._navBtns(`shop_car_b:${(index - 1 + total) % total}`, `shop_car_b:${(index + 1) % total}`, null, styles), buyBtn),
+      new ActionRowBuilder().addComponents(voltarBtn),
     ],
+    flags: MessageFlags.IsComponentsV2,
   };
 }
 
-function buildRoleCarousel(r, index, total, eco, owned) {
+function buildRoleCarousel(r, index, total, eco, owned, cfg = null) {
+  const styles    = getBtnStyles(cfg);
   const canAfford = eco.balance >= r.price;
-  const embed = new EmbedBuilder()
-    .setColor(SHOP_COLOR)
-    .setTitle(`👑 ${r.name}`)
-    .setDescription(
-      `${r.description ? r.description + '\n' : 'Cargo exclusivo do servidor.\n'}` +
-      `▶ Valor: **${r.price.toLocaleString('pt-BR')} (${formatK(r.price)}) ${COIN()}**\n` +
-      `💰 Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`
-    )
-    .setFooter({ text: `${index + 1} / ${total} cargos` });
+
+  const c = new ContainerBuilder();
+  c.addTextDisplayComponents(new TextDisplayBuilder().setContent([
+    `👑 **${r.name}**`,
+    r.description || 'Cargo exclusivo do servidor.',
+    `▶ Valor: **${r.price.toLocaleString('pt-BR')} (${formatK(r.price)}) ${COIN()}**`,
+    `👛 Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`,
+    `${index + 1} / ${total} cargos`,
+  ].join('\n')));
 
   const buyBtn = new ButtonBuilder()
     .setCustomId(`shop_buy_role:${r.id}`)
     .setLabel(owned ? 'Já Possui' : !canAfford ? 'Sem Saldo' : 'Comprar')
     .setEmoji(owned ? '✅' : '🛒')
-    .setStyle(owned ? ButtonStyle.Secondary : ButtonStyle.Success)
+    .setStyle(owned ? ButtonStyle.Secondary : btnStyleFromStr(styles.comprar, ButtonStyle.Success))
     .setDisabled(owned || !canAfford);
 
-  const prevBtn = new ButtonBuilder()
-    .setCustomId(`shop_car_r:${(index - 1 + total) % total}`)
-    .setLabel('Anterior').setEmoji('◀').setStyle(ButtonStyle.Secondary);
-
-  const nextBtn = new ButtonBuilder()
-    .setCustomId(`shop_car_r:${(index + 1) % total}`)
-    .setLabel('Próxima').setEmoji('▶').setStyle(ButtonStyle.Secondary);
-
   const voltarBtn = new ButtonBuilder()
-    .setCustomId('shop_car_back')
-    .setLabel('Voltar').setEmoji('↩').setStyle(ButtonStyle.Secondary);
+    .setCustomId('shop_car_back').setLabel('Voltar').setEmoji('↩').setStyle(btnStyleFromStr(styles.back));
 
   return {
-    embeds: [embed],
     components: [
-      new ActionRowBuilder().addComponents(buyBtn, prevBtn),
-      new ActionRowBuilder().addComponents(nextBtn, voltarBtn),
+      c,
+      new ActionRowBuilder().addComponents(..._navBtns(`shop_car_r:${(index - 1 + total) % total}`, `shop_car_r:${(index + 1) % total}`, null, styles), buyBtn),
+      new ActionRowBuilder().addComponents(voltarBtn),
     ],
+    flags: MessageFlags.IsComponentsV2,
   };
 }
 
-function buildPetCarousel(p, index, total, eco, owned) {
+async function buildPetCarousel(p, index, total, eco, owned, cfg = null) {
+  const styles    = getBtnStyles(cfg);
   const canAfford = eco.balance >= p.price;
-  const embed = new EmbedBuilder()
-    .setColor(SHOP_COLOR)
-    .setTitle(`${p.emoji} ${p.name}`)
-    .setDescription(
-      `${p.description ? p.description + '\n' : ''}` +
-      `▶ Valor: **${p.price.toLocaleString('pt-BR')} (${formatK(p.price)}) ${COIN()}**\n` +
-      `💰 Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`
-    )
-    .setFooter({ text: `${index + 1} / ${total} pets` });
 
-  if (p.imageUrl) embed.setThumbnail(p.imageUrl);
+  const c = new ContainerBuilder();
+  c.addTextDisplayComponents(new TextDisplayBuilder().setContent([
+    `${p.emoji} **${p.name}**`,
+    p.description || '',
+    `▶ Valor: **${p.price.toLocaleString('pt-BR')} (${formatK(p.price)}) ${COIN()}**`,
+    `👛 Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`,
+  ].filter(Boolean).join('\n')));
+
+  if (p.imageUrl) {
+    const { MediaGalleryBuilder, MediaGalleryItemBuilder } = await import('discord.js');
+    c.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(p.imageUrl)),
+    );
+  }
+
+  c.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${index + 1} / ${total} pets`));
 
   const buyBtn = new ButtonBuilder()
     .setCustomId(`shop_buy_pet:${p.id}`)
     .setLabel(owned ? 'Já Possui' : !canAfford ? 'Sem Saldo' : 'Comprar')
     .setEmoji(owned ? '✅' : '🛒')
-    .setStyle(owned ? ButtonStyle.Secondary : ButtonStyle.Success)
+    .setStyle(owned ? ButtonStyle.Secondary : btnStyleFromStr(styles.comprar, ButtonStyle.Success))
     .setDisabled(owned || !canAfford);
 
-  const prevBtn = new ButtonBuilder()
-    .setCustomId(`shop_car_p:${(index - 1 + total) % total}`)
-    .setLabel('Anterior').setEmoji('◀').setStyle(ButtonStyle.Secondary);
-
-  const nextBtn = new ButtonBuilder()
-    .setCustomId(`shop_car_p:${(index + 1) % total}`)
-    .setLabel('Próxima').setEmoji('▶').setStyle(ButtonStyle.Secondary);
-
   const voltarBtn = new ButtonBuilder()
-    .setCustomId('shop_car_back')
-    .setLabel('Voltar').setEmoji('↩').setStyle(ButtonStyle.Secondary);
+    .setCustomId('shop_car_back').setLabel('Voltar').setEmoji('↩').setStyle(btnStyleFromStr(styles.back));
 
   return {
-    embeds: [embed],
     components: [
-      new ActionRowBuilder().addComponents(buyBtn, prevBtn),
-      new ActionRowBuilder().addComponents(nextBtn, voltarBtn),
+      c,
+      new ActionRowBuilder().addComponents(..._navBtns(`shop_car_p:${(index - 1 + total) % total}`, `shop_car_p:${(index + 1) % total}`, null, styles), buyBtn),
+      new ActionRowBuilder().addComponents(voltarBtn),
     ],
+    flags: MessageFlags.IsComponentsV2,
   };
 }
 
 async function handleCarouselBannerNav(interaction) {
   await interaction.deferUpdate();
   const index = parseInt(interaction.customId.slice('shop_car_b:'.length), 10);
-  const [allBanners, eco, allOwned] = await Promise.all([
+  const [allBanners, eco, allOwned, cfg] = await Promise.all([
     getAllBannersForGuild(interaction.guildId),
     getEco(interaction.user.id, interaction.guildId),
     prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } }),
+    getCfg(interaction.guildId),
   ]);
-  if (!allBanners.length) return interaction.editReply({ content: '❌ Nenhum banner disponível.', embeds: [], components: [] });
+  if (!allBanners.length) return interaction.editReply({ content: '❌ Nenhum banner disponível.', components: [], flags: MessageFlags.IsComponentsV2 });
   const safeIdx  = Math.min(index, allBanners.length - 1);
   const ownedSet = new Set(allOwned.map(o => o.itemRef));
   const b        = allBanners[safeIdx];
-  return interaction.editReply(buildBannerCarousel(b, safeIdx, allBanners.length, eco, ownedSet.has(b.key)));
+  return interaction.editReply(await buildBannerCarousel(b, safeIdx, allBanners.length, eco, ownedSet.has(b.key), cfg));
 }
 
 async function handleCarouselRoleNav(interaction) {
   await interaction.deferUpdate();
   const index = parseInt(interaction.customId.slice('shop_car_r:'.length), 10);
-  const [roles, eco, allOwned] = await Promise.all([
+  const [roles, eco, allOwned, cfg] = await Promise.all([
     prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } }),
     getEco(interaction.user.id, interaction.guildId),
     prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'role' } }),
+    getCfg(interaction.guildId),
   ]);
-  if (!roles.length) return interaction.editReply({ content: '❌ Nenhum cargo disponível.', embeds: [], components: [] });
+  if (!roles.length) return interaction.editReply({ content: '❌ Nenhum cargo disponível.', components: [], flags: MessageFlags.IsComponentsV2 });
   const safeIdx  = Math.min(index, roles.length - 1);
   const ownedSet = new Set(allOwned.map(o => o.itemRef));
   const r        = roles[safeIdx];
-  return interaction.editReply(buildRoleCarousel(r, safeIdx, roles.length, eco, ownedSet.has(r.roleId)));
+  return interaction.editReply(buildRoleCarousel(r, safeIdx, roles.length, eco, ownedSet.has(r.roleId), cfg));
 }
 
 async function handleCarouselPetNav(interaction) {
   await interaction.deferUpdate();
   const index = parseInt(interaction.customId.slice('shop_car_p:'.length), 10);
-  const [pets, eco, allOwned] = await Promise.all([
+  const [pets, eco, allOwned, cfg] = await Promise.all([
     prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
     getEco(interaction.user.id, interaction.guildId),
     prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'pet' } }),
+    getCfg(interaction.guildId),
   ]);
-  if (!pets.length) return interaction.editReply({ content: '❌ Nenhum pet disponível.', embeds: [], components: [] });
+  if (!pets.length) return interaction.editReply({ content: '❌ Nenhum pet disponível.', components: [], flags: MessageFlags.IsComponentsV2 });
   const safeIdx  = Math.min(index, pets.length - 1);
   const ownedSet = new Set(allOwned.map(o => o.itemRef));
   const p        = pets[safeIdx];
-  return interaction.editReply(buildPetCarousel(p, safeIdx, pets.length, eco, ownedSet.has(p.id)));
+  return interaction.editReply(await buildPetCarousel(p, safeIdx, pets.length, eco, ownedSet.has(p.id), cfg));
+}
+
+function _buildComprarPayload(roles, allBanners, pets) {
+  const c = new ContainerBuilder();
+  c.addTextDisplayComponents(new TextDisplayBuilder().setContent([
+    '<:carrinho:1384004945820516432> **O que deseja comprar?**',
+    'Selecione uma categoria abaixo.',
+    '',
+    `<:skunk:1528839030978908232> **Cargos** — ${roles.length} disponível(is)`,
+    `<:01_angels:1503241533652996127> **Banners** — ${allBanners.length} banner(s)`,
+    `<:skunk:1465192486493360198> **Pets** — ${pets.length} pet(s)`,
+  ].join('\n')));
+
+  const sel = new StringSelectMenuBuilder()
+    .setCustomId('shop_type_sel')
+    .setPlaceholder('Escolha a categoria')
+    .addOptions(
+      new StringSelectMenuOptionBuilder().setLabel('Cargos').setValue('roles').setDescription(`${roles.length} cargos disponíveis`).setEmoji({ name: 'skunk', id: '1528839030978908232' }),
+      new StringSelectMenuOptionBuilder().setLabel('Banners').setValue('banners').setDescription(`${allBanners.length} banners disponíveis`).setEmoji({ name: '01_angels', id: '1503241533652996127' }),
+      new StringSelectMenuOptionBuilder().setLabel('Pets').setValue('pets').setDescription(`${pets.length} pets disponíveis`).setEmoji({ name: 'skunk', id: '1465192486493360198' }),
+    );
+
+  return {
+    components: [c, new ActionRowBuilder().addComponents(sel)],
+    flags: MessageFlags.IsComponentsV2,
+  };
 }
 
 async function handleCarouselBack(interaction) {
@@ -1176,79 +1274,43 @@ async function handleCarouselBack(interaction) {
     prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
     getAllBannersForGuild(interaction.guildId),
   ]);
-
-  const embed = new EmbedBuilder()
-    .setColor(SHOP_COLOR)
-    .setTitle('<:carrinho:1384004945820516432> O que deseja comprar?')
-    .setDescription('Selecione uma categoria abaixo.')
-    .addFields(
-      { name: '<:skunk:1528839030978908232> Cargos',       value: `${roles.length} disponível(is)`, inline: true },
-      { name: '<:01_angels:1503241533652996127> Banners',  value: `${allBanners.length} banners`,   inline: true },
-      { name: '<:skunk:1465192486493360198> Pets',         value: `${pets.length} pet(s)`,          inline: true },
-    );
-
-  const sel = new StringSelectMenuBuilder()
-    .setCustomId('shop_type_sel')
-    .setPlaceholder('Escolha a categoria')
-    .addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('Cargos').setValue('roles').setDescription(`${roles.length} cargos disponíveis`).setEmoji({ name: 'skunk', id: '1528839030978908232' }),
-      new StringSelectMenuOptionBuilder().setLabel('Banners').setValue('banners').setDescription(`${allBanners.length} banners disponíveis`).setEmoji({ name: '01_angels', id: '1503241533652996127' }),
-      new StringSelectMenuOptionBuilder().setLabel('Pets').setValue('pets').setDescription(`${pets.length} pets disponíveis`).setEmoji({ name: 'skunk', id: '1465192486493360198' }),
-    );
-
-  return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(sel)] });
+  return interaction.update(_buildComprarPayload(roles, allBanners, pets));
 }
 
 // ─── 🛒 Comprar ────────────────────────────────────────────────────────────────
 
 async function handleComprar(interaction) {
-  const [roles, pets] = await Promise.all([
-    prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } }),
-    prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
+  const [[roles, pets], allBanners] = await Promise.all([
+    Promise.all([
+      prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } }),
+      prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
+    ]),
+    getAllBannersForGuild(interaction.guildId),
   ]);
-
-  const allBanners = await getAllBannersForGuild(interaction.guildId);
-
-  const embed = new EmbedBuilder()
-    .setColor(SHOP_COLOR)
-    .setTitle('<:carrinho:1384004945820516432> O que deseja comprar?')
-    .setDescription('Selecione uma categoria abaixo.')
-    .addFields(
-      { name: '<:skunk:1528839030978908232> Cargos',       value: `${roles.length} disponível(is)`, inline: true },
-      { name: '<:01_angels:1503241533652996127> Banners',  value: `${allBanners.length} banners`,   inline: true },
-      { name: '<:skunk:1465192486493360198> Pets',         value: `${pets.length} pet(s)`,          inline: true },
-    );
-
-  const sel = new StringSelectMenuBuilder()
-    .setCustomId('shop_type_sel')
-    .setPlaceholder('Escolha a categoria')
-    .addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('Cargos').setValue('roles').setDescription(`${roles.length} cargos disponíveis`).setEmoji({ name: 'skunk', id: '1528839030978908232' }),
-      new StringSelectMenuOptionBuilder().setLabel('Banners').setValue('banners').setDescription(`${allBanners.length} banners disponíveis`).setEmoji({ name: '01_angels', id: '1503241533652996127' }),
-      new StringSelectMenuOptionBuilder().setLabel('Pets').setValue('pets').setDescription(`${pets.length} pets disponíveis`).setEmoji({ name: 'skunk', id: '1465192486493360198' }),
-    );
-
-  return interaction.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(sel)], ephemeral: true });
+  return interaction.reply({ ..._buildComprarPayload(roles, allBanners, pets), ephemeral: true });
 }
 
 async function handleTypeSel(interaction) {
   const type = interaction.values[0];
-  const eco  = await getEco(interaction.user.id, interaction.guildId);
+  const [eco, cfg] = await Promise.all([
+    getEco(interaction.user.id, interaction.guildId),
+    getCfg(interaction.guildId),
+  ]);
+
+  const errPayload = (msg) => ({
+    components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(msg))],
+    flags: MessageFlags.IsComponentsV2,
+  });
 
   if (type === 'roles') {
     const [roles, allOwned] = await Promise.all([
       prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } }),
       prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'role' } }),
     ]);
-    if (!roles.length) {
-      return interaction.update({
-        embeds: [new EmbedBuilder().setColor(0xED4245).setTitle('❌ Sem cargos').setDescription('Nenhum cargo foi cadastrado ainda. Um admin pode usar `/loja config`.')],
-        components: [],
-      });
-    }
+    if (!roles.length) return interaction.update(errPayload('❌ Nenhum cargo cadastrado ainda.'));
     const ownedSet = new Set(allOwned.map(o => o.itemRef));
     const r = roles[0];
-    return interaction.update(buildRoleCarousel(r, 0, roles.length, eco, ownedSet.has(r.roleId)));
+    return interaction.update(buildRoleCarousel(r, 0, roles.length, eco, ownedSet.has(r.roleId), cfg));
   }
 
   if (type === 'banners') {
@@ -1256,15 +1318,10 @@ async function handleTypeSel(interaction) {
       getAllBannersForGuild(interaction.guildId),
       prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } }),
     ]);
-    if (!allBanners.length) {
-      return interaction.update({
-        embeds: [new EmbedBuilder().setColor(0xED4245).setTitle('❌ Sem Banners').setDescription('Nenhum banner disponível.')],
-        components: [],
-      });
-    }
+    if (!allBanners.length) return interaction.update(errPayload('❌ Nenhum banner disponível.'));
     const ownedSet = new Set(allOwned.map(o => o.itemRef));
     const b = allBanners[0];
-    return interaction.update(buildBannerCarousel(b, 0, allBanners.length, eco, ownedSet.has(b.key)));
+    return interaction.update(await buildBannerCarousel(b, 0, allBanners.length, eco, ownedSet.has(b.key), cfg));
   }
 
   if (type === 'pets') {
@@ -1272,15 +1329,10 @@ async function handleTypeSel(interaction) {
       prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
       prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'pet' } }),
     ]);
-    if (!pets.length) {
-      return interaction.update({
-        embeds: [new EmbedBuilder().setColor(0xED4245).setTitle('❌ Sem Pets').setDescription('Nenhum pet cadastrado ainda. Um admin pode usar `/criar-pet`.')],
-        components: [],
-      });
-    }
+    if (!pets.length) return interaction.update(errPayload('❌ Nenhum pet cadastrado ainda.'));
     const ownedSet = new Set(allOwned.map(o => o.itemRef));
     const p = pets[0];
-    return interaction.update(buildPetCarousel(p, 0, pets.length, eco, ownedSet.has(p.id)));
+    return interaction.update(await buildPetCarousel(p, 0, pets.length, eco, ownedSet.has(p.id), cfg));
   }
 }
 
