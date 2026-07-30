@@ -263,7 +263,7 @@ async function handleLojaAdminCriarBanner(interaction) {
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId('imagem')
-        .setLabel('URL direta da imagem (Imgur, imgbb, Discord CDN)')
+        .setLabel('URL da imagem (Imgur, imgbb, CDN)')
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
         .setPlaceholder('https://i.imgur.com/exemplo.png'),
