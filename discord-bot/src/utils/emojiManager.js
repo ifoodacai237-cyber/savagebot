@@ -17,6 +17,8 @@ const REQUIRED_EMOJIS = [
   { name: 'Diamante',            sourceId: '1482392803299430451', animated: true  },
   { name: '05_angels',           sourceId: '1510663251598512279', animated: true  },
   { name: 'dinheiro_kingbuxx',   sourceId: '1452430513519198281', animated: false },
+  // ── Loja ────────────────────────────────────────────────────────────────────
+  { name: 'carrinho',            sourceId: '1384004945820516432', animated: false },
 ];
 
 const cache = new Map();

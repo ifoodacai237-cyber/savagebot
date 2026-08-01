@@ -385,14 +385,13 @@ export function buildLojaConfigPayload(cfg) {
     'Clique em um campo para editar. As alterações aparecem no próximo `/loja painel`.',
     '',
     `🏷️ **Título:** ${cfg.lojaTitle ? `\`${cfg.lojaTitle}\`` : '*padrão*'}   🎨 **Cor:** ${cfg.lojaColor ? `\`#${cfg.lojaColor}\`` : '`#9B4FD6`'}`,
-    `🖼️ **Banner:** ${cfg.lojaBanner ? `[Ver](<${cfg.lojaBanner}>)` : '*nenhum*'}   📷 **Thumbnail:** ${cfg.lojaThumb ? `[Ver](<${cfg.lojaThumb}>)` : '*ícone do servidor*'}`,
-    `➖ **Divisória:** ${divOn ? '✅ Ativada' : '❌ Desativada'}`,
+    `🖼️ **Banner:** ${cfg.lojaBanner ? `[Ver](<${cfg.lojaBanner}>)` : '*nenhum*'}   📍 **Posição:** \`${cfg.lojaBannerPos ?? 'top'}\``,
+    `📷 **Thumbnail:** ${cfg.lojaThumb ? `[Ver](<${cfg.lojaThumb}>)` : '*ícone do servidor*'}   ➖ **Divisória:** ${divOn ? '✅ ON' : '❌ OFF'}`,
     `🔄 **Conversão:** ${cfg.lojaConversao ? cfg.lojaConversao.slice(0, 100) + (cfg.lojaConversao.length > 100 ? '…' : '') : '*padrão*'}`,
     `📝 **Texto:** ${cfg.lojaText ? cfg.lojaText.slice(0, 100) + (cfg.lojaText.length > 100 ? '…' : '') : '*padrão*'}`,
     '',
     '**😀 Emojis dos Botões:**',
-    `🛒 Comprar: ${fmtEmoji(cfg.shopEmojiComprar)}   🖼️ Vitrine: ${fmtEmoji(cfg.shopEmojiVitrine)}   🔄 Converter: ${fmtEmoji(cfg.shopEmojiConverter)}`,
-    `💰 Saldo: ${fmtEmoji(cfg.shopEmojiSaldo)}   🎁 Presentear: ${fmtEmoji(cfg.shopEmojiGift)}`,
+    `🛒 Comprar: ${fmtEmoji(cfg.shopEmojiComprar)}   🔄 Converter: ${fmtEmoji(cfg.shopEmojiConverter)}   🎁 Presentear: ${fmtEmoji(cfg.shopEmojiGift)}`,
     '',
     '**🎨 Cores dos Botões do Carrossel:**',
     `🛒 Comprar: \`${styles.comprar}\`   ◀▶ Navegar: \`${styles.nav}\`   ↩ Voltar: \`${styles.back}\``,
@@ -402,23 +401,29 @@ export function buildLojaConfigPayload(cfg) {
   const container = new ContainerBuilder();
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(info));
 
+  const bannerPos = cfg.lojaBannerPos ?? 'top';
+
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('loja_cfg_titulo').setLabel('Título').setEmoji('🏷️').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('loja_cfg_texto').setLabel('Texto').setEmoji('📝').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('loja_cfg_banner').setLabel('Banner').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('loja_cfg_bannerpos').setLabel(`Banner: ${bannerPos === 'top' ? '⬆️ Topo' : '⬇️ Base'}`).setStyle(bannerPos === 'top' ? ButtonStyle.Secondary : ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('loja_cfg_thumb').setLabel('Thumbnail').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('loja_cfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
   );
 
   const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('loja_cfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('loja_cfg_conversao').setLabel('Conversão').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('loja_cfg_divider').setLabel(divOn ? 'Divisória: ON' : 'Divisória: OFF').setEmoji('➖').setStyle(divOn ? ButtonStyle.Primary : ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('loja_cfg_emojis').setLabel('Emojis dos Botões').setEmoji('😀').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('loja_cfg_cores').setLabel('Cores dos Botões').setEmoji('🎨').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('loja_cfg_emojis').setLabel('Emojis').setEmoji('😀').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('loja_cfg_cores').setLabel('Cores Carrossel').setEmoji('🎨').setStyle(ButtonStyle.Primary),
+  );
+
+  const row3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('loja_cfg_reset').setLabel('Resetar Tudo').setEmoji('♻️').setStyle(ButtonStyle.Danger),
   );
 
-  return { components: [container, row1, row2], flags: MessageFlags.IsComponentsV2 };
+  return { components: [container, row1, row2, row3], flags: MessageFlags.IsComponentsV2 };
 }
 
 async function handleLojaConfig(interaction) {
@@ -443,6 +448,7 @@ async function handleLojaCfgBtn(interaction) {
       update: {
         lojaTitle: null, lojaText: null, lojaBanner: null, lojaThumb: null,
         lojaColor: null, lojaConversao: null, lojaUseDivider: false,
+        lojaBannerPos: 'top',
         shopEmojiComprar: null, shopEmojiVitrine: null, shopEmojiConverter: null,
         shopEmojiSaldo: null, shopEmojiGift: null, shopBtnStyles: null,
       },
@@ -457,17 +463,17 @@ async function handleLojaCfgBtn(interaction) {
     const modal = new ModalBuilder().setCustomId('loja_cfg_modal_cores').setTitle('🎨 Cores dos Botões do Carrossel');
     modal.addComponents(
       new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId('comprar').setLabel('Botão Comprar (primary/secondary/success/danger)')
+        new TextInputBuilder().setCustomId('comprar').setLabel('Comprar (primary/secondary/success/danger)')
           .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(20)
           .setPlaceholder('success').setValue(cur.comprar),
       ),
       new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId('nav').setLabel('Botões Navegar ◀ ▶ (primary/secondary/success/danger)')
+        new TextInputBuilder().setCustomId('nav').setLabel('Nav ◀ ▶ (primary/secondary/success/danger)')
           .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(20)
           .setPlaceholder('secondary').setValue(cur.nav),
       ),
       new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId('back').setLabel('Botão Voltar (primary/secondary/success/danger)')
+        new TextInputBuilder().setCustomId('back').setLabel('Voltar (primary/secondary/success/danger)')
           .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(20)
           .setPlaceholder('secondary').setValue(cur.back),
       ),
@@ -506,6 +512,17 @@ async function handleLojaCfgBtn(interaction) {
       ),
     );
     return interaction.showModal(modal);
+  }
+
+  if (field === 'bannerpos') {
+    const cfg = await getCfg(interaction.guildId);
+    const pos = (cfg.lojaBannerPos ?? 'top') === 'top' ? 'bottom' : 'top';
+    await prisma.guildConfig.update({
+      where: { guildId: interaction.guildId },
+      data:  { lojaBannerPos: pos },
+    });
+    const updated = await getCfg(interaction.guildId);
+    return interaction.update(buildLojaConfigPayload(updated));
   }
 
   if (field === 'divider') {
@@ -1143,7 +1160,7 @@ async function handleCarouselPetNav(interaction) {
 function _buildComprarPayload(roles, allBanners, pets) {
   const c = new ContainerBuilder();
   c.addTextDisplayComponents(new TextDisplayBuilder().setContent([
-    '<:carrinho:1384004945820516432> **O que deseja comprar?**',
+    `${getEmoji('carrinho')} **O que deseja comprar?**`,
     'Selecione uma categoria abaixo.',
     '',
     `<:skunk:1528839030978908232> **Cargos** — ${roles.length} disponível(is)`,

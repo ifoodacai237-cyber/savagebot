@@ -49,8 +49,10 @@ export function buildShopMain(guild, cfg = {}) {
     if (!isNaN(parsed)) container.setAccentColor(parsed);
   }
 
-  // Banner no topo
-  if (cfg.lojaBanner) {
+  const bannerPos = cfg.lojaBannerPos ?? 'top';
+
+  // Banner no topo (padrão)
+  if (cfg.lojaBanner && bannerPos === 'top') {
     container.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(cfg.lojaBanner)),
     );
@@ -66,22 +68,25 @@ export function buildShopMain(guild, cfg = {}) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(fullText));
   }
 
+  // Banner na base (opcional)
+  if (cfg.lojaBanner && bannerPos === 'bottom') {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(cfg.lojaBanner)),
+    );
+  }
+
   if (useDivider) {
     container.addSeparatorComponents(new SeparatorBuilder());
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent('-# Clique em um botão abaixo para começar.'));
   }
 
   const eComprar   = parseEmoji(cfg.shopEmojiComprar)   ?? '🛒';
-  const eVitrine   = parseEmoji(cfg.shopEmojiVitrine)   ?? '🖼️';
   const eConverter = parseEmoji(cfg.shopEmojiConverter) ?? '🔄';
-  const eSaldo     = parseEmoji(cfg.shopEmojiSaldo)     ?? '💰';
   const eGift      = parseEmoji(cfg.shopEmojiGift)      ?? '🎁';
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('shop_comprar').setLabel('Comprar').setEmoji(eComprar).setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('shop_vitrine').setLabel('Vitrine').setEmoji(eVitrine).setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('shop_converter').setLabel('Converter').setEmoji(eConverter).setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('shop_saldo').setLabel('Meu Saldo').setEmoji(eSaldo).setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('shop_gift').setLabel('Presentear').setEmoji(eGift).setStyle(ButtonStyle.Secondary),
   );
 

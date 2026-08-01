@@ -96,6 +96,7 @@ model GuildConfig {
   lojaTitle      String?
   lojaText       String?
   lojaBanner     String?
+  lojaBannerPos  String?  @default("top")
   lojaThumb      String?
   lojaColor      String?
   lojaConversao  String?
