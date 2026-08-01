@@ -246,23 +246,121 @@ async function handleLojaAdminCriarBanner(interaction) {
   const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
   if (!isAdmin) return interaction.reply({ content: '❌ Sem permissão.', ephemeral: true });
 
-  const c = new ContainerBuilder();
-  c.addTextDisplayComponents(new TextDisplayBuilder().setContent(
-    `## 🖼️ Criar Banner\n\n` +
-    `Para criar um banner com **upload direto de imagem**, use o comando:\n\n` +
-    `\`\`\`\n/loja banner\n\`\`\`\n\n` +
-    `**Campos disponíveis:**\n` +
-    `> 📝 **nome** — nome do banner *(obrigatório)*\n` +
-    `> 💰 **preco** — valor em coins *(obrigatório)*\n` +
-    `> 🖼️ **imagem** — arquivo direto (jpg/png/gif/webp) *(obrigatório)*\n` +
-    `> 📄 **descricao** — texto opcional`,
-  ));
+  const modal = new ModalBuilder()
+    .setCustomId('loja_admin_modal_criar_banner')
+    .setTitle('🖼️ Criar Banner para a Loja');
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('loja_admin_voltar').setLabel('← Voltar').setStyle(ButtonStyle.Secondary),
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('nome')
+        .setLabel('Nome do banner')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(50)
+        .setPlaceholder('Ex: Gang Angel'),
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('imagem')
+        .setLabel('URL da imagem (Imgur, imgbb, CDN)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('https://i.imgur.com/exemplo.png'),
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('preco')
+        .setLabel('Preço (em coins)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('1000'),
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('descricao')
+        .setLabel('Descrição (opcional)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setMaxLength(100)
+        .setPlaceholder('Banner exclusivo do servidor...'),
+    ),
   );
 
-  return interaction.reply({ components: [c, row], flags: MessageFlags.IsComponentsV2, ephemeral: true });
+  return interaction.showModal(modal);
+}
+
+async function handleLojaAdminCriarBannerModal(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const nome   = interaction.fields.getTextInputValue('nome').trim();
+  const imagem = interaction.fields.getTextInputValue('imagem').trim();
+  const rawPrc = interaction.fields.getTextInputValue('preco').trim().replace(/\D/g, '');
+  const desc   = interaction.fields.getTextInputValue('descricao')?.trim() || '';
+  const preco  = parseInt(rawPrc);
+
+  if (!imagem.startsWith('http')) {
+    const c = new ContainerBuilder();
+    c.addTextDisplayComponents(new TextDisplayBuilder().setContent('❌ URL da imagem inválida. Use um link direto (http/https).'));
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('loja_admin_voltar').setLabel('← Voltar').setStyle(ButtonStyle.Secondary),
+    );
+    return interaction.editReply({ components: [c, row], flags: MessageFlags.IsComponentsV2 });
+  }
+
+  if (isNaN(preco) || preco < 1) {
+    const c = new ContainerBuilder();
+    c.addTextDisplayComponents(new TextDisplayBuilder().setContent('❌ Preço inválido. Digite apenas números.'));
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('loja_admin_voltar').setLabel('← Voltar').setStyle(ButtonStyle.Secondary),
+    );
+    return interaction.editReply({ components: [c, row], flags: MessageFlags.IsComponentsV2 });
+  }
+
+  const slug = nome.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, '').trim().replace(/\s+/g, '_').slice(0, 30);
+  const chaveBase = `c_${slug}`;
+
+  const existing = await prisma.customBanner.findUnique({
+    where: { guildId_key: { guildId: interaction.guildId, key: chaveBase } },
+  });
+  const finalKey = existing ? `${chaveBase}_${Date.now().toString(36)}` : chaveBase;
+
+  await prisma.customBanner.create({
+    data: {
+      guildId:     interaction.guildId,
+      key:         finalKey,
+      name:        nome,
+      description: desc,
+      price:       preco,
+      imageUrl:    imagem,
+      gradient1:   '#1a0533',
+      gradient2:   '#4a1a8a',
+      emoji:       '🖼️',
+      active:      true,
+    },
+  });
+
+  const c = new ContainerBuilder();
+  c.addTextDisplayComponents(new TextDisplayBuilder().setContent(
+    `## ✅ Banner Criado!\n\n` +
+    `**${nome}** foi adicionado à loja!\n\n` +
+    `💰 **Preço:** ${preco.toLocaleString('pt-BR')} coins\n` +
+    `🔑 **Chave:** \`${finalKey}\``,
+  ));
+  const { MediaGalleryBuilder, MediaGalleryItemBuilder } = await import('discord.js');
+  c.addMediaGalleryComponents(
+    new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(imagem)),
+  );
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('loja_admin_criar_banner').setLabel('Criar Outro Banner').setEmoji('🖼️').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('loja_admin_gerenciar_banners').setLabel('Ver Banners').setEmoji('📋').setStyle(ButtonStyle.Secondary),
+  );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('loja_admin_voltar').setLabel('← Voltar ao Painel').setStyle(ButtonStyle.Secondary),
+  );
+  return interaction.editReply({ components: [c, row1, row2], flags: MessageFlags.IsComponentsV2 });
 }
 
 async function handleLojaAdminGerenciarBanners(interaction) {
@@ -702,6 +800,7 @@ export async function handleShopInteraction(interaction, client) {
     if (id.startsWith('loja_cfg_modal_'))        return handleLojaConfigModal(interaction);
     if (id === 'shop_gift_modal')                return handleGiftModal(interaction, client);
     if (id === 'loja_admin_modal_add_cargo')     return handleLojaAdminAddCargoModal(interaction);
+    if (id === 'loja_admin_modal_criar_banner')  return handleLojaAdminCriarBannerModal(interaction);
     if (id === 'profile_ring_custom_modal' || id === 'wallet_ring_custom_modal') return handleRingCustomModal(interaction, ringMode(id));
     if (id === 'profile_ring_border_modal' || id === 'wallet_ring_border_modal') return handleRingBorderModal(interaction, ringMode(id));
     if (id === 'profile_bg_solid_modal')         return handleProfileBgSolidModal(interaction);

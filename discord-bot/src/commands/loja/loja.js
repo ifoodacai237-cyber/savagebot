@@ -106,18 +106,7 @@ export default {
     .addSubcommand(s =>
       s.setName('painel').setDescription('📢 Envia o painel da loja no canal atual'))
     .addSubcommand(s =>
-      s.setName('config').setDescription('⚙️ Abre o painel de administração da loja (apenas admins)'))
-    .addSubcommand(s =>
-      s.setName('banner')
-        .setDescription('🖼️ Cria um banner para a loja enviando o arquivo diretamente (apenas admins)')
-        .addStringOption(o =>
-          o.setName('nome').setDescription('Nome do banner').setRequired(true).setMaxLength(50))
-        .addIntegerOption(o =>
-          o.setName('preco').setDescription('Preço em coins').setRequired(true).setMinValue(1))
-        .addAttachmentOption(o =>
-          o.setName('imagem').setDescription('Imagem do banner (jpg/png/gif/webp)').setRequired(true))
-        .addStringOption(o =>
-          o.setName('descricao').setDescription('Descrição opcional').setRequired(false).setMaxLength(100))),
+      s.setName('config').setDescription('⚙️ Abre o painel de administração da loja (apenas admins)')),
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
@@ -137,80 +126,6 @@ export default {
       return interaction.reply({ ...buildLojaAdminPayload(cfg), ephemeral: true });
     }
 
-    if (sub === 'banner') {
-      const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
-      if (!isAdmin) {
-        return interaction.reply({ content: '❌ Apenas administradores podem criar banners.', ephemeral: true });
-      }
-
-      await interaction.deferReply();
-
-      const nome      = interaction.options.getString('nome').trim();
-      const preco     = interaction.options.getInteger('preco');
-      const desc      = interaction.options.getString('descricao')?.trim() || '';
-      const anexo     = interaction.options.getAttachment('imagem');
-
-      // Valida tipo de arquivo
-      const tiposOk = ['image/png','image/jpeg','image/jpg','image/gif','image/webp'];
-      const contentType = anexo.contentType?.split(';')[0].trim();
-      if (!tiposOk.includes(contentType)) {
-        return interaction.editReply({ content: '❌ Arquivo inválido. Envie uma imagem (png, jpg, gif, webp).' });
-      }
-
-      // Baixa o arquivo e re-envia para obter URL permanente no CDN do Discord
-      const res = await fetch(anexo.url);
-      if (!res.ok) return interaction.editReply({ content: '❌ Não foi possível baixar a imagem. Tente novamente.' });
-      const buffer = Buffer.from(await res.arrayBuffer());
-      const ext    = (contentType.split('/')[1] || 'png').replace('jpeg','jpg');
-
-      // Gera chave única
-      const slug = nome.toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^\w\s]/g, '').trim().replace(/\s+/g, '_').slice(0, 30);
-      const chaveBase = `c_${slug}`;
-      const existing  = await prisma.customBanner.findUnique({
-        where: { guildId_key: { guildId: interaction.guildId, key: chaveBase } },
-      });
-      const finalKey = existing ? `${chaveBase}_${Date.now().toString(36)}` : chaveBase;
-
-      // Envia mensagem com a imagem para obter URL permanente
-      const msg = await interaction.editReply({
-        content: `## 🖼️ Banner **${nome}** sendo processado...`,
-        files: [{ attachment: buffer, name: `banner_${finalKey}.${ext}` }],
-      });
-
-      // Pega a URL permanente do CDN
-      const imagemUrl = msg.attachments.first()?.url;
-      if (!imagemUrl) return interaction.editReply({ content: '❌ Erro ao obter URL da imagem. Tente novamente.' });
-
-      // Salva no banco
-      await prisma.customBanner.create({
-        data: {
-          guildId:     interaction.guildId,
-          key:         finalKey,
-          name:        nome,
-          description: desc,
-          price:       preco,
-          imageUrl:    imagemUrl,
-          gradient1:   '#1a0533',
-          gradient2:   '#4a1a8a',
-          emoji:       '🖼️',
-          active:      true,
-        },
-      });
-
-      // Edita a mensagem com o resultado final
-      const { ContainerBuilder, TextDisplayBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags: MF } = await import('discord.js');
-      const c = new ContainerBuilder();
-      c.addTextDisplayComponents(new TextDisplayBuilder().setContent(
-        `## ✅ Banner Criado!\n\n**${nome}** foi adicionado à loja!\n\n💰 **Preço:** ${preco.toLocaleString('pt-BR')} coins\n🔑 **Chave:** \`${finalKey}\``,
-      ));
-      c.addMediaGalleryComponents(
-        new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(imagemUrl)),
-      );
-
-      return interaction.editReply({ content: '', components: [c], flags: MF.IsComponentsV2, files: [] });
-    }
   },
 
   async executePrefix(message, args) {
