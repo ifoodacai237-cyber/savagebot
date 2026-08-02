@@ -1262,18 +1262,18 @@ function _buildComprarPayload(roles, allBanners, pets) {
     `${getEmoji('carrinho')} **O que deseja comprar?**`,
     'Selecione uma categoria abaixo.',
     '',
-    `<:skunk:1528839030978908232> **Cargos** — ${roles.length} disponível(is)`,
+    `<:01_angels:1507552059682197504> **Cargos** — ${roles.length} disponível(is)`,
     `<:01_angels:1503241533652996127> **Banners** — ${allBanners.length} banner(s)`,
-    `<:skunk:1465192486493360198> **Pets** — ${pets.length} pet(s)`,
+    `<a:01_angels:1508985653642395728> **Pets** — ${pets.length} pet(s)`,
   ].join('\n')));
 
   const sel = new StringSelectMenuBuilder()
     .setCustomId('shop_type_sel')
     .setPlaceholder('Escolha a categoria')
     .addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('Cargos').setValue('roles').setDescription(`${roles.length} cargos disponíveis`).setEmoji({ name: 'skunk', id: '1528839030978908232' }),
+      new StringSelectMenuOptionBuilder().setLabel('Cargos').setValue('roles').setDescription(`${roles.length} cargos disponíveis`).setEmoji({ name: '01_angels', id: '1507552059682197504' }),
       new StringSelectMenuOptionBuilder().setLabel('Banners').setValue('banners').setDescription(`${allBanners.length} banners disponíveis`).setEmoji({ name: '01_angels', id: '1503241533652996127' }),
-      new StringSelectMenuOptionBuilder().setLabel('Pets').setValue('pets').setDescription(`${pets.length} pets disponíveis`).setEmoji({ name: 'skunk', id: '1465192486493360198' }),
+      new StringSelectMenuOptionBuilder().setLabel('Pets').setValue('pets').setDescription(`${pets.length} pets disponíveis`).setEmoji({ name: '01_angels', id: '1508985653642395728', animated: true }),
     );
 
   return {
