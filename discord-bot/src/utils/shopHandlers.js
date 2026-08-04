@@ -728,6 +728,24 @@ async function handleLojaConfigModal(interaction) {
 export async function handleShopInteraction(interaction, client) {
   const id = interaction.customId;
 
+  if (interaction.isStringSelectMenu() && id === 'profile_menu') {
+    const selectedId = interaction.values[0];
+    if (!selectedId) return;
+
+    if (selectedId === 'profile_banner_btn') return handleProfileBannerBtn(interaction);
+    if (selectedId === 'profile_ring_btn') return handleRingBtn(interaction, ringMode(selectedId));
+    if (selectedId === 'profile_bg_btn') return handleProfileBgBtn(interaction);
+    if (selectedId === 'profile_panel_btn') return handleProfilePanelBtn(interaction);
+    if (selectedId === 'profile_pet_btn') return handleProfilePetBtn(interaction);
+
+    if (selectedId === 'profile_conquistas_btn') {
+      return interaction.reply({
+        content: '🏅 Use o menu de conquistas no seu perfil para acompanhar seu progresso.',
+        ephemeral: true,
+      });
+    }
+  }
+
   if (interaction.isButton()) {
     if (id === 'shop_comprar')                   return handleComprar(interaction);
     if (id === 'shop_vitrine')                   return handleVitrine(interaction);
