@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } from 'discord.js';
+import { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, AttachmentBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
 import { generateProfileCard }         from '../../utils/profileCard.js';
 import { generateAnimatedProfileCard, isGifUrl } from '../../utils/animatedProfileCard.js';
@@ -78,43 +78,21 @@ export default {
 
     const attachment = new AttachmentBuilder(buf, { name: filename });
 
-    const row1 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('profile_banner_btn')
-        .setLabel('Banner')
-        .setEmoji('🖼️')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('profile_ring_btn')
-        .setLabel('Argola')
-        .setEmoji('💠')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('profile_bg_btn')
-        .setLabel('Fundo')
-        .setEmoji('🎨')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('profile_panel_btn')
-        .setLabel('Painel')
-        .setEmoji('🟦')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('profile_pet_btn')
-        .setLabel('Pet')
-        .setEmoji('🐾')
-        .setStyle(ButtonStyle.Secondary),
+    const menu = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('profile_menu')
+        .setPlaceholder('✨ Personalizar perfil...')
+        .addOptions([
+          { label: 'Banner',      value: 'profile_banner_btn',     emoji: '🖼️' },
+          { label: 'Argola',      value: 'profile_ring_btn',       emoji: '💠' },
+          { label: 'Fundo',       value: 'profile_bg_btn',         emoji: '🎨' },
+          { label: 'Painel',      value: 'profile_panel_btn',      emoji: '🟦' },
+          { label: 'Pet',         value: 'profile_pet_btn',        emoji: '🐾' },
+          { label: 'Conquistas',  value: 'profile_conquistas_btn', emoji: '🏅' },
+        ]),
     );
 
-    const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('profile_conquistas_btn')
-        .setLabel('Conquistas')
-        .setEmoji('🏅')
-        .setStyle(ButtonStyle.Primary),
-    );
-
-    return interaction.editReply({ files: [attachment], components: [row1, row2] });
+    return interaction.editReply({ files: [attachment], components: [menu] });
   },
 
   async executePrefix(message) {
