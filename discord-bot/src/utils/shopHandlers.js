@@ -746,6 +746,18 @@ export async function handleShopInteraction(interaction, client) {
     }
   }
 
+  if (interaction.isStringSelectMenu() && id === 'wallet_menu') {
+    const selectedId = interaction.values[0];
+    if (!selectedId) return;
+
+    if (selectedId === 'wallet_fundo_preset_btn') return handleWalletFundoPresetBtn(interaction);
+    if (selectedId === 'wallet_fundo_btn') return handleWalletFundoBtn(interaction);
+    if (selectedId === 'wallet_ring_btn') return handleRingBtn(interaction, ringMode(selectedId));
+    if (selectedId === 'profile_bg_btn') return handleProfileBgBtn(interaction);
+    if (selectedId === 'profile_panel_btn') return handleProfilePanelBtn(interaction);
+    if (selectedId === 'wallet_fundo_reset') return handleWalletFundoReset(interaction);
+  }
+
   if (interaction.isButton()) {
     if (id === 'shop_comprar')                   return handleComprar(interaction);
     if (id === 'shop_vitrine')                   return handleVitrine(interaction);

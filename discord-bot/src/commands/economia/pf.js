@@ -1,8 +1,7 @@
 import {
   SlashCommandBuilder,
   ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
+  StringSelectMenuBuilder,
   AttachmentBuilder,
   PermissionFlagsBits,
 } from 'discord.js';
@@ -57,19 +56,22 @@ export async function buildWalletCard(userId, guildId, guild, target) {
   return new AttachmentBuilder(buf, { name: 'carteira.png' });
 }
 
-// ─── Buttons ──────────────────────────────────────────────────────────────────
+// ─── Menu de personalização ────────────────────────────────────────────────────
 
-function editButtons() {
+function editMenu() {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('wallet_fundo_preset_btn').setLabel('Fundos').setEmoji('🖼️').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('wallet_fundo_btn').setLabel('Fundo CDN').setEmoji('🔗').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('wallet_ring_btn').setLabel('Argola').setEmoji('💠').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('profile_bg_btn').setLabel('Cor Fundo').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('profile_panel_btn').setLabel('Painel').setEmoji('🟦').setStyle(ButtonStyle.Secondary),
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('wallet_fundo_reset').setLabel('Limpar Fundo').setEmoji('↩️').setStyle(ButtonStyle.Danger),
+      new StringSelectMenuBuilder()
+        .setCustomId('wallet_menu')
+        .setPlaceholder('✨ Personalizar carteira...')
+        .addOptions([
+          { label: 'Fundos', value: 'wallet_fundo_preset_btn', emoji: '🖼️' },
+          { label: 'Fundo por link', value: 'wallet_fundo_btn', emoji: '🔗' },
+          { label: 'Argola', value: 'wallet_ring_btn', emoji: '💠' },
+          { label: 'Cor do fundo', value: 'profile_bg_btn', emoji: '🎨' },
+          { label: 'Painel', value: 'profile_panel_btn', emoji: '🟦' },
+          { label: 'Limpar fundo', value: 'wallet_fundo_reset', emoji: '↩️' },
+        ]),
     ),
   ];
 }
@@ -91,7 +93,7 @@ export default {
       interaction.guild,
       interaction.user,
     );
-    return interaction.editReply({ files: [file], components: editButtons() });
+    return interaction.editReply({ files: [file], components: editMenu() });
   },
 
   async executePrefix(message, args) {

@@ -660,6 +660,11 @@ export default {
           return handleShopInteraction(interaction, client);
         }
 
+        // ── CARTEIRA: Menu de personalização ─────────────────────────────────
+        if (interaction.customId === 'wallet_menu') {
+          return handleShopInteraction(interaction, client);
+        }
+
         // ── PAINEL CENTRAL: Seleção de módulo ───────────────────────────────
         if (interaction.customId === 'painel_modulo_sel') {
           return handlePainelModuloSel(interaction);
