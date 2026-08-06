@@ -194,6 +194,7 @@ model Economy {
   level        Int       @default(1)
   lastDaily    DateTime?
   lastWork    DateTime?
+  lastRob     DateTime?
   dailyStreak Int       @default(0)
   lastPetPlay DateTime?
   lastPetFeed DateTime?

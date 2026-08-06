@@ -7,6 +7,7 @@ import {
   PermissionFlagsBits,
 } from 'discord.js';
 import prisma from '../../database/client.js';
+import { Prisma } from '@prisma/client';
 import { getEmoji } from '../../utils/emojiManager.js';
 import { generateBalanceCard, generateTopCard } from '../../utils/economyCards.js';
 
@@ -15,6 +16,7 @@ const COIN = () => getEmoji('futecoins');
 const CAL  = () => getEmoji('calendario');
 const STAR = () => getEmoji('4branco_estrela');
 const CLK  = () => getEmoji('relogio');
+const KNIFE = '<:05_angels:1507575385074831441>';
 
 // ─── V2 helpers ───────────────────────────────────────────────────────────────
 
@@ -36,6 +38,7 @@ const DAILY_AMOUNT  = () => Math.floor(Math.random() * 501) + 500;
 const WORK_AMOUNT   = () => Math.floor(Math.random() * 401) + 100;
 const DAILY_CD      = 24 * 60 * 60 * 1000;
 const WORK_CD       = 60 * 60 * 1000;
+const ROB_CD        = 60 * 60 * 1000;
 
 const WORK_MSGS = [
   'Você programou um bot de Discord',
@@ -64,13 +67,140 @@ function msToHuman(ms) {
   return `${s}s`;
 }
 
-async function getEco(userId, guildId) {
-  return prisma.economy.upsert({
+async function getEco(userId, guildId, db = prisma) {
+  return db.economy.upsert({
     where:  { userId_guildId: { userId, guildId } },
     create: { userId, guildId },
     update: {},
   });
 }
+
+class RobberyError extends Error {
+  constructor(code, data = {}) {
+    super(code);
+    this.code = code;
+    Object.assign(this, data);
+  }
+}
+
+const ROBBERY_MSGS = [
+  'Você distraiu a vítima com um “olha, um pombo!” e saiu correndo.',
+  'Você vestiu o moletom mais suspeito do servidor e entrou em ação.',
+  'A vítima estava olhando o saldo... você estava olhando a vítima.',
+  'Você fez um curso intensivo de “mão leve” e acabou de se formar.',
+  'Você chegou tão silenciosamente que até o saldo pediu desculpas.',
+];
+
+async function robUser(thiefId, victimId, guildId) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await prisma.$transaction(async tx => {
+        const now = Date.now();
+        const thief = await getEco(thiefId, guildId, tx);
+        const victim = await getEco(victimId, guildId, tx);
+        const elapsed = now - (thief.lastRob?.getTime() ?? 0);
+
+        if (elapsed < ROB_CD) {
+          throw new RobberyError('cooldown', { remaining: ROB_CD - elapsed });
+        }
+        if (victim.balance <= 0) {
+          throw new RobberyError('no-money');
+        }
+
+        const stolen = Math.floor(victim.balance * 0.5);
+        if (stolen <= 0) {
+          throw new RobberyError('too-little');
+        }
+
+        await tx.economy.update({
+          where: { userId_guildId: { userId: victimId, guildId } },
+          data: { balance: { decrement: stolen } },
+        });
+        const updatedThief = await tx.economy.update({
+          where: { userId_guildId: { userId: thiefId, guildId } },
+          data: { balance: { increment: stolen }, lastRob: new Date(now) },
+        });
+
+        return {
+          stolen,
+          victimRemaining: victim.balance - stolen,
+          thiefBalance: updatedThief.balance,
+        };
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      if (error?.code === 'P2034' && attempt < 2) continue;
+      throw error;
+    }
+  }
+}
+
+function robberyError(error) {
+  if (error instanceof RobberyError) {
+    if (error.code === 'cooldown')
+      return v2Err(`${KNIFE} Você já está sendo procurado pela polícia! Espere **${msToHuman(error.remaining)}** para tentar outro roubo.`);
+    if (error.code === 'no-money')
+      return v2Err(`${KNIFE} Essa pessoa está lisa: não há dinheiro em mãos para roubar.`);
+    if (error.code === 'too-little')
+      return v2Err(`${KNIFE} A carteira tinha tão pouco que até o roubo ficou sem troco.`);
+  }
+  console.error('[ROUBO]', error);
+  return v2Err('O plano deu errado e a polícia apareceu. Tente novamente em instantes.');
+}
+
+// ─── /roubar ───────────────────────────────────────────────────────────────────
+const cmdRoubar = {
+  data: new SlashCommandBuilder()
+    .setName('roubar')
+    .setDescription('Roube 50% das coins na carteira de alguém (1h cooldown)')
+    .addUserOption(o =>
+      o.setName('usuario')
+        .setDescription('A vítima do roubo')
+        .setRequired(true),
+    ),
+  name: 'roubar',
+  aliases: ['roubo', 'assaltar', 'assalto'],
+
+  async execute(interaction) {
+    const target = interaction.options.getUser('usuario');
+    if (target.id === interaction.user.id) return interaction.reply(v2Err(`${KNIFE} Você não pode roubar a própria carteira. Isso é só transferir dinheiro com passos extras.`));
+    if (target.bot) return interaction.reply(v2Err(`${KNIFE} Bots não carregam carteira. A tentativa foi vergonhosa.`));
+
+    try {
+      const result = await robUser(interaction.user.id, target.id, interaction.guildId);
+      const scene = ROBBERY_MSGS[Math.floor(Math.random() * ROBBERY_MSGS.length)];
+      return interaction.reply(v2Rich(
+        `## ${KNIFE} Roubo concluído!\n` +
+        `${scene}\n\n` +
+        `${interaction.user} surrupiou ${COIN()} **${result.stolen.toLocaleString('pt-BR')}** de ${target} — exatamente metade da carteira!\n` +
+        `💸 A vítima ficou com ${COIN()} **${result.victimRemaining.toLocaleString('pt-BR')}**.\n\n` +
+        `${CLK()} A faca descansa por **1 hora** antes do próximo golpe.`
+      ));
+    } catch (error) {
+      return interaction.reply(robberyError(error));
+    }
+  },
+
+  async executePrefix(message) {
+    const target = message.mentions.users.first();
+    if (!target) return message.reply(v2Err(`${KNIFE} Mencione alguém. Ex: \`savage roubar @usuario\``));
+    if (target.id === message.author.id) return message.reply(v2Err(`${KNIFE} Você não pode roubar a própria carteira. Isso é só transferir dinheiro com passos extras.`));
+    if (target.bot) return message.reply(v2Err(`${KNIFE} Bots não carregam carteira. A tentativa foi vergonhosa.`));
+
+    try {
+      const result = await robUser(message.author.id, target.id, message.guildId);
+      const scene = ROBBERY_MSGS[Math.floor(Math.random() * ROBBERY_MSGS.length)];
+      return message.reply(v2Rich(
+        `## ${KNIFE} Roubo concluído!\n` +
+        `${scene}\n\n` +
+        `${message.author} surrupiou ${COIN()} **${result.stolen.toLocaleString('pt-BR')}** de ${target} — exatamente metade da carteira!\n` +
+        `💸 A vítima ficou com ${COIN()} **${result.victimRemaining.toLocaleString('pt-BR')}**.\n\n` +
+        `${CLK()} A faca descansa por **1 hora** antes do próximo golpe.`
+      ));
+    } catch (error) {
+      return message.reply(robberyError(error));
+    }
+  },
+};
 
 // ─── /saldo ───────────────────────────────────────────────────────────────────
 const cmdSaldo = {
@@ -385,4 +515,4 @@ const cmdSacar = {
   },
 };
 
-export default [cmdSaldo, cmdDaily, cmdTrabalho, cmdPagar, cmdTop, cmdDepositar, cmdSacar];
+export default [cmdSaldo, cmdDaily, cmdTrabalho, cmdRoubar, cmdPagar, cmdTop, cmdDepositar, cmdSacar];
