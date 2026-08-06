@@ -143,6 +143,23 @@ async function getCfg(guildId) {
   return prisma.guildConfig.upsert({ where: { guildId }, create: { guildId }, update: {} });
 }
 
+// Mensagens enviadas com IS_COMPONENTS_V2 não podem ser atualizadas com
+// `content` ou `embeds`. Os seletores de configuração também precisam usar
+// Components V2 para que o Discord aceite a atualização da interação.
+// Nota: usar ContainerBuilder + ActionRowBuilder juntos no topo causava erro
+// ao exibir ChannelSelectMenu via interaction.update(). Usar TextDisplayBuilder
+// diretamente no topo é mais compatível com a API do Discord.
+function buildV2SelectionPayload(prompt, select, cancelBtn) {
+  return {
+    components: [
+      new TextDisplayBuilder().setContent(prompt),
+      new ActionRowBuilder().addComponents(select),
+      new ActionRowBuilder().addComponents(cancelBtn),
+    ],
+    flags: MessageFlags.IsComponentsV2,
+  };
+}
+
 // ─── Resolve links discord.com/channels → URL de imagem real ─────────────────
 
 async function resolveImageUrl(rawUrl, client) {
@@ -1375,11 +1392,11 @@ export default {
                   .setDescription(`Salvo em ${p.createdAt.toLocaleDateString('pt-BR')}`)
               ));
             const cancelBtn = new ButtonBuilder().setCustomId('tcfg_cancelar').setLabel('Cancelar').setEmoji('↩️').setStyle(ButtonStyle.Secondary);
-            return interaction.update({
-              content: '📂 Selecione o preset que deseja carregar:',
-              embeds: [],
-              components: [new ActionRowBuilder().addComponents(select), new ActionRowBuilder().addComponents(cancelBtn)],
-            });
+            return interaction.update(buildV2SelectionPayload(
+              '📂 Selecione o preset que deseja carregar:',
+              select,
+              cancelBtn,
+            ));
           }
 
           if (field === 'cancelar') {
@@ -1394,11 +1411,11 @@ export default {
               .setPlaceholder('Selecione a categoria dos tickets')
               .setChannelTypes([ChannelType.GuildCategory]);
             const cancelBtn = new ButtonBuilder().setCustomId('tcfg_cancelar').setLabel('Cancelar').setEmoji('↩️').setStyle(ButtonStyle.Secondary);
-            return interaction.update({
-              content: '📂 Selecione a categoria onde os tickets serão criados:',
-              embeds: [],
-              components: [new ActionRowBuilder().addComponents(select), new ActionRowBuilder().addComponents(cancelBtn)],
-            });
+            return interaction.update(buildV2SelectionPayload(
+              '📂 Selecione a categoria onde os tickets serão criados:',
+              select,
+              cancelBtn,
+            ));
           }
 
           // ── Ping de cargo ────────────────────────────────────────────
@@ -1610,11 +1627,11 @@ export default {
                   .setDescription(`Salvo em ${p.createdAt.toLocaleDateString('pt-BR')}`)
               ));
             const cancelBtn = new ButtonBuilder().setCustomId('tncfg_cancelar').setLabel('Cancelar').setEmoji('↩️').setStyle(ButtonStyle.Secondary);
-            return interaction.update({
-              content: '📂 Selecione o preset que deseja carregar:',
-              embeds: [],
-              components: [new ActionRowBuilder().addComponents(select), new ActionRowBuilder().addComponents(cancelBtn)],
-            });
+            return interaction.update(buildV2SelectionPayload(
+              '📂 Selecione o preset que deseja carregar:',
+              select,
+              cancelBtn,
+            ));
           }
 
           if (field === 'cancelar') {
@@ -1641,11 +1658,11 @@ export default {
               .setPlaceholder('Selecione o canal de destino')
               .setChannelTypes([ChannelType.GuildText]);
             const cancelBtn = new ButtonBuilder().setCustomId('tncfg_cancelar').setLabel('Cancelar').setEmoji('↩️').setStyle(ButtonStyle.Secondary);
-            return interaction.update({
-              content: '📣 Selecione o canal onde as mensagens do Tellonym serão enviadas:',
-              embeds: [],
-              components: [new ActionRowBuilder().addComponents(select), new ActionRowBuilder().addComponents(cancelBtn)],
-            });
+            return interaction.update(buildV2SelectionPayload(
+              '📣 Selecione o canal onde as mensagens do Tellonym serão enviadas:',
+              select,
+              cancelBtn,
+            ));
           }
 
           if (field === 'botao') {
@@ -1852,11 +1869,11 @@ export default {
               .setPlaceholder('Selecione o canal de boas-vindas')
               .setChannelTypes([ChannelType.GuildText]);
             const cancelBtn = new ButtonBuilder().setCustomId('wcfg_cancelar').setLabel('Cancelar').setEmoji('↩️').setStyle(ButtonStyle.Secondary);
-            return interaction.update({
-              content: '📣 Selecione o canal onde as boas-vindas serão enviadas:',
-              embeds: [],
-              components: [new ActionRowBuilder().addComponents(select), new ActionRowBuilder().addComponents(cancelBtn)],
-            });
+            return interaction.update(buildV2SelectionPayload(
+              '📣 Selecione o canal onde as boas-vindas serão enviadas:',
+              select,
+              cancelBtn,
+            ));
           }
 
           if (field === 'cargos') {
@@ -1930,11 +1947,11 @@ export default {
               .setPlaceholder('Selecione o canal de parcerias')
               .setChannelTypes([ChannelType.GuildText]);
             const cancelBtn = new ButtonBuilder().setCustomId('pcfg_cancelar').setLabel('Cancelar').setEmoji('↩️').setStyle(ButtonStyle.Secondary);
-            return interaction.update({
-              content: '💌 Selecione o canal onde as parcerias serão aceitas:',
-              embeds: [],
-              components: [new ActionRowBuilder().addComponents(select), new ActionRowBuilder().addComponents(cancelBtn)],
-            });
+            return interaction.update(buildV2SelectionPayload(
+              '💌 Selecione o canal onde as parcerias serão aceitas:',
+              select,
+              cancelBtn,
+            ));
           }
 
           if (field === 'cargo_resp') {
