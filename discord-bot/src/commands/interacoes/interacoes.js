@@ -90,7 +90,9 @@ export const ACTIONS = {
   push: {
     aliases:      ['pu', 'empurrar', 'empurra'],
     emoji:        '😤',
-    gif:          'kick',
+    // OtakuGIFs não possui a categoria "kick"; punch é o fallback visual
+    // mais próximo para a ação de empurrar.
+    gif:          'punch',
     color:        0x888888,
     desc:         '😤 Empurra alguém',
     msg:          (a, b) => `**${a}** empurra **${b}** 😤`,
@@ -102,17 +104,32 @@ export const ACTIONS = {
 };
 
 export async function fetchGif(category) {
+  const fallbackUrls = {
+    kiss:  'https://cdn.otakugifs.xyz/gifs/kiss/736a111d8ed929b2.gif',
+    hug:   'https://cdn.otakugifs.xyz/gifs/hug/408915119268a454.gif',
+    slap:  'https://cdn.otakugifs.xyz/gifs/slap/2215a625136a1cda.gif',
+    punch: 'https://cdn.otakugifs.xyz/gifs/punch/lQbYrpwHpz.gif',
+    poke:  'https://cdn.otakugifs.xyz/gifs/poke/0fac7376e78ccfe4.gif',
+    bite:  'https://cdn.otakugifs.xyz/gifs/bite/ba4dffc1a8ba6e4d.gif',
+    pat:   'https://cdn.otakugifs.xyz/gifs/pat/XCNHCmIs1w.gif',
+  };
+
   try {
-    const res = await fetch(`https://nekos.best/api/v2/${category}?amount=1`, {
+    const response = await fetch(`https://api.otakugifs.xyz/gif?reaction=${encodeURIComponent(category)}`, {
       headers: { 'User-Agent': 'SlowBot/1.0', 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(8000),
     });
-    if (!res.ok) return { url: null, anime: null };
-    const data   = await res.json();
-    const result = data.results?.[0];
-    return { url: result?.url ?? null, anime: result?.anime_name ?? null };
-  } catch {
-    return { url: null, anime: null };
+    if (response.ok) {
+      const data = await response.json();
+      if (typeof data.url === 'string' && data.url.startsWith('https://')) {
+        return { url: data.url, anime: null };
+      }
+    }
+  } catch (error) {
+    console.warn(`[INTERACAO] API de GIF indisponível (${category}): ${error.message}`);
   }
+
+  return { url: fallbackUrls[category] ?? null, anime: null };
 }
 
 async function incrementCount(type, fromId, toId) {

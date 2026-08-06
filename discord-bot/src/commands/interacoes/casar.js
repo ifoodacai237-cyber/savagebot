@@ -3,9 +3,9 @@ import prisma from '../../database/client.js';
 import { errorEmbed } from '../../utils/embed.js';
 
 const WEDDING_GIFS = [
-  'https://media.tenor.com/9rEn78_PVn4AAAAC/anime-wedding.gif',
-  'https://media.tenor.com/oVKAa6RBKRUAAAAC/anime-wedding-anime.gif',
-  'https://media.tenor.com/jVT11GpkS6QAAAAC/anime-love.gif',
+  'https://cdn.otakugifs.xyz/gifs/love/adc831819611cd4f.gif',
+  'https://cdn.otakugifs.xyz/gifs/happy/2870bb4a1b4dbf7a.gif',
+  'https://cdn.otakugifs.xyz/gifs/hug/408915119268a454.gif',
 ];
 
 function randomGif() {
