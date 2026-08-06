@@ -59,6 +59,14 @@ O banco SQLite (`bot.db`) é efêmero no Railway (sem volume). `prisma generate`
 
 Registrar guild + global ao mesmo tempo faz o `/perfil` aparecer duplicado no Discord. Usar `if (GUILD_ID) guild-only, else global-only`, e limpar o escopo oposto com `PUT [...] body:[]` para remover comandos antigos.
 
+## Regra: fonte de GIFs das interações
+
+`nekos.best` pode bloquear as requisições do bot com HTTP 403 e links antigos do Tenor podem retornar 404. As interações usam `api.otakugifs.xyz` com URLs CDN de fallback verificadas; `push` usa `punch`, pois `kick` não é uma reação aceita.
+
+**Why:** Sem fallback, o comando continua respondendo texto e botões, mas o embed fica sem imagem quando a API externa falha.
+
+**Como aplicar:** Manter o timeout da API, validar a URL HTTPS retornada e sempre retornar uma URL CDN estática válida como fallback.
+
 ## Regra: @napi-rs/canvas 1.0.0 não registra fontes TTF customizadas via API
 
 No ambiente Nix/Replit, `GlobalFonts.register()`, `registerFromPath()` e `loadFontsFromDir()` retornam null/0 silenciosamente — fontes customizadas nunca aparecem em `getFamilies()`. Apenas fontes do SISTEMA (via fontconfig) são acessíveis.
