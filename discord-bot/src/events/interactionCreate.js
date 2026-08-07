@@ -40,6 +40,7 @@ import {
 } from '../utils/containerSessions.js';
 import { handleShopInteraction } from '../utils/shopHandlers.js';
 import { handleVipButton, handleVipConfigModal } from '../commands/loja/vip.js';
+import { handleFishingInteraction } from '../commands/economia/pescaria.js';
 import { handleBJHit, handleBJStand, handleMinesCell, handleMinesCashout } from '../utils/gameHandlers.js';
 import { handleAjudaCatSel } from '../commands/general/ajuda.js';
 import { radioSessions, createRadioSession } from '../utils/radioManager.js';
@@ -339,6 +340,10 @@ export default {
 
       // ── STRING SELECT MENUS ────────────────────────────────────────────────
       if (interaction.isStringSelectMenu()) {
+        if (interaction.customId === 'fish_rod_select' || interaction.customId === 'fish_sell_select') {
+          return handleFishingInteraction(interaction);
+        }
+
         // ── MONTAR-MENSAGEM: Menu publicado ──────────────────────────────
         if (interaction.customId === 'msg_ms') {
           const value = interaction.values[0];
@@ -772,6 +777,11 @@ export default {
       // ── BUTTONS ────────────────────────────────────────────────────────────
       if (interaction.isButton()) {
         const { customId } = interaction;
+
+        // ── PESCA: loja, venda e inventário ──────────────────────────────
+        if (customId.startsWith('fish_')) {
+          return handleFishingInteraction(interaction);
+        }
 
         // ── DROP: Resgatar prêmio ────────────────────────────────────────
         if (customId.startsWith('drop_claim_')) {

@@ -203,6 +203,28 @@ model Economy {
   @@unique([userId, guildId])
 }
 
+model FishingProfile {
+  id          String   @id @default(cuid())
+  userId      String
+  guildId     String
+  rodKey      String   @default("bambu")
+  lastFishing DateTime?
+  totalCaught Int      @default(0)
+
+  @@unique([userId, guildId])
+}
+
+model FishingCatch {
+  id       String @id @default(cuid())
+  userId   String
+  guildId  String
+  fishKey  String
+  quantity Int    @default(0)
+
+  @@unique([userId, guildId, fishKey])
+  @@index([userId, guildId])
+}
+
 model PanelPreset {
   id        String   @id @default(cuid())
   guildId   String
