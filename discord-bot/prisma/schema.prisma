@@ -204,12 +204,15 @@ model Economy {
 }
 
 model FishingProfile {
-  id          String   @id @default(cuid())
-  userId      String
-  guildId     String
-  rodKey      String   @default("bambu")
-  lastFishing DateTime?
-  totalCaught Int      @default(0)
+  id               String   @id @default(cuid())
+  userId           String
+  guildId          String
+  rodKey           String   @default("bambu")
+  lastFishing      DateTime?
+  totalCaught      Int      @default(0)
+  sealBlessing     Boolean  @default(false)
+  sharkBattleHp    Int      @default(0)
+  sharkBattleReward Int     @default(0)
 
   @@unique([userId, guildId])
 }

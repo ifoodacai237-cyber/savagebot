@@ -8,3 +8,11 @@ The fishing feature is intentionally separate from the general shop: it uses Eco
 **Why:** Fishing was requested as an economy activity without changing existing shop, profile, game, or daily/work behavior.
 
 **How to apply:** Keep new fishing buttons and select menus under the `fish_` prefix and route them through the fishing handler; preserve the 45-minute cooldown and sell-through-wallet flow unless the user explicitly asks to rebalance it.
+
+## Development database safety
+
+The development PostgreSQL database contains a non-schema `Economy_global_backup` table with existing rows. Prisma `db push` may warn that it would drop this backup table even when the fishing change is additive.
+
+**Why:** The fishing feature needed three new `FishingProfile` columns, but existing economy backup data must not be removed.
+
+**How to apply:** For future fishing schema updates, prefer additive `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` changes and regenerate Prisma Client; never use `--accept-data-loss` just to bypass the backup-table warning.

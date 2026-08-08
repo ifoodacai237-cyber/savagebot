@@ -1,28 +1,40 @@
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   ContainerBuilder,
   MessageFlags,
   SlashCommandBuilder,
+  SectionBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   TextDisplayBuilder,
+  ThumbnailBuilder,
   PermissionFlagsBits,
 } from 'discord.js';
 import prisma from '../../database/client.js';
 import { getEmoji } from '../../utils/emojiManager.js';
+import { composeFishingArtwork } from '../../utils/fishingArtwork.js';
 
 const COIN = () => getEmoji('futecoins');
 const FISH_CD = 45 * 60 * 1000;
+const SHARK_BATTLE_START_HP = 12;
+const SHARK_REWARD_MIN = 8000;
+const SHARK_REWARD_MAX = 12000;
 
 export const FISH = Object.freeze([
-  { key: 'sardinha', name: 'Sardinha', emoji: '🐟', value: 80, chance: 44, description: 'Peixe comum e fácil de encontrar.' },
-  { key: 'carpa', name: 'Carpa', emoji: '🐠', value: 140, chance: 28, description: 'Uma captura um pouco mais valiosa.' },
-  { key: 'salmao', name: 'Salmão', emoji: '🍣', value: 240, chance: 16, description: 'Um peixe cobiçado pelos pescadores.' },
-  { key: 'atum', name: 'Atum', emoji: '🐟', value: 390, chance: 8, description: 'Grande, forte e bem valorizado.' },
-  { key: 'dourado', name: 'Dourado', emoji: '✨', value: 700, chance: 3, description: 'Uma captura rara e brilhante.' },
-  { key: 'lendario', name: 'Peixe lendário', emoji: '🌟', value: 1800, chance: 1, description: 'A lenda que todos querem contar.' },
+  { key: 'peixe_comum', name: 'Peixe comum', emoji: '🐟', value: 80, chance: 70, rarity: 0, artwork: 'common', description: 'O peixe mais comum e fácil de conseguir.' },
+  { key: 'tubarao_comum', name: 'Tubarão comum', emoji: '🦈', value: 650, chance: 20, rarity: 1, artwork: 'shark', description: 'Um tubarão que vale muitas coins.' },
+  { key: 'carpa_lendaria', name: 'Carpa lendária', emoji: '🐉', value: 2400, chance: 6, rarity: 2, artwork: 'legendary', description: 'Uma carpa lendária, extremamente valiosa.' },
+  { key: 'escama_lendaria', name: 'Escama lendária', emoji: '🔱', value: 0, chance: 0, rarity: 0, sellable: false, description: 'Uma escama obtida ao derrotar o tubarão raivoso.' },
+  // Mantém capturas antigas vendáveis e visíveis após a evolução do sistema.
+  { key: 'sardinha', name: 'Sardinha', emoji: '🐟', value: 80, chance: 0, rarity: 0, artwork: 'common', legacy: true, description: 'Captura antiga.' },
+  { key: 'carpa', name: 'Carpa', emoji: '🐠', value: 140, chance: 0, rarity: 0, artwork: 'common', legacy: true, description: 'Captura antiga.' },
+  { key: 'salmao', name: 'Salmão', emoji: '🍣', value: 240, chance: 0, rarity: 0, artwork: 'common', legacy: true, description: 'Captura antiga.' },
+  { key: 'atum', name: 'Atum', emoji: '🐟', value: 390, chance: 0, rarity: 0, artwork: 'common', legacy: true, description: 'Captura antiga.' },
+  { key: 'dourado', name: 'Dourado', emoji: '✨', value: 700, chance: 0, rarity: 0, artwork: 'common', legacy: true, description: 'Captura antiga.' },
+  { key: 'lendario', name: 'Peixe lendário', emoji: '🌟', value: 1800, chance: 0, rarity: 0, artwork: 'legendary', legacy: true, description: 'Captura antiga.' },
 ]);
 
 export const RODS = Object.freeze([
@@ -70,27 +82,41 @@ function msToHuman(ms) {
 
 function formatFish(fish, quantity = null) {
   const amount = quantity === null ? '' : ` × **${quantity}**`;
+  if (fish.key === 'escama_lendaria') {
+    return `${fish.emoji} **${fish.name}**${amount} — troféu do tubarão raivoso`;
+  }
   return `${fish.emoji} **${fish.name}**${amount} — ${fish.value.toLocaleString('pt-BR')} ${COIN()} cada`;
 }
 
-function chooseFish(luck = 0) {
-  const weighted = FISH.map((fish, index) => {
-    const rarityBoost = index * luck;
-    return { fish, weight: fish.chance * (1 + rarityBoost) };
-  });
+function chooseOutcome(luck = 0, sealBlessing = false) {
+  if (sealBlessing) return { type: 'catch', fish: FISH_BY_KEY.get('carpa_lendaria'), blessed: true };
+
+  const weighted = [
+    ...FISH.filter(fish => fish.chance > 0).map(fish => ({
+      type: 'catch',
+      fish,
+      weight: fish.chance * (1 + fish.rarity * luck),
+    })),
+    { type: 'seal', artwork: 'seal', weight: 3 * (1 + luck * 0.4) },
+    { type: 'angry_shark', artwork: 'angryShark', weight: 1 * (1 + luck * 0.8) },
+  ];
   const total = weighted.reduce((sum, item) => sum + item.weight, 0);
   let roll = Math.random() * total;
   for (const item of weighted) {
     roll -= item.weight;
-    if (roll <= 0) return item.fish;
+    if (roll <= 0) return item;
   }
-  return FISH[0];
+  return weighted[0];
 }
 
 async function catchFish(userId, guildId, isAdmin = false) {
   return prisma.$transaction(async tx => {
     const profile = await getFishingProfile(userId, guildId, tx);
     const now = Date.now();
+    if (profile.sharkBattleHp > 0) {
+      const error = new Error('shark_battle');
+      throw error;
+    }
     const elapsed = now - (profile.lastFishing?.getTime() ?? 0);
     if (!isAdmin && elapsed < FISH_CD) {
       const error = new Error('cooldown');
@@ -99,19 +125,54 @@ async function catchFish(userId, guildId, isAdmin = false) {
     }
 
     const rod = ROD_BY_KEY.get(profile.rodKey) ?? RODS[0];
-    const fish = chooseFish(rod.luck);
+    const outcome = chooseOutcome(rod.luck, profile.sealBlessing);
+    const updateData = {
+      lastFishing: new Date(now),
+      sealBlessing: false,
+    };
+
+    if (outcome.type === 'seal') {
+      updateData.sealBlessing = true;
+    }
+    if (outcome.type === 'angry_shark') {
+      updateData.sharkBattleHp = SHARK_BATTLE_START_HP;
+      updateData.sharkBattleReward = Math.floor(
+        SHARK_REWARD_MIN + Math.random() * (SHARK_REWARD_MAX - SHARK_REWARD_MIN + 1),
+      );
+    }
+    if (outcome.type === 'catch') {
+      updateData.totalCaught = { increment: 1 };
+    }
 
     await tx.fishingProfile.update({
       where: { userId_guildId: { userId, guildId } },
-      data: { lastFishing: new Date(now), totalCaught: { increment: 1 } },
-    });
-    await tx.fishingCatch.upsert({
-      where: { userId_guildId_fishKey: { userId, guildId, fishKey: fish.key } },
-      create: { userId, guildId, fishKey: fish.key, quantity: 1 },
-      update: { quantity: { increment: 1 } },
+      data: updateData,
     });
 
-    return { fish, rod };
+    if (outcome.type === 'catch') {
+      if (outcome.fish.key === 'tubarao_comum') {
+        await tx.economy.upsert({
+          where: { userId_guildId: { userId, guildId } },
+          create: { userId, guildId, balance: outcome.fish.value },
+          update: { balance: { increment: outcome.fish.value } },
+        });
+      } else {
+        await tx.fishingCatch.upsert({
+          where: { userId_guildId_fishKey: { userId, guildId, fishKey: outcome.fish.key } },
+          create: { userId, guildId, fishKey: outcome.fish.key, quantity: 1 },
+          update: { quantity: { increment: 1 } },
+        });
+      }
+    }
+
+    return {
+      outcome,
+      rod,
+      battleReward: updateData.sharkBattleReward ?? 0,
+      coinReward: outcome.type === 'catch' && outcome.fish.key === 'tubarao_comum'
+        ? outcome.fish.value
+        : 0,
+    };
   });
 }
 
@@ -133,7 +194,7 @@ function buildInventoryText(userId, guildId, { profile, catches }) {
     .filter(Boolean);
   const estimated = catches.reduce((sum, row) => {
     const fish = FISH_BY_KEY.get(row.fishKey);
-    return sum + (fish?.value ?? 0) * row.quantity;
+    return sum + (fish?.sellable === false ? 0 : fish?.value ?? 0) * row.quantity;
   }, 0);
 
   return (
@@ -193,7 +254,7 @@ export function buildFishSellSelectPayload(catches) {
   const options = catches
     .map(row => {
       const fish = FISH_BY_KEY.get(row.fishKey);
-      if (!fish) return null;
+      if (!fish || fish.sellable === false) return null;
       return new StringSelectMenuOptionBuilder()
         .setLabel(`${fish.name} × ${row.quantity}`)
         .setValue(`sellfish:${fish.key}`)
@@ -201,12 +262,15 @@ export function buildFishSellSelectPayload(catches) {
         .setEmoji(fish.emoji);
     })
     .filter(Boolean);
-  options.push(
-    new StringSelectMenuOptionBuilder()
-      .setLabel('Vender tudo')
-      .setValue('sellfish:all')
-      .setDescription('Vende todos os peixes do seu balde'),
-  );
+  if (options.length) {
+    options.push(
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Vender tudo')
+        .setValue('sellfish:all')
+        .setDescription('Vende todos os peixes vendáveis do seu balde'),
+    );
+  }
+  if (!options.length) return fishingError('Você só possui escamas lendárias. Elas são troféus e não podem ser vendidas.');
   const menu = new StringSelectMenuBuilder()
     .setCustomId('fish_sell_select')
     .setPlaceholder('Escolha o que deseja vender')
@@ -228,7 +292,7 @@ async function sellFish(userId, guildId, fishKey = 'all') {
     let count = 0;
     for (const row of rows) {
       const fish = FISH_BY_KEY.get(row.fishKey);
-      if (!fish) continue;
+      if (!fish || fish.sellable === false) continue;
       amount += fish.value * row.quantity;
       count += row.quantity;
       await tx.fishingCatch.update({
@@ -266,8 +330,14 @@ export async function handleFishingInteraction(interaction) {
 
   if (customId === 'fish_sell') {
     const { catches } = await getInventory(userId, guildId);
-    if (!catches.length) return interaction.reply(fishingError('Seu balde está vazio. Pesque algo antes de vender.'));
+    if (!catches.some(row => FISH_BY_KEY.get(row.fishKey)?.sellable !== false)) {
+      return interaction.reply(fishingError('Você não possui peixes vendáveis. As escamas lendárias ficam como troféu.'));
+    }
     return interaction.reply(buildFishSellSelectPayload(catches));
+  }
+
+  if (customId === 'fish_shark_attack') {
+    return handleSharkAttack(interaction);
   }
 
   if (customId === 'fish_rod_select' || customId === 'fish_sell_select') {
@@ -315,19 +385,138 @@ export async function handleFishingInteraction(interaction) {
   }
 }
 
+function sharkBattlePayload({ hp, reward, defeated = false }) {
+  const attackButton = new ButtonBuilder()
+    .setCustomId('fish_shark_attack')
+    .setLabel('Atacar o tubarão')
+    .setEmoji('⚔️')
+    .setStyle(ButtonStyle.Danger)
+    .setDisabled(defeated);
+
+  if (defeated) {
+    return {
+      text:
+        `## 🦈 Tubarão raivoso derrotado!\n` +
+        `Você recebeu **${reward.toLocaleString('pt-BR')}** ${COIN()} e uma **Escama lendária**.\n` +
+        `A escama foi guardada no seu inventário como troféu.`,
+      artwork: 'angryShark',
+      components: [new ActionRowBuilder().addComponents(attackButton)],
+    };
+  }
+
+  return {
+    text:
+      `## 🦈 Tubarão raivoso!\n` +
+      `Ele apareceu na sua linha. Ataque até reduzir a vida dele a zero para ganhar uma bolada de coins e uma escama lendária.\n\n` +
+      `❤️ Vida do tubarão: **${hp}/${SHARK_BATTLE_START_HP}**\n` +
+      `💰 Recompensa: até **${reward.toLocaleString('pt-BR')}** ${COIN()} + escama lendária`,
+    artwork: 'angryShark',
+    components: [new ActionRowBuilder().addComponents(attackButton)],
+  };
+}
+
+async function fishingArtworkPayload(text, artwork, components = []) {
+  const file = new AttachmentBuilder(await composeFishingArtwork(artwork), {
+    name: 'fishing-result.png',
+  });
+  const section = new SectionBuilder()
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(text))
+    .setThumbnailAccessory(new ThumbnailBuilder().setURL('attachment://fishing-result.png'));
+  const container = new ContainerBuilder().addSectionComponents(section);
+  return {
+    components: [container, ...components],
+    files: [file],
+    flags: MessageFlags.IsComponentsV2,
+  };
+}
+
+async function handleSharkAttack(interaction) {
+  const userId = interaction.user.id;
+  const guildId = interaction.guildId;
+  const result = await prisma.$transaction(async tx => {
+    const profile = await getFishingProfile(userId, guildId, tx);
+    if (profile.sharkBattleHp <= 0) return { status: 'missing' };
+
+    const damage = Math.floor(Math.random() * 3) + 2;
+    const nextHp = Math.max(0, profile.sharkBattleHp - damage);
+    if (nextHp > 0) {
+      await tx.fishingProfile.update({
+        where: { userId_guildId: { userId, guildId } },
+        data: { sharkBattleHp: nextHp },
+      });
+      return { status: 'ongoing', hp: nextHp, reward: profile.sharkBattleReward, damage };
+    }
+
+    const reward = profile.sharkBattleReward;
+    await tx.fishingProfile.update({
+      where: { userId_guildId: { userId, guildId } },
+      data: { sharkBattleHp: 0, sharkBattleReward: 0 },
+    });
+    await tx.economy.upsert({
+      where: { userId_guildId: { userId, guildId } },
+      create: { userId, guildId, balance: reward },
+      update: { balance: { increment: reward } },
+    });
+    await tx.fishingCatch.upsert({
+      where: { userId_guildId_fishKey: { userId, guildId, fishKey: 'escama_lendaria' } },
+      create: { userId, guildId, fishKey: 'escama_lendaria', quantity: 1 },
+      update: { quantity: { increment: 1 } },
+    });
+    return { status: 'defeated', reward, damage };
+  });
+
+  if (result.status === 'missing') {
+    return interaction.update(fishingUpdateError('Esse tubarão já foi derrotado ou não está mais na sua linha.'));
+  }
+  const battle = result.status === 'defeated'
+    ? sharkBattlePayload({ defeated: true, reward: result.reward })
+    : sharkBattlePayload({ hp: result.hp, reward: result.reward });
+  return interaction.update(await fishingArtworkPayload(
+    `${battle.text}\n\n⚔️ Você causou **${result.damage}** de dano.`,
+    battle.artwork,
+    battle.components,
+  ));
+}
+
 async function executeFishing(userId, guildId, isAdmin, reply) {
   try {
     const result = await catchFish(userId, guildId, isAdmin);
-    return reply(v2(
+    const { outcome, rod } = result;
+    if (outcome.type === 'seal') {
+      return reply(await fishingArtworkPayload(
+        `## 🦭 Uma foca apareceu!\n` +
+        `Ela encontrou você no mar e avisou que um **peixe lendário virá na sua próxima pescaria**.\n\n` +
+        `🪝 Vara usada: **${rod.name}**\n` +
+        `⏱️ A bênção da foca está guardada. Próxima pescaria em **45 minutos**.`,
+        'seal',
+      ));
+    }
+    if (outcome.type === 'angry_shark') {
+      const battle = sharkBattlePayload({
+        hp: SHARK_BATTLE_START_HP,
+        reward: result.battleReward,
+      });
+      return reply(await fishingArtworkPayload(battle.text, battle.artwork, battle.components));
+    }
+
+    const fish = outcome.fish;
+    const sharkCoins = result.coinReward
+      ? `\n💰 O tubarão trouxe **${result.coinReward.toLocaleString('pt-BR')}** ${COIN()} direto para sua carteira!`
+      : `\n💰 Valor de venda: **${fish.value.toLocaleString('pt-BR')}** ${COIN()}`;
+    return reply(await fishingArtworkPayload(
       `## 🎣 Pescaria concluída!\n` +
-      `${result.fish.emoji} Você pescou um **${result.fish.name}**!\n` +
-      `🪝 Vara usada: **${result.rod.name}**\n` +
-      `💰 Valor de venda: **${result.fish.value.toLocaleString('pt-BR')}** ${COIN()}\n\n` +
+      `${fish.emoji} Você pescou um **${fish.name}**!\n` +
+      `🪝 Vara usada: **${rod.name}**\n` +
+      sharkCoins + `\n\n` +
       `Use **/pesca vender** quando quiser trocar seus peixes por coins.\n` +
-      `⏱️ Próxima pescaria em **45 minutos**.`
+      `⏱️ Próxima pescaria em **45 minutos**.`,
+      fish.artwork,
     ));
   } catch (error) {
     if (error?.message === 'cooldown') return reply(fishingError(`A maré ainda não virou. Aguarde **${msToHuman(error.remaining)}** para pescar novamente.`));
+    if (error?.message === 'shark_battle') {
+      return reply(fishingError('O tubarão raivoso ainda está na sua linha. Use o botão de ataque para derrotá-lo antes de pescar novamente.'));
+    }
     console.error('[PESCA]', error);
     return reply(fishingError('A linha arrebentou. Tente novamente em instantes.'));
   }
