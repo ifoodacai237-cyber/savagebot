@@ -43,7 +43,9 @@ export async function loadCommands(client) {
 
 export async function registerSlashCommands(client) {
   const rest    = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-  const guildId = process.env.GUILD_ID;
+  const configuredGuildId = process.env.GUILD_ID?.trim();
+  const cachedGuilds = [...client.guilds.cache.values()];
+  const guildId = configuredGuildId || (cachedGuilds.length === 1 ? cachedGuilds[0].id : null);
 
   // ── Serializa e valida cada comando individualmente ──────────────────────
   const body = [];
@@ -58,7 +60,9 @@ export async function registerSlashCommands(client) {
     }
   }
 
-  // ── Registro: guild (instantâneo) se GUILD_ID definido, senão global ─────
+  // ── Registro: guild (instantâneo) se GUILD_ID definido ou se o bot estiver
+  // em um único servidor. Sem isso, o Discord registra globalmente e pode
+  // levar até uma hora para mostrar os comandos novos.
   // Mantém os comandos em apenas um escopo. Comandos globais antigos e os do
   // servidor aparecem juntos no Discord e causam a duplicação visual.
   if (guildId) {
@@ -67,9 +71,13 @@ export async function registerSlashCommands(client) {
       await rest.put(Routes.applicationCommands(client.user.id), { body: [] }).catch(() => {});
       const guild = client.guilds.cache.get(guildId)
         ?? await client.guilds.fetch(guildId).catch(() => null);
+      if (!guild) {
+        throw new Error(`O bot não encontrou o servidor configurado (${guildId}).`);
+      }
       console.log(`⚡ ${body.length} comandos registrados em "${guild?.name ?? guildId}" (instantâneo).`);
     } catch (err) {
-      console.error('❌ Registro por servidor falhou; os comandos anteriores foram preservados:', err.message);
+      console.error('❌ Registro por servidor falhou:', err.message);
+      throw err;
     }
   } else {
     // Sem GUILD_ID → registra globalmente (pode levar até 1h para propagar)
@@ -79,6 +87,7 @@ export async function registerSlashCommands(client) {
     } catch (err) {
       console.error('❌ Erro no registro global:', err.message);
       if (err.rawError) console.error('   Detalhes:', JSON.stringify(err.rawError, null, 2));
+      throw err;
     }
   }
 }
