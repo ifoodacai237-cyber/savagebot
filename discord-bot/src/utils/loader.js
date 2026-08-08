@@ -45,7 +45,6 @@ export async function registerSlashCommands(client) {
   const rest    = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   const configuredGuildId = process.env.GUILD_ID?.trim();
   const cachedGuilds = [...client.guilds.cache.values()];
-  const guildId = configuredGuildId || (cachedGuilds.length === 1 ? cachedGuilds[0].id : null);
 
   // ── Serializa e valida cada comando individualmente ──────────────────────
   const body = [];
@@ -60,35 +59,51 @@ export async function registerSlashCommands(client) {
     }
   }
 
-  // ── Registro: guild (instantâneo) se GUILD_ID definido ou se o bot estiver
-  // em um único servidor. Sem isso, o Discord registra globalmente e pode
-  // levar até uma hora para mostrar os comandos novos.
-  // Mantém os comandos em apenas um escopo. Comandos globais antigos e os do
-  // servidor aparecem juntos no Discord e causam a duplicação visual.
-  if (guildId) {
+  // ── Registro por servidor (instantâneo) ─────────────────────────────────
+  // Um GUILD_ID antigo pode causar "Missing Access". Nesse caso, tenta os
+  // servidores que o bot realmente enxerga antes de cair no registro global.
+  const candidates = [];
+  if (configuredGuildId) {
+    const configuredGuild = client.guilds.cache.get(configuredGuildId)
+      ?? await client.guilds.fetch(configuredGuildId).catch(() => null);
+    if (configuredGuild) candidates.push(configuredGuild);
+    else console.warn(`[SLASH] GUILD_ID=${configuredGuildId} não está acessível ao bot.`);
+  }
+  for (const guild of cachedGuilds) {
+    if (!candidates.some(candidate => candidate.id === guild.id)) candidates.push(guild);
+  }
+
+  const failures = [];
+  for (const guild of candidates) {
     try {
-      await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body });
+      await rest.put(Routes.applicationGuildCommands(client.user.id, guild.id), { body });
+      console.log(`⚡ ${body.length} comandos registrados em "${guild.name}" (instantâneo).`);
+      // Mantém o escopo limpo: os comandos globais antigos não ficam duplicados.
       await rest.put(Routes.applicationCommands(client.user.id), { body: [] }).catch(() => {});
-      const guild = client.guilds.cache.get(guildId)
-        ?? await client.guilds.fetch(guildId).catch(() => null);
-      if (!guild) {
-        throw new Error(`O bot não encontrou o servidor configurado (${guildId}).`);
-      }
-      console.log(`⚡ ${body.length} comandos registrados em "${guild?.name ?? guildId}" (instantâneo).`);
+      return;
     } catch (err) {
-      console.error('❌ Registro por servidor falhou:', err.message);
-      throw err;
-    }
-  } else {
-    // Sem GUILD_ID → registra globalmente (pode levar até 1h para propagar)
-    try {
-      await rest.put(Routes.applicationCommands(client.user.id), { body });
-      console.log(`🌐 ${body.length} comandos registrados globalmente.`);
-    } catch (err) {
-      console.error('❌ Erro no registro global:', err.message);
+      failures.push({ guild, err });
+      console.error(`❌ Registro falhou em "${guild.name}" (${guild.id}):`, err.message);
       if (err.rawError) console.error('   Detalhes:', JSON.stringify(err.rawError, null, 2));
-      throw err;
     }
+  }
+
+  // Se o registro por servidor falhar (por exemplo, o bot foi instalado sem
+  // o escopo applications.commands), ainda registra globalmente. O Discord
+  // pode levar até uma hora para propagar comandos globais, mas o bot não
+  // fica sem nenhuma rota de registro.
+  const lastFailure = failures.at(-1)?.err;
+  try {
+    await rest.put(Routes.applicationCommands(client.user.id), { body });
+    console.warn(
+      `🌐 ${body.length} comandos registrados globalmente após falha em ` +
+      `${failures.length} servidor(es). A propagação pode levar até 1 hora.`,
+    );
+    return;
+  } catch (err) {
+    console.error('❌ Erro no registro global:', err.message);
+    if (err.rawError) console.error('   Detalhes:', JSON.stringify(err.rawError, null, 2));
+    throw lastFailure ?? err;
   }
 }
 
