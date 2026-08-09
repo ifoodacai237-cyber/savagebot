@@ -213,6 +213,10 @@ model FishingProfile {
   sealBlessing     Boolean  @default(false)
   sharkBattleHp    Int      @default(0)
   sharkBattleReward Int     @default(0)
+  legendaryBattleUserId      String?
+  legendaryBattleRound       Int      @default(0)
+  legendaryBattleChoice      String?
+  legendaryBattleExpiresAt   DateTime?
 
   @@unique([userId, guildId])
 }

@@ -1,3 +1,9 @@
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+const LOCAL_EMOJI_DIR = fileURLToPath(new URL('../../assets/emojis/', import.meta.url));
+
 const REQUIRED_EMOJIS = [
   // ── Originais ──────────────────────────────────────────────────────────────
   { name: 'f_3bat',              sourceId: '1420292544255889451', animated: true  },
@@ -21,6 +27,12 @@ const REQUIRED_EMOJIS = [
   { name: 'carrinho',            sourceId: '1384004945820516432', animated: false },
   { name: '01_angels',           sourceId: '1507552059682197504', animated: false },
   { name: '01_angels_animated',  sourceId: '1508985653642395728', animated: true  },
+  // ── Pesca ────────────────────────────────────────────────────────────────────
+  { name: 'fish_common',    asset: 'fish-common.png',    mime: 'image/png',  fallback: '🐟' },
+  { name: 'fish_seal',      asset: 'fish-seal.png',      mime: 'image/png',  fallback: '🦭' },
+  { name: 'fish_legendary', asset: 'fish-legendary.gif', mime: 'image/gif', animated: true, fallback: '🐉' },
+  { name: 'fish_rod',       asset: 'fish-rod.png',       mime: 'image/png',  fallback: '🎣' },
+  { name: 'fish_shark',     asset: 'fish-shark.png',     mime: 'image/png',  fallback: '🦈' },
 ];
 
 const cache = new Map();
@@ -48,25 +60,31 @@ export async function initEmojis(client) {
       }
 
       try {
-        const url  = cdnUrl(def.sourceId, def.animated);
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const buf  = Buffer.from(await resp.arrayBuffer());
-        const ext  = def.animated ? 'gif' : 'png';
-        const b64  = `data:image/${ext};base64,${buf.toString('base64')}`;
+        let buf;
+        let mime = def.mime;
+        if (def.asset) {
+          buf = await readFile(path.join(LOCAL_EMOJI_DIR, def.asset));
+        } else {
+          const url = cdnUrl(def.sourceId, def.animated);
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          buf = Buffer.from(await resp.arrayBuffer());
+          mime = `image/${def.animated ? 'gif' : 'png'}`;
+        }
+        const b64 = `data:${mime};base64,${buf.toString('base64')}`;
 
         const created = await client.application.emojis.create({ name: def.name, attachment: b64 });
         cache.set(def.name, fmt(created));
         console.log(`✅ Emoji registrado na aplicação: ${def.name}`);
       } catch (err) {
         console.warn(`⚠️  Falha ao registrar emoji ${def.name}:`, err.message);
-        cache.set(def.name, `<${def.animated ? 'a' : ''}:${def.name}:${def.sourceId}>`);
+        cache.set(def.name, def.fallback ?? `<${def.animated ? 'a' : ''}:${def.name}:${def.sourceId}>`);
       }
     }
   } catch (err) {
     console.warn('⚠️  Falha ao inicializar application emojis:', err.message);
     for (const def of REQUIRED_EMOJIS) {
-      cache.set(def.name, `<${def.animated ? 'a' : ''}:${def.name}:${def.sourceId}>`);
+      cache.set(def.name, def.fallback ?? `<${def.animated ? 'a' : ''}:${def.name}:${def.sourceId}>`);
     }
   }
 }
