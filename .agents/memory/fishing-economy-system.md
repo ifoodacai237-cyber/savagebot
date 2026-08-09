@@ -11,8 +11,8 @@ The fishing feature is intentionally separate from the general shop: it uses Eco
 
 ## Development database safety
 
-The development PostgreSQL database contains a non-schema `Economy_global_backup` table with existing rows. Prisma `db push` may warn that it would drop this backup table even when the fishing change is additive.
+The development PostgreSQL database contains a non-schema `Economy_global_backup` table with existing rows. Prisma `db push` may warn that it would drop this backup table even when the fishing change is additive. The legendary-carp mini-game persists four nullable/round state fields on `FishingProfile`.
 
-**Why:** The fishing feature needed three new `FishingProfile` columns, but existing economy backup data must not be removed.
+**Why:** The fishing feature needed additive state for the legendary-carp attempt, but existing economy backup data must not be removed.
 
 **How to apply:** For future fishing schema updates, prefer additive `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` changes and regenerate Prisma Client; never use `--accept-data-loss` just to bypass the backup-table warning.
