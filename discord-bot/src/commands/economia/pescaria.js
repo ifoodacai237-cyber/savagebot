@@ -76,11 +76,11 @@ function v2(text, { ephemeral = false, components = [] } = {}) {
 }
 
 export function fishingError(text) {
-  return v2(`❌  ${text}`, { ephemeral: true });
+  return v2(`${FISH_COMMON()}  ${text}`, { ephemeral: true });
 }
 
 function fishingUpdateError(text) {
-  return v2(`❌  ${text}`);
+  return v2(`${FISH_COMMON()}  ${text}`);
 }
 
 async function getFishingProfile(userId, guildId, db = prisma) {
@@ -244,11 +244,11 @@ function buildInventoryText(userId, guildId, { profile, catches }) {
   }, 0);
 
   return (
-    `## 🎣 Inventário de pesca\n` +
+    `## ${FISH_ROD()} Inventário de pesca\n` +
     `${rodEmoji(rod)} Vara equipada: **${rod.name}**\n` +
-    `🐟 Capturas totais: **${profile.totalCaught.toLocaleString('pt-BR')}**\n\n` +
+    `${FISH_COMMON()} Capturas totais: **${profile.totalCaught.toLocaleString('pt-BR')}**\n\n` +
     (lines.length ? lines.join('\n') : '*Seu balde está vazio. Vá pescar para começar.*') +
-    `\n\n💰 Valor estimado para venda: **${estimated.toLocaleString('pt-BR')}** ${COIN()}`
+    `\n\n${COIN()} Valor estimado para venda: **${estimated.toLocaleString('pt-BR')}** ${COIN()}`
   );
 }
 
@@ -256,7 +256,7 @@ export function buildFishingShopPayload() {
   const container = new ContainerBuilder()
     .setAccentColor(0x147d92)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(
-      `## 🎣 Loja de pesca\n\n` +
+      `## ${FISH_ROD()} Loja de pesca\n\n` +
       `Compre uma vara melhor para aumentar suas chances de capturar peixes raros.\n` +
       `Os peixes ficam no seu balde até você decidir vender.\n\n` +
       `**Como funciona**\n` +
@@ -290,7 +290,7 @@ export function buildRodSelectPayload(currentRodKey) {
     .setCustomId('fish_rod_select')
     .setPlaceholder('Escolha uma vara para comprar')
     .addOptions(options);
-  return v2('## 🎣 Escolha sua vara\nVaras melhores aumentam as chances de peixes raros.', {
+  return v2(`## ${FISH_ROD()} Escolha sua vara\nVaras melhores aumentam as chances de peixes raros.`, {
     ephemeral: true,
     components: [new ActionRowBuilder().addComponents(menu)],
   });
@@ -321,7 +321,7 @@ export function buildFishSellSelectPayload(catches) {
     .setCustomId('fish_sell_select')
     .setPlaceholder('Escolha o que deseja vender')
     .addOptions(options);
-  return v2('## 💰 Venda de peixes\nEscolha uma espécie ou venda todo o conteúdo do seu balde.', {
+  return v2(`## ${COIN()} Venda de peixes\nEscolha uma espécie ou venda todo o conteúdo do seu balde.`, {
     ephemeral: true,
     components: [new ActionRowBuilder().addComponents(menu)],
   });
@@ -422,14 +422,14 @@ export async function handleFishingInteraction(interaction) {
 
       if (result.status === 'owned') return interaction.update(fishingUpdateError('Você já possui essa vara ou uma melhor.'));
       if (result.status === 'funds') return interaction.update(fishingUpdateError(`Saldo insuficiente. Você tem **${result.balance.toLocaleString('pt-BR')}** ${COIN()}.`));
-      return interaction.update(v2(`## ✅ Vara comprada\n${rodEmoji(rod)} Você equipou a **${rod.name}**!\n\n${rod.description}`, { ephemeral: true }));
+    return interaction.update(v2(`## ${rodEmoji(rod)} Vara comprada\n${rodEmoji(rod)} Você equipou a **${rod.name}**!\n\n${rod.description}`, { ephemeral: true }));
     }
 
     const fishKey = value.replace('sellfish:', '');
     const result = await sellFish(userId, guildId, fishKey);
     if (!result.count) return interaction.update(fishingUpdateError('Você não possui esses peixes para vender.'));
     return interaction.update(v2(
-      `## 💰 Venda concluída\n🐟 **${result.count}** peixe(s) vendido(s)\n${COIN()} **+${result.amount.toLocaleString('pt-BR')}** adicionados à sua carteira.`,
+      `## ${COIN()} Venda concluída\n${FISH_COMMON()} **${result.count}** peixe(s) vendido(s)\n${COIN()} **+${result.amount.toLocaleString('pt-BR')}** adicionados à sua carteira.`,
       { ephemeral: true },
     ));
   }
@@ -439,15 +439,15 @@ function sharkBattlePayload({ hp, reward, defeated = false }) {
   const attackButton = new ButtonBuilder()
     .setCustomId('fish_shark_attack')
     .setLabel('Atacar o tubarão')
-    .setEmoji('⚔️')
+    .setEmoji(FISH_SHARK())
     .setStyle(ButtonStyle.Danger)
     .setDisabled(defeated);
 
   if (defeated) {
     return {
       text:
-        `## 🦈 Tubarão raivoso derrotado!\n` +
-        `Você recebeu **${reward.toLocaleString('pt-BR')}** ${COIN()} e uma **Escama lendária**.\n` +
+        `## ${FISH_SHARK()} Tubarão raivoso derrotado!\n` +
+        `Você recebeu **${reward.toLocaleString('pt-BR')}** ${COIN()} e uma ${FISH_LEGENDARY()} **Escama lendária**.\n` +
         `A escama foi guardada no seu inventário como troféu.`,
       artwork: 'angryShark',
       components: [new ActionRowBuilder().addComponents(attackButton)],
@@ -456,10 +456,10 @@ function sharkBattlePayload({ hp, reward, defeated = false }) {
 
   return {
     text:
-      `## 🦈 Tubarão raivoso!\n` +
+      `## ${FISH_SHARK()} Tubarão raivoso!\n` +
       `Ele apareceu na sua linha. Ataque até reduzir a vida dele a zero para ganhar uma bolada de coins e uma escama lendária.\n\n` +
-      `❤️ Vida do tubarão: **${hp}/${SHARK_BATTLE_START_HP}**\n` +
-      `💰 Recompensa: até **${reward.toLocaleString('pt-BR')}** ${COIN()} + escama lendária`,
+      `${FISH_SHARK()} Vida do tubarão: **${hp}/${SHARK_BATTLE_START_HP}**\n` +
+      `${COIN()} Recompensa: até **${reward.toLocaleString('pt-BR')}** ${COIN()} + ${FISH_LEGENDARY()} escama lendária`,
     artwork: 'angryShark',
     components: [new ActionRowBuilder().addComponents(attackButton)],
   };
@@ -604,7 +604,7 @@ async function handleLegendaryChoice(interaction, choice) {
     return interaction.update(await fishingArtworkPayload(
       `## ${FISH_LEGENDARY()} A carpa lendária escapou!\n` +
       `Você escolheu uma posição errada e perdeu esta oportunidade. A bênção da foca foi consumida.\n\n` +
-      `⏱️ Você poderá pescar novamente em **45 minutos**.`,
+      `${FISH_ROD()} Você poderá pescar novamente em **45 minutos**.`,
       'legendary',
       [],
       { large: true },
@@ -613,7 +613,7 @@ async function handleLegendaryChoice(interaction, choice) {
   if (result.status === 'round') {
     const battle = legendaryBattlePayload(result.round);
     return interaction.update(await fishingArtworkPayload(
-      `${battle.text}\n\n✅ Boa! A carpa mordeu a isca. Tente a próxima rodada.`,
+      `${battle.text}\n\n${FISH_LEGENDARY()} Boa! A carpa mordeu a isca. Tente a próxima rodada.`,
       battle.artwork,
       battle.components,
       { large: true },
@@ -623,8 +623,8 @@ async function handleLegendaryChoice(interaction, choice) {
   return interaction.update(await fishingArtworkPayload(
     `## ${FISH_LEGENDARY()} Carpa lendária fisgada!\n` +
     `Você venceu a tentativa especial e guardou a captura no seu inventário.\n\n` +
-    `💰 Valor de venda: **2.400** ${COIN()}\n` +
-    `⏱️ Próxima pescaria em **45 minutos**.`,
+    `${COIN()} Valor de venda: **2.400** ${COIN()}\n` +
+    `${FISH_ROD()} Próxima pescaria em **45 minutos**.`,
     'legendary',
     [],
     { large: true },
@@ -673,7 +673,7 @@ async function handleSharkAttack(interaction) {
     ? sharkBattlePayload({ defeated: true, reward: result.reward })
     : sharkBattlePayload({ hp: result.hp, reward: result.reward });
   return interaction.update(await fishingArtworkPayload(
-    `${battle.text}\n\n⚔️ Você causou **${result.damage}** de dano.`,
+    `${battle.text}\n\n${FISH_SHARK()} Você causou **${result.damage}** de dano.`,
     battle.artwork,
     battle.components,
   ));
@@ -687,8 +687,8 @@ async function executeFishing(userId, guildId, isAdmin, reply) {
       return reply(await fishingArtworkPayload(
         `## ${FISH_SEAL()} Uma foca apareceu!\n` +
         `Ela encontrou você no mar e avisou que um **peixe lendário virá na sua próxima pescaria**.\n\n` +
-        `🪝 Vara usada: **${rod.name}**\n` +
-        `⏱️ A bênção da foca está guardada. Próxima pescaria em **45 minutos**.`,
+        `${rodEmoji(rod)} Vara usada: **${rod.name}**\n` +
+        `${FISH_ROD()} A bênção da foca está guardada. Próxima pescaria em **45 minutos**.`,
         'seal',
       ));
     }
@@ -706,15 +706,15 @@ async function executeFishing(userId, guildId, isAdmin, reply) {
 
     const fish = outcome.fish;
     const sharkCoins = result.coinReward
-      ? `\n💰 O tubarão trouxe **${result.coinReward.toLocaleString('pt-BR')}** ${COIN()} direto para sua carteira!`
-      : `\n💰 Valor de venda: **${fish.value.toLocaleString('pt-BR')}** ${COIN()}`;
+      ? `\n${COIN()} O tubarão trouxe **${result.coinReward.toLocaleString('pt-BR')}** ${COIN()} direto para sua carteira!`
+      : `\n${COIN()} Valor de venda: **${fish.value.toLocaleString('pt-BR')}** ${COIN()}`;
     return reply(await fishingArtworkPayload(
-      `## 🎣 Pescaria concluída!\n` +
+      `## ${FISH_ROD()} Pescaria concluída!\n` +
       `${fishEmoji(fish)} Você pescou um **${fish.name}**!\n` +
-      `🪝 Vara usada: **${rod.name}**\n` +
+      `${rodEmoji(rod)} Vara usada: **${rod.name}**\n` +
       sharkCoins + `\n\n` +
       `Use **/pesca vender** quando quiser trocar seus peixes por coins.\n` +
-      `⏱️ Próxima pescaria em **45 minutos**.`,
+      `${FISH_ROD()} Próxima pescaria em **45 minutos**.`,
       fish.artwork,
     ));
   } catch (error) {
@@ -733,7 +733,7 @@ async function executeFishing(userId, guildId, isAdmin, reply) {
 const cmdPescar = {
   data: new SlashCommandBuilder()
     .setName('pescar')
-    .setDescription('🎣 Pesque peixes para vender por coins (45 min cooldown)'),
+    .setDescription('Pesque peixes para vender por coins (45 min cooldown)'),
   name: 'pescar',
   aliases: ['pesca', 'pescaria', 'fishing'],
 
@@ -751,7 +751,7 @@ const cmdPescar = {
 const cmdPesca = {
   data: new SlashCommandBuilder()
     .setName('pesca')
-    .setDescription('🎣 Loja e inventário do sistema de pesca')
+    .setDescription('Loja e inventário do sistema de pesca')
     .addSubcommand(s => s.setName('loja').setDescription('Abre a loja de varas'))
     .addSubcommand(s => s.setName('inventario').setDescription('Veja seus peixes e sua vara'))
     .addSubcommand(s => s.setName('vender').setDescription('Venda seus peixes por coins')),
