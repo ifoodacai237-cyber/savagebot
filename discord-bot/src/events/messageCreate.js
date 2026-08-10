@@ -15,7 +15,7 @@ import {
 import prisma from '../database/client.js';
 import { likesMap, threadsMap, postDataMap } from '../utils/instaState.js';
 import { buildPartnershipPost } from '../utils/partnershipPanels.js';
-import { askAI, generateAIImage, isAIConfigured } from '../utils/aiManager.js';
+import { askAI, askTicketAI, generateAIImage, isAIConfigured } from '../utils/aiManager.js';
 
 const PREFIX = 'savage ';
 
@@ -72,6 +72,46 @@ export function invalidateGuildCfgCache(guildId) {
   cfgCache.delete(guildId);
 }
 
+const ticketAiInFlight = new Set();
+
+async function handleTicketAI(message, cfg) {
+  if (!cfg?.ticketAiEnabled || !message.guildId || ticketAiInFlight.has(message.channelId)) return false;
+
+  const ticket = await prisma.ticket.findUnique({ where: { channelId: message.channelId } }).catch(() => null);
+  if (!ticket || ticket.status !== 'open' || ticket.claimedBy || ticket.userId !== message.author.id) return false;
+  if (!isAIConfigured() || !process.env.GROQ_API_KEY?.trim()) {
+    return false;
+  }
+
+  ticketAiInFlight.add(message.channelId);
+  try {
+    await message.channel.sendTyping().catch(() => {});
+    const recent = await message.channel.messages.fetch({ limit: 12 }).catch(() => null);
+    const messages = recent
+      ? [...recent.values()]
+          .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+          .filter(item => !item.author.bot && item.content?.trim())
+          .map(item => ({
+            author: item.author.id === ticket.userId ? 'Usuário' : 'Membro da equipe',
+            content: item.content,
+          }))
+      : [{ author: 'Usuário', content: message.content }];
+
+    const answer = await askTicketAI({
+      guildId: message.guildId,
+      ticketId: ticket.id,
+      messages,
+      serverName: message.guild?.name,
+    });
+    await message.reply(answer);
+  } catch (err) {
+    console.error('[TICKET IA]', err?.message ?? err);
+  } finally {
+    ticketAiInFlight.delete(message.channelId);
+  }
+  return true;
+}
+
 // ─── Utilitário: converte string de emoji para formato do Discord.js ──────────
 // Aceita: "💜" (unicode) ou "<a:name:id>" / "<:name:id>" (custom de qualquer servidor)
 function parseEmoji(str) {
@@ -103,6 +143,9 @@ export default {
     // ── INSTAGRAM AUTO-POST ──────────────────────────────────────────────────
     if (message.guildId) {
       const cfg = await getGuildCfg(message.guildId);
+
+      // ── ATENDIMENTO AUTOMÁTICO NOS TICKETS ────────────────────────────────
+      if (await handleTicketAI(message, cfg)) return;
 
       // ── IA POR MENÇÃO EM CANAL DEDICADO ─────────────────────────────────────
       if (cfg?.aiChannelId && message.channelId === cfg.aiChannelId && message.mentions.has(client.user)) {

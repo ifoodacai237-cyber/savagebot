@@ -192,6 +192,7 @@ export function ticketConfigButtons(cfg = {}) {
   const bannerPos   = cfg.ticketBannerPosition ?? 'top';
   const onlyBanner  = cfg.ticketOnlyBanner ?? false;
   const useMenu     = cfg.ticketUseMenu ?? false;
+  const aiEnabled   = cfg.ticketAiEnabled ?? false;
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('tcfg_cor').setLabel('Cor').setEmoji('🎨').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_sem_cor').setLabel('Sem Lateral').setEmoji('◻️').setStyle(ButtonStyle.Secondary),
@@ -220,7 +221,14 @@ export function ticketConfigButtons(cfg = {}) {
     new ButtonBuilder().setCustomId('tcfg_salvar').setLabel('Salvar Preset').setEmoji('💾').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('tcfg_carregar').setLabel('Carregar Preset').setEmoji('📂').setStyle(ButtonStyle.Secondary),
   );
-  return [row1, row2, row3, row4];
+  const row5 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('tcfg_ai')
+      .setLabel(aiEnabled ? 'IA Ativa' : 'Atendimento por IA')
+      .setEmoji('🤖')
+      .setStyle(aiEnabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+  );
+  return [row1, row2, row3, row4, row5];
 }
 
 export function tellonymConfigButtons() {
@@ -333,6 +341,7 @@ export function buildTicketConfigPayload(cfg) {
     `🔘 **Botão:** \`${cfg.ticketBtnLabel || 'Abrir Ticket'}\` ${cfg.ticketBtnEmoji || '🎫'} — ${btnStyleLabel}   ➖ **Separador:** ${sepStatus}`,
     `✏️ **Texto painel:** ${texto.length > 80 ? texto.slice(0, 77) + '...' : texto}`,
     `💬 **Texto abertura:** ${openText.length > 80 ? openText.slice(0, 77) + '...' : openText}`,
+    `🤖 **Atendimento por IA:** ${cfg.ticketAiEnabled ? '✅ Ativo' : '❌ Desativado'} — responde dúvidas, moderação e denúncias até a equipe assumir`,
   ].join('\n');
 
   const container = new ContainerBuilder();

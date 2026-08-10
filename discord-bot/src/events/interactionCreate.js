@@ -1339,6 +1339,19 @@ export default {
             return interaction.update({ ...buildTicketConfigPayload(updated), content: null });
           }
 
+          // ── Toggle atendimento automático por IA ──────────────────────────
+          if (field === 'ai') {
+            const cfg = await getCfg(interaction.guildId);
+            const newVal = !(cfg.ticketAiEnabled ?? false);
+            await prisma.guildConfig.upsert({
+              where: { guildId: interaction.guildId },
+              create: { guildId: interaction.guildId, ticketAiEnabled: newVal },
+              update: { ticketAiEnabled: newVal },
+            });
+            const updated = await getCfg(interaction.guildId);
+            return interaction.update({ ...buildTicketConfigPayload(updated), content: null });
+          }
+
           // ── Gestão de opções do menu de ticket ────────────────────────────
           if (field === 'menu_opts') {
             await interaction.deferUpdate();
