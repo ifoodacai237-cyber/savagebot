@@ -524,6 +524,13 @@ export default {
 
           try {
             await channel.send({ components: [pingDisplay, ticketContainer], flags: MessageFlags.IsComponentsV2 });
+            if (config?.ticketAiEnabled) {
+              await channel.send(
+                '🤖 **Atendimento automático ativado.**\n' +
+                'Olá! Sou o suporte oficial do servidor e posso ajudar com dúvidas gerais, regras, moderação e denúncias. ' +
+                'Descreva o que aconteceu de forma objetiva; se for necessário, um moderador da equipe assumirá o atendimento.',
+              );
+            }
           } catch (err) {
             console.error('[TICKET MENU SEND ERROR]', err?.message ?? err);
             await channel.delete().catch(() => {});

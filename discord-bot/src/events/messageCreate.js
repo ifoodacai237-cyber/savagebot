@@ -73,6 +73,7 @@ export function invalidateGuildCfgCache(guildId) {
 }
 
 const ticketAiInFlight = new Set();
+const ticketAiMissingKeyNotified = new Set();
 
 async function handleTicketAI(message, cfg) {
   if (!cfg?.ticketAiEnabled || !message.guildId || ticketAiInFlight.has(message.channelId)) return false;
@@ -80,6 +81,12 @@ async function handleTicketAI(message, cfg) {
   const ticket = await prisma.ticket.findUnique({ where: { channelId: message.channelId } }).catch(() => null);
   if (!ticket || ticket.status !== 'open' || ticket.claimedBy || ticket.userId !== message.author.id) return false;
   if (!isAIConfigured() || !process.env.GROQ_API_KEY?.trim()) {
+    if (!ticketAiMissingKeyNotified.has(message.channelId)) {
+      ticketAiMissingKeyNotified.add(message.channelId);
+      await message.reply(
+        '⚠️ O atendimento por IA está ativado, mas a chave Groq não está disponível no Railway. Avise um administrador para configurar `GROQ_API_KEY` no ambiente de produção.',
+      ).catch(() => {});
+    }
     return false;
   }
 
