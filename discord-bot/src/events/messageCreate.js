@@ -150,7 +150,7 @@ async function handleAdminAIMention(message, client) {
     return setTicketAIFromAdmin(message, false);
   }
 
-  if (/^(enviar|envia|mandar|manda)\b.*\b(painel|menu).*\bticket/i.test(prompt)) {
+  if (/^(enviar|envia|envie|mandar|manda|mande)\b.*\b(painel|menu).*\bticket/i.test(prompt)) {
     const ticketCommand = client.prefixCmds.get('ticket');
     if (ticketCommand?.executePrefix) {
       await ticketCommand.executePrefix(message, ['painel'], client, 'ticket');
