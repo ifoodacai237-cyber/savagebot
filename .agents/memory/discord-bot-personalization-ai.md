@@ -28,3 +28,11 @@ directly-configured provider key, not the Replit AI proxy.
 
 **How to apply:** If adding more AI features to this bot, reuse `discord-bot/src/utils/aiManager.js`
 (has short-term per-user/per-guild chat session memory) rather than re-deriving the OpenAI client.
+
+## Railway secrets are separate
+
+The bot process runs on Railway, so provider keys used by AI features must also be configured in the Railway service environment. Replit Secrets are not automatically mirrored into Railway.
+
+**Why:** A key can exist in the Replit workspace while `process.env` on Railway remains empty, causing external AI calls to fail only in production.
+
+**How to apply:** When adding or debugging an AI provider for this bot, verify the corresponding key exists in Railway as well as in Replit; never expose the value in logs or chat.
