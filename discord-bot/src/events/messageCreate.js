@@ -16,7 +16,14 @@ import {
 import prisma from '../database/client.js';
 import { likesMap, threadsMap, postDataMap } from '../utils/instaState.js';
 import { buildPartnershipPost } from '../utils/partnershipPanels.js';
-import { askAI, askTicketAI, generateAIImage, isAIConfigured } from '../utils/aiManager.js';
+import {
+  askAI,
+  askAdminCommand,
+  askTicketAI,
+  generateAIImage,
+  isAIConfigured,
+  isGroqConfigured,
+} from '../utils/aiManager.js';
 
 const PREFIX = 'savage ';
 
@@ -56,6 +63,130 @@ async function handleAIMention(message, client) {
     console.error('[IA MENÇÃO]', err);
     await message.reply('❌ Não consegui responder agora. Tente novamente em instantes.').catch(() => {});
   }
+}
+
+function getMentionPrompt(message, client) {
+  return message.content
+    .replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '')
+    .trim();
+}
+
+function getLoadedCommandCatalog(client) {
+  const unique = new Map();
+  for (const command of client.prefixCmds.values()) {
+    if (command?.name && command.executePrefix && !unique.has(command.name)) {
+      unique.set(command.name, {
+        name: command.name,
+        description: command.data?.description || '',
+      });
+    }
+  }
+  return [...unique.values()];
+}
+
+function parseDirectAdminCommand(prompt, client) {
+  const normalized = prompt
+    .replace(/^\/+/, '')
+    .replace(/^savage\s+/i, '')
+    .trim();
+  const [name, ...args] = normalized.split(/\s+/).filter(Boolean);
+  if (!name || !client.prefixCmds.has(name.toLowerCase())) return null;
+  return { command: name.toLowerCase(), args };
+}
+
+async function closeTicketFromAdmin(message) {
+  const targetChannelId = message.mentions.channels.first()?.id ?? message.channelId;
+  const ticket = await prisma.ticket.findUnique({ where: { channelId: targetChannelId } }).catch(() => null);
+  if (!ticket || ticket.status !== 'open') {
+    await message.reply(
+      'Não encontrei um ticket aberto neste canal. Mencione o canal de um ticket ou use o comando dentro dele.',
+    ).catch(() => {});
+    return true;
+  }
+
+  await prisma.ticket.update({ where: { channelId: targetChannelId }, data: { status: 'closed' } }).catch(() => {});
+  const target = message.guild.channels.cache.get(targetChannelId)
+    ?? await message.guild.channels.fetch(targetChannelId).catch(() => null);
+  await message.reply(
+    `🔒 Ticket <#${targetChannelId}> fechado pela administração. O canal será removido em 5 segundos.`,
+  ).catch(() => {});
+  setTimeout(() => target?.delete('Ticket fechado por administrador').catch(() => {}), 5_000);
+  return true;
+}
+
+async function setTicketAIFromAdmin(message, enabled) {
+  await prisma.guildConfig.upsert({
+    where: { guildId: message.guildId },
+    create: { guildId: message.guildId, ticketAiEnabled: enabled },
+    update: { ticketAiEnabled: enabled },
+  });
+  invalidateGuildCfgCache(message.guildId);
+  await message.reply(
+    `Atendimento por IA nos tickets ${enabled ? '**ativado**' : '**desativado**'} para este servidor.`,
+  ).catch(() => {});
+  return true;
+}
+
+async function handleAdminAIMention(message, client) {
+  if (!message.member?.permissions.has(PermissionFlagsBits.Administrator)) return false;
+
+  const prompt = getMentionPrompt(message, client);
+  if (!prompt) {
+    await message.reply(
+      'Use uma instrução administrativa, por exemplo: `fechar ticket`, `/ticket painel` ou `envie o painel de tickets`.',
+    ).catch(() => {});
+    return true;
+  }
+
+  if (/^(fechar|fecha|encerra|encerrar)\s+(este\s+|o\s+|um\s+)?ticket\b/i.test(prompt)) {
+    return closeTicketFromAdmin(message);
+  }
+
+  if (/^(ativar|ative|ligar|liga)\b.*\b(ia|atendimento por ia|ia dos tickets)\b/i.test(prompt)) {
+    return setTicketAIFromAdmin(message, true);
+  }
+
+  if (/^(desativar|desative|desligar|desliga)\b.*\b(ia|atendimento por ia|ia dos tickets)\b/i.test(prompt)) {
+    return setTicketAIFromAdmin(message, false);
+  }
+
+  if (/^(enviar|envia|mandar|manda)\b.*\b(painel|menu).*\bticket/i.test(prompt)) {
+    const ticketCommand = client.prefixCmds.get('ticket');
+    if (ticketCommand?.executePrefix) {
+      await ticketCommand.executePrefix(message, ['painel'], client, 'ticket');
+      return true;
+    }
+  }
+
+  if (!isGroqConfigured()) {
+    await message.reply('A chave Groq não está disponível no Railway para interpretar esse comando.').catch(() => {});
+    return true;
+  }
+
+  try {
+    const direct = parseDirectAdminCommand(prompt, client);
+    const parsed = direct ?? await askAdminCommand({
+      prompt,
+      commands: getLoadedCommandCatalog(client),
+      serverName: message.guild?.name,
+    });
+
+    if (!parsed?.command || !client.prefixCmds.has(parsed.command)) {
+      await message.reply(
+        'Não identifiquei um comando válido. Use o nome do comando, como `/ticket painel`, ou descreva a ação com mais detalhes.',
+      ).catch(() => {});
+      return true;
+    }
+
+    const command = client.prefixCmds.get(parsed.command);
+    await command.executePrefix(message, parsed.args, client, parsed.command);
+  } catch (err) {
+    console.error('[IA ADMIN]', err?.message ?? err);
+    await message.reply(
+      'Não consegui executar esse comando agora. Verifique o nome e os argumentos e tente novamente.',
+    ).catch(() => {});
+  }
+  return true;
 }
 
 const processedMessages = new Set();
@@ -202,6 +333,10 @@ export default {
     // ── INSTAGRAM AUTO-POST ──────────────────────────────────────────────────
     if (message.guildId) {
       const cfg = await getGuildCfg(message.guildId);
+
+      // ── CONTROLE ADMINISTRATIVO POR MENÇÃO ─────────────────────────────────
+      // Apenas administradores podem acionar comandos naturais mencionando o bot.
+      if (message.mentions.has(client.user) && await handleAdminAIMention(message, client)) return;
 
       // ── ATENDIMENTO AUTOMÁTICO NOS TICKETS ────────────────────────────────
       if (await handleTicketAI(message, cfg)) return;

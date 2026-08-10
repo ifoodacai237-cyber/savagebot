@@ -173,6 +173,71 @@ export async function askTicketAI({ guildId, ticketId, messages, serverName, ser
   }
 }
 
+// ─── Interpretador de comandos administrativos via Groq ──────────────────────
+
+export async function askAdminCommand({ prompt, commands, serverName }) {
+  if (!isGroqConfigured()) {
+    throw new Error('GROQ_API_KEY não configurada');
+  }
+
+  const commandList = commands
+    .map(command => `- ${command.name}: ${trimForDiscord(command.description || 'comando do bot', 180)}`)
+    .join('\n');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20_000);
+
+  try {
+    const res = await fetch(GROQ_API, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: [
+              'Você é um roteador de comandos administrativos de um bot Discord.',
+              'Converta o pedido do administrador em um comando que exista na lista permitida.',
+              'Retorne SOMENTE JSON válido no formato {"command":"nome","args":["arg1","arg2"]}.',
+              'Se não for possível identificar um comando da lista, retorne {"command":null,"args":[]}.',
+              'Nunca crie nomes de comandos, nunca inclua explicações e nunca inclua código.',
+              'Preserve IDs, menções, URLs e valores fornecidos pelo administrador nos argumentos.',
+              `Servidor: ${serverName || 'Discord'}`,
+              'Comandos permitidos:',
+              commandList,
+            ].join('\n'),
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0,
+        max_tokens: 180,
+        stream: false,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error(`Groq retornou ${res.status}: ${detail.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    const raw = data?.choices?.[0]?.message?.content?.trim() || '';
+    const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+    const parsed = JSON.parse(jsonText);
+    return {
+      command: typeof parsed.command === 'string' ? parsed.command.toLowerCase().trim() : null,
+      args: Array.isArray(parsed.args) ? parsed.args.map(arg => String(arg)) : [],
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ─── Geração de imagem via Pollinations Image ────────────────────────────────
 
 export async function generateAIImage({ prompt }) {
