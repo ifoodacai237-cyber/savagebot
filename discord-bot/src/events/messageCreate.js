@@ -11,6 +11,7 @@ import {
   MediaGalleryBuilder,
   MediaGalleryItemBuilder,
   MessageFlags,
+  PermissionFlagsBits,
 } from 'discord.js';
 import prisma from '../database/client.js';
 import { likesMap, threadsMap, postDataMap } from '../utils/instaState.js';
@@ -75,6 +76,56 @@ export function invalidateGuildCfgCache(guildId) {
 const ticketAiInFlight = new Set();
 const ticketAiMissingKeyNotified = new Set();
 
+function buildTicketServerContext(message, cfg) {
+  const visibleChannels = [...(message.guild?.channels?.cache?.values() ?? [])]
+    .filter(channel => {
+      const userCanView = message.member
+        ? channel.permissionsFor(message.member)?.has(PermissionFlagsBits.ViewChannel)
+        : false;
+      return userCanView && (channel.isTextBased?.() || channel.type === 4);
+    })
+    .sort((a, b) => (a.parent?.position ?? -1) - (b.parent?.position ?? -1) || a.position - b.position)
+    .slice(0, 80)
+    .map(channel => {
+      const parent = channel.parent?.name ? `${channel.parent.name}/` : '';
+      return `- ${parent}${channel.name}: <#${channel.id}>`;
+    });
+
+  const visibleRoles = [...(message.guild?.roles?.cache?.values() ?? [])]
+    .filter(role => role.id !== message.guild.id && role.name !== '@everyone')
+    .sort((a, b) => b.position - a.position)
+    .slice(0, 40)
+    .map(role => `- ${role.name}: <@&${role.id}>`);
+
+  const configured = [
+    `Tickets: ${cfg.ticketAiEnabled ? 'atendimento por IA ativo' : 'atendimento por IA desativado'}; painel de abertura é enviado com \`/ticket painel\` por um administrador; configuração em \`/ticket config\`.`,
+    cfg.ticketCategory ? `Categoria dos tickets: <#${cfg.ticketCategory}>.` : 'Categoria dos tickets: não configurada; o ticket é criado sem categoria.',
+    cfg.ticketPingRole ? `Equipe de tickets marcada: ${cfg.ticketPingRole.split(',').map(id => `<@&${id.trim()}>`).join(' ')}.` : 'Equipe de tickets: nenhum cargo de ping configurado.',
+    cfg.partnerEnabled
+      ? `Parcerias: sistema ativo no canal <#${cfg.partnerChannel}>${cfg.partnerResponsibleRole ? `, para membros com o cargo <@&${cfg.partnerResponsibleRole}>` : ''}. Para registrar, envie um convite Discord nesse canal e, se houver representante, mencione-o. O bot publica a parceria automaticamente.`
+      : 'Parcerias: sistema atualmente desativado ou sem canal configurado.',
+    'Ajuda: use `/ajuda` para abrir a central de comandos. Comandos de texto usam o prefixo `savage `.',
+    'Economia: `/eco saldo`, `/eco daily`, `/eco trabalho`, `/eco pagar`, `/eco depositar`, `/eco sacar`, `/eco top` e `/eco roubar` quando permitido.',
+    'Loja e perfil: `/loja painel` mostra a loja; `/perfil` mostra o perfil; `/bio` altera a bio; `/pet` gerencia o pet.',
+    'Pesca: `/pescar` inicia uma pescaria; `/pesca loja` compra varas; `/pesca inventario` mostra capturas; `/pesca vender` vende peixes por coins. Há cooldown de 45 minutos entre pescarias.',
+    'Jogos: `/jogo` abre os jogos e apostas disponíveis.',
+    'Música e voz: `/musica` toca música, `/radio` liga o rádio e `/call` mantém o bot em call quando permitido.',
+    'Social e utilidades: `/instagram`, `/tellonym`, `/conquista`, `/quest` e os comandos de interação como `/kiss`, `/hug` e `/pat`.',
+    'Denúncias: peça ao usuário para explicar o ocorrido, indicar envolvidos, canal, horário aproximado e enviar provas; não prometa punição. Um moderador deve assumir o ticket para decidir.',
+  ];
+
+  return [
+    'RECURSOS E CONFIGURAÇÕES:',
+    ...configured,
+    '',
+    'CANAIS VISÍVEIS PARA O USUÁRIO:',
+    ...(visibleChannels.length ? visibleChannels : ['- Não foi possível listar canais visíveis.']),
+    '',
+    'CARGOS DO SERVIDOR:',
+    ...(visibleRoles.length ? visibleRoles : ['- Não foi possível listar cargos.']),
+  ].join('\n');
+}
+
 async function handleTicketAI(message, cfg) {
   if (!cfg?.ticketAiEnabled || !message.guildId || ticketAiInFlight.has(message.channelId)) return false;
 
@@ -109,6 +160,7 @@ async function handleTicketAI(message, cfg) {
       ticketId: ticket.id,
       messages,
       serverName: message.guild?.name,
+      serverContext: buildTicketServerContext(message, cfg),
     });
     await message.reply(answer);
   } catch (err) {
