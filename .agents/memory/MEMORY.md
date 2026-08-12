@@ -13,3 +13,4 @@
 - [Fishing economy](fishing-economy-system.md) — pesca isolada da loja geral: varas, estoque, cooldown e interações V2 usam prefixo fish_ e Economy só para coins.
 - [Slash registration fallback](slash-registration-fallback.md) — GUILD_ID do Railway pode estar stale/inacessível; tente guilds acessíveis antes do registro global.
 - [Discord ticket interactions](discord-ticket-interactions.md) — toda ação em customId de ticket precisa ser roteada e reconhecida imediatamente antes de consultar Prisma ou editar mensagens.
+- [GitHub PAT push](github-pat-push.md) — para push HTTPS, use Basic com x-access-token; Bearer pode ser rejeitado mesmo com PAT válido.
