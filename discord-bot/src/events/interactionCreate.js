@@ -1427,7 +1427,7 @@ export default {
               avatarUrl: rightUser.displayAvatarURL({ extension: 'png', size: 256 }),
             },
             stats,
-          }, { legacy: true }));
+          }));
         }
 
         // ── DIVORCIAR: confirmar / cancelar ────────────────────────────────
@@ -1585,7 +1585,7 @@ export default {
               avatarUrl: targetUser.displayAvatarURL({ extension: 'png', size: 256 }),
             },
             stats,
-          }, { legacy: true }));
+          }));
         }
 
         // ── AMIGO: Aceitar / Recusar ─────────────────────────────────────

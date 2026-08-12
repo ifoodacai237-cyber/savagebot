@@ -3,14 +3,6 @@ import {
   AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ContainerBuilder,
-  EmbedBuilder,
-  MediaGalleryBuilder,
-  MediaGalleryItemBuilder,
-  MessageFlags,
-  SectionBuilder,
-  SeparatorBuilder,
-  TextDisplayBuilder,
 } from 'discord.js';
 import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
 import { fileURLToPath } from 'url';
@@ -309,11 +301,16 @@ export async function getMarriageStats(leftId, rightId, marriedAt = new Date()) 
   };
 }
 
-export async function buildWeddingCardPayload({ left, right, stats }, { legacy = false } = {}) {
+export async function buildWeddingCardPayload({ left, right, stats }) {
   const image = await renderWeddingCard({ left, right, stats });
   const attachment = new AttachmentBuilder(image, { name: 'casamento-card.png' });
   const pair = `${left.id}_${right.id}`;
-  const refreshRow = new ActionRowBuilder().addComponents(
+  const controls = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`casar_manage_${pair}`)
+      .setLabel('Gerenciar')
+      .setEmoji('⚙️')
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`casar_refresh_${pair}`)
       .setLabel('Atualizar')
@@ -321,50 +318,8 @@ export async function buildWeddingCardPayload({ left, right, stats }, { legacy =
       .setStyle(ButtonStyle.Secondary),
   );
 
-  if (legacy) {
-    const embed = new EmbedBuilder()
-      .setColor(0xf44598)
-      .setTitle('💍 Cartão de casamento')
-      .setDescription(`<@${left.id}> e <@${right.id}> · nível ${stats.level} · ${stats.xp} XP`)
-      .setImage('attachment://casamento-card.png')
-      .setFooter({ text: 'Use Atualizar para recalcular as estatísticas.' });
-
-    return {
-      embeds: [embed],
-      components: [refreshRow],
-      files: [attachment],
-    };
-  }
-
-  const container = new ContainerBuilder().setAccentColor(0xf44598);
-
-  container.addMediaGalleryComponents(
-    new MediaGalleryBuilder().addItems(
-      new MediaGalleryItemBuilder().setURL('attachment://casamento-card.png'),
-    ),
-  );
-  container.addSeparatorComponents(new SeparatorBuilder());
-  container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(
-      `## 💕 Casamento\n<@${left.id}> e <@${right.id}> · nível ${stats.level} · ${stats.xp} XP · call\n` +
-      `juntos ${stats.callMinutes}min\n` +
-      'Tempo em call juntos tem o maior peso no XP do casal.',
-    ),
-  );
-  container.addSectionComponents(
-    new SectionBuilder()
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent('Gerenciar casamento...'))
-      .setButtonAccessory(
-        new ButtonBuilder()
-          .setCustomId(`casar_manage_${pair}`)
-          .setLabel('›')
-          .setStyle(ButtonStyle.Secondary),
-      ),
-  );
-
   return {
-    components: [container, refreshRow],
     files: [attachment],
-    flags: MessageFlags.IsComponentsV2,
+    components: [controls],
   };
 }

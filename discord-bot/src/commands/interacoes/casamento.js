@@ -49,6 +49,6 @@ export default {
         avatarUrl: partner.displayAvatarURL({ extension: 'png', size: 256 }),
       },
       stats,
-    }, { legacy: true }));
+    }));
   },
 };
