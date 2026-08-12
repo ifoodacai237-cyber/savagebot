@@ -1371,8 +1371,31 @@ export default {
           }
 
           if (action === 'manage') {
+            const partnerId = interaction.user.id === leftId ? rightId : leftId;
+            const partner = await interaction.client.users.fetch(partnerId).catch(() => null);
+            const partnerName = partner?.globalName ?? partner?.username ?? 'seu/sua parceiro(a)';
+            const divorceRow = new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`divorciar_confirm_${interaction.user.id}_${partnerId}`)
+                .setLabel('Confirmar divórcio')
+                .setEmoji('💔')
+                .setStyle(ButtonStyle.Danger),
+              new ButtonBuilder()
+                .setCustomId(`divorciar_cancel_${interaction.user.id}`)
+                .setLabel('Cancelar')
+                .setStyle(ButtonStyle.Secondary),
+            );
             return interaction.reply({
-              content: '💍 Este casamento está ativo. Use `/casar` para gerar novamente o cartão atualizado.',
+              embeds: [
+                new EmbedBuilder()
+                  .setColor(0xED4245)
+                  .setTitle('💔 Gerenciar casamento')
+                  .setDescription(
+                    `Você realmente quer se divorciar de **${partnerName}**?\n\n` +
+                    'Essa ação remove o vínculo dos dois perfis e não pode ser desfeita automaticamente.',
+                  ),
+              ],
+              components: [divorceRow],
               ephemeral: true,
             });
           }
@@ -1400,6 +1423,67 @@ export default {
             },
             stats,
           }));
+        }
+
+        // ── DIVORCIAR: confirmar / cancelar ────────────────────────────────
+        if (customId.startsWith('divorciar_confirm_') || customId.startsWith('divorciar_cancel_')) {
+          const parts = customId.split('_');
+          const action = parts[1];
+          const userId = parts[2];
+          const partnerId = parts[3];
+
+          if (interaction.user.id !== userId) {
+            return interaction.reply({
+              content: '❌ Apenas a pessoa que iniciou esta confirmação pode usá-la.',
+              ephemeral: true,
+            });
+          }
+
+          if (action === 'cancel') {
+            return interaction.update({
+              embeds: [
+                new EmbedBuilder()
+                  .setColor(0x5865F2)
+                  .setTitle('💍 Divórcio cancelado')
+                  .setDescription('O casamento continua ativo.'),
+              ],
+              components: [],
+            });
+          }
+
+          const profile = await prisma.userProfile.findUnique({ where: { userId } });
+          if (!profile?.marriedTo || profile.marriedTo !== partnerId) {
+            return interaction.update({
+              embeds: [
+                new EmbedBuilder()
+                  .setColor(0xED4245)
+                  .setTitle('💔 Casamento não encontrado')
+                  .setDescription('Esse vínculo já foi removido ou alterado.'),
+              ],
+              components: [],
+            });
+          }
+
+          await Promise.all([
+            prisma.userProfile.update({
+              where: { userId },
+              data: { marriedTo: null, marriedToName: null, marriedAt: null },
+            }),
+            prisma.userProfile.updateMany({
+              where: { userId: partnerId, marriedTo: userId },
+              data: { marriedTo: null, marriedToName: null, marriedAt: null },
+            }),
+          ]);
+
+          return interaction.update({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(0xED4245)
+                .setTitle('💔 Divórcio concluído')
+                .setDescription('O vínculo foi removido dos dois perfis.'),
+            ],
+            components: [],
+          });
         }
 
         // ── CASAR: Aceitar / Recusar ─────────────────────────────────────
