@@ -24,6 +24,7 @@ import { generateTranscript } from '../utils/transcript.js';
 import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, v2Simple, Colors } from '../utils/embed.js';
 import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoes.js';
 import { generateTellonymCard } from '../utils/cardGenerator.js';
+import { buildWeddingCardPayload, getMarriageStats } from '../utils/weddingCard.js';
 import { likesMap, postDataMap } from '../utils/instaState.js';
 import { buildTicketConfigPayload, buildTellonymConfigPayload, buildWelcomeConfigPayload, buildWelcomeV2, buildTicketPanelV2, buildTellonymPanelV2, DEFAULT_TICKET_TEXT, DEFAULT_TICKET_OPEN_TEXT, DEFAULT_TELLONYM_TEXT, formatDeleteTime } from '../utils/configPanels.js';
 import { buildMenuOptsPanel, buildOptionDetailPanel, buildAddOptionModal, buildEditOptionModal, parseIdList } from '../utils/ticketMenuHandlers.js';
@@ -1358,6 +1359,49 @@ export default {
           return interaction.editReply({ content: `✅ <@${interaction.user.id}> assumiu este ticket!` });
         }
 
+        // ── CASAR: Atualizar / Gerenciar ──────────────────────────────────
+        if (customId.startsWith('casar_refresh_') || customId.startsWith('casar_manage_')) {
+          const [, action, leftId, rightId] = customId.split('_');
+          const isPairMember = interaction.user.id === leftId || interaction.user.id === rightId;
+          if (!isPairMember) {
+            return interaction.reply({
+              content: '❌ Apenas uma das pessoas do casal pode usar este botão.',
+              ephemeral: true,
+            });
+          }
+
+          if (action === 'manage') {
+            return interaction.reply({
+              content: '💍 Este casamento está ativo. Use `/casar` para gerar novamente o cartão atualizado.',
+              ephemeral: true,
+            });
+          }
+
+          const [leftUser, rightUser, leftMember, rightMember, leftProfile] = await Promise.all([
+            interaction.client.users.fetch(leftId),
+            interaction.client.users.fetch(rightId),
+            interaction.guild.members.fetch(leftId).catch(() => null),
+            interaction.guild.members.fetch(rightId).catch(() => null),
+            prisma.userProfile.findUnique({ where: { userId: leftId } }),
+          ]);
+          const stats = await getMarriageStats(leftId, rightId, leftProfile?.marriedAt);
+          return interaction.update(await buildWeddingCardPayload({
+            left: {
+              id: leftId,
+              displayName: leftMember?.displayName ?? leftUser.globalName ?? leftUser.username,
+              username: leftUser.username,
+              avatarUrl: leftUser.displayAvatarURL({ extension: 'png', size: 256 }),
+            },
+            right: {
+              id: rightId,
+              displayName: rightMember?.displayName ?? rightUser.globalName ?? rightUser.username,
+              username: rightUser.username,
+              avatarUrl: rightUser.displayAvatarURL({ extension: 'png', size: 256 }),
+            },
+            stats,
+          }));
+        }
+
         // ── CASAR: Aceitar / Recusar ─────────────────────────────────────
         if (customId.startsWith('casar_accept_') || customId.startsWith('casar_reject_')) {
           const parts      = customId.split('_');
@@ -1392,26 +1436,43 @@ export default {
             return interaction.reply({ embeds: [errorEmbed('Um dos usuários já está casado com outra pessoa!')], ephemeral: true });
           }
 
+          const marriedAt = new Date();
           await Promise.all([
             prisma.userProfile.upsert({
               where:  { userId: proposerId },
-              update: { marriedTo: targetId, marriedToName: targetName },
-              create: { userId: proposerId, marriedTo: targetId, marriedToName: targetName },
+              update: { marriedTo: targetId, marriedToName: targetName, marriedAt },
+              create: { userId: proposerId, marriedTo: targetId, marriedToName: targetName, marriedAt },
             }),
             prisma.userProfile.upsert({
               where:  { userId: targetId },
-              update: { marriedTo: proposerId, marriedToName: proposerName },
-              create: { userId: targetId, marriedTo: proposerId, marriedToName: proposerName },
+              update: { marriedTo: proposerId, marriedToName: proposerName, marriedAt },
+              create: { userId: targetId, marriedTo: proposerId, marriedToName: proposerName, marriedAt },
             }),
           ]);
 
-          const acceptEmbed = new EmbedBuilder()
-            .setColor(0xFF6B9D)
-            .setTitle('💍 Casamento Confirmado!')
-            .setDescription(`**${proposerName}** e **${targetName}** agora são casados! 🎊💕\n\nVeja o perfil de cada um com \`/perfil\`.`);
-
-          await interaction.message.edit({ embeds: [acceptEmbed], components: [] }).catch(() => {});
-          return interaction.reply({ content: `🎉 Parabéns, <@${proposerId}> e <@${targetId}>!`, ephemeral: false });
+          const [proposerUser, targetUser, proposerMember, targetMember] = await Promise.all([
+            interaction.client.users.fetch(proposerId),
+            interaction.client.users.fetch(targetId),
+            interaction.guild.members.fetch(proposerId).catch(() => null),
+            interaction.guild.members.fetch(targetId).catch(() => null),
+          ]);
+          const stats = await getMarriageStats(proposerId, targetId, marriedAt);
+          await interaction.message.edit(await buildWeddingCardPayload({
+            left: {
+              id: proposerId,
+              displayName: proposerMember?.displayName ?? proposerUser.globalName ?? proposerUser.username,
+              username: proposerUser.username,
+              avatarUrl: proposerUser.displayAvatarURL({ extension: 'png', size: 256 }),
+            },
+            right: {
+              id: targetId,
+              displayName: targetMember?.displayName ?? targetUser.globalName ?? targetUser.username,
+              username: targetUser.username,
+              avatarUrl: targetUser.displayAvatarURL({ extension: 'png', size: 256 }),
+            },
+            stats,
+          })).catch(() => {});
+          return interaction.reply({ content: `🎉 Parabéns, <@${proposerId}> e <@${targetId}>!`, ephemeral: true });
         }
 
         // ── AMIGO: Aceitar / Recusar ─────────────────────────────────────

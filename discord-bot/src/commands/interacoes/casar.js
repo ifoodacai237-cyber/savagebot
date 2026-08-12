@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import prisma from '../../database/client.js';
 import { errorEmbed } from '../../utils/embed.js';
+import { buildWeddingCardPayload, getMarriageStats } from '../../utils/weddingCard.js';
 
 const WEDDING_GIFS = [
   'https://cdn.otakugifs.xyz/gifs/love/adc831819611cd4f.gif',
@@ -19,13 +20,49 @@ export default {
     .addUserOption(o =>
       o.setName('pessoa')
         .setDescription('A pessoa que você quer pedir em casamento')
-        .setRequired(true),
+        .setRequired(false),
     ),
   name: 'casar',
 
   async execute(interaction) {
     const proposer = interaction.user;
     const target   = interaction.options.getUser('pessoa');
+
+    if (!target) {
+      const profile = await prisma.userProfile.findUnique({ where: { userId: proposer.id } });
+      if (!profile?.marriedTo) {
+        return interaction.reply({
+          embeds: [errorEmbed('Mencione alguém para pedir em casamento ou use `/casar` depois de se casar para ver o cartão do casal.')],
+          ephemeral: true,
+        });
+      }
+
+      const partner = await interaction.client.users.fetch(profile.marriedTo).catch(() => null);
+      if (!partner) {
+        return interaction.reply({ embeds: [errorEmbed('Não consegui encontrar a outra pessoa do casamento.')], ephemeral: true });
+      }
+
+      const [member, partnerMember] = await Promise.all([
+        interaction.guild.members.fetch(proposer.id).catch(() => null),
+        interaction.guild.members.fetch(partner.id).catch(() => null),
+      ]);
+      const stats = await getMarriageStats(proposer.id, partner.id, profile.marriedAt);
+      return interaction.reply(await buildWeddingCardPayload({
+        left: {
+          id: proposer.id,
+          displayName: member?.displayName ?? proposer.globalName ?? proposer.username,
+          username: proposer.username,
+          avatarUrl: proposer.displayAvatarURL({ extension: 'png', size: 256 }),
+        },
+        right: {
+          id: partner.id,
+          displayName: partnerMember?.displayName ?? partner.globalName ?? partner.username,
+          username: partner.username,
+          avatarUrl: partner.displayAvatarURL({ extension: 'png', size: 256 }),
+        },
+        stats,
+      }));
+    }
 
     if (target.id === proposer.id)
       return interaction.reply({ embeds: [errorEmbed('Você não pode se casar consigo mesmo! 😅')], ephemeral: true });

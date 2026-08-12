@@ -284,6 +284,7 @@ model UserProfile {
   bio             String?
   marriedTo       String?
   marriedToName   String?
+  marriedAt       DateTime?
   bestFriendId    String?
   bestFriendName  String?
   reps            Int     @default(0)
