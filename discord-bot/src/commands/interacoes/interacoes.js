@@ -1,13 +1,17 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import {
+  SlashCommandBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} from 'discord.js';
 import prisma from '../../database/client.js';
-import { errorEmbed } from '../../utils/embed.js';
+import { v2Payload, v2Rich, v2Simple } from '../../utils/embed.js';
 
 export const ACTIONS = {
   kiss: {
     aliases:      ['k', 'bj', 'beijo', 'beijar'],
     emoji:        '💋',
     gif:          'kiss',
-    color:        0xFF6B9D,
     desc:         '💋 Dá um beijo em alguém',
     msg:          (a, b) => `**${a}** beija **${b}** 💋`,
     counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'beijo' : 'beijos'}.*`,
@@ -15,11 +19,21 @@ export const ACTIONS = {
     retMsg:       (a, b) => `**${a}** beija **${b}** de volta! 💋`,
     mutualVerb:   (n) => `se beijaram **${n}** ${n === 1 ? 'vez' : 'vezes'}`,
   },
+  gf: {
+    aliases:      ['crush', 'romance', 'namoro'],
+    emoji:        '💞',
+    gif:          'kiss',
+    desc:         '💞 Cria um clima de romance com alguém',
+    msg:          (a, b) => `**${a}** puxa **${b}** para um beijo demorado... 💞`,
+    counter:      (to, n) => `*${to} já recebeu ${n} ${n === 1 ? 'momento romântico' : 'momentos românticos'}.*`,
+    btnLabel:     'Entrar no clima',
+    retMsg:       (a, b) => `**${a}** entra no clima e beija **${b}** de volta... 💞`,
+    mutualVerb:   (n) => `trocaram **${n}** ${n === 1 ? 'momento romântico' : 'momentos românticos'}`,
+  },
   hug: {
     aliases:      ['h', 'abraco', 'abracar'],
     emoji:        '🤗',
     gif:          'hug',
-    color:        0xFFB347,
     desc:         '🤗 Abraça alguém',
     msg:          (a, b) => `**${a}** abraça **${b}** 🤗`,
     counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'abraço' : 'abraços'}.*`,
@@ -31,7 +45,6 @@ export const ACTIONS = {
     aliases:      ['s', 'tapa', 'esbofetear'],
     emoji:        '👋',
     gif:          'slap',
-    color:        0xFF4444,
     desc:         '👋 Dá um tapa em alguém',
     msg:          (a, b) => `**${a}** esbofeteia **${b}** 👋`,
     counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'tapa' : 'tapas'}.*`,
@@ -43,7 +56,6 @@ export const ACTIONS = {
     aliases:      ['p', 'soco', 'murro'],
     emoji:        '👊',
     gif:          'punch',
-    color:        0xFF6600,
     desc:         '👊 Dá um soco em alguém',
     msg:          (a, b) => `**${a}** soca **${b}** 👊`,
     counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'soco' : 'socos'}.*`,
@@ -55,7 +67,6 @@ export const ACTIONS = {
     aliases:      ['pk', 'cutucar', 'cutuca'],
     emoji:        '👉',
     gif:          'poke',
-    color:        0x7289DA,
     desc:         '👉 Cutuca alguém',
     msg:          (a, b) => `**${a}** cutuca **${b}** 👉`,
     counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'cutucada' : 'cutucadas'}.*`,
@@ -67,7 +78,6 @@ export const ACTIONS = {
     aliases:      ['b', 'morder', 'morde'],
     emoji:        '😬',
     gif:          'bite',
-    color:        0xAA0000,
     desc:         '😬 Morde alguém',
     msg:          (a, b) => `**${a}** morde **${b}** 😬`,
     counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'mordida' : 'mordidas'}.*`,
@@ -79,7 +89,6 @@ export const ACTIONS = {
     aliases:      ['pa', 'carinho'],
     emoji:        '🥰',
     gif:          'pat',
-    color:        0xFF69B4,
     desc:         '🥰 Faz carinho em alguém',
     msg:          (a, b) => `**${a}** faz carinho em **${b}** 🥰`,
     counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'carinho' : 'carinhos'}.*`,
@@ -93,7 +102,6 @@ export const ACTIONS = {
     // OtakuGIFs não possui a categoria "kick"; punch é o fallback visual
     // mais próximo para a ação de empurrar.
     gif:          'punch',
-    color:        0x888888,
     desc:         '😤 Empurra alguém',
     msg:          (a, b) => `**${a}** empurra **${b}** 😤`,
     counter:      (to, n) => `*${to} recebeu ${n} ${n === 1 ? 'empurrão' : 'empurrões'}.*`,
@@ -161,6 +169,13 @@ const COMBO_MSGS = {
     { min: 20,  fn: (a, b) => `💘 *${a} e ${b} não conseguem parar de se beijar! 🔥*` },
     { min: 10,  fn: (a, b) => `💞 *${a} e ${b} estão viciados um no outro!*` },
     { min: 5,   fn: (a, b) => `💕 *${a} e ${b} estão criando algo especial...*` },
+  ],
+  gf: [
+    { min: 100, fn: (a, b) => `💞 **${a} e ${b} viraram o casal mais comentado do servidor! 👑**` },
+    { min: 50,  fn: (a, b) => `💗 **${a} e ${b} têm química de sobra!**` },
+    { min: 20,  fn: (a, b) => `🔥 *${a} e ${b} estão deixando o clima cada vez mais intenso...*` },
+    { min: 10,  fn: (a, b) => `💘 *${a} e ${b} não conseguem disfarçar esse clima!*` },
+    { min: 5,   fn: (a, b) => `💕 *${a} e ${b} estão quase assumindo esse romance...*` },
   ],
   hug: [
     { min: 100, fn: (a, b) => `🫂 **${a} e ${b} têm o abraço mais famoso do servidor! 👑**` },
@@ -233,12 +248,9 @@ export async function buildInteractionEmbed(type, fromUser, toUser, isRetributio
     }
   }
 
-  const embed = new EmbedBuilder()
-    .setColor(action.color)
-    .setDescription(description);
-
-  if (gifData.url)   embed.setImage(gifData.url);
-  if (gifData.anime) embed.setFooter({ text: `Anime: ${gifData.anime}` });
+  const text = gifData.anime
+    ? `${description}\n\n*Anime: ${gifData.anime}*`
+    : description;
 
   // Botões: voltar (só o alvo pode clicar) + Rejeitar
   const row = new ActionRowBuilder().addComponents(
@@ -254,7 +266,10 @@ export async function buildInteractionEmbed(type, fromUser, toUser, isRetributio
       .setStyle(ButtonStyle.Danger),
   );
 
-  return { embeds: [embed], components: [row] };
+  return v2Payload(
+    v2Rich({ text, imageUrl: gifData.url }),
+    row,
+  );
 }
 
 async function runAction(type, actor, target, replyFn) {
@@ -262,10 +277,10 @@ async function runAction(type, actor, target, replyFn) {
   const targetId = target.id ?? target.user?.id;
 
   if (target.bot ?? target.user?.bot)
-    return replyFn({ embeds: [errorEmbed('Você não pode interagir com um bot.')], ephemeral: true });
+    return replyFn({ ...v2Simple('❌ Você não pode interagir com um bot.'), ephemeral: true });
 
   if (targetId === actorId)
-    return replyFn({ embeds: [errorEmbed('Você não pode interagir consigo mesmo.')], ephemeral: true });
+    return replyFn({ ...v2Simple('❌ Você não pode interagir consigo mesmo.'), ephemeral: true });
 
   const payload = await buildInteractionEmbed(type, actor, target);
   return replyFn(payload);
@@ -311,9 +326,7 @@ export default [{
     const action = ACTIONS[type];
     const target = message.mentions.users.first();
     if (!target) {
-      return message.reply({
-        embeds: [errorEmbed(`Mencione o usuário. Ex: \`savage ${type} @user\``)],
-      });
+      return message.reply(v2Simple(`❌ Mencione o usuário. Ex: \`savage ${type} @user\``));
     }
     const member = await message.guild.members.fetch(target.id).catch(() => target);
     await runAction(type, message.member ?? message.author, member, opts => message.reply(opts));

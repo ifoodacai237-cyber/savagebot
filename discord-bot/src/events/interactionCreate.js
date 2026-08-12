@@ -21,7 +21,7 @@ import {
 } from 'discord.js';
 import prisma from '../database/client.js';
 import { generateTranscript } from '../utils/transcript.js';
-import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, Colors } from '../utils/embed.js';
+import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, v2Simple, Colors } from '../utils/embed.js';
 import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoes.js';
 import { generateTellonymCard } from '../utils/cardGenerator.js';
 import { likesMap, postDataMap } from '../utils/instaState.js';
@@ -2284,7 +2284,7 @@ export default {
           const toUser = await interaction.guild.members.fetch(originalFromId).catch(() =>
             interaction.client.users.fetch(originalFromId).catch(() => null)
           );
-          if (!toUser) return interaction.reply({ embeds: [errorEmbed('Usuário não encontrado.')], ephemeral: true });
+          if (!toUser) return interaction.reply({ ...v2Simple('❌ Usuário não encontrado.'), ephemeral: true });
 
           // Usa deferUpdate para editar a mensagem original no lugar (como a Neko)
           await interaction.deferUpdate();
@@ -2309,12 +2309,8 @@ export default {
           }
 
           const fromName = from.displayName ?? from.user?.username ?? 'Alguém';
-          const rejectEmbed = new EmbedBuilder()
-            .setColor(0x555555)
-            .setDescription(`**${fromName}** rejeitou a interação. ✖️`);
-
           await interaction.deferUpdate();
-          return interaction.editReply({ embeds: [rejectEmbed], components: [] });
+          return interaction.editReply(v2Simple(`**${fromName}** rejeitou a interação. ✖️`));
         }
 
         // ── TELLONYM: Botão principal → escolha ─────────────────────────
