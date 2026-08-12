@@ -21,7 +21,7 @@ import {
 } from 'discord.js';
 import prisma from '../database/client.js';
 import { generateTranscript } from '../utils/transcript.js';
-import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, v2Simple, Colors } from '../utils/embed.js';
+import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, v2Error, v2Simple, Colors } from '../utils/embed.js';
 import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoes.js';
 import { generateTellonymCard } from '../utils/cardGenerator.js';
 import { buildWeddingCardPayload, getMarriageStats } from '../utils/weddingCard.js';
@@ -1502,9 +1502,13 @@ export default {
             return interaction.reply({ content: '❌ Apenas a pessoa marcada pode responder a este pedido.', ephemeral: true });
 
           // Reconhece o botão antes de consultar o banco, buscar usuários ou
-          // gerar a imagem. Sem isso o Discord mostra "está pensando..." e
-          // expira a interação após alguns segundos.
-          await interaction.deferUpdate();
+          // gerar a imagem. A confirmação termina em um card V2 novo; por
+          // isso ela deve ser deferida como V2 desde o início.
+          if (action === 'reject') {
+            await interaction.deferUpdate();
+          } else {
+            await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+          }
 
           const proposerName = (await interaction.guild.members.fetch(proposerId).catch(() => null))?.displayName
             ?? (await interaction.client.users.fetch(proposerId).catch(() => null))?.username
@@ -1530,10 +1534,7 @@ export default {
             && targetProfile.marriedTo !== proposerId;
 
           if (proposerHasOtherPartner || targetHasOtherPartner) {
-            return interaction.editReply({
-              embeds: [errorEmbed('Um dos usuários já está casado com outra pessoa!')],
-              components: [],
-            });
+            return interaction.editReply(v2Error('Um dos usuários já está casado com outra pessoa!'));
           }
 
           // Pedidos antigos podem ser aceitos depois de o vínculo já ter sido
@@ -1571,7 +1572,7 @@ export default {
             ],
             components: [],
           }).catch(() => {});
-          return interaction.followUp(await buildWeddingCardPayload({
+          return interaction.editReply(await buildWeddingCardPayload({
             left: {
               id: proposerId,
               displayName: proposerMember?.displayName ?? proposerUser.globalName ?? proposerUser.username,
@@ -3854,16 +3855,23 @@ export default {
 
     } catch (err) {
       console.error('[INTERACTION ERROR]', err);
-      const errorPayload = {
+      const marriageV2 =
+        interaction.commandName === 'casamento'
+        || interaction.customId?.startsWith('casar_accept_')
+        || interaction.customId?.startsWith('casar_refresh_');
+      const legacyErrorPayload = {
         embeds: [errorEmbed('Ocorreu um erro interno. Tente novamente.')],
         components: [],
       };
+      const errorPayload = marriageV2
+        ? v2Simple('❌ O cartão de casamento não pôde ser gerado. Tente novamente.')
+        : legacyErrorPayload;
       if (interaction.deferred)
         interaction.editReply(errorPayload).catch(() => {});
       else if (interaction.replied)
-        interaction.followUp({ ...errorPayload, ephemeral: true }).catch(() => {});
+        interaction.followUp(marriageV2 ? errorPayload : { ...legacyErrorPayload, ephemeral: true }).catch(() => {});
       else
-        interaction.reply({ ...errorPayload, ephemeral: true }).catch(() => {});
+        interaction.reply(marriageV2 ? errorPayload : { ...legacyErrorPayload, ephemeral: true }).catch(() => {});
     }
   },
 };

@@ -3,6 +3,13 @@ import {
   AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ContainerBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
+  MessageFlags,
+  SectionBuilder,
+  SeparatorBuilder,
+  TextDisplayBuilder,
 } from 'discord.js';
 import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
 import { fileURLToPath } from 'url';
@@ -305,12 +312,31 @@ export async function buildWeddingCardPayload({ left, right, stats }) {
   const image = await renderWeddingCard({ left, right, stats });
   const attachment = new AttachmentBuilder(image, { name: 'casamento-card.png' });
   const pair = `${left.id}_${right.id}`;
-  const controls = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`casar_manage_${pair}`)
-      .setLabel('Gerenciar')
-      .setEmoji('⚙️')
-      .setStyle(ButtonStyle.Secondary),
+  const container = new ContainerBuilder().setAccentColor(0xf44598);
+
+  container.addMediaGalleryComponents(
+    new MediaGalleryBuilder().addItems(
+      new MediaGalleryItemBuilder().setURL('attachment://casamento-card.png'),
+    ),
+  );
+  container.addSeparatorComponents(new SeparatorBuilder());
+  container.addSectionComponents(
+    new SectionBuilder()
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## 💕 Casamento\n<@${left.id}> e <@${right.id}> · nível ${stats.level} · ${stats.xp} XP\n` +
+          `Interações entre os dois: ${stats.interactions}`,
+        ),
+      )
+      .setButtonAccessory(
+        new ButtonBuilder()
+          .setCustomId(`casar_manage_${pair}`)
+          .setLabel('Gerenciar')
+          .setStyle(ButtonStyle.Secondary),
+      ),
+  );
+
+  const refreshRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`casar_refresh_${pair}`)
       .setLabel('Atualizar')
@@ -320,6 +346,7 @@ export async function buildWeddingCardPayload({ left, right, stats }) {
 
   return {
     files: [attachment],
-    components: [controls],
+    components: [container, refreshRow],
+    flags: MessageFlags.IsComponentsV2,
   };
 }
