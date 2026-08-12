@@ -1502,12 +1502,12 @@ export default {
             return interaction.reply({ content: '❌ Apenas a pessoa marcada pode responder a este pedido.', ephemeral: true });
 
           // Reconhece o botão antes de consultar o banco, buscar usuários ou
-          // gerar a imagem. A confirmação termina em um card V2 novo; por
-          // isso ela deve ser deferida como V2 desde o início.
+          // gerar a imagem. A confirmação termina em um card V2 novo; a flag
+          // V2 é aplicada no editReply, não no deferReply.
           if (action === 'reject') {
             await interaction.deferUpdate();
           } else {
-            await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+            await interaction.deferReply();
           }
 
           const proposerName = (await interaction.guild.members.fetch(proposerId).catch(() => null))?.displayName

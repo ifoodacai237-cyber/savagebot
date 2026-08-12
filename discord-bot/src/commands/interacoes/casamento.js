@@ -1,4 +1,4 @@
-import { MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
 import { v2Error } from '../../utils/embed.js';
 import { buildWeddingCardPayload, getMarriageStats } from '../../utils/weddingCard.js';
@@ -49,7 +49,9 @@ export default {
   name: 'casamento',
 
   async execute(interaction) {
-    await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+    // Components V2 é aplicado na resposta editada. O Discord.js aceita
+    // apenas Ephemeral no payload de deferReply.
+    await interaction.deferReply();
 
     const profile = await findMarriageProfile(interaction.user.id);
 
