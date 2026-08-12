@@ -84,7 +84,7 @@ async function fetchGifFrames(url, maxFrames = 18) {
 
 // ── Gerador principal ─────────────────────────────────────────────────────────
 
-const W = 950, H = 555;
+const W = 800, H = 600;
 
 /**
  * Gera um card de perfil animado (GIF).

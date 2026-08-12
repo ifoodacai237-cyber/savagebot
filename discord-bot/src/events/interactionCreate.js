@@ -202,6 +202,60 @@ function buildTicketOpenButton(cfg) {
   return btn;
 }
 
+function idList(...values) {
+  return [...new Set(
+    values
+      .flatMap(value => String(value ?? '').split(','))
+      .map(value => value.trim())
+      .filter(Boolean),
+  )];
+}
+
+function isPartnershipTicket(label = '') {
+  return /\b(parceria|parcerias|partner|partnership)\b/i.test(label);
+}
+
+function buildTicketActionMenu(channelId, claimedBy = null) {
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`ticket_actions_${channelId}`)
+    .setPlaceholder('🛠️ Ações do ticket')
+    .addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel(claimedBy ? 'Ticket já assumido' : 'Assumir ticket')
+        .setDescription(claimedBy ? 'Este ticket já tem um atendente.' : 'Assuma o atendimento deste ticket.')
+        .setValue('assume')
+        .setEmoji('✅')
+        .setDefault(false),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Notificar atendentes')
+        .setDescription('Chama novamente a equipe responsável pelo ticket.')
+        .setValue('notify')
+        .setEmoji('🔔'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Fechar ticket')
+        .setDescription('Fecha e remove este canal em 5 segundos.')
+        .setValue('close')
+        .setEmoji('🔒'),
+    );
+
+  return new ActionRowBuilder().addComponents(select);
+}
+
+function ticketActionContainer({ channelId, title, avatar, claimedBy, text }) {
+  return new ContainerBuilder()
+    .addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(title))
+        .setThumbnailAccessory(new ThumbnailBuilder().setURL(avatar)),
+    )
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+      `**Assumido por:** ${claimedBy ? `<@${claimedBy}>` : 'Ninguém'}`,
+    ))
+    .addSeparatorComponents(new SeparatorBuilder())
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(text))
+    .addActionRowComponents(buildTicketActionMenu(channelId, claimedBy));
+}
+
 // ─── Mapeamento dos campos de modal ───────────────────────────────────────────
 
 const TICKET_MODAL_FIELDS = {
@@ -466,7 +520,12 @@ export default {
           const ticketCount  = await prisma.ticket.count({ where: { guildId: guild.id } });
           const ticketNumber = ticketCount + 1;
 
-          const pingRole = option.pingRole || config?.ticketPingRole || null;
+          const partnershipTicket = isPartnershipTicket(option.label);
+          const pingRole = idList(
+            option.pingRole,
+            config?.ticketPingRole,
+            partnershipTicket ? config?.partnerResponsibleRole : null,
+          ).join(',');
           const pingUser = option.pingUser || config?.ticketPingUser || null;
 
           const permissionOverwrites = [
@@ -475,7 +534,7 @@ export default {
             { id: client.user.id,       allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.AttachFiles] },
           ];
           if (pingRole) {
-            for (const rId of pingRole.split(',').map(s => s.trim()).filter(Boolean)) {
+            for (const rId of idList(pingRole)) {
               permissionOverwrites.push({ id: rId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
             }
           }
@@ -494,7 +553,14 @@ export default {
             permissionOverwrites,
           });
 
-          await prisma.ticket.create({ data: { channelId: channel.id, userId: interaction.user.id, guildId: guild.id } });
+          await prisma.ticket.create({
+            data: {
+              channelId: channel.id,
+              userId: interaction.user.id,
+              guildId: guild.id,
+              reason: option.label,
+            },
+          });
 
           const memberAvatar = interaction.member?.displayAvatarURL({ size: 128, extension: 'png' }) ?? interaction.user.displayAvatarURL({ size: 128, extension: 'png' });
           const memberName   = interaction.member?.displayName ?? interaction.user.username;
@@ -506,25 +572,25 @@ export default {
 
           const pingDisplay    = new TextDisplayBuilder().setContent(pingLine);
           const openText       = config?.ticketOpenText || 'Aguarde um instante, em breve um promotor irá lhe atender.';
-          const ticketContainer = new ContainerBuilder()
-            .addSectionComponents(
-              new SectionBuilder()
-                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`# ${option.label} - ${memberName}`))
-                .setThumbnailAccessory(new ThumbnailBuilder().setURL(memberAvatar)),
-            )
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent('**Assumido por:** Ninguém'))
-            .addSeparatorComponents(new SeparatorBuilder())
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent(openText))
-            .addActionRowComponents(
-              new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`ticket_assume_${channel.id}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
-              ),
-            );
+           const ticketContainer = ticketActionContainer({
+             channelId: channel.id,
+             title: `# ${option.label} - ${memberName}`,
+             avatar: memberAvatar,
+             claimedBy: null,
+             text: openText,
+           });
 
           try {
             await channel.send({ components: [pingDisplay, ticketContainer], flags: MessageFlags.IsComponentsV2 });
-            if (config?.ticketAiEnabled) {
+             if (partnershipTicket) {
+               await channel.send({
+                 content: `${pingRoleMentions || '<@&' + guild.roles.everyone.id + '>'}\n🤝 **Atendimento de parceria solicitado.** Um atendente responsável foi chamado para analisar este ticket.`,
+                 allowedMentions: {
+                   roles: idList(pingRole),
+                 },
+               });
+             }
+             if (config?.ticketAiEnabled) {
               await channel.send(
                 '🤖 **Atendimento automático ativado.**\n' +
                 'Olá! Sou o suporte oficial do servidor e posso ajudar com dúvidas gerais, regras, moderação e denúncias. ' +

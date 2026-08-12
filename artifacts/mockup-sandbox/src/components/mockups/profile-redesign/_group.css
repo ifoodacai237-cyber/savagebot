@@ -1,0 +1,213 @@
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap");
+
+:root {
+  font-family: "Roboto", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-width: 800px;
+  min-height: 600px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.profile-stage {
+  width: 800px;
+  height: 600px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.profile-card {
+  position: relative;
+  width: 800px;
+  height: 600px;
+  overflow: hidden;
+  color: #080808;
+  background: #ffffff;
+  font-family: "Roboto", Arial, sans-serif;
+}
+
+.profile-banner {
+  position: absolute;
+  inset: 0 0 auto;
+  width: 800px;
+  height: 245px;
+  border-radius: 0 0 31px 31px;
+  background: url("/__mockup/images/kosame-reference.png") top center / 800px 600px no-repeat;
+}
+
+.avatar-ring {
+  position: absolute;
+  top: 129px;
+  left: 48px;
+  width: 224px;
+  height: 224px;
+  padding: 10px;
+  border-radius: 50%;
+  background: #e7e7e7;
+}
+
+.avatar {
+  width: 204px;
+  height: 204px;
+  border-radius: 50%;
+  background: url("/__mockup/images/kosame-reference.png") -59px -139px / 800px 600px no-repeat;
+}
+
+.profile-name {
+  position: absolute;
+  top: 263px;
+  left: 298px;
+  font-size: 42px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -1.5px;
+}
+
+.profile-empty-pill {
+  position: absolute;
+  top: 253px;
+  left: 598px;
+  width: 177px;
+  height: 45px;
+  border-radius: 16px;
+  background: #e9e9e9;
+}
+
+.profile-bio {
+  position: absolute;
+  top: 310px;
+  left: 255px;
+  width: 520px;
+  height: 45px;
+  padding: 7px 0 0;
+  border-radius: 23px;
+  background: #dedede;
+  font-size: 22px;
+  line-height: 32px;
+  text-align: center;
+}
+
+.items-panel {
+  position: absolute;
+  top: 378px;
+  left: 39px;
+  width: 220px;
+  height: 204px;
+  padding: 19px 15px;
+  border: 1px solid rgba(150, 150, 150, 0.55);
+  border-radius: 26px;
+}
+
+.item-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 188px;
+  height: 43px;
+  margin-bottom: 9px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #e3e3e3;
+  color: #232323;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.item-slot:last-child {
+  margin-bottom: 0;
+}
+
+.slot-pattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.8;
+  background:
+    linear-gradient(30deg, transparent 42%, rgba(140, 140, 140, 0.17) 43%, transparent 46%) 14px 8px / 24px 24px,
+    linear-gradient(150deg, transparent 42%, rgba(140, 140, 140, 0.17) 43%, transparent 46%) 14px 8px / 24px 24px;
+}
+
+.slot-pattern span {
+  position: absolute;
+  width: 17px;
+  height: 11px;
+  border: 1px solid rgba(130, 130, 130, 0.16);
+  transform: rotate(30deg) skewX(-28deg);
+}
+
+.slot-pattern span:nth-child(1) { top: 4px; left: 8px; }
+.slot-pattern span:nth-child(2) { top: 21px; left: 29px; }
+.slot-pattern span:nth-child(3) { top: 3px; left: 78px; }
+.slot-pattern span:nth-child(4) { top: 21px; left: 101px; }
+.slot-pattern span:nth-child(5) { top: 3px; left: 149px; }
+.slot-pattern span:nth-child(6) { top: 21px; left: 170px; }
+.slot-pattern span:nth-child(7) { top: 3px; left: 204px; }
+.slot-pattern span:nth-child(8) { top: 21px; left: 222px; }
+
+.item-slot > span {
+  position: relative;
+  z-index: 1;
+  font-family: "Roboto", Arial, sans-serif;
+}
+
+.stats-grid {
+  position: absolute;
+  top: 388px;
+  left: 288px;
+  display: grid;
+  grid-template-columns: 233px 233px;
+  grid-auto-rows: 58px;
+  column-gap: 23px;
+  row-gap: 10px;
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  width: 233px;
+  height: 58px;
+  overflow: hidden;
+  border-radius: 29px;
+  background: #dedede;
+}
+
+.stat-icon {
+  display: grid;
+  flex: 0 0 58px;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border: 2px solid #111111;
+  border-radius: 50%;
+  font-size: 32px;
+  line-height: 1;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.55);
+}
+
+.stat-icon.teal { background: linear-gradient(145deg, #20cbd1, #149846); }
+.stat-icon.purple { background: linear-gradient(145deg, #9a4be8, #5c25ba); }
+.stat-icon.gold { background: linear-gradient(145deg, #ffb84c, #e27720); }
+.stat-icon.coin { background: linear-gradient(145deg, #ffd267, #e3a526); }
+.stat-icon.pink { background: linear-gradient(145deg, #ff9dba, #ee4b72); }
+.stat-icon.blue { background: linear-gradient(145deg, #2786ef, #0c3caa); }
+
+.stat-pill strong {
+  min-width: 0;
+  padding: 0 11px 0 14px;
+  overflow: hidden;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

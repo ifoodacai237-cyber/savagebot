@@ -12,7 +12,7 @@ GlobalFonts.register(readFileSync(join(FONTS_DIR, 'Roboto-Regular.ttf')), 'BotFo
 GlobalFonts.register(readFileSync(join(FONTS_DIR, 'Roboto-Bold.ttf')),    'BotFont');
 
 const FONT = 'BotFont';
-const W = 950, H = 555;
+const W = 800, H = 600;
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 export const BADGE_DEFS = [
@@ -194,14 +194,45 @@ async function drawBioWithEmojis(ctx, text, x, y, maxW, lineH, emojiSz) {
   return y;
 }
 
-// ─── Ícone: fundo gradiente + emoji por cima ──────────────────────────────────
+// ─── Ícone circular: fundo gradiente + emoji por cima ──────────────────────────
 
 function drawIconBg(ctx, x, y, sz, c1, c2) {
   const g = ctx.createLinearGradient(x, y, x + sz, y + sz);
   g.addColorStop(0, c1); g.addColorStop(1, c2);
   ctx.fillStyle = g;
-  roundRect(ctx, x, y, sz, sz, 12);
+  ctx.beginPath();
+  ctx.arc(x + sz / 2, y + sz / 2, sz / 2, 0, Math.PI * 2);
   ctx.fill();
+  ctx.strokeStyle = '#171717';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function drawSlotPattern(ctx, x, y, w, h) {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(120,120,120,0.16)';
+  ctx.lineWidth = 1.4;
+  for (let ox = x + 18; ox < x + w - 8; ox += 58) {
+    for (let oy = y + 12; oy < y + h - 4; oy += 24) {
+      ctx.beginPath();
+      ctx.moveTo(ox, oy + 4);
+      ctx.lineTo(ox + 8, oy);
+      ctx.lineTo(ox + 16, oy + 4);
+      ctx.lineTo(ox + 8, oy + 9);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ox, oy + 4);
+      ctx.lineTo(ox, oy + 13);
+      ctx.lineTo(ox + 8, oy + 18);
+      ctx.lineTo(ox + 8, oy + 9);
+      ctx.moveTo(ox + 16, oy + 4);
+      ctx.lineTo(ox + 16, oy + 13);
+      ctx.lineTo(ox + 8, oy + 18);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
 }
 
 // Ícones canvas de fallback (usados se o emoji não carregar)
@@ -323,12 +354,12 @@ function fallbackBff(ctx, x, y, sz) {
 
 // Config de cada stat: emoji para tentar carregar + cores do bg + fallback canvas
 const STAT_ICON_CONFIGS = [
-  { emoji: '💰', c1: '#F59E0B', c2: '#D97706', fallback: fallbackCoin   }, // Coins
-  { emoji: '⭐', c1: '#9333EA', c2: '#7C3AED', fallback: fallbackStar   }, // Nível
-  { emoji: '🏅', c1: '#F59E0B', c2: '#D97706', fallback: fallbackMedal  }, // Badges
-  { emoji: '👍', c1: '#9333EA', c2: '#7C3AED', fallback: fallbackThumb  }, // Reps
-  { emoji: '🕊️', c1: '#EC4899', c2: '#9333EA', fallback: fallbackDove   }, // Casado
-  { emoji: '💝', c1: '#9333EA', c2: '#7C3AED', fallback: fallbackBff    }, // Amigo
+  { emoji: '🌍', c1: '#20cbd1', c2: '#149846', fallback: fallbackDove   }, // Nível
+  { emoji: '⭐', c1: '#9a4be8', c2: '#5c25ba', fallback: fallbackStar   }, // XP
+  { emoji: '🌟', c1: '#ffb84c', c2: '#e27720', fallback: fallbackMedal  }, // Reps
+  { emoji: '💲', c1: '#ffd267', c2: '#e3a526', fallback: fallbackCoin   }, // Coins
+  { emoji: '💗', c1: '#ff9dba', c2: '#ee4b72', fallback: fallbackDove   }, // Casado
+  { emoji: '🌟', c1: '#2786ef', c2: '#0c3caa', fallback: fallbackBff    }, // Amigo
 ];
 
 // ─── Gerador principal ────────────────────────────────────────────────────────
@@ -349,233 +380,213 @@ export async function generateProfileCard({
   const banner = _bannerImage ? null : await resolveBanner(activeBanner, guildId);
   const { c1: rc1, c2: rc2 } = getRingColors(activeRing ?? null);
   const { level, current: xpCurrent, needed: xpNeeded } = computeLevel(xp);
+  const earnedKeys = computeEarnedBadgeKeys({
+    balance, bank, purchases, activePet, activeBanner, activeRing,
+  });
 
-  // Detecta fundos escuros para adaptar cores de texto
-  const darkCard  = isColorDark(cardBg1);
+  const darkCard = isColorDark(cardBg1);
   const darkPanel = isColorDark(cardPanelColor);
-
-  // Pré-carrega ícones dos stats (em paralelo)
   const statIconImgs = await Promise.all(
     STAT_ICON_CONFIGS.map(ic => loadEmojiImg(ic.emoji).catch(() => null)),
   );
 
-  // ── Fundo do card ──────────────────────────────────────────────────────────
+  // ── Corpo branco da referência, mantendo as cores personalizadas do usuário ─
   if (cardBg1 && cardBg2) {
     const g = ctx.createLinearGradient(0, 0, W, H);
     g.addColorStop(0, cardBg1); g.addColorStop(1, cardBg2);
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-  } else if (cardBg1) {
-    ctx.fillStyle = cardBg1;
-    ctx.fillRect(0, 0, W, H);
   } else {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, W, H);
-    // Micro-tint lilás suave no corpo
-    const tint = ctx.createLinearGradient(0, 220, 0, H);
-    tint.addColorStop(0, 'rgba(240,235,255,0.50)');
-    tint.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = tint; ctx.fillRect(0, 220, W, H - 220);
+    ctx.fillStyle = cardBg1 ?? '#ffffff';
   }
+  ctx.fillRect(0, 0, W, H);
 
-  // ── Banner ─────────────────────────────────────────────────────────────────
-  const BANNER_H = 230;
+  // ── Banner largo com cantos arredondados na base ────────────────────────────
+  const BANNER_H = 245;
   const drawBannerImage = (img) => {
     const scale = Math.max(W / img.width, BANNER_H / img.height);
     const sw = img.width * scale, sh = img.height * scale;
     ctx.save();
-    ctx.beginPath(); ctx.rect(0, 0, W, BANNER_H); ctx.clip();
+    roundRect(ctx, 0, 0, W, BANNER_H, 30);
+    ctx.clip();
     ctx.drawImage(img, (W - sw) / 2, (BANNER_H - sh) / 2, sw, sh);
+    ctx.restore();
+  };
+  const drawBannerGradient = (colors) => {
+    const [bg1, bg2] = colors;
+    const g = ctx.createLinearGradient(0, 0, W, BANNER_H);
+    g.addColorStop(0, bg1); g.addColorStop(1, bg2);
+    ctx.save();
+    roundRect(ctx, 0, 0, W, BANNER_H, 30);
+    ctx.clip();
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, BANNER_H);
     ctx.restore();
   };
 
   if (_bannerImage) {
-    // Frame pré-carregado (modo GIF animado)
     drawBannerImage(_bannerImage);
   } else if (banner) {
     try {
       drawBannerImage(await loadUrl(banner.imageUrl));
     } catch {
-      const [bg1, bg2] = banner.gradient ?? ['#6a1b9a', '#9c27b0'];
-      const g = ctx.createLinearGradient(0, 0, W, BANNER_H);
-      g.addColorStop(0, bg1); g.addColorStop(1, bg2);
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, BANNER_H);
+      drawBannerGradient(banner.gradient ?? ['#f3a8d0', '#a7b9ff']);
     }
   } else {
-    const g = ctx.createLinearGradient(0, 0, W, BANNER_H);
-    g.addColorStop(0, '#6a1b9a'); g.addColorStop(1, '#ce93d8');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, BANNER_H);
+    drawBannerGradient(['#f3a8d0', '#a7b9ff']);
   }
-  // Fade base
-  const fade = ctx.createLinearGradient(0, BANNER_H - 60, 0, BANNER_H);
-  fade.addColorStop(0, 'rgba(255,255,255,0)');
-  fade.addColorStop(1, 'rgba(255,255,255,0.15)');
-  ctx.fillStyle = fade; ctx.fillRect(0, BANNER_H - 60, W, 60);
 
-  // ── Avatar (direita, sobrepondo o banner) ──────────────────────────────────
-  const AV_CX = 755, AV_CY = BANNER_H, AV_R = 92;
+  // Pequeno brilho suave para aproximar o acabamento pastel da referência.
+  ctx.save();
+  roundRect(ctx, 0, 0, W, BANNER_H, 30);
+  ctx.clip();
+  const bannerGlow = ctx.createLinearGradient(0, 0, W, BANNER_H);
+  bannerGlow.addColorStop(0, 'rgba(255,255,255,0.22)');
+  bannerGlow.addColorStop(0.55, 'rgba(255,255,255,0)');
+  bannerGlow.addColorStop(1, 'rgba(255,255,255,0.15)');
+  ctx.fillStyle = bannerGlow;
+  ctx.fillRect(0, 0, W, BANNER_H);
+  ctx.restore();
 
-  ctx.fillStyle = ringBorderColor ?? '#ffffff';
-  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R + 14, 0, Math.PI * 2); ctx.fill();
-
-  await drawAvatarRing(ctx, AV_CX, AV_CY, AV_R + 8, activeRing ?? null);
+  // ── Avatar à esquerda, sobrepondo o banner ─────────────────────────────────
+  const AV_CX = 160, AV_CY = BANNER_H, AV_R = 100;
+  ctx.fillStyle = ringBorderColor ?? '#e5e5e5';
+  ctx.beginPath();
+  ctx.arc(AV_CX, AV_CY, AV_R + 12, 0, Math.PI * 2);
+  ctx.fill();
+  if (activeRing) await drawAvatarRing(ctx, AV_CX, AV_CY, AV_R + 4, activeRing);
 
   ctx.save();
-  ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R, 0, Math.PI * 2); ctx.clip();
+  ctx.beginPath();
+  ctx.arc(AV_CX, AV_CY, AV_R, 0, Math.PI * 2);
+  ctx.clip();
   try {
     ctx.drawImage(await loadUrl(avatarUrl), AV_CX - AV_R, AV_CY - AV_R, AV_R * 2, AV_R * 2);
   } catch {
-    ctx.fillStyle = '#8e44ad'; ctx.fillRect(AV_CX - AV_R, AV_CY - AV_R, AV_R * 2, AV_R * 2);
+    ctx.fillStyle = '#8e44ad';
+    ctx.fillRect(AV_CX - AV_R, AV_CY - AV_R, AV_R * 2, AV_R * 2);
   }
   ctx.restore();
 
-  // Pet
+  // Pet pequeno sobre a foto, como um item equipado.
   if (activePet) {
     const px = AV_CX + AV_R * 0.68, py = AV_CY + AV_R * 0.68;
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(px, py, 22, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(px, py, 21, 0, Math.PI * 2); ctx.fill();
     const pg = ctx.createLinearGradient(px - 20, py - 20, px + 20, py + 20);
     pg.addColorStop(0, rc1); pg.addColorStop(1, rc2);
     ctx.strokeStyle = pg; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.arc(px, py, 20, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(px, py, 19, 0, Math.PI * 2); ctx.stroke();
     const pi = await loadEmojiImg(activePet);
     if (pi) ctx.drawImage(pi, px - 13, py - 13, 26, 26);
   }
 
-  // ── Username pill ──────────────────────────────────────────────────────────
-  const PY = AV_CY + AV_R + 18, PH = 42;
-  ctx.font = `bold 18px ${FONT}`;
-  const nw = ctx.measureText(username).width;
-  const PW = Math.max(nw + 50, 140), PX = AV_CX - PW / 2;
-  ctx.fillStyle = '#e8e8f0'; ctx.strokeStyle = 'rgba(0,0,0,0.07)'; ctx.lineWidth = 1;
-  roundRect(ctx, PX, PY, PW, PH, PH / 2); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#2c2c54'; ctx.textAlign = 'center';
-  ctx.fillText(username, AV_CX, PY + PH / 2 + 7); ctx.textAlign = 'left';
+  // ── Nome e bio em cápsulas ──────────────────────────────────────────────────
+  ctx.font = `bold 40px ${FONT}`;
+  ctx.fillStyle = darkCard ? '#ffffff' : '#050505';
+  ctx.fillText(username, 298, 302);
 
-  // ── Badge strip ────────────────────────────────────────────────────────────
-  const earnedKeys = computeEarnedBadgeKeys({ balance, bank, purchases, activePet, activeBanner, activeRing });
-  const BSY = PY + PH + 10, BSH = 34, BSW = 220;
-  ctx.fillStyle = '#f2f2f8'; ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.lineWidth = 1;
-  roundRect(ctx, AV_CX - BSW / 2, BSY, BSW, BSH, BSH / 2); ctx.fill(); ctx.stroke();
-  const ESZI = 22, maxSlots = Math.min(earnedKeys.length, 7);
-  if (maxSlots > 0) {
-    const tw = maxSlots * ESZI + (maxSlots - 1) * 5;
-    let bx = AV_CX - tw / 2;
-    const by = BSY + (BSH - ESZI) / 2;
-    for (let i = 0; i < maxSlots; i++) {
-      const key = earnedKeys[i];
-      const def = BADGE_DEFS.find(b => b.key === key);
-      const img = await loadEmojiImg(guildBadgeEmojis[key] ?? def?.defaultEmoji ?? '🏅');
-      if (img) ctx.drawImage(img, bx, by, ESZI, ESZI);
-      bx += ESZI + 5;
+  ctx.fillStyle = darkCard ? 'rgba(255,255,255,0.18)' : '#e8e8e8';
+  roundRect(ctx, 598, 253, 177, 45, 16); ctx.fill();
+
+  const bioText = bio ?? 'Use k!sobremim <msg> para alterar!';
+  ctx.fillStyle = darkCard ? '#ffffff' : '#111111';
+  ctx.fillStyle = darkCard ? '#ffffff' : '#111111';
+  roundRect(ctx, 255, 310, 520, 45, 20);
+  ctx.fillStyle = darkCard ? 'rgba(255,255,255,0.16)' : '#dedede';
+  ctx.fill();
+  ctx.font = `20px ${FONT}`;
+  await drawBioWithEmojis(ctx, bioText, 255, 339, 495, 24, 19);
+
+  // ── Slots de itens à esquerda ──────────────────────────────────────────────
+  const slotData = [
+    { label: activeRing ? 'ARGOLA EQUIPADA' : 'SLOT VAZIO', emoji: activeRing ? '💠' : null },
+    { label: activePet ? 'PET EQUIPADO' : 'SLOT VAZIO', emoji: activePet ?? null },
+    {
+      label: earnedKeys[0] ? (BADGE_DEFS.find(b => b.key === earnedKeys[0])?.name ?? 'CONQUISTA').toUpperCase() : 'SLOT VAZIO',
+      emoji: earnedKeys[0]
+        ? (guildBadgeEmojis[earnedKeys[0]] ?? BADGE_DEFS.find(b => b.key === earnedKeys[0])?.defaultEmoji ?? '🏅')
+        : null,
+    },
+  ];
+  const slotIconImgs = await Promise.all(
+    slotData.map(slot => loadEmojiImg(slot.emoji).catch(() => null)),
+  );
+
+  ctx.strokeStyle = 'rgba(160,160,160,0.52)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, 39, 378, 220, 204, 26); ctx.stroke();
+  for (let i = 0; i < slotData.length; i++) {
+    const sx = 55, sy = 398 + i * 52, sw = 188, sh = 43;
+    ctx.fillStyle = '#e3e3e3';
+    roundRect(ctx, sx, sy, sw, sh, 16); ctx.fill();
+    drawSlotPattern(ctx, sx, sy, sw, sh);
+    const icon = slotIconImgs[i];
+    if (icon) {
+      ctx.drawImage(icon, sx + 12, sy + 7, 29, 29);
+      ctx.font = `bold 12px ${FONT}`;
+      ctx.fillStyle = '#111111';
+      ctx.textAlign = 'left';
+      ctx.fillText(slotData[i].label, sx + 48, sy + 27);
+    } else {
+      ctx.font = `bold 15px ${FONT}`;
+      ctx.fillStyle = '#222222';
+      ctx.textAlign = 'center';
+      ctx.fillText(slotData[i].label, sx + sw / 2, sy + 27);
     }
   }
+  ctx.textAlign = 'left';
 
-  // ── Bio ────────────────────────────────────────────────────────────────────
-  const LEFT_X = 30;
-  let textY    = BANNER_H + 28;
-  const bioText = bio ?? 'Utilize: fallen bio para alterar esta frase.';
-  ctx.font = `bold 14px ${FONT}`;
-  ctx.fillStyle = darkCard ? '#ffffff' : '#2c2c54';
-  textY = await drawBioWithEmojis(ctx, bioText, LEFT_X, textY, 575, 20, 16);
-
-  // ── Painel de stats ────────────────────────────────────────────────────────
-  //  ┌─────────────────── container ─────────────────────┐
-  //  │  ╭──── pill ────╮  ╭──── pill ────╮             │
-  //  │  │ [icon] texto │  │ [icon] texto │             │
-  //  │  ╰──────────────╯  ╰──────────────╯             │
-  //  └───────────────────────────────────────────────────┘
-  const OP   = 14;   // padding externo
-  const CG   = 8;    // gap entre células
-  const CH   = 70;   // altura da pílula
-  const CW   = 268;  // largura da pílula
-  const OW   = OP * 2 + CW * 2 + CG;
-  const OH   = OP * 2 + CH * 3 + CG * 2;
-  const PNX  = LEFT_X;
-  const PNY  = textY + 10;
-  const ISZ  = 50;   // tamanho do ícone
-
-  // Container externo
-  ctx.save();
-  ctx.shadowColor = 'rgba(100,80,160,0.12)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
-  const outerG = ctx.createLinearGradient(PNX, PNY, PNX, PNY + OH);
-  outerG.addColorStop(0, '#eceaf4');
-  outerG.addColorStop(1, '#e2e0ec');
-  ctx.fillStyle = outerG;
-  roundRect(ctx, PNX, PNY, OW, OH, 24); ctx.fill();
-  ctx.restore();
-  ctx.strokeStyle = 'rgba(170,160,205,0.45)'; ctx.lineWidth = 1;
-  roundRect(ctx, PNX, PNY, OW, OH, 24); ctx.stroke();
-
+  // ── Seis cápsulas de estatísticas no grid da referência ─────────────────────
   const statsData = [
-    { topText: fmtCompact(balance),         botText: 'Coins'                          },
-    { topText: `Nível: ${level}`,            botText: `${xpCurrent}/${xpNeeded}`       },
-    { topText: 'Badges',                     botText: String(earnedKeys.length)         },
-    { topText: 'Reps',                       botText: String(reps)                      },
-    { topText: 'Casado(a)',                  botText: marriedToName  ?? 'Nenhum'        },
-    { topText: 'Amigo(a)',                   botText: bestFriendName ?? 'Nenhum'        },
+    { text: `Level: ${level}` },
+    { text: `${xpCurrent}/${xpNeeded}` },
+    { text: `${reps} Reps` },
+    { text: fmtCompact(balance ?? 0) },
+    { text: marriedToName ?? 'Nenhum' },
+    { text: bestFriendName ?? 'Nenhum' },
   ];
+  const PILL_W = 233, PILL_H = 58, GAP_X = 23, GAP_Y = 10;
+  const ISZ = 58;
 
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < statsData.length; i++) {
     const col = i % 2, row = Math.floor(i / 2);
-    const cX  = PNX + OP + col * (CW + CG);
-    const cY  = PNY + OP + row * (CH + CG);
-
-    // Pílula branca (radius = CH/2 → forma de pílula perfeita)
+    const cX = 288 + col * (PILL_W + GAP_X);
+    const cY = 388 + row * (PILL_H + GAP_Y);
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.07)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
-    ctx.fillStyle = cardPanelColor ?? '#ffffff';
-    roundRect(ctx, cX, cY, CW, CH, CH / 2); ctx.fill();
+    ctx.shadowColor = 'rgba(0,0,0,0.08)';
+    ctx.shadowBlur = 5;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = cardPanelColor ?? '#dedede';
+    roundRect(ctx, cX, cY, PILL_W, PILL_H, PILL_H / 2); ctx.fill();
     ctx.restore();
 
-    // Ícone: bg colorido + emoji (ou fallback canvas)
-    const icCfg  = STAT_ICON_CONFIGS[i];
-    const iX     = cX + 12;
-    const iY     = cY + (CH - ISZ) / 2;
+    const icCfg = STAT_ICON_CONFIGS[i];
+    const iX = cX, iY = cY;
     drawIconBg(ctx, iX, iY, ISZ, icCfg.c1, icCfg.c2);
-
     const emojiImg = statIconImgs[i];
     if (emojiImg) {
-      // Emoji carregou — exibe na área do ícone com clip para não vazar
       ctx.save();
-      roundRect(ctx, iX, iY, ISZ, ISZ, 12); ctx.clip();
-      const pad = ISZ * 0.12;
-      ctx.drawImage(emojiImg, iX + pad, iY + pad, ISZ - pad * 2, ISZ - pad * 2);
+      ctx.beginPath();
+      ctx.arc(iX + ISZ / 2, iY + ISZ / 2, ISZ / 2 - 3, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(emojiImg, iX + 7, iY + 7, ISZ - 14, ISZ - 14);
       ctx.restore();
     } else {
-      // Fallback: ícone desenhado em canvas
       ctx.save(); icCfg.fallback(ctx, iX, iY, ISZ); ctx.restore();
     }
 
-    // Texto — cores adaptáveis ao painel (escuro → branco)
-    const tX   = iX + ISZ + 14;
-    const midY = cY + CH / 2;
-    const maxW = CW - ISZ - 40;
-    const topColor = darkPanel ? '#ffffff'                : '#1a1a2e';
-    const botColor = darkPanel ? 'rgba(255,255,255,0.92)' : '#888899';
-
-    // Linha de cima: bold
-    ctx.save();
-    if (darkPanel) { ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 3; }
-    ctx.font = `bold 18px ${FONT}`; ctx.fillStyle = topColor;
-    let top = statsData[i].topText;
-    while (top.length > 1 && ctx.measureText(top).width > maxW) top = top.slice(0, -1);
-    ctx.fillText(top, tX, midY - 5);
-
-    // Linha de baixo: regular
-    ctx.font = `14px ${FONT}`; ctx.fillStyle = botColor;
-    let bot = statsData[i].botText;
-    while (bot.length > 1 && ctx.measureText(bot).width > maxW) bot = bot.slice(0, -1);
-    ctx.fillText(bot, tX, midY + 15);
-    ctx.restore();
+    const maxW = PILL_W - ISZ - 14;
+    let statText = statsData[i].text;
+    ctx.font = `bold 21px ${FONT}`;
+    while (statText.length > 1 && ctx.measureText(statText).width > maxW) {
+      statText = statText.slice(0, -1);
+    }
+    ctx.fillStyle = darkPanel ? '#ffffff' : '#111111';
+    ctx.textAlign = 'left';
+    ctx.fillText(statText, cX + ISZ + 14, cY + 37);
   }
 
-  // ── Rodapé ─────────────────────────────────────────────────────────────────
-  ctx.fillStyle = darkCard ? 'rgba(255,255,255,0.70)' : 'rgba(0,0,0,0.18)';
-  ctx.font = `11px ${FONT}`; ctx.textAlign = 'right';
-  ctx.fillText('Fallen Bot \u2022 Perfil', W - 16, H - 10);
   ctx.textAlign = 'left';
-
   if (_returnCanvas) return canvas;
   return canvas.toBuffer('image/png');
 }
