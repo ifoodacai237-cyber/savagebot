@@ -767,8 +767,8 @@ export async function generateBalanceCard({ username, avatarUrl, balance, bank, 
   ctx.save();
   ctx.beginPath(); ctx.arc(AV_CX, AV_CY, AV_R, 0, Math.PI * 2); ctx.clip();
   try {
-    const buf = Buffer.from(await (await fetch(`${avatarUrl}?size=256`)).arrayBuffer());
-    const img = await loadImage(buf);
+    const img = await loadAvatarImg(avatarUrl);
+    if (!img) throw new Error('avatar image unavailable');
     ctx.drawImage(img, AV_CX - AV_R, AV_CY - AV_R, AV_R * 2, AV_R * 2);
   } catch {
     const fallback = ctx.createLinearGradient(AV_CX - AV_R, AV_CY - AV_R, AV_CX + AV_R, AV_CY + AV_R);
@@ -944,8 +944,32 @@ function drawCrown(ctx, cx, cy, w) {
 
 async function loadAvatarImg(url) {
   try {
-    const buf = Buffer.from(await (await fetch(`${url}?size=256`)).arrayBuffer());
-    return await loadImage(buf);
+    if (!url) return null;
+
+    // discord.js already returns `?size=256`; setSearchParams avoids creating
+    // an invalid `...?size=256?size=256` URL when a caller passes it through.
+    const avatarUrl = new URL(url);
+    avatarUrl.searchParams.set('size', '256');
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 7000);
+    const response = await fetch(avatarUrl, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'image/avif,image/webp,image/apng,image/png,image/jpeg,image/*;q=0.8',
+        'User-Agent': 'SavageBot/2.0',
+      },
+    });
+    try {
+      if (!response.ok) return null;
+      const contentType = response.headers.get('content-type') ?? '';
+      if (contentType && !contentType.toLowerCase().startsWith('image/')) return null;
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (!bytes.length) return null;
+      return await loadImage(bytes);
+    } finally {
+      clearTimeout(timeout);
+    }
   } catch {
     return null;
   }
@@ -1240,13 +1264,13 @@ export async function generateTopCard({ eliteEntries = [], coinEntries = [] } = 
   const rightX = PAD + COL_W + GAP;
   const firstRowY = HEADER_H;
   elite.forEach((entry, index) => {
-    drawRankingRow(ctx, leftX, firstRowY + index * (ROW_H + ROW_GAP), COL_W, entry, index + 1, avatarFor(entry, index), {
+    drawRankingRow(ctx, leftX, firstRowY + index * (ROW_H + ROW_GAP), COL_W, entry, index + 1, avatarFor(index), {
       elite: true,
       value: entry.eliteTotal ?? entry.total ?? 0,
     });
   });
   coins.forEach((entry, index) => {
-    drawRankingRow(ctx, rightX, firstRowY + index * (ROW_H + ROW_GAP), COL_W, entry, index + 1, avatarFor(entry, elite.length + index), {
+    drawRankingRow(ctx, rightX, firstRowY + index * (ROW_H + ROW_GAP), COL_W, entry, index + 1, avatarFor(elite.length + index), {
       value: entry.coins ?? entry.total ?? 0,
     });
   });
