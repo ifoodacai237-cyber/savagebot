@@ -29,17 +29,17 @@ export default {
     const target   = interaction.options.getUser('pessoa');
 
     if (!target) {
+      await interaction.deferReply();
       const profile = await prisma.userProfile.findUnique({ where: { userId: proposer.id } });
       if (!profile?.marriedTo) {
-        return interaction.reply({
+        return interaction.editReply({
           embeds: [errorEmbed('Mencione alguém para pedir em casamento ou use `/casar` depois de se casar para ver o cartão do casal.')],
-          ephemeral: true,
         });
       }
 
       const partner = await interaction.client.users.fetch(profile.marriedTo).catch(() => null);
       if (!partner) {
-        return interaction.reply({ embeds: [errorEmbed('Não consegui encontrar a outra pessoa do casamento.')], ephemeral: true });
+        return interaction.editReply({ embeds: [errorEmbed('Não consegui encontrar a outra pessoa do casamento.')] });
       }
 
       const [member, partnerMember] = await Promise.all([
@@ -47,7 +47,7 @@ export default {
         interaction.guild.members.fetch(partner.id).catch(() => null),
       ]);
       const stats = await getMarriageStats(proposer.id, partner.id, profile.marriedAt);
-      return interaction.reply(await buildWeddingCardPayload({
+      return interaction.editReply(await buildWeddingCardPayload({
         left: {
           id: proposer.id,
           displayName: member?.displayName ?? proposer.globalName ?? proposer.username,

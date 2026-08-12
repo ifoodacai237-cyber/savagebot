@@ -322,7 +322,8 @@ export async function buildWeddingCardPayload({ left, right, stats }) {
   container.addSeparatorComponents(new SeparatorBuilder());
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `## 💕 Casamento\n<@${left.id}> e <@${right.id}> · nível ${stats.level} · ${stats.xp} XP · call juntos ${stats.callMinutes}min\n` +
+      `## 💕 Casamento\n<@${left.id}> e <@${right.id}> · nível ${stats.level} · ${stats.xp} XP · call\n` +
+      `juntos ${stats.callMinutes}min\n` +
       'Tempo em call juntos tem o maior peso no XP do casal.',
     ),
   );
