@@ -394,6 +394,34 @@ const cmdPagar = {
 };
 
 // ─── /top ─────────────────────────────────────────────────────────────────────
+async function getTopEntries(guild, rows, valueKey) {
+  return Promise.all(rows.map(async (row, index) => {
+    const member = await guild.members.fetch(row.userId).catch(() => null);
+    return {
+      rank: index + 1,
+      username: member?.displayName ?? 'User',
+      avatarUrl: member?.displayAvatarURL({ extension: 'png', size: 256 }) ?? null,
+      eliteTotal: row.balance + row.bank,
+      coins: row.balance,
+      total: valueKey === 'eliteTotal' ? row.balance + row.bank : row.balance,
+    };
+  }));
+}
+
+async function getTopData(guildId, guild) {
+  const allRows = await prisma.economy.findMany({ where: { guildId } });
+  const eliteRows = allRows
+    .sort((a, b) => (b.balance + b.bank) - (a.balance + a.bank))
+    .slice(0, 6);
+  const coinRows = [...allRows]
+    .sort((a, b) => b.balance - a.balance)
+    .slice(0, 6);
+  return {
+    eliteEntries: await getTopEntries(guild, eliteRows, 'eliteTotal'),
+    coinEntries: await getTopEntries(guild, coinRows, 'coins'),
+  };
+}
+
 const cmdTop = {
   data: new SlashCommandBuilder()
     .setName('top')
@@ -403,26 +431,18 @@ const cmdTop = {
 
   async execute(interaction) {
     await interaction.deferReply();
-    const allRows = await prisma.economy.findMany({ where: { guildId: interaction.guildId } });
-    const rows = allRows.sort((a, b) => (b.balance + b.bank) - (a.balance + a.bank)).slice(0, 10);
-    if (!rows.length) return interaction.editReply(v2Err('Ninguém tem coins ainda!'));
-    const entries = await Promise.all(rows.map(async (r, i) => {
-      const member = await interaction.guild.members.fetch(r.userId).catch(() => null);
-      return { rank: i + 1, username: member?.displayName ?? 'User', total: r.balance + r.bank, avatarUrl: member?.displayAvatarURL({ extension: 'png', size: 256 }) ?? null };
-    }));
-    const buf = await generateTopCard(entries);
+    const topData = await getTopData(interaction.guildId, interaction.guild);
+    if (!topData.eliteEntries.length && !topData.coinEntries.length)
+      return interaction.editReply(v2Err('Ninguém tem coins ainda!'));
+    const buf = await generateTopCard(topData);
     return interaction.editReply({ files: [new AttachmentBuilder(buf, { name: 'top.png' })] });
   },
 
   async executePrefix(message) {
-    const allRows = await prisma.economy.findMany({ where: { guildId: message.guildId } });
-    const rows = allRows.sort((a, b) => (b.balance + b.bank) - (a.balance + a.bank)).slice(0, 10);
-    if (!rows.length) return message.reply(v2Err('Ninguém tem coins ainda!'));
-    const entries = await Promise.all(rows.map(async (r, i) => {
-      const member = await message.guild.members.fetch(r.userId).catch(() => null);
-      return { rank: i + 1, username: member?.displayName ?? 'User', total: r.balance + r.bank, avatarUrl: member?.displayAvatarURL({ extension: 'png', size: 256 }) ?? null };
-    }));
-    const buf = await generateTopCard(entries);
+    const topData = await getTopData(message.guildId, message.guild);
+    if (!topData.eliteEntries.length && !topData.coinEntries.length)
+      return message.reply(v2Err('Ninguém tem coins ainda!'));
+    const buf = await generateTopCard(topData);
     return message.reply({ files: [new AttachmentBuilder(buf, { name: 'top.png' })] });
   },
 };

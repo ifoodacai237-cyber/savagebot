@@ -9,6 +9,7 @@ const __ecoDir      = dirname(__ecoFilename);
 const _bjDir   = join(__ecoDir, '../assets');
 const _ecoDir  = join(__ecoDir, '../assets');
 const _fontsDir = join(__ecoDir, '../../fonts');
+const _rankingBackgroundPath = join(_ecoDir, 'ranking-background.jpg');
 
 GlobalFonts.register(readFileSync(join(_fontsDir, 'Roboto-Regular.ttf')), 'BotFont');
 GlobalFonts.register(readFileSync(join(_fontsDir, 'Roboto-Bold.ttf')),    'BotFont');
@@ -1072,80 +1073,182 @@ function drawListRow(ctx, y, w, entry, rank, avatarImg) {
   drawCoinAmount(ctx, w - PAD - 8, cy, entry.total);
 }
 
-export async function generateTopCard(entries) {
-  const W        = 760;
-  const PAD      = 24;
-  const HEADER_H = 100;
-  const PODIUM_H = 292;
-  const ROW_H    = 66;
+function drawRankingMedal(ctx, x, y, rank, size) {
+  const styles = {
+    1: { fill: '#FFE033', edge: '#FFF4A3', text: '#6A4A00' },
+    2: { fill: '#D6DCE5', edge: '#FFFFFF', text: '#35404D' },
+    3: { fill: '#E28A2C', edge: '#FFC36B', text: '#5B2500' },
+  };
+  const style = styles[rank] ?? { fill: '#208FEA', edge: '#65C5FF', text: '#FFFFFF' };
+  const cx = x + size / 2;
+  const cy = y + size / 2;
 
-  const podiumEntries = entries.slice(0, 3);
-  const listEntries   = entries.slice(3);
+  ctx.fillStyle = style.fill;
+  ctx.fillRect(x, y, size, size);
+  ctx.strokeStyle = style.edge;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x + 1, y + 1, size - 2, size - 2);
 
-  const H = HEADER_H + (podiumEntries.length ? PODIUM_H : 0) + listEntries.length * ROW_H + PAD;
-  const canvas = createCanvas(W, H);
-  const ctx    = canvas.getContext('2d');
+  if (rank <= 3) {
+    ctx.fillStyle = rank === 1 ? '#F5B900' : rank === 2 ? '#AEB7C4' : '#BE5D1B';
+    ctx.beginPath();
+    ctx.moveTo(cx - 10, y + size - 2);
+    ctx.lineTo(cx - 6, y + size + 10);
+    ctx.lineTo(cx, y + size + 4);
+    ctx.lineTo(cx + 6, y + size + 10);
+    ctx.lineTo(cx + 10, y + size - 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = style.edge;
+    ctx.stroke();
 
-  // Pre-load avatars in parallel
-  const avatars = await Promise.all(entries.map(e => e.avatarUrl ? loadAvatarImg(e.avatarUrl) : Promise.resolve(null)));
-
-  // ── Background ────────────────────────────────────────────────────────────
-  const bg = ctx.createLinearGradient(0, 0, W, H);
-  bg.addColorStop(0, '#100E24');
-  bg.addColorStop(1, '#1B1440');
-  ctx.fillStyle = bg;
-  roundRect(ctx, 0, 0, W, H, 26); ctx.fill();
-
-  ctx.fillStyle = 'rgba(180,140,255,0.05)';
-  for (let gx = 20; gx < W; gx += 26)
-    for (let gy = 20; gy < H; gy += 26) {
-      ctx.beginPath(); ctx.arc(gx, gy, 1.2, 0, Math.PI * 2); ctx.fill();
-    }
-
-  // ── Header ────────────────────────────────────────────────────────────────
-  drawCoinIcon(ctx, PAD + 20, 42, 20);
-  ctx.textAlign = 'left';
-  ctx.fillStyle  = '#FFFFFF';
-  ctx.font       = `bold 24px ${FONT}`;
-  ctx.fillText('TOP 10 RIQUEZA', PAD + 52, 38);
-  ctx.fillStyle = '#9C8FCB';
-  ctx.font      = `13px ${FONT}`;
-  ctx.fillText('Ranking limpo com foco no patrimônio total', PAD + 52, 60);
-
-  const pillW = 96, pillH = 32, pillX = W - PAD - pillW, pillY = 24;
-  const pillGrad = ctx.createLinearGradient(pillX, 0, pillX + pillW, 0);
-  pillGrad.addColorStop(0, '#7C3AED'); pillGrad.addColorStop(1, '#A855F7');
-  ctx.fillStyle = pillGrad;
-  roundRect(ctx, pillX, pillY, pillW, pillH, pillH / 2); ctx.fill();
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font      = `bold 13px ${FONT}`;
-  ctx.textAlign = 'center';
-  ctx.fillText(`TOP ${entries.length}`, pillX + pillW / 2, pillY + pillH / 2 + 5);
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(PAD, HEADER_H); ctx.lineTo(W - PAD, HEADER_H); ctx.stroke();
-
-  // ── Podium (top 3) ────────────────────────────────────────────────────────
-  if (podiumEntries.length) {
-    const GAP  = 18;
-    const colW = (W - PAD * 2 - GAP * 2) / 3;
-    const cols = [
-      { x: PAD,                         rank: 2, top: 46, h: PODIUM_H - 90 },
-      { x: PAD + colW + GAP,            rank: 1, top: 18, h: PODIUM_H - 62 },
-      { x: PAD + (colW + GAP) * 2,      rank: 3, top: 62, h: PODIUM_H - 106 },
-    ];
-
-    for (const col of cols) {
-      const entry = podiumEntries[col.rank - 1];
-      if (!entry) continue;
-      await drawPodiumCard(ctx, col.x, HEADER_H + col.top, colW, col.h, entry, col.rank, avatars[col.rank - 1]);
-    }
+    ctx.fillStyle = style.fill;
+    ctx.beginPath();
+    ctx.arc(cx, y + 24, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = style.edge;
+    ctx.stroke();
   }
 
-  // ── List (rank 4+) ────────────────────────────────────────────────────────
-  const listTop = HEADER_H + (podiumEntries.length ? PODIUM_H : 0);
-  listEntries.forEach((entry, i) => {
-    drawListRow(ctx, listTop + i * ROW_H, W, entry, i + 4, avatars[i + 3]);
+  ctx.fillStyle = style.text;
+  ctx.font = `bold ${rank <= 3 ? 22 : 30}px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(rank), cx, rank <= 3 ? y + 24 : cy);
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawRankingRow(ctx, x, y, w, entry, rank, avatarImg, options = {}) {
+  const ROW_H = 67;
+  const medalW = 52;
+  const avatarR = 25;
+  const avatarCx = x + medalW + 48;
+  const centerY = y + ROW_H / 2;
+  const isEliteMedal = options.elite && rank <= 3;
+
+  ctx.fillStyle = 'rgba(222, 232, 242, 0.66)';
+  roundRect(ctx, x, y, w, ROW_H - 4, 7);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.38)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, x, y, w, ROW_H - 4, 7);
+  ctx.stroke();
+
+  drawRankingMedal(ctx, x, y, rank, medalW);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(avatarCx, centerY, avatarR, 0, Math.PI * 2);
+  ctx.clip();
+  if (avatarImg) {
+    ctx.drawImage(avatarImg, avatarCx - avatarR, centerY - avatarR, avatarR * 2, avatarR * 2);
+  } else {
+    drawAvatarFallback(ctx, avatarCx - avatarR, centerY - avatarR, avatarR * 2, entry.username);
+  }
+  ctx.restore();
+  ctx.strokeStyle = isEliteMedal ? 'rgba(255,238,155,0.9)' : 'rgba(255,255,255,0.78)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(avatarCx, centerY, avatarR + 1, 0, Math.PI * 2);
+  ctx.stroke();
+
+  const textX = avatarCx + avatarR + 18;
+  const amount = options.value ?? entry.total ?? 0;
+  const amountText = fmtCompactTop(amount);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#F8FBFF';
+  ctx.font = `400 24px ${FONT}`;
+  ctx.fillText(truncateText(ctx, entry.username, w - 300), textX, centerY + 8);
+
+  const amountX = x + w - 22;
+  ctx.textAlign = 'right';
+  ctx.fillStyle = options.elite && rank === 1 ? '#FFD21A' : options.elite && rank === 3 ? '#F4A11B' : '#FFFFFF';
+  ctx.font = `bold 25px ${FONT}`;
+  ctx.fillText(amountText, amountX, centerY - 1);
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.font = `bold 13px ${FONT}`;
+  ctx.fillText('Coins', amountX, centerY + 18);
+  ctx.textAlign = 'left';
+}
+
+function fmtCompactTop(value) {
+  const amount = Number(value) || 0;
+  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1).replace('.0', '')}M`;
+  if (amount >= 1_000) return `${(amount / 1_000).toFixed(1).replace('.0', '')}K`;
+  return amount.toLocaleString('pt-BR');
+}
+
+async function loadRankingBackground() {
+  try {
+    return await loadImage(readFileSync(_rankingBackgroundPath));
+  } catch {
+    return null;
+  }
+}
+
+function drawRankingBackground(ctx, image, width, height) {
+  if (image) {
+    const scale = Math.max(width / image.width, height / image.height);
+    const sw = image.width * scale;
+    const sh = image.height * scale;
+    ctx.drawImage(image, (width - sw) / 2, (height - sh) / 2, sw, sh);
+  } else {
+    ctx.fillStyle = '#0A2E56';
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  const shade = ctx.createLinearGradient(0, 0, 0, height);
+  shade.addColorStop(0, 'rgba(2, 22, 51, 0.62)');
+  shade.addColorStop(0.42, 'rgba(1, 24, 56, 0.38)');
+  shade.addColorStop(1, 'rgba(1, 13, 38, 0.62)');
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, 0, width, height);
+}
+
+export async function generateTopCard({ eliteEntries = [], coinEntries = [] } = {}) {
+  const W = 1024;
+  const H = 682;
+  const PAD = 58;
+  const GAP = 42;
+  const HEADER_H = 130;
+  const ROW_H = 67;
+  const ROW_GAP = 11;
+  const COL_W = (W - PAD * 2 - GAP) / 2;
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext('2d');
+  const elite = eliteEntries.slice(0, 6);
+  const coins = coinEntries.slice(0, 6);
+  const allEntries = [...elite, ...coins];
+  const avatars = await Promise.all(
+    allEntries.map(entry => entry.avatarUrl ? loadAvatarImg(entry.avatarUrl) : Promise.resolve(null)),
+  );
+  const avatarFor = offset => avatars[offset];
+  const background = await loadRankingBackground();
+
+  drawRankingBackground(ctx, background, W, H);
+
+  // Header labels mirroring the reference composition.
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = `bold 48px ${FONT}`;
+  ctx.fillText('Top Elite', W * 0.25, 89);
+  ctx.fillText('Top Coins', W * 0.75, 89);
+  drawCoinIcon(ctx, W * 0.25 + 188, 68, 20);
+  drawCoinIcon(ctx, W * 0.75 + 164, 68, 20);
+
+  const leftX = PAD;
+  const rightX = PAD + COL_W + GAP;
+  const firstRowY = HEADER_H;
+  elite.forEach((entry, index) => {
+    drawRankingRow(ctx, leftX, firstRowY + index * (ROW_H + ROW_GAP), COL_W, entry, index + 1, avatarFor(entry, index), {
+      elite: true,
+      value: entry.eliteTotal ?? entry.total ?? 0,
+    });
+  });
+  coins.forEach((entry, index) => {
+    drawRankingRow(ctx, rightX, firstRowY + index * (ROW_H + ROW_GAP), COL_W, entry, index + 1, avatarFor(entry, elite.length + index), {
+      value: entry.coins ?? entry.total ?? 0,
+    });
   });
 
   return canvas.toBuffer('image/png');
