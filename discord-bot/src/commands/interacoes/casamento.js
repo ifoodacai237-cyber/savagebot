@@ -1,4 +1,4 @@
-import { MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
 import { errorEmbed } from '../../utils/embed.js';
 import { buildWeddingCardPayload, getMarriageStats } from '../../utils/weddingCard.js';
@@ -10,7 +10,7 @@ export default {
   name: 'casamento',
 
   async execute(interaction) {
-    await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+    await interaction.deferReply();
 
     const profile = await prisma.userProfile.findUnique({
       where: { userId: interaction.user.id },
@@ -49,6 +49,6 @@ export default {
         avatarUrl: partner.displayAvatarURL({ extension: 'png', size: 256 }),
       },
       stats,
-    }));
+    }, { legacy: true }));
   },
 };

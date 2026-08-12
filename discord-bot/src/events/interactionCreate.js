@@ -1427,7 +1427,7 @@ export default {
               avatarUrl: rightUser.displayAvatarURL({ extension: 'png', size: 256 }),
             },
             stats,
-          }));
+          }, { legacy: true }));
         }
 
         // ── DIVORCIAR: confirmar / cancelar ────────────────────────────────
@@ -1502,14 +1502,9 @@ export default {
             return interaction.reply({ content: '❌ Apenas a pessoa marcada pode responder a este pedido.', ephemeral: true });
 
           // Reconhece o botão antes de consultar o banco, buscar usuários ou
-          // gerar a imagem. A confirmação termina em Components V2, então ela
-          // precisa nascer como uma resposta V2; deferUpdate() manteria a
-          // resposta original como mensagem V1 e o Discord rejeitaria a troca.
-          if (action === 'reject') {
-            await interaction.deferUpdate();
-          } else {
-            await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
-          }
+          // gerar a imagem. Sem isso o Discord mostra "está pensando..." e
+          // expira a interação após alguns segundos.
+          await interaction.deferUpdate();
 
           const proposerName = (await interaction.guild.members.fetch(proposerId).catch(() => null))?.displayName
             ?? (await interaction.client.users.fetch(proposerId).catch(() => null))?.username
@@ -1576,7 +1571,7 @@ export default {
             ],
             components: [],
           }).catch(() => {});
-          return interaction.editReply(await buildWeddingCardPayload({
+          return interaction.followUp(await buildWeddingCardPayload({
             left: {
               id: proposerId,
               displayName: proposerMember?.displayName ?? proposerUser.globalName ?? proposerUser.username,
@@ -1590,7 +1585,7 @@ export default {
               avatarUrl: targetUser.displayAvatarURL({ extension: 'png', size: 256 }),
             },
             stats,
-          }));
+          }, { legacy: true }));
         }
 
         // ── AMIGO: Aceitar / Recusar ─────────────────────────────────────
@@ -3859,22 +3854,16 @@ export default {
 
     } catch (err) {
       console.error('[INTERACTION ERROR]', err);
-      const marriageV2 =
-        interaction.commandName === 'casamento'
-        || interaction.customId?.startsWith('casar_accept_');
-      const legacyErrorPayload = {
+      const errorPayload = {
         embeds: [errorEmbed('Ocorreu um erro interno. Tente novamente.')],
         components: [],
       };
-      const errorPayload = marriageV2
-        ? v2Simple('❌ O cartão de casamento não pôde ser gerado. Tente novamente.')
-        : legacyErrorPayload;
       if (interaction.deferred)
         interaction.editReply(errorPayload).catch(() => {});
       else if (interaction.replied)
-        interaction.followUp(marriageV2 ? errorPayload : { ...legacyErrorPayload, ephemeral: true }).catch(() => {});
+        interaction.followUp({ ...errorPayload, ephemeral: true }).catch(() => {});
       else
-        interaction.reply(marriageV2 ? errorPayload : { ...legacyErrorPayload, ephemeral: true }).catch(() => {});
+        interaction.reply({ ...errorPayload, ephemeral: true }).catch(() => {});
     }
   },
 };

@@ -4,6 +4,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ContainerBuilder,
+  EmbedBuilder,
   MediaGalleryBuilder,
   MediaGalleryItemBuilder,
   MessageFlags,
@@ -308,10 +309,33 @@ export async function getMarriageStats(leftId, rightId, marriedAt = new Date()) 
   };
 }
 
-export async function buildWeddingCardPayload({ left, right, stats }) {
+export async function buildWeddingCardPayload({ left, right, stats }, { legacy = false } = {}) {
   const image = await renderWeddingCard({ left, right, stats });
   const attachment = new AttachmentBuilder(image, { name: 'casamento-card.png' });
   const pair = `${left.id}_${right.id}`;
+  const refreshRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`casar_refresh_${pair}`)
+      .setLabel('Atualizar')
+      .setEmoji('⟳')
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  if (legacy) {
+    const embed = new EmbedBuilder()
+      .setColor(0xf44598)
+      .setTitle('💍 Cartão de casamento')
+      .setDescription(`<@${left.id}> e <@${right.id}> · nível ${stats.level} · ${stats.xp} XP`)
+      .setImage('attachment://casamento-card.png')
+      .setFooter({ text: 'Use Atualizar para recalcular as estatísticas.' });
+
+    return {
+      embeds: [embed],
+      components: [refreshRow],
+      files: [attachment],
+    };
+  }
+
   const container = new ContainerBuilder().setAccentColor(0xf44598);
 
   container.addMediaGalleryComponents(
@@ -336,14 +360,6 @@ export async function buildWeddingCardPayload({ left, right, stats }) {
           .setLabel('›')
           .setStyle(ButtonStyle.Secondary),
       ),
-  );
-
-  const refreshRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`casar_refresh_${pair}`)
-      .setLabel('Atualizar')
-      .setEmoji('⟳')
-      .setStyle(ButtonStyle.Secondary),
   );
 
   return {
