@@ -352,7 +352,7 @@ export default {
       if (interaction.isChatInputCommand()) {
         const cmd = client.commands.get(interaction.commandName);
         if (!cmd) return;
-        return cmd.execute(interaction, client);
+        return await cmd.execute(interaction, client);
       }
 
       // ── ROLE SELECT MENUS ──────────────────────────────────────────────────
@@ -1370,6 +1370,12 @@ export default {
             });
           }
 
+          if (action === 'refresh') {
+            await interaction.deferUpdate();
+          } else {
+            await interaction.deferReply({ ephemeral: true });
+          }
+
           if (action === 'manage') {
             const partnerId = interaction.user.id === leftId ? rightId : leftId;
             const partner = await interaction.client.users.fetch(partnerId).catch(() => null);
@@ -1385,7 +1391,7 @@ export default {
                 .setLabel('Cancelar')
                 .setStyle(ButtonStyle.Secondary),
             );
-            return interaction.reply({
+            return interaction.editReply({
               embeds: [
                 new EmbedBuilder()
                   .setColor(0xED4245)
@@ -1396,7 +1402,6 @@ export default {
                   ),
               ],
               components: [divorceRow],
-              ephemeral: true,
             });
           }
 
@@ -1408,7 +1413,7 @@ export default {
             prisma.userProfile.findUnique({ where: { userId: leftId } }),
           ]);
           const stats = await getMarriageStats(leftId, rightId, leftProfile?.marriedAt);
-          return interaction.update(await buildWeddingCardPayload({
+          return interaction.editReply(await buildWeddingCardPayload({
             left: {
               id: leftId,
               displayName: leftMember?.displayName ?? leftUser.globalName ?? leftUser.username,
@@ -1496,6 +1501,11 @@ export default {
           if (interaction.user.id !== targetId)
             return interaction.reply({ content: '❌ Apenas a pessoa marcada pode responder a este pedido.', ephemeral: true });
 
+          // Reconhece o botão antes de consultar o banco, buscar usuários ou
+          // gerar a imagem. Sem isso o Discord mostra "está pensando..." e
+          // expira a interação após alguns segundos.
+          await interaction.deferUpdate();
+
           const proposerName = (await interaction.guild.members.fetch(proposerId).catch(() => null))?.displayName
             ?? (await interaction.client.users.fetch(proposerId).catch(() => null))?.username
             ?? 'Desconhecido';
@@ -1506,8 +1516,7 @@ export default {
               .setColor(0xFF4444)
               .setTitle('💔 Pedido Recusado')
               .setDescription(`**${targetName}** recusou o pedido de **${proposerName}**. 😢`);
-            await interaction.message.edit({ embeds: [rejectEmbed], components: [] }).catch(() => {});
-            return interaction.reply({ content: `💔 Que pena, **${proposerName}**...`, ephemeral: false });
+            return interaction.editReply({ embeds: [rejectEmbed], components: [] });
           }
 
           const [proposerProfile, targetProfile] = await Promise.all([
@@ -1515,15 +1524,27 @@ export default {
             prisma.userProfile.findUnique({ where: { userId: targetId } }),
           ]);
 
-          if (proposerProfile?.marriedTo || targetProfile?.marriedTo) {
-            await interaction.message.edit({ components: [] }).catch(() => {});
-            return interaction.reply({ embeds: [errorEmbed('Um dos usuários já está casado com outra pessoa!')], ephemeral: true });
+          const proposerHasOtherPartner = proposerProfile?.marriedTo
+            && proposerProfile.marriedTo !== targetId;
+          const targetHasOtherPartner = targetProfile?.marriedTo
+            && targetProfile.marriedTo !== proposerId;
+
+          if (proposerHasOtherPartner || targetHasOtherPartner) {
+            return interaction.editReply({
+              embeds: [errorEmbed('Um dos usuários já está casado com outra pessoa!')],
+              components: [],
+            });
           }
 
-          const marriedAt = new Date();
-          await Promise.all([
+          // Pedidos antigos podem ser aceitos depois de o vínculo já ter sido
+          // criado ou parcialmente salvo. Reaproveita o casal e repara o outro
+          // perfil em vez de acusar um casamento inválido.
+          const marriedAt = proposerProfile?.marriedAt
+            ?? targetProfile?.marriedAt
+            ?? new Date();
+          await prisma.$transaction([
             prisma.userProfile.upsert({
-              where:  { userId: proposerId },
+              where: { userId: proposerId },
               update: { marriedTo: targetId, marriedToName: targetName, marriedAt },
               create: { userId: proposerId, marriedTo: targetId, marriedToName: targetName, marriedAt },
             }),
@@ -1541,7 +1562,7 @@ export default {
             interaction.guild.members.fetch(targetId).catch(() => null),
           ]);
           const stats = await getMarriageStats(proposerId, targetId, marriedAt);
-          await interaction.message.edit(await buildWeddingCardPayload({
+          return interaction.editReply(await buildWeddingCardPayload({
             left: {
               id: proposerId,
               displayName: proposerMember?.displayName ?? proposerUser.globalName ?? proposerUser.username,
@@ -1555,8 +1576,7 @@ export default {
               avatarUrl: targetUser.displayAvatarURL({ extension: 'png', size: 256 }),
             },
             stats,
-          })).catch(() => {});
-          return interaction.reply({ content: `🎉 Parabéns, <@${proposerId}> e <@${targetId}>!`, ephemeral: true });
+          }));
         }
 
         // ── AMIGO: Aceitar / Recusar ─────────────────────────────────────
@@ -3826,7 +3846,9 @@ export default {
     } catch (err) {
       console.error('[INTERACTION ERROR]', err);
       const embed = errorEmbed('Ocorreu um erro interno. Tente novamente.');
-      if (interaction.replied || interaction.deferred)
+      if (interaction.deferred)
+        interaction.editReply({ embeds: [embed], components: [] }).catch(() => {});
+      else if (interaction.replied)
         interaction.followUp({ embeds: [embed], ephemeral: true }).catch(() => {});
       else
         interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => {});

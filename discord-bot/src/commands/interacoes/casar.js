@@ -1,7 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import prisma from '../../database/client.js';
 import { errorEmbed } from '../../utils/embed.js';
-import { buildWeddingCardPayload, getMarriageStats } from '../../utils/weddingCard.js';
 
 const WEDDING_GIFS = [
   'https://cdn.otakugifs.xyz/gifs/love/adc831819611cd4f.gif',
@@ -20,7 +19,7 @@ export default {
     .addUserOption(o =>
       o.setName('pessoa')
         .setDescription('A pessoa que você quer pedir em casamento')
-        .setRequired(false),
+        .setRequired(true),
     ),
   name: 'casar',
 
@@ -29,39 +28,10 @@ export default {
     const target   = interaction.options.getUser('pessoa');
 
     if (!target) {
-      await interaction.deferReply();
-      const profile = await prisma.userProfile.findUnique({ where: { userId: proposer.id } });
-      if (!profile?.marriedTo) {
-        return interaction.editReply({
-          embeds: [errorEmbed('Mencione alguém para pedir em casamento ou use `/casar` depois de se casar para ver o cartão do casal.')],
-        });
-      }
-
-      const partner = await interaction.client.users.fetch(profile.marriedTo).catch(() => null);
-      if (!partner) {
-        return interaction.editReply({ embeds: [errorEmbed('Não consegui encontrar a outra pessoa do casamento.')] });
-      }
-
-      const [member, partnerMember] = await Promise.all([
-        interaction.guild.members.fetch(proposer.id).catch(() => null),
-        interaction.guild.members.fetch(partner.id).catch(() => null),
-      ]);
-      const stats = await getMarriageStats(proposer.id, partner.id, profile.marriedAt);
-      return interaction.editReply(await buildWeddingCardPayload({
-        left: {
-          id: proposer.id,
-          displayName: member?.displayName ?? proposer.globalName ?? proposer.username,
-          username: proposer.username,
-          avatarUrl: proposer.displayAvatarURL({ extension: 'png', size: 256 }),
-        },
-        right: {
-          id: partner.id,
-          displayName: partnerMember?.displayName ?? partner.globalName ?? partner.username,
-          username: partner.username,
-          avatarUrl: partner.displayAvatarURL({ extension: 'png', size: 256 }),
-        },
-        stats,
-      }));
+      return interaction.reply({
+        embeds: [errorEmbed('Mencione alguém para pedir em casamento.')],
+        ephemeral: true,
+      });
     }
 
     if (target.id === proposer.id)
