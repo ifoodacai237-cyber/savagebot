@@ -74,12 +74,31 @@ body,
 
 .profile-empty-pill {
   position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 7px;
   top: 253px;
   left: 598px;
   width: 177px;
   height: 45px;
+  padding: 0 12px;
   border-radius: 16px;
   background: #e9e9e9;
+}
+
+.profile-empty-pill span {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  border: 1px solid #161616;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #f8ca65, #ce8d28);
+  font-size: 18px;
+}
+
+.profile-empty-pill span:first-child {
+  background: linear-gradient(145deg, #8ae9db, #4d83df);
 }
 
 .profile-bio {

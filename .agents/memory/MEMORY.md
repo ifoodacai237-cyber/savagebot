@@ -11,3 +11,4 @@
 - [Application Emojis + V2 panels](app-emojis-v2-panels.md) — emojiManager.js registra 11 emojis como Application Emojis; COIN/CAL/STAR/CLK são funções lazy () => getEmoji(); shopHandlers.js, partnershipPanels.js todos convertidos para ContainerBuilder V2 com IsComponentsV2; SHOP_COLOR = 0x000000 (preto).
 - [Fishing economy](fishing-economy-system.md) — pesca isolada da loja geral: varas, estoque, cooldown e interações V2 usam prefixo fish_ e Economy só para coins.
 - [Slash registration fallback](slash-registration-fallback.md) — GUILD_ID do Railway pode estar stale/inacessível; tente guilds acessíveis antes do registro global.
+- [Discord ticket interactions](discord-ticket-interactions.md) — toda ação em customId de ticket precisa ser roteada e reconhecida imediatamente antes de consultar Prisma ou editar mensagens.

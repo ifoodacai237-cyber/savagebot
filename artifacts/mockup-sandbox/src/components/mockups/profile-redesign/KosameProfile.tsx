@@ -9,7 +9,8 @@ const stats = [
   { icon: "🌟", tone: "blue", text: "live for yas" },
 ];
 
-const slots = ["MASCOTE", "PET EQUIPADO", "SLOT VAZIO"];
+const slots = ["SLOT VAZIO", "PET EQUIPADO", "SLOT VAZIO"];
+const badges = ["💠", "🏆"];
 
 function SlotPattern() {
   return (
@@ -51,7 +52,11 @@ export function KosameProfile() {
         </div>
 
         <div className="profile-name">yaz</div>
-        <div className="profile-empty-pill" aria-hidden="true" />
+        <div className="profile-empty-pill" aria-label="Insígnias conquistadas">
+          {badges.map((badge) => (
+            <span key={badge}>{badge}</span>
+          ))}
+        </div>
 
         <div className="profile-bio">Use k!sobremim &lt;msg&gt; para alterar!</div>
 
@@ -59,7 +64,7 @@ export function KosameProfile() {
           {slots.map((slot, index) => (
             <div className="item-slot" key={`${slot}-${index}`}>
               <SlotPattern />
-              {(index === 0 || index === 1) && <span className="pet-dot" aria-hidden="true">🐾</span>}
+              {index === 1 && <span className="pet-dot" aria-hidden="true">🐾</span>}
               <span>{slot}</span>
             </div>
           ))}

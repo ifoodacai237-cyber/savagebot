@@ -256,6 +256,51 @@ function ticketActionContainer({ channelId, title, avatar, claimedBy, text }) {
     .addActionRowComponents(buildTicketActionMenu(channelId, claimedBy));
 }
 
+async function getTicketOwnerDetails(ticket, guild, client) {
+  const member = await guild.members.fetch(ticket.userId).catch(() => null);
+  const user = member?.user ?? await client.users.fetch(ticket.userId).catch(() => null);
+  return {
+    name: member?.displayName ?? user?.username ?? 'Usuário',
+    avatar: member?.displayAvatarURL({ size: 128, extension: 'png' })
+      ?? user?.displayAvatarURL({ size: 128, extension: 'png' })
+      ?? client.user.displayAvatarURL({ size: 128, extension: 'png' }),
+  };
+}
+
+async function getTicketNotificationTargets(ticket, guild) {
+  const [config, option] = await Promise.all([
+    prisma.guildConfig.findUnique({ where: { guildId: ticket.guildId } }),
+    ticket.reason
+      ? prisma.ticketOption.findFirst({ where: { guildId: ticket.guildId, label: ticket.reason } })
+      : null,
+  ]);
+
+  const partnershipTicket = isPartnershipTicket(ticket.reason ?? '');
+  return {
+    roleIds: idList(
+      option?.pingRole,
+      config?.ticketPingRole,
+      partnershipTicket ? config?.partnerResponsibleRole : null,
+    ),
+    userIds: idList(option?.pingUser, config?.ticketPingUser),
+  };
+}
+
+async function refreshTicketActionMessage(interaction, ticket, client, text) {
+  const owner = await getTicketOwnerDetails(ticket, interaction.guild, client);
+  const container = ticketActionContainer({
+    channelId: ticket.channelId,
+    title: `# ${ticket.reason || 'Ticket'} - ${owner.name}`,
+    avatar: owner.avatar,
+    claimedBy: ticket.claimedBy,
+    text,
+  });
+  await interaction.message.edit({
+    components: [container],
+    flags: MessageFlags.IsComponentsV2,
+  });
+}
+
 // ─── Mapeamento dos campos de modal ───────────────────────────────────────────
 
 const TICKET_MODAL_FIELDS = {
@@ -604,6 +649,82 @@ export default {
             return interaction.editReply({ embeds: [errorEmbed('Não foi possível criar o ticket. Tente novamente.')] });
           }
           return interaction.editReply({ embeds: [successEmbed('Ticket Criado', `Seu ticket foi aberto em ${channel}.`)] });
+        }
+
+        // ── TICKET: Ações do atendimento (menu V2) ─────────────────────────
+        if (interaction.customId.startsWith('ticket_actions_')) {
+          await interaction.deferReply({ ephemeral: true });
+
+          const channelId = interaction.customId.slice('ticket_actions_'.length);
+          const action = interaction.values[0];
+          const ticket = await prisma.ticket.findUnique({ where: { channelId } });
+
+          if (!ticket || ticket.status !== 'open') {
+            return interaction.editReply({ content: '❌ Este ticket já foi fechado ou não foi encontrado.' });
+          }
+
+          if (action === 'assume') {
+            if (ticket.claimedBy) {
+              return interaction.editReply({
+                content: `❌ Ticket já assumido por <@${ticket.claimedBy}>.`,
+              });
+            }
+
+            const claimed = await prisma.ticket.updateMany({
+              where: { channelId, status: 'open', claimedBy: null },
+              data: { claimedBy: interaction.user.id },
+            });
+
+            if (claimed.count === 0) {
+              const current = await prisma.ticket.findUnique({ where: { channelId } });
+              return interaction.editReply({
+                content: current?.claimedBy
+                  ? `❌ Ticket já assumido por <@${current.claimedBy}>.`
+                  : '❌ Não foi possível assumir este ticket. Tente novamente.',
+              });
+            }
+
+            const updatedTicket = { ...ticket, claimedBy: interaction.user.id };
+            await refreshTicketActionMessage(
+              interaction,
+              updatedTicket,
+              client,
+              `✅ Atendimento assumido por <@${interaction.user.id}>. Em breve a equipe continuará o suporte.`,
+            );
+            return interaction.editReply({ content: '✅ Você assumiu este ticket.' });
+          }
+
+          if (action === 'notify') {
+            const { roleIds, userIds } = await getTicketNotificationTargets(ticket, interaction.guild);
+            const mentions = [
+              ...roleIds.map(id => `<@&${id}>`),
+              ...userIds.map(id => `<@${id}>`),
+            ];
+
+            if (mentions.length === 0) {
+              return interaction.editReply({
+                content: '⚠️ Nenhum cargo ou atendente está configurado para receber a notificação deste ticket.',
+              });
+            }
+
+            await interaction.channel.send({
+              content: `🔔 ${mentions.join(' ')}\n<@${ticket.userId}> solicitou a atenção da equipe neste ticket.`,
+              allowedMentions: { roles: roleIds, users: [...userIds, ticket.userId] },
+            });
+            return interaction.editReply({ content: '✅ Atendentes notificados.' });
+          }
+
+          if (action === 'close') {
+            await prisma.ticket.update({
+              where: { channelId },
+              data: { status: 'closed' },
+            });
+            await interaction.editReply({ content: '🔒 Ticket fechado. O canal será removido em 5 segundos.' });
+            setTimeout(() => interaction.channel?.delete().catch(() => {}), 5000);
+            return;
+          }
+
+          return interaction.editReply({ content: '❌ Ação de ticket inválida.' });
         }
 
         // ── TICKET ADMIN: Selecionar opção para gerenciar ───────────────────
@@ -1179,21 +1300,13 @@ export default {
 
           const pingDisplay = new TextDisplayBuilder().setContent(pingLine);
 
-          const ticketContainer = new ContainerBuilder()
-            .addSectionComponents(
-              new SectionBuilder()
-                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`# Ticket - ${memberName}`))
-                .setThumbnailAccessory(new ThumbnailBuilder().setURL(memberAvatar)),
-            )
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent('**Assumido por:** Ninguém'))
-            .addSeparatorComponents(new SeparatorBuilder())
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'))
-            .addActionRowComponents(
-              new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`ticket_assume_${channel.id}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`ticket_close_${channel.id}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
-              ),
-            );
+          const ticketContainer = ticketActionContainer({
+            channelId: channel.id,
+            title: `# Ticket - ${memberName}`,
+            avatar: memberAvatar,
+            claimedBy: null,
+            text: 'Aguarde um instante, em breve um promotor irá lhe atender.',
+          });
 
           try {
             await channel.send({ components: [pingDisplay, ticketContainer], flags: MessageFlags.IsComponentsV2 });
@@ -1209,43 +1322,40 @@ export default {
         // ── TICKET: Fechar ───────────────────────────────────────────────
         if (customId.startsWith('ticket_close_')) {
           const channelId = customId.replace('ticket_close_', '');
-          await interaction.reply({ embeds: [baseEmbed(Colors.WARNING).setDescription('🔒 Fechando em 5 segundos...')] });
-          await prisma.ticket.update({ where: { channelId }, data: { status: 'closed' } }).catch(() => {});
-          setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+          await interaction.deferReply({ ephemeral: true });
+          const ticket = await prisma.ticket.findUnique({ where: { channelId } });
+          if (!ticket) return interaction.editReply({ content: '❌ Ticket não encontrado.' });
+          await prisma.ticket.update({ where: { channelId }, data: { status: 'closed' } });
+          await interaction.editReply({ content: '🔒 Fechando o ticket em 5 segundos...' });
+          setTimeout(() => interaction.channel?.delete().catch(() => {}), 5000);
           return;
         }
 
         // ── TICKET: Assumir ──────────────────────────────────────────────
         if (customId.startsWith('ticket_assume_')) {
           const channelId = customId.replace('ticket_assume_', '');
+          await interaction.deferReply({ ephemeral: true });
           const ticket    = await prisma.ticket.findUnique({ where: { channelId } });
+          if (!ticket || ticket.status !== 'open')
+            return interaction.editReply({ content: '❌ Este ticket já foi fechado ou não foi encontrado.' });
           if (ticket?.claimedBy)
-            return interaction.reply({ content: `❌ Ticket já assumido por <@${ticket.claimedBy}>.`, ephemeral: true });
-          await prisma.ticket.update({ where: { channelId }, data: { claimedBy: interaction.user.id } }).catch(() => {});
+            return interaction.editReply({ content: `❌ Ticket já assumido por <@${ticket.claimedBy}>.` });
 
-          const originalMember = await interaction.guild.members.fetch(ticket.userId).catch(() => null);
-          const originalUser   = originalMember?.user ?? await client.users.fetch(ticket.userId).catch(() => null);
-          const originalName   = originalMember?.displayName ?? originalUser?.username ?? 'Usuário';
-          const originalAvatar = originalMember?.displayAvatarURL({ size: 128 }) ?? originalUser?.displayAvatarURL({ size: 128 }) ?? '';
+          const claimed = await prisma.ticket.updateMany({
+            where: { channelId, status: 'open', claimedBy: null },
+            data: { claimedBy: interaction.user.id },
+          });
+          if (claimed.count === 0)
+            return interaction.editReply({ content: '❌ Não foi possível assumir este ticket. Tente novamente.' });
 
-          const updatedContainer = new ContainerBuilder()
-            .addSectionComponents(
-              new SectionBuilder()
-                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`# Ticket - ${originalName}`))
-                .setThumbnailAccessory(new ThumbnailBuilder().setURL(originalAvatar)),
-            )
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Assumido por:** <@${interaction.user.id}>`))
-            .addSeparatorComponents(new SeparatorBuilder())
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent('Aguarde um instante, em breve um promotor irá lhe atender.'))
-            .addActionRowComponents(
-              new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`ticket_assume_${channelId}`).setLabel('Assumir Ticket').setStyle(ButtonStyle.Success).setDisabled(true),
-                new ButtonBuilder().setCustomId(`ticket_close_${channelId}`).setLabel('Fechar').setStyle(ButtonStyle.Danger),
-              ),
-            );
-
-          await interaction.message.edit({ components: [updatedContainer], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
-          return interaction.reply({ content: `✅ <@${interaction.user.id}> assumiu este ticket!`, ephemeral: false });
+          const updatedTicket = { ...ticket, claimedBy: interaction.user.id };
+          await refreshTicketActionMessage(
+            interaction,
+            updatedTicket,
+            client,
+            `✅ Atendimento assumido por <@${interaction.user.id}>. Em breve a equipe continuará o suporte.`,
+          );
+          return interaction.editReply({ content: `✅ <@${interaction.user.id}> assumiu este ticket!` });
         }
 
         // ── CASAR: Aceitar / Recusar ─────────────────────────────────────

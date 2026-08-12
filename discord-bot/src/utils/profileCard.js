@@ -394,6 +394,13 @@ export async function generateProfileCard({
   const statIconImgs = await Promise.all(
     STAT_ICON_CONFIGS.map(ic => loadEmojiImg(ic.emoji).catch(() => null)),
   );
+  const badgeIconImgs = await Promise.all(
+    earnedKeys.map(key => {
+      const badge = BADGE_DEFS.find(b => b.key === key);
+      const emoji = guildBadgeEmojis[key] ?? badge?.defaultEmoji ?? '🏅';
+      return loadEmojiImg(emoji).catch(() => null);
+    }),
+  );
 
   // ── Corpo branco da referência, mantendo as cores personalizadas do usuário ─
   if (cardBg1 && cardBg2) {
@@ -492,6 +499,34 @@ export async function generateProfileCard({
 
   ctx.fillStyle = darkCard ? 'rgba(255,255,255,0.18)' : '#e8e8e8';
   roundRect(ctx, 598, 253, 177, 45, 16); ctx.fill();
+  for (let i = 0; i < earnedKeys.length; i++) {
+    const badge = BADGE_DEFS.find(b => b.key === earnedKeys[i]);
+    const bx = 609 + i * 32;
+    const by = 261;
+    ctx.fillStyle = badge?.color ?? 'rgba(150,150,150,0.75)';
+    ctx.beginPath();
+    ctx.arc(bx + 15, by + 15, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = darkCard ? 'rgba(255,255,255,0.7)' : 'rgba(30,30,30,0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    const badgeImg = badgeIconImgs[i];
+    if (badgeImg) {
+      ctx.drawImage(badgeImg, bx + 5, by + 5, 20, 20);
+    } else {
+      ctx.font = `16px ${FONT}`;
+      ctx.fillStyle = darkCard ? '#ffffff' : '#111111';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(
+        guildBadgeEmojis[earnedKeys[i]] ?? badge?.defaultEmoji ?? '🏅',
+        bx + 15,
+        by + 15,
+      );
+    }
+  }
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
 
   const bioText = bio ?? 'Use k!sobremim <msg> para alterar!';
   roundRect(ctx, 255, 310, 520, 45, 20);
@@ -502,17 +537,8 @@ export async function generateProfileCard({
   await drawBioWithEmojis(ctx, bioText, 255, 339, 495, 24, 19);
 
   // ── Slots de itens à esquerda ──────────────────────────────────────────────
-  const firstBadgeKey = earnedKeys[0] ?? null;
-  const firstBadge = firstBadgeKey
-    ? BADGE_DEFS.find(b => b.key === firstBadgeKey)
-    : null;
   const slotData = [
-    {
-      label: firstBadge?.name?.toUpperCase() ?? 'SLOT VAZIO',
-      emoji: firstBadgeKey
-        ? (guildBadgeEmojis[firstBadgeKey] ?? firstBadge.defaultEmoji ?? '🏅')
-        : null,
-    },
+    { label: 'SLOT VAZIO', emoji: null },
     { label: activePet ? 'PET EQUIPADO' : 'SLOT VAZIO', emoji: activePet ?? null },
     { label: 'SLOT VAZIO', emoji: null },
   ];
