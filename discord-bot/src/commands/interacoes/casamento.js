@@ -82,7 +82,7 @@ export default {
       stats = emptyMarriageStats(profile.marriedAt);
     }
 
-    return interaction.editReply(await buildWeddingCardPayload({
+    const payload = await buildWeddingCardPayload({
       left: {
         id: interaction.user.id,
         displayName: member?.displayName ?? interaction.user.globalName ?? interaction.user.username,
@@ -96,6 +96,13 @@ export default {
         avatarUrl: partner.displayAvatarURL({ extension: 'png', size: 256 }),
       },
       stats,
-    }));
+    });
+    const [attachment] = payload.files;
+
+    return interaction.editReply({
+      embeds: payload.embeds,
+      components: payload.components,
+      files: [attachment],
+    });
   },
 };
