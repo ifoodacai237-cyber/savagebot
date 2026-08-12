@@ -160,6 +160,12 @@ body,
   font-family: "Roboto", Arial, sans-serif;
 }
 
+.item-slot .pet-dot {
+  margin-right: 8px;
+  font-size: 20px;
+  line-height: 1;
+}
+
 .stats-grid {
   position: absolute;
   top: 388px;

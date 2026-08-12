@@ -178,8 +178,12 @@ async function drawBioWithEmojis(ctx, text, x, y, maxW, lineH, emojiSz) {
     cur.push(item); curW += item.width;
   }
   if (cur.length) { while (cur.length && cur.at(-1).kind === 'space') cur.pop(); lines.push(cur); }
+  ctx.save();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
   for (const line of lines) {
-    let cx = x;
+    const lineW = line.reduce((total, item) => total + item.width, 0);
+    let cx = x + Math.max(0, (maxW - lineW) / 2);
     for (const item of line) {
       if (item.kind === 'emoji') {
         const img = cache.get(item.value);
@@ -191,6 +195,7 @@ async function drawBioWithEmojis(ctx, text, x, y, maxW, lineH, emojiSz) {
     }
     y += lineH;
   }
+  ctx.restore();
   return y;
 }
 
@@ -489,24 +494,27 @@ export async function generateProfileCard({
   roundRect(ctx, 598, 253, 177, 45, 16); ctx.fill();
 
   const bioText = bio ?? 'Use k!sobremim <msg> para alterar!';
-  ctx.fillStyle = darkCard ? '#ffffff' : '#111111';
-  ctx.fillStyle = darkCard ? '#ffffff' : '#111111';
   roundRect(ctx, 255, 310, 520, 45, 20);
   ctx.fillStyle = darkCard ? 'rgba(255,255,255,0.16)' : '#dedede';
   ctx.fill();
+  ctx.fillStyle = darkCard ? '#ffffff' : '#111111';
   ctx.font = `20px ${FONT}`;
   await drawBioWithEmojis(ctx, bioText, 255, 339, 495, 24, 19);
 
   // ── Slots de itens à esquerda ──────────────────────────────────────────────
+  const firstBadgeKey = earnedKeys[0] ?? null;
+  const firstBadge = firstBadgeKey
+    ? BADGE_DEFS.find(b => b.key === firstBadgeKey)
+    : null;
   const slotData = [
-    { label: activeRing ? 'ARGOLA EQUIPADA' : 'SLOT VAZIO', emoji: activeRing ? '💠' : null },
-    { label: activePet ? 'PET EQUIPADO' : 'SLOT VAZIO', emoji: activePet ?? null },
     {
-      label: earnedKeys[0] ? (BADGE_DEFS.find(b => b.key === earnedKeys[0])?.name ?? 'CONQUISTA').toUpperCase() : 'SLOT VAZIO',
-      emoji: earnedKeys[0]
-        ? (guildBadgeEmojis[earnedKeys[0]] ?? BADGE_DEFS.find(b => b.key === earnedKeys[0])?.defaultEmoji ?? '🏅')
+      label: firstBadge?.name?.toUpperCase() ?? 'SLOT VAZIO',
+      emoji: firstBadgeKey
+        ? (guildBadgeEmojis[firstBadgeKey] ?? firstBadge.defaultEmoji ?? '🏅')
         : null,
     },
+    { label: activePet ? 'PET EQUIPADO' : 'SLOT VAZIO', emoji: activePet ?? null },
+    { label: 'SLOT VAZIO', emoji: null },
   ];
   const slotIconImgs = await Promise.all(
     slotData.map(slot => loadEmojiImg(slot.emoji).catch(() => null)),

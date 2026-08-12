@@ -9,7 +9,7 @@ const stats = [
   { icon: "🌟", tone: "blue", text: "live for yas" },
 ];
 
-const slots = ["SLOT VAZIO", "SLOT VAZIO", "SLOT VAZIO"];
+const slots = ["MASCOTE", "PET EQUIPADO", "SLOT VAZIO"];
 
 function SlotPattern() {
   return (
@@ -59,6 +59,7 @@ export function KosameProfile() {
           {slots.map((slot, index) => (
             <div className="item-slot" key={`${slot}-${index}`}>
               <SlotPattern />
+              {(index === 0 || index === 1) && <span className="pet-dot" aria-hidden="true">🐾</span>}
               <span>{slot}</span>
             </div>
           ))}
