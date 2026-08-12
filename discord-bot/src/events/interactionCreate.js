@@ -21,7 +21,7 @@ import {
 } from 'discord.js';
 import prisma from '../database/client.js';
 import { generateTranscript } from '../utils/transcript.js';
-import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, v2Error, v2Simple, Colors } from '../utils/embed.js';
+import { baseEmbed, buildConfigEmbed, errorEmbed, successEmbed, v2Simple, Colors } from '../utils/embed.js';
 import { ACTIONS, buildInteractionEmbed } from '../commands/interacoes/interacoes.js';
 import { generateTellonymCard } from '../utils/cardGenerator.js';
 import { buildWeddingCardPayload, getMarriageStats } from '../utils/weddingCard.js';
@@ -1534,7 +1534,10 @@ export default {
             && targetProfile.marriedTo !== proposerId;
 
           if (proposerHasOtherPartner || targetHasOtherPartner) {
-            return interaction.editReply(v2Error('Um dos usuários já está casado com outra pessoa!'));
+            return interaction.editReply({
+              embeds: [errorEmbed('Um dos usuários já está casado com outra pessoa!')],
+              components: [],
+            });
           }
 
           // Pedidos antigos podem ser aceitos depois de o vínculo já ter sido
@@ -3855,7 +3858,7 @@ export default {
 
     } catch (err) {
       console.error('[INTERACTION ERROR]', err);
-      const marriageV2 =
+      const marriageInteraction =
         interaction.commandName === 'casamento'
         || interaction.customId?.startsWith('casar_accept_')
         || interaction.customId?.startsWith('casar_refresh_');
@@ -3863,15 +3866,18 @@ export default {
         embeds: [errorEmbed('Ocorreu um erro interno. Tente novamente.')],
         components: [],
       };
-      const errorPayload = marriageV2
-        ? v2Simple('❌ O cartão de casamento não pôde ser gerado. Tente novamente.')
+      const errorPayload = marriageInteraction
+        ? {
+            embeds: [errorEmbed('O cartão de casamento não pôde ser gerado. Tente novamente.')],
+            components: [],
+          }
         : legacyErrorPayload;
       if (interaction.deferred)
         interaction.editReply(errorPayload).catch(() => {});
       else if (interaction.replied)
-        interaction.followUp(marriageV2 ? errorPayload : { ...legacyErrorPayload, ephemeral: true }).catch(() => {});
+        interaction.followUp(marriageInteraction ? errorPayload : { ...legacyErrorPayload, ephemeral: true }).catch(() => {});
       else
-        interaction.reply(marriageV2 ? errorPayload : { ...legacyErrorPayload, ephemeral: true }).catch(() => {});
+        interaction.reply(marriageInteraction ? errorPayload : { ...legacyErrorPayload, ephemeral: true }).catch(() => {});
     }
   },
 };

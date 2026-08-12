@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
-import { v2Error } from '../../utils/embed.js';
+import { errorEmbed } from '../../utils/embed.js';
 import { buildWeddingCardPayload, getMarriageStats } from '../../utils/weddingCard.js';
 
 async function findMarriageProfile(userId) {
@@ -49,19 +49,23 @@ export default {
   name: 'casamento',
 
   async execute(interaction) {
-    // Components V2 é aplicado na resposta editada. O Discord.js aceita
-    // apenas Ephemeral no payload de deferReply.
+    // Gera a imagem antes de editar a resposta, mas reconhece a interação
+    // imediatamente para evitar expiração durante consultas e renderização.
     await interaction.deferReply();
 
     const profile = await findMarriageProfile(interaction.user.id);
 
     if (!profile?.marriedTo) {
-      return interaction.editReply(v2Error('Você não está casado(a) com ninguém.'));
+      return interaction.editReply({
+        embeds: [errorEmbed('Você não está casado(a) com ninguém.')],
+      });
     }
 
     const partner = await interaction.client.users.fetch(profile.marriedTo).catch(() => null);
     if (!partner) {
-      return interaction.editReply(v2Error('Não consegui encontrar a outra pessoa do casamento.'));
+      return interaction.editReply({
+        embeds: [errorEmbed('Não consegui encontrar a outra pessoa do casamento.')],
+      });
     }
 
     const [member, partnerMember] = await Promise.all([

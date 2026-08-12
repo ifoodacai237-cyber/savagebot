@@ -1,10 +1,10 @@
 ---
-name: Discord wedding V2
-description: Regras de compatibilidade do cartão de casamento com Discord Components V2.
+name: Discord wedding message format
+description: Formato confiável do cartão de casamento e regra para não reintroduzir o payload V2 rejeitado.
 ---
 
-Respostas finais com `MessageFlags.IsComponentsV2` não podem misturar `embeds` ou `content`; erros e estados vazios também precisam ser contêineres V2. O `deferReply` deve ser normal, sem essa flag.
+O cartão de casamento usa mensagem clássica com `EmbedBuilder`, imagem `attachment://casamento-card.png` e `ActionRow` de botões. O fluxo não deve usar `MessageFlags.IsComponentsV2`.
 
-**Why:** O `discord.js` restringe as flags do `deferReply` a respostas efêmeras; `IsComponentsV2` é aplicado na edição da resposta. O Discord aceita o card visual com `ContainerBuilder`, galeria apontando para `attachment://...` e `ActionRow` externo, mas rejeita embeds/content em uma resposta V2. Esse erro costuma aparecer apenas como falha genérica no bot.
+**Why:** O Discord estava rejeitando o payload do casamento com `flags: 32768` no Railway, mesmo após reduzir o contêiner V2. O formato clássico com anexo e embed evita essa falha e preserva o cartão visual.
 
-**How to apply:** Ao alterar `/casamento` ou seus botões, faça `deferReply()` normal antes de consultas/geração de imagem e aplique `IsComponentsV2` no `editReply` final. Mantenha o anexo e a galeria no mesmo payload, reconheça `Atualizar` antes do trabalho assíncrono e use `v2Error`/`v2Simple` em todos os caminhos V2.
+**How to apply:** Ao alterar `/casamento`, `/casar` ou o botão `casar_refresh_`, mantenha `deferReply()`/`deferUpdate()` sem flags V2, retorne o payload clássico e use embeds clássicos também nos erros desse fluxo.

@@ -3,12 +3,7 @@ import {
   AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ContainerBuilder,
-  MediaGalleryBuilder,
-  MediaGalleryItemBuilder,
-  MessageFlags,
-  SeparatorBuilder,
-  TextDisplayBuilder,
+  EmbedBuilder,
 } from 'discord.js';
 import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
 import { fileURLToPath } from 'url';
@@ -311,20 +306,6 @@ export async function buildWeddingCardPayload({ left, right, stats }) {
   const image = await renderWeddingCard({ left, right, stats });
   const attachment = new AttachmentBuilder(image, { name: 'casamento-card.png' });
   const pair = `${left.id}_${right.id}`;
-  const container = new ContainerBuilder().setAccentColor(0xf44598);
-
-  container.addMediaGalleryComponents(
-    new MediaGalleryBuilder().addItems(
-      new MediaGalleryItemBuilder().setURL('attachment://casamento-card.png'),
-    ),
-  );
-  container.addSeparatorComponents(new SeparatorBuilder());
-  container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(
-      `## 💕 Casamento\n<@${left.id}> e <@${right.id}> · nível ${stats.level} · ${stats.xp} XP\n` +
-      `Interações entre os dois: ${stats.interactions}`,
-    ),
-  );
 
   const controls = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -340,7 +321,16 @@ export async function buildWeddingCardPayload({ left, right, stats }) {
 
   return {
     files: [attachment],
-    components: [container, controls],
-    flags: MessageFlags.IsComponentsV2,
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0xf44598)
+        .setTitle('💍 Cartão de casamento')
+        .setDescription(
+          `<@${left.id}> e <@${right.id}> · nível ${stats.level} · ${stats.xp} XP`,
+        )
+        .setImage('attachment://casamento-card.png')
+        .setFooter({ text: 'Use Atualizar para recalcular as estatísticas.' }),
+    ],
+    components: [controls],
   };
 }
