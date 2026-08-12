@@ -617,13 +617,17 @@ export default {
     }
 
     // ── PREFIX COMMANDS ──────────────────────────────────────────────────────
-    if (!message.content.toLowerCase().startsWith(PREFIX)) return;
+    // GF também aceita o formato curto `.gf @usuário`, como os membros usam
+    // no canal, sem mudar o prefixo `savage ` dos outros comandos.
+    const isShortGf = /^\.gf(?:\s|$)/i.test(message.content);
+    if (!message.content.toLowerCase().startsWith(PREFIX) && !isShortGf) return;
 
     if (processedMessages.has(message.id)) return;
     processedMessages.add(message.id);
     setTimeout(() => processedMessages.delete(message.id), 10_000);
 
-    const args        = message.content.slice(PREFIX.length).trim().split(/\s+/);
+    const commandText = isShortGf ? message.content.slice(3) : message.content.slice(PREFIX.length);
+    const args        = commandText.trim().split(/\s+/);
     const commandName = args.shift().toLowerCase();
     const cmd         = client.prefixCmds.get(commandName);
     if (!cmd?.executePrefix) return;

@@ -1,5 +1,6 @@
 import {
   SlashCommandBuilder,
+  EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
@@ -24,10 +25,10 @@ export const ACTIONS = {
     emoji:        '💞',
     gif:          'kiss',
     desc:         '💞 Cria um clima de romance com alguém',
-    msg:          (a, b) => `**${a}** puxa **${b}** para um beijo demorado... 💞`,
-    counter:      (to, n) => `*${to} já recebeu ${n} ${n === 1 ? 'momento romântico' : 'momentos românticos'}.*`,
-    btnLabel:     'Entrar no clima',
-    retMsg:       (a, b) => `**${a}** entra no clima e beija **${b}** de volta... 💞`,
+    msg:          (a, b) => `${a} fez GF com ${b}.`,
+    counter:      (to, n) => `Streak ${n}x • +18 XP para cada um`,
+    btnLabel:     'Continuar GF',
+    retMsg:       (a, b) => `${a} fez GF com ${b}.`,
     mutualVerb:   (n) => `trocaram **${n}** ${n === 1 ? 'momento romântico' : 'momentos românticos'}`,
   },
   hug: {
@@ -222,6 +223,39 @@ function getComboMsg(type, mutualCount, fromName, toName) {
   return null;
 }
 
+function mentionUser(user) {
+  const id = user?.id ?? user?.user?.id;
+  return id ? `<@${id}>` : `@${user?.displayName ?? user?.username ?? 'Alguém'}`;
+}
+
+function buildGfPayload(fromUser, toUser, gifUrl, streak) {
+  const fromMention = mentionUser(fromUser);
+  const toMention = mentionUser(toUser);
+  const embed = new EmbedBuilder()
+    .setColor(0xF2C94C)
+    .setTitle('GF')
+    .setDescription(
+      `${fromMention} fez GF com ${toMention}.\n` +
+      `Streak ${streak}x • +18 XP para cada um\n` +
+      `GF ${streak}x. A sala ficou pronta para a cena pós-ending de anime.`,
+    )
+    .addFields({
+      name: 'Sequência',
+      value: 'A cada 10x seguidas esse par ganha bônus extra de XP social.',
+    });
+
+  if (gifUrl) embed.setImage(gifUrl);
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`int_r_gf_${fromUser?.id ?? fromUser?.user?.id}_${toUser?.id ?? toUser?.user?.id}`)
+      .setLabel('Continuar GF')
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  return { embeds: [embed], components: [row] };
+}
+
 export async function buildInteractionEmbed(type, fromUser, toUser, isRetribution = false) {
   const action   = ACTIONS[type];
   const fromName = fromUser.displayName ?? fromUser.username ?? 'Alguém';
@@ -234,6 +268,10 @@ export async function buildInteractionEmbed(type, fromUser, toUser, isRetributio
     incrementCount(type, fromId, toId),
     getMutualCount(type, fromId, toId),
   ]);
+
+  if (type === 'gf') {
+    return buildGfPayload(fromUser, toUser, gifData.url, Math.max(1, mutualCount + 1));
+  }
 
   let description;
   if (isRetribution) {
