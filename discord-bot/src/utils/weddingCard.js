@@ -7,7 +7,6 @@ import {
   MediaGalleryBuilder,
   MediaGalleryItemBuilder,
   MessageFlags,
-  SectionBuilder,
   SeparatorBuilder,
   TextDisplayBuilder,
 } from 'discord.js';
@@ -320,23 +319,18 @@ export async function buildWeddingCardPayload({ left, right, stats }) {
     ),
   );
   container.addSeparatorComponents(new SeparatorBuilder());
-  container.addSectionComponents(
-    new SectionBuilder()
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `## 💕 Casamento\n<@${left.id}> e <@${right.id}> · nível ${stats.level} · ${stats.xp} XP\n` +
-          `Interações entre os dois: ${stats.interactions}`,
-        ),
-      )
-      .setButtonAccessory(
-        new ButtonBuilder()
-          .setCustomId(`casar_manage_${pair}`)
-          .setLabel('Gerenciar')
-          .setStyle(ButtonStyle.Secondary),
-      ),
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `## 💕 Casamento\n<@${left.id}> e <@${right.id}> · nível ${stats.level} · ${stats.xp} XP\n` +
+      `Interações entre os dois: ${stats.interactions}`,
+    ),
   );
 
-  const refreshRow = new ActionRowBuilder().addComponents(
+  const controls = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`casar_manage_${pair}`)
+      .setLabel('Gerenciar')
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`casar_refresh_${pair}`)
       .setLabel('Atualizar')
@@ -346,7 +340,7 @@ export async function buildWeddingCardPayload({ left, right, stats }) {
 
   return {
     files: [attachment],
-    components: [container, refreshRow],
+    components: [container, controls],
     flags: MessageFlags.IsComponentsV2,
   };
 }
