@@ -10,6 +10,7 @@ if (!process.env.RAILWAY_ENVIRONMENT_NAME && !process.env.RAILWAY_PROJECT_ID) {
 
 import { Client, GatewayIntentBits, Partials, Collection } from 'discord.js';
 import { loadCommands } from './utils/loader.js';
+import { ensureMarriageSchema } from './database/client.js';
 import { readdirSync } from 'fs';
 import { fileURLToPath, pathToFileURL } from 'url';
 import path from 'path';
@@ -58,6 +59,7 @@ process.on('uncaughtException',  err    => console.error('[UNCAUGHT EXCEPTION]',
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
 (async () => {
+  await ensureMarriageSchema();
   await loadCommands(client);
 
   const eventsDir = path.join(__dirname, 'events');

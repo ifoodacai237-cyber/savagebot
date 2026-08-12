@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
 import { errorEmbed } from '../../utils/embed.js';
 import { buildWeddingCardPayload, getMarriageStats } from '../../utils/weddingCard.js';
@@ -10,7 +10,7 @@ export default {
   name: 'casamento',
 
   async execute(interaction) {
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
 
     const profile = await prisma.userProfile.findUnique({
       where: { userId: interaction.user.id },
