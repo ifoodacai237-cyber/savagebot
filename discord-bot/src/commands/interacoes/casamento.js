@@ -3,6 +3,45 @@ import prisma from '../../database/client.js';
 import { errorEmbed } from '../../utils/embed.js';
 import { buildWeddingCardPayload, getMarriageStats } from '../../utils/weddingCard.js';
 
+async function findMarriageProfile(userId) {
+  try {
+    return await prisma.userProfile.findUnique({
+      where: { userId },
+      select: {
+        marriedTo: true,
+        marriedToName: true,
+        marriedAt: true,
+      },
+    });
+  } catch (error) {
+    // Bancos antigos podem ainda não ter marriedAt. Os campos do vínculo
+    // continuam suficientes para exibir o card e não devem bloquear o comando.
+    console.error('[CASAMENTO] Falha ao ler marriedAt; usando perfil compatível:', error);
+    return prisma.userProfile.findUnique({
+      where: { userId },
+      select: {
+        marriedTo: true,
+        marriedToName: true,
+      },
+    });
+  }
+}
+
+function emptyMarriageStats(marriedAt) {
+  return {
+    kisses: 0,
+    hugs: 0,
+    gf: 0,
+    interactions: 0,
+    xp: 0,
+    level: 1,
+    progressPercent: 0,
+    xpMissing: 180,
+    callMinutes: 0,
+    marriedAt: marriedAt ?? new Date(),
+  };
+}
+
 export default {
   data: new SlashCommandBuilder()
     .setName('casamento')
@@ -12,9 +51,7 @@ export default {
   async execute(interaction) {
     await interaction.deferReply();
 
-    const profile = await prisma.userProfile.findUnique({
-      where: { userId: interaction.user.id },
-    });
+    const profile = await findMarriageProfile(interaction.user.id);
 
     if (!profile?.marriedTo) {
       return interaction.editReply({
@@ -33,7 +70,15 @@ export default {
       interaction.guild.members.fetch(interaction.user.id).catch(() => null),
       interaction.guild.members.fetch(partner.id).catch(() => null),
     ]);
-    const stats = await getMarriageStats(interaction.user.id, partner.id, profile.marriedAt);
+    let stats;
+    try {
+      stats = await getMarriageStats(interaction.user.id, partner.id, profile.marriedAt);
+    } catch (error) {
+      // O card principal não depende da tabela de interações. Se ela estiver
+      // atrasada no banco, mostramos o casamento com estatísticas zeradas.
+      console.error('[CASAMENTO] Falha ao ler estatísticas:', error);
+      stats = emptyMarriageStats(profile.marriedAt);
+    }
 
     return interaction.editReply(await buildWeddingCardPayload({
       left: {
