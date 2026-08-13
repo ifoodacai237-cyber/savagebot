@@ -44,7 +44,7 @@ function panel(text, { ephemeral = true, rows = [] } = {}) {
   return {
     components: [container, ...rows],
     flags: MessageFlags.IsComponentsV2,
-    ephemeral,
+    ...(ephemeral ? { ephemeral: true } : {}),
   };
 }
 
@@ -64,7 +64,10 @@ function createPending(data) {
   return token;
 }
 
-function confirmationPayload({ action, token, target, member, reason, deleteDays, durationMinutes }) {
+function confirmationPayload(
+  { action, token, target, member, reason, deleteDays, durationMinutes },
+  { ephemeral = true } = {},
+) {
   const details = [
     `**${target}** — ${displayName(target, member)}`,
     `**Motivo:** ${reasonText(reason)}`,
@@ -88,31 +91,38 @@ function confirmationPayload({ action, token, target, member, reason, deleteDays
   );
 
   return panel(`## ${MOD_HEART()} ${ACTIONS[action].title}\n\n${details.join('\n')}`, {
+    ephemeral,
     rows: [buttons],
   });
 }
 
-function actionError(text) {
-  return panel(`## ${MOD_HEART()} Moderação\n\n${text}`);
+function actionError(text, options = {}) {
+  return panel(`## ${MOD_HEART()} Moderação\n\n${text}`, options);
 }
 
-function permissionDenied(interaction, action) {
-  return !interaction.memberPermissions?.has(ACTIONS[action].permission);
+function contextUser(context) {
+  return context.user ?? context.author;
 }
 
-function hierarchyError(interaction, member, action) {
+function permissionDenied(context, action) {
+  const permissions = context.memberPermissions ?? context.member?.permissions;
+  return !permissions?.has(ACTIONS[action].permission);
+}
+
+function hierarchyError(context, member, action) {
   if (!member) {
     return action === 'ban'
       ? null
       : 'Esse membro não está no servidor.';
   }
 
-  if (member.id === interaction.user.id) return 'Você não pode aplicar essa ação em si mesmo.';
-  if (member.id === interaction.client.user.id) return 'Eu não posso aplicar essa ação em mim mesmo.';
-  if (member.id === interaction.guild.ownerId) return 'O dono do servidor não pode ser moderado.';
+  const user = contextUser(context);
+  if (member.id === user.id) return 'Você não pode aplicar essa ação em si mesmo.';
+  if (member.id === context.client.user.id) return 'Eu não posso aplicar essa ação em mim mesmo.';
+  if (member.id === context.guild.ownerId) return 'O dono do servidor não pode ser moderado.';
 
-  const actor = interaction.member;
-  if (actor?.id !== interaction.guild.ownerId && actor?.roles?.highest?.comparePositionTo(member.roles.highest) <= 0) {
+  const actor = context.member;
+  if (actor?.id !== context.guild.ownerId && actor?.roles?.highest?.comparePositionTo(member.roles.highest) <= 0) {
     return 'O cargo desse membro é igual ou superior ao seu.';
   }
 
@@ -125,8 +135,8 @@ function hierarchyError(interaction, member, action) {
   return null;
 }
 
-async function findMember(interaction, user) {
-  return interaction.guild.members.fetch(user.id).catch(() => null);
+async function findMember(context, user) {
+  return context.guild.members.fetch(user.id).catch(() => null);
 }
 
 async function startModeration(interaction, action, options) {
@@ -163,6 +173,83 @@ async function startModeration(interaction, action, options) {
   }));
 }
 
+async function startPrefixModeration(message, action, {
+  target,
+  reason,
+  deleteDays = 0,
+  durationMinutes = 10,
+}) {
+  if (permissionDenied(message, action)) {
+    return message.reply(actionError(
+      'Você não tem permissão para usar este comando.',
+      { ephemeral: false },
+    ));
+  }
+
+  const member = await findMember(message, target);
+  const hierarchy = hierarchyError(message, member, action);
+  if (hierarchy) {
+    return message.reply(actionError(hierarchy, { ephemeral: false }));
+  }
+
+  const token = createPending({
+    action,
+    guildId: message.guildId,
+    moderatorId: message.author.id,
+    targetId: target.id,
+    reason: reasonText(reason),
+    deleteDays,
+    durationMinutes,
+  });
+
+  return message.reply(confirmationPayload({
+      action,
+      token,
+      target,
+      member,
+      reason,
+      deleteDays,
+      durationMinutes,
+    },
+    { ephemeral: false },
+  ));
+}
+
+function prefixUsage(action) {
+  if (action === 'ban') return 'Uso: `savage ban @usuario [dias] [motivo]`';
+  if (action === 'kick') return 'Uso: `savage kick @usuario [motivo]`';
+  return 'Uso: `savage mute @usuario <minutos> [motivo]`';
+}
+
+function parsePrefixModeration(message, action, args) {
+  const target = message.mentions.users.first();
+  if (!target) return { error: prefixUsage(action) };
+
+  const remaining = args.filter(arg => !/^<@!?\d+>$/.test(arg));
+  let deleteDays = 0;
+  let durationMinutes = 10;
+
+  if (action === 'ban' && /^\d+$/.test(remaining[0] ?? '')) {
+    deleteDays = Number(remaining.shift());
+    if (deleteDays > 7) return { error: 'Os dias de mensagens precisam estar entre 0 e 7.' };
+  }
+
+  if (action === 'mute') {
+    if (!/^\d+$/.test(remaining[0] ?? '')) return { error: prefixUsage(action) };
+    durationMinutes = Number(remaining.shift());
+    if (durationMinutes < 1 || durationMinutes > MAX_TIMEOUT_MINUTES) {
+      return { error: `A duração precisa estar entre 1 e ${MAX_TIMEOUT_MINUTES} minutos.` };
+    }
+  }
+
+  return {
+    target,
+    reason: remaining.join(' ').trim() || null,
+    deleteDays,
+    durationMinutes,
+  };
+}
+
 async function executeModeration(interaction, session) {
   const { action, targetId, reason, deleteDays, durationMinutes } = session;
   const target = await interaction.client.users.fetch(targetId).catch(() => null);
@@ -170,7 +257,7 @@ async function executeModeration(interaction, session) {
   const hierarchy = hierarchyError(interaction, member, action);
   if (hierarchy) throw new Error(hierarchy);
 
-  const auditReason = reason === '—' ? `Moderação por ${interaction.user.tag}` : reason;
+  const auditReason = reason === '—' ? `Moderação por ${contextUser(interaction).tag}` : reason;
   if (action === 'ban') {
     await interaction.guild.members.ban(targetId, {
       deleteMessageSeconds: deleteDays * 24 * 60 * 60,
@@ -225,6 +312,11 @@ const banCommand = {
   async execute(interaction) {
     return startModeration(interaction, 'ban', interaction.options);
   },
+  async executePrefix(message, args) {
+    const parsed = parsePrefixModeration(message, 'ban', args);
+    if (parsed.error) return message.reply(parsed.error);
+    return startPrefixModeration(message, 'ban', parsed);
+  },
 };
 
 const kickCommand = {
@@ -239,6 +331,11 @@ const kickCommand = {
   name: 'kick',
   async execute(interaction) {
     return startModeration(interaction, 'kick', interaction.options);
+  },
+  async executePrefix(message, args) {
+    const parsed = parsePrefixModeration(message, 'kick', args);
+    if (parsed.error) return message.reply(parsed.error);
+    return startPrefixModeration(message, 'kick', parsed);
   },
 };
 
@@ -257,6 +354,11 @@ const muteCommand = {
   name: 'mute',
   async execute(interaction) {
     return startModeration(interaction, 'mute', interaction.options);
+  },
+  async executePrefix(message, args) {
+    const parsed = parsePrefixModeration(message, 'mute', args);
+    if (parsed.error) return message.reply(parsed.error);
+    return startPrefixModeration(message, 'mute', parsed);
   },
 };
 
