@@ -18,6 +18,7 @@ import prisma from '../database/client.js';
 import { getEmoji } from './emojiManager.js';
 import { WALLET_BACKGROUNDS, RING_PRESETS, getRing, FRAME_PRESETS, getFrame, buildBannerUrl } from './shopData.js';
 import { renderRingPreview } from './ringPreview.js';
+import { buildPetPanel, petDisplayName } from './petComponents.js';
 
 const SHOP_COLOR = 0x000000;
 const DIVIDER    = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
@@ -770,7 +771,12 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'shop_conv_call')                 return handleConvCall(interaction);
     if (id === 'shop_saldo')                     return handleSaldo(interaction);
     if (id === 'shop_gift')                      return handleGift(interaction);
-    if (id === 'shop_cancel')                    return interaction.update({ content: '❌ Compra cancelada.', embeds: [], components: [] });
+    if (id === 'shop_cancel') {
+      const cancelled = new ContainerBuilder().addTextDisplayComponents(
+        new TextDisplayBuilder().setContent('## Compra cancelada\n\nNada foi debitado do seu saldo.'),
+      );
+      return interaction.update({ components: [cancelled], flags: MessageFlags.IsComponentsV2 });
+    }
     if (id.startsWith('shop_buy_'))              return handleBuyConfirm(interaction);
     if (id.startsWith('shop_ok_'))               return handleBuyExecute(interaction, client);
     if (id.startsWith('shop_gok:'))              return handleGiftBuyExecute(interaction, client);
@@ -1279,7 +1285,12 @@ async function handleCarouselPetNav(interaction) {
     prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'pet' } }),
     getCfg(interaction.guildId),
   ]);
-  if (!pets.length) return interaction.editReply({ content: '❌ Nenhum pet disponível.', components: [], flags: MessageFlags.IsComponentsV2 });
+  if (!pets.length) {
+    return interaction.editReply({
+      components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent('❌ Nenhum pet disponível.'))],
+      flags: MessageFlags.IsComponentsV2,
+    });
+  }
   const safeIdx  = Math.min(index, pets.length - 1);
   const ownedSet = new Set(allOwned.map(o => o.itemRef));
   const p        = pets[safeIdx];
@@ -1424,14 +1435,12 @@ async function handleItemSel(interaction) {
 
   if (itemType === 'pet') {
     const pet = await prisma.pet.findUnique({ where: { id: ref } });
-    if (!pet) return interaction.update({ content: '❌ Pet não encontrado.', embeds: [], components: [] });
+    if (!pet) return interaction.update({
+      components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent('❌ Pet não encontrado.'))],
+      flags: MessageFlags.IsComponentsV2,
+    });
     const owned     = !!(await prisma.userPurchase.findUnique({ where: { userId_itemType_itemRef: { userId: interaction.user.id, itemType: 'pet', itemRef: pet.id } } }));
     const canAfford = eco.balance >= pet.price;
-
-    const embed = new EmbedBuilder().setColor(SHOP_COLOR).setTitle(`${pet.emoji} ${pet.name}`)
-      .setDescription(pet.description ?? 'Um pet exclusivo do servidor.')
-      .addFields({ name: '💰 Preço', value: `**${pet.price.toLocaleString('pt-BR')} ${COIN()}**`, inline: true }, { name: '👛 Seu Saldo', value: `**${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`, inline: true })
-      .setFooter({ text: 'Após comprar, use /perfil → Meu Pet para equipar' });
 
     const btn = new ButtonBuilder().setCustomId(`shop_buy_pet:${pet.id}`)
       .setLabel(owned ? 'Já Possui' : canAfford ? 'Comprar Pet' : 'Sem Saldo')
@@ -1439,7 +1448,17 @@ async function handleItemSel(interaction) {
       .setStyle(owned ? ButtonStyle.Secondary : ButtonStyle.Success)
       .setDisabled(owned || !canAfford);
 
-    return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(btn)] });
+    return interaction.update(buildPetPanel({
+      title: `${petDisplayName(pet)} — detalhes`,
+      body:
+        `${pet.description ?? 'Um pet exclusivo do servidor.'}\n\n` +
+        `💰 **Preço:** ${pet.price.toLocaleString('pt-BR')} ${COIN()}\n` +
+        `👛 **Seu saldo:** ${eco.balance.toLocaleString('pt-BR')} ${COIN()}\n\n` +
+        'Depois da compra, use `/perfil` → **Meu Pet** para equipar.',
+      pet,
+      includeActions: false,
+      extraRows: [new ActionRowBuilder().addComponents(btn)],
+    }));
   }
 }
 
@@ -1448,15 +1467,16 @@ async function handleBuyConfirm(interaction) {
   const [type, key] = ref.split(':');
   const eco         = await getEco(interaction.user.id, interaction.guildId);
   let name, price;
+  let petForPayload = null;
 
   if (type === 'role') {
     const item = await prisma.shopRole.findUnique({ where: { id: key } });
     if (!item) return interaction.reply({ content: '❌ Item não encontrado.', ephemeral: true });
     name = item.name; price = item.price;
   } else if (type === 'pet') {
-    const pet = await prisma.pet.findUnique({ where: { id: key } });
-    if (!pet) return interaction.reply({ content: '❌ Pet não encontrado.', ephemeral: true });
-    name = `${pet.emoji} ${pet.name}`; price = pet.price;
+    petForPayload = await prisma.pet.findUnique({ where: { id: key } });
+    if (!petForPayload) return interaction.reply({ content: '❌ Pet não encontrado.', ephemeral: true });
+    name = petDisplayName(petForPayload); price = petForPayload.price;
   } else {
     const b = await resolveBannerForGuild(key, interaction.guildId);
     if (!b) return interaction.reply({ content: '❌ Banner não encontrado.', ephemeral: true });
@@ -1464,6 +1484,28 @@ async function handleBuyConfirm(interaction) {
   }
 
   if (eco.balance < price) return interaction.reply({ content: `❌ Saldo insuficiente! Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**.`, ephemeral: true });
+
+  if (type === 'pet') {
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`shop_ok_${ref}`).setLabel('Confirmar compra').setEmoji('✅').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('shop_cancel').setLabel('Cancelar').setEmoji('❌').setStyle(ButtonStyle.Danger),
+    );
+
+    return interaction.reply({
+      ...buildPetPanel({
+        title: '⚠️ Confirmar compra',
+        body:
+          `Comprar **${name}** por **${price.toLocaleString('pt-BR')} ${COIN()}**?\n\n` +
+          `💰 **Saldo atual:** ${eco.balance.toLocaleString('pt-BR')} ${COIN()}\n` +
+          `📉 **Saldo após:** ${(eco.balance - price).toLocaleString('pt-BR')} ${COIN()}\n\n` +
+          'Esta ação não pode ser desfeita.',
+        pet: petForPayload,
+        includeActions: false,
+        extraRows: [row],
+      }),
+      ephemeral: true,
+    });
+  }
 
   const embed = new EmbedBuilder().setColor(0xFEE75C).setTitle('⚠️ Confirmar Compra')
     .setDescription(
@@ -1485,27 +1527,51 @@ async function handleBuyExecute(interaction, client) {
   const [type, key] = ref.split(':');
   const eco         = await getEco(interaction.user.id, interaction.guildId);
   let name, price, itemRef, roleId;
+  let petForPayload = null;
 
   if (type === 'role') {
     const item = await prisma.shopRole.findUnique({ where: { id: key } });
     if (!item) return interaction.update({ content: '❌ Item não encontrado.', embeds: [], components: [] });
     name = item.name; price = item.price; itemRef = item.roleId; roleId = item.roleId;
   } else if (type === 'pet') {
-    const pet = await prisma.pet.findUnique({ where: { id: key } });
-    if (!pet) return interaction.update({ content: '❌ Pet não encontrado.', embeds: [], components: [] });
-    name = `${pet.emoji} ${pet.name}`; price = pet.price; itemRef = pet.id;
+    petForPayload = await prisma.pet.findUnique({ where: { id: key } });
+    if (!petForPayload) return interaction.update({
+      components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent('❌ Pet não encontrado.'))],
+      flags: MessageFlags.IsComponentsV2,
+    });
+    name = petDisplayName(petForPayload); price = petForPayload.price; itemRef = petForPayload.id;
   } else {
     const b = await resolveBannerForGuild(key, interaction.guildId);
     if (!b) return interaction.update({ content: '❌ Banner não encontrado.', embeds: [], components: [] });
     name = b.name; price = b.price; itemRef = b.key;
   }
 
-  if (eco.balance < price) return interaction.update({ content: '❌ Saldo insuficiente!', embeds: [], components: [] });
+  if (eco.balance < price) {
+    if (type === 'pet') {
+      return interaction.update(buildPetPanel({
+        title: '❌ Saldo insuficiente',
+        body: `Você precisa de **${price.toLocaleString('pt-BR')} ${COIN()}**, mas possui apenas **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**.`,
+        pet: petForPayload,
+        includeActions: false,
+      }));
+    }
+    return interaction.update({ content: '❌ Saldo insuficiente!', embeds: [], components: [] });
+  }
 
   const exists = await prisma.userPurchase.findUnique({
     where: { userId_itemType_itemRef: { userId: interaction.user.id, itemType: type, itemRef } },
   });
-  if (exists) return interaction.update({ content: '✅ Você já possui este item!', embeds: [], components: [] });
+  if (exists) {
+    if (type === 'pet') {
+      return interaction.update(buildPetPanel({
+        title: '✅ Pet já adquirido',
+        body: `Você já possui **${name}**. Use \`/perfil\` → **Meu Pet** para equipá-lo.`,
+        pet: petForPayload,
+        includeActions: true,
+      }));
+    }
+    return interaction.update({ content: '✅ Você já possui este item!', embeds: [], components: [] });
+  }
 
   await prisma.economy.update({
     where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
@@ -1522,6 +1588,18 @@ async function handleBuyExecute(interaction, client) {
     banner: '\n\n🖼️ Use `/perfil` → **Mudar Banner** para equipar!',
     pet:    '\n\n🐾 Use `/perfil` → **Meu Pet** para equipar!',
   };
+
+  if (type === 'pet') {
+    return interaction.update(buildPetPanel({
+      title: '✅ Compra realizada!',
+      body:
+        `Você comprou **${name}** com sucesso!\n` +
+        `💰 **${price.toLocaleString('pt-BR')} ${COIN()}** debitados.\n\n` +
+        '🐾 Agora use `/perfil` → **Meu Pet** para equipar seu novo companheiro.',
+      pet: petForPayload,
+      includeActions: true,
+    }));
+  }
 
   const embed = new EmbedBuilder().setColor(0x57F287).setTitle('✅ Compra Realizada!')
     .setDescription(
@@ -2039,8 +2117,20 @@ async function handleProfilePetBtn(interaction) {
     prisma.userProfile.findUnique({ where: { userId: interaction.user.id } }),
   ]);
 
-  if (!owned.length)
-    return interaction.reply({ content: '❌ Você não possui nenhum pet!\nUse `/loja painel` → **Comprar** → **Pets** para comprar.', ephemeral: true });
+  if (!owned.length) {
+    const shopBtn = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('shop_comprar').setLabel('Abrir loja de pets').setEmoji('🛍️').setStyle(ButtonStyle.Primary),
+    );
+    return interaction.reply({
+      ...buildPetPanel({
+        title: '🐾 Meu Pet',
+        body: 'Você ainda não possui nenhum pet.\n\nAbra a loja para escolher um companheiro e depois volte aqui para equipá-lo.',
+        includeActions: false,
+        extraRows: [shopBtn],
+      }),
+      ephemeral: true,
+    });
+  }
 
   const petIds  = owned.map(o => o.itemRef);
   const pets    = await prisma.pet.findMany({ where: { id: { in: petIds } } });
@@ -2064,8 +2154,16 @@ async function handleProfilePetBtn(interaction) {
   ];
 
   return interaction.reply({
-    content: '🐾 **Selecione o pet para equipar no seu perfil:**',
-    components: [new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('profile_pet_sel').setPlaceholder('Selecione um pet').addOptions(opts))],
+    ...buildPetPanel({
+      title: '🐾 Meu Pet',
+      body: 'Selecione um companheiro para exibir no seu perfil.',
+      includeActions: false,
+      extraRows: [
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder().setCustomId('profile_pet_sel').setPlaceholder('Selecione um pet').addOptions(opts),
+        ),
+      ],
+    }),
     ephemeral: true,
   });
 }
@@ -2081,11 +2179,20 @@ async function handleProfilePetSel(interaction) {
   });
 
   if (!activePet) {
-    return interaction.update({ content: '✅ Pet removido do perfil.', components: [] });
+    return interaction.update(buildPetPanel({
+      title: '✅ Pet removido',
+      body: 'Seu perfil voltou a ficar sem pet equipado.',
+      includeActions: false,
+    }));
   }
 
   const pet = await prisma.pet.findUnique({ where: { id: activePet } }).catch(() => null);
-  return interaction.update({ content: `✅ Pet **${pet?.emoji} ${pet?.name}** equipado! Use \`/perfil\` para ver.`, components: [] });
+  return interaction.update(buildPetPanel({
+    title: '✅ Pet equipado',
+    body: `**${pet ? petDisplayName(pet) : 'Seu pet'}** agora aparece no seu perfil.\n\nUse \`/perfil\` para conferir o card.`,
+    pet,
+    includeActions: true,
+  }));
 }
 
 // ─── 🖼️ Mudar Banner do Perfil ────────────────────────────────────────────────

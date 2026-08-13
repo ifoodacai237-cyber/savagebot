@@ -1,7 +1,8 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
 
 import { getEmoji } from '../../utils/emojiManager.js';
+import { buildPetPanel, petDisplayName } from '../../utils/petComponents.js';
 const COIN = () => getEmoji('futecoins');
 
 const PLAY_CD  = 4 * 60 * 60 * 1000;
@@ -100,37 +101,12 @@ async function resolveActivePet(userId, guildId) {
   return pet;
 }
 
-// Extrai a URL CDN de um emoji customizado do Discord
-function getEmojiCdnUrl(emojiStr) {
-  const animated = emojiStr?.match(/<a:(\w+):(\d+)>/);
-  if (animated) return `https://cdn.discordapp.com/emojis/${animated[2]}.gif?size=256&quality=lossless`;
-  const staticE  = emojiStr?.match(/<:(\w+):(\d+)>/);
-  if (staticE)  return `https://cdn.discordapp.com/emojis/${staticE[2]}.png?size=256`;
-  return null;
+function noPetPayload() {
+  return buildPetPanel({
+    title: 'Nenhum pet equipado',
+    body: 'Você ainda não tem um pet equipado.\n\nCompre um em `/loja painel` → **Comprar** → **Pets** e depois equipe em `/perfil` → **Meu Pet**.',
+  });
 }
-
-// Aplica imagem na embed:
-// - Se tiver foto cadastrada: foto grande (setImage) + emoji no canto (setThumbnail)
-// - Sem foto: emoji aparece grande (setImage) — funciona bem com GIFs animados
-function applyPetImage(embed, pet) {
-  const emojiUrl = getEmojiCdnUrl(pet.emoji);
-  if (pet.imageUrl) {
-    embed.setImage(pet.imageUrl);
-    if (emojiUrl) embed.setThumbnail(emojiUrl);
-  } else if (emojiUrl) {
-    embed.setImage(emojiUrl);
-  }
-  return embed;
-}
-
-// Nome de exibição: custom emoji não renderiza em título, usa só o nome
-function petDisplayName(pet) {
-  const isCustomEmoji = /<a?:\w+:\d+>/.test(pet.emoji ?? '');
-  return isCustomEmoji ? pet.name : `${pet.emoji} ${pet.name}`;
-}
-
-const NO_PET_EMBED = new EmbedBuilder().setColor(0xED4245)
-  .setDescription('❌ Você não tem um pet equipado!\nCompre um em `/loja painel` → **Comprar** → **Pets** e equipe em `/perfil` → **Meu Pet**.');
 
 async function handleBrincar(interaction) {
   await interaction.deferReply();
@@ -139,7 +115,7 @@ async function handleBrincar(interaction) {
   const guildId = interaction.guildId;
 
   const pet = await resolveActivePet(userId, guildId);
-  if (!pet) return interaction.editReply({ embeds: [NO_PET_EMBED] });
+  if (!pet) return interaction.editReply(noPetPayload());
 
   const eco  = await getOrCreateEco(userId, guildId);
   const now  = Date.now();
@@ -147,12 +123,11 @@ async function handleBrincar(interaction) {
   const diff = now - last;
 
   if (diff < PLAY_CD) {
-    const embed = new EmbedBuilder().setColor(0xFEE75C)
-      .setTitle(`${petDisplayName(pet)} ainda está cansado!`)
-      .setDescription(`Seu pet precisa descansar depois de tanto brincar.\n\n⏳ Próxima brincadeira em **${formatMs(PLAY_CD - diff)}**.`)
-      .setFooter({ text: 'Tente alimentar ou acariciar no intervalo!' });
-    applyPetImage(embed, pet);
-    return interaction.editReply({ embeds: [embed] });
+    return interaction.editReply(buildPetPanel({
+      title: `${petDisplayName(pet)} está descansando`,
+      body: `Seu pet precisa descansar depois de tanto brincar.\n\n⏳ Próxima brincadeira em **${formatMs(PLAY_CD - diff)}**.\n\nTente alimentar ou acariciar enquanto isso.`,
+      pet,
+    }));
   }
 
   const reward = rand(PLAY_MIN, PLAY_MAX);
@@ -164,21 +139,16 @@ async function handleBrincar(interaction) {
   const acao   = pickRand(BRINCAR_MSGS);
   const reacao = pickRand(BRINCAR_REACOES);
 
-  const embed = new EmbedBuilder().setColor(0x57F287)
-    .setTitle(`🎾 Brincadeira com ${petDisplayName(pet)}!`)
-    .setDescription(
+  return interaction.editReply(buildPetPanel({
+    title: `🎾 Brincadeira com ${petDisplayName(pet)}`,
+    body:
       `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
-      `Seu pet ficou tão feliz que te deu **+${reward.toLocaleString('pt-BR')} ${COIN()}**!`
-    )
-    .addFields(
-      { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
-      { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
-    )
-    .setFooter({ text: `Próxima brincadeira em ${formatMs(PLAY_CD)}` })
-    .setTimestamp();
-  applyPetImage(embed, pet);
-
-  return interaction.editReply({ embeds: [embed] });
+      `Seu pet ficou tão feliz que te deu **+${reward.toLocaleString('pt-BR')} ${COIN()}**!\n\n` +
+      `💰 **Ganhou:** +${reward.toLocaleString('pt-BR')} ${COIN()}\n` +
+      `👛 **Carteira:** ${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN()}\n\n` +
+      `⏳ Próxima brincadeira em ${formatMs(PLAY_CD)}.`,
+    pet,
+  }));
 }
 
 async function handleAlimentar(interaction) {
@@ -188,7 +158,7 @@ async function handleAlimentar(interaction) {
   const guildId = interaction.guildId;
 
   const pet = await resolveActivePet(userId, guildId);
-  if (!pet) return interaction.editReply({ embeds: [NO_PET_EMBED] });
+  if (!pet) return interaction.editReply(noPetPayload());
 
   const eco  = await getOrCreateEco(userId, guildId);
   const now  = Date.now();
@@ -196,12 +166,11 @@ async function handleAlimentar(interaction) {
   const diff = now - last;
 
   if (diff < FEED_CD) {
-    const embed = new EmbedBuilder().setColor(0xFEE75C)
-      .setTitle(`${petDisplayName(pet)} ainda está satisfeito!`)
-      .setDescription(`Seu pet ainda está de barriga cheia!\n\n⏳ Próxima alimentação em **${formatMs(FEED_CD - diff)}**.`)
-      .setFooter({ text: 'Tente brincar ou acariciar no intervalo!' });
-    applyPetImage(embed, pet);
-    return interaction.editReply({ embeds: [embed] });
+    return interaction.editReply(buildPetPanel({
+      title: `${petDisplayName(pet)} está satisfeito`,
+      body: `Seu pet ainda está de barriga cheia!\n\n⏳ Próxima alimentação em **${formatMs(FEED_CD - diff)}**.\n\nTente brincar ou acariciar enquanto isso.`,
+      pet,
+    }));
   }
 
   const reward = rand(FEED_MIN, FEED_MAX);
@@ -213,21 +182,16 @@ async function handleAlimentar(interaction) {
   const acao   = pickRand(ALIMENTAR_MSGS);
   const reacao = pickRand(ALIMENTAR_REACOES);
 
-  const embed = new EmbedBuilder().setColor(0xFEA040)
-    .setTitle(`🍖 Alimentando ${petDisplayName(pet)}!`)
-    .setDescription(
+  return interaction.editReply(buildPetPanel({
+    title: `🍖 Alimentando ${petDisplayName(pet)}`,
+    body:
       `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
-      `Como agradecimento, você ganhou **+${reward.toLocaleString('pt-BR')} ${COIN()}**!`
-    )
-    .addFields(
-      { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
-      { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
-    )
-    .setFooter({ text: `Próxima alimentação em ${formatMs(FEED_CD)}` })
-    .setTimestamp();
-  applyPetImage(embed, pet);
-
-  return interaction.editReply({ embeds: [embed] });
+      `Como agradecimento, você ganhou **+${reward.toLocaleString('pt-BR')} ${COIN()}**!\n\n` +
+      `💰 **Ganhou:** +${reward.toLocaleString('pt-BR')} ${COIN()}\n` +
+      `👛 **Carteira:** ${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN()}\n\n` +
+      `⏳ Próxima alimentação em ${formatMs(FEED_CD)}.`,
+    pet,
+  }));
 }
 
 async function handleAcariciar(interaction) {
@@ -237,7 +201,7 @@ async function handleAcariciar(interaction) {
   const guildId = interaction.guildId;
 
   const pet = await resolveActivePet(userId, guildId);
-  if (!pet) return interaction.editReply({ embeds: [NO_PET_EMBED] });
+  if (!pet) return interaction.editReply(noPetPayload());
 
   const eco  = await getOrCreateEco(userId, guildId);
   const now  = Date.now();
@@ -245,12 +209,11 @@ async function handleAcariciar(interaction) {
   const diff = now - last;
 
   if (diff < PET_CD) {
-    const embed = new EmbedBuilder().setColor(0xFEE75C)
-      .setTitle(`${petDisplayName(pet)} precisa de um tempo!`)
-      .setDescription(`Seu pet está descansando após o último carinho.\n\n⏳ Próximo carinho em **${formatMs(PET_CD - diff)}**.`)
-      .setFooter({ text: 'Tente brincar ou alimentar no intervalo!' });
-    applyPetImage(embed, pet);
-    return interaction.editReply({ embeds: [embed] });
+    return interaction.editReply(buildPetPanel({
+      title: `${petDisplayName(pet)} precisa de um tempo`,
+      body: `Seu pet está descansando após o último carinho.\n\n⏳ Próximo carinho em **${formatMs(PET_CD - diff)}**.\n\nTente brincar ou alimentar enquanto isso.`,
+      pet,
+    }));
   }
 
   const reward = rand(PET_MIN, PET_MAX);
@@ -262,21 +225,16 @@ async function handleAcariciar(interaction) {
   const acao   = pickRand(ACARICIAR_MSGS);
   const reacao = pickRand(ACARICIAR_REACOES);
 
-  const embed = new EmbedBuilder().setColor(0xF47FFF)
-    .setTitle(`💜 Carinhoso com ${petDisplayName(pet)}!`)
-    .setDescription(
+  return interaction.editReply(buildPetPanel({
+    title: `💜 Carinho em ${petDisplayName(pet)}`,
+    body:
       `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
-      `O carinho valeu **+${reward.toLocaleString('pt-BR')} ${COIN()}**!`
-    )
-    .addFields(
-      { name: '💰 Ganhou',   value: `**+${reward.toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
-      { name: '👛 Carteira', value: `**${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
-    )
-    .setFooter({ text: `Próximo carinho em ${formatMs(PET_CD)}` })
-    .setTimestamp();
-  applyPetImage(embed, pet);
-
-  return interaction.editReply({ embeds: [embed] });
+      `O carinho valeu **+${reward.toLocaleString('pt-BR')} ${COIN()}**!\n\n` +
+      `💰 **Ganhou:** +${reward.toLocaleString('pt-BR')} ${COIN()}\n` +
+      `👛 **Carteira:** ${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN()}\n\n` +
+      `⏳ Próximo carinho em ${formatMs(PET_CD)}.`,
+    pet,
+  }));
 }
 
 async function handleStatus(interaction) {
@@ -286,7 +244,7 @@ async function handleStatus(interaction) {
   const guildId = interaction.guildId;
 
   const pet = await resolveActivePet(userId, guildId);
-  if (!pet) return interaction.editReply({ embeds: [NO_PET_EMBED] });
+  if (!pet) return interaction.editReply(noPetPayload());
 
   const eco = await getOrCreateEco(userId, guildId);
   const now = Date.now();
@@ -298,18 +256,25 @@ async function handleStatus(interaction) {
     return `${label}: ⏳ ${formatMs(cd - diff)}`;
   }
 
-  const embed = new EmbedBuilder().setColor(0x9B4FD6)
-    .setTitle(`${petDisplayName(pet)} — Status`)
-    .setDescription(
+  return interaction.editReply(buildPetPanel({
+    title: `${petDisplayName(pet)} — Status`,
+    body:
       `Cooldowns das interações com seu pet:\n\n` +
-      `🎾 ${cdLine(eco.lastPetPlay, PLAY_CD, 'Brincar')} (CD: 4h — até **300 ${COIN()}**)\n` +
-      `🍖 ${cdLine(eco.lastPetFeed, FEED_CD, 'Alimentar')} (CD: 2h — até **160 ${COIN()}**)\n` +
-      `💜 ${cdLine(eco.lastPetPet, PET_CD, 'Acariciar')} (CD: 1h — até **100 ${COIN()}**)`
-    )
-    .setFooter({ text: 'Use /pet brincar, /pet alimentar ou /pet acariciar' });
-  applyPetImage(embed, pet);
+      `🎾 ${cdLine(eco.lastPetPlay, PLAY_CD, 'Brincar')} (até **300 ${COIN()}**)\n` +
+      `🍖 ${cdLine(eco.lastPetFeed, FEED_CD, 'Alimentar')} (até **160 ${COIN()}**)\n` +
+      `💜 ${cdLine(eco.lastPetPet, PET_CD, 'Acariciar')} (até **100 ${COIN()}**)\n\n` +
+      `Use os botões abaixo para interagir sem precisar digitar outro comando.`,
+    pet,
+  }));
+}
 
-  return interaction.editReply({ embeds: [embed] });
+export async function handlePetButton(interaction) {
+  const action = interaction.customId.slice('pet_action:'.length);
+  if (action === 'brincar') return handleBrincar(interaction);
+  if (action === 'alimentar') return handleAlimentar(interaction);
+  if (action === 'acariciar') return handleAcariciar(interaction);
+  if (action === 'status') return handleStatus(interaction);
+  return interaction.reply({ content: '❌ Ação de pet inválida.', ephemeral: true });
 }
 
 export default {
@@ -351,18 +316,15 @@ export default {
     if (sub === 'acariciar' || sub === 'c') return handleAcariciar(mockInteraction);
     if (sub === 'status'    || sub === 's') return handleStatus(mockInteraction);
 
-    return message.reply({
-      embeds: [
-        new EmbedBuilder().setColor(0x9B4FD6)
-          .setTitle('🐾 Interações de Pet')
-          .setDescription(
-            '**Subcomandos disponíveis:**\n\n' +
-            '`pet brincar` — 🎾 Brinque (+150–300 moedas, CD: 4h)\n' +
-            '`pet alimentar` — 🍖 Alimente (+80–160 moedas, CD: 2h)\n' +
-            '`pet acariciar` — 💜 Faça carinho (+40–100 moedas, CD: 1h)\n' +
-            '`pet status` — 📋 Ver cooldowns'
-          ),
-      ],
-    });
+    return message.reply(buildPetPanel({
+      title: '🐾 Interações de Pet',
+      body:
+        '**Subcomandos disponíveis:**\n\n' +
+        '`pet brincar` — 🎾 Brinque (+150–300 moedas, CD: 4h)\n' +
+        '`pet alimentar` — 🍖 Alimente (+80–160 moedas, CD: 2h)\n' +
+        '`pet acariciar` — 💜 Faça carinho (+40–100 moedas, CD: 1h)\n' +
+        '`pet status` — 📋 Ver cooldowns\n\n' +
+        'Você também pode usar os botões abaixo.',
+    }));
   },
 };

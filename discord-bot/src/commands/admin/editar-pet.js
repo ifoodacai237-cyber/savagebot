@@ -1,16 +1,9 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import prisma from '../../database/client.js';
 
 import { getEmoji } from '../../utils/emojiManager.js';
+import { buildPetPanel, petDisplayName } from '../../utils/petComponents.js';
 const COIN = () => getEmoji('futecoins');
-
-function getEmojiCdnUrl(emojiStr) {
-  const animated = emojiStr?.match(/<a:(\w+):(\d+)>/);
-  if (animated) return `https://cdn.discordapp.com/emojis/${animated[2]}.gif?size=256&quality=lossless`;
-  const staticE  = emojiStr?.match(/<:(\w+):(\d+)>/);
-  if (staticE)  return `https://cdn.discordapp.com/emojis/${staticE[2]}.png?size=256`;
-  return null;
-}
 
 export default {
   data: new SlashCommandBuilder()
@@ -68,11 +61,6 @@ export default {
 
     const updated = await prisma.pet.update({ where: { id: pet.id }, data });
 
-    const emojiFinal  = updated.emoji;
-    const emojiUrl    = getEmojiCdnUrl(emojiFinal);
-    const isCustom    = /<a?:\w+:\d+>/.test(emojiFinal);
-    const displayName = isCustom ? updated.name : `${emojiFinal} ${updated.name}`;
-
     const changes = [];
     if (emoji)       changes.push(`🐾 Emoji → ${emoji}`);
     if (preco)       changes.push(`💰 Preço → **${preco.toLocaleString('pt-BR')} ${COIN()}**`);
@@ -80,27 +68,27 @@ export default {
     if (removerFoto) changes.push('🗑️ Foto removida — usando emoji');
     else if (foto)   changes.push(`🖼️ Foto → [ver imagem](${foto})`);
 
-    const embed = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setTitle(`✏️ ${displayName} — atualizado!`)
-      .setDescription(changes.join('\n'))
-      .addFields(
-        { name: '💰 Preço atual',     value: `**${updated.price.toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
-        { name: '📝 Descrição atual', value: updated.description ?? '—',                              inline: true },
-        { name: '🆔 ID',              value: `\`${updated.id}\``,                                     inline: false },
-      )
-      .setFooter({ text: 'As alterações já estão ativas na loja' });
-
-    if (updated.imageUrl)   embed.setImage(updated.imageUrl);
-    else if (emojiUrl)      embed.setThumbnail(emojiUrl);
-
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    return interaction.reply({
+      ...buildPetPanel({
+        title: `✏️ ${petDisplayName(updated)} atualizado`,
+        body:
+          `${changes.join('\n')}\n\n` +
+          `💰 **Preço atual:** ${updated.price.toLocaleString('pt-BR')} ${COIN()}\n` +
+          `📝 **Descrição atual:** ${updated.description ?? '—'}\n` +
+          `🆔 **ID:** \`${updated.id}\`\n\n` +
+          'As alterações já estão ativas na loja.',
+        pet: updated,
+        includeActions: false,
+      }),
+      ephemeral: true,
+    });
   },
 
   async executePrefix(message) {
-    return message.reply({
-      embeds: [new EmbedBuilder().setColor(0x9B4FD6)
-        .setDescription('✏️ Use `/editar-pet` para alterar foto, emoji, preço ou descrição de um pet existente.')],
-    });
+    return message.reply(buildPetPanel({
+      title: '✏️ Editar pet',
+      body: 'Use `/editar-pet` para alterar foto, emoji, preço ou descrição de um pet existente.',
+      includeActions: false,
+    }));
   },
 };

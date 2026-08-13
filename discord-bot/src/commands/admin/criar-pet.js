@@ -1,16 +1,9 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import prisma from '../../database/client.js';
 
 import { getEmoji } from '../../utils/emojiManager.js';
+import { buildPetPanel, petDisplayName } from '../../utils/petComponents.js';
 const COIN = () => getEmoji('futecoins');
-
-function getEmojiCdnUrl(emojiStr) {
-  const animated = emojiStr?.match(/<a:(\w+):(\d+)>/);
-  if (animated) return `https://cdn.discordapp.com/emojis/${animated[2]}.gif?size=256&quality=lossless`;
-  const staticE  = emojiStr?.match(/<:(\w+):(\d+)>/);
-  if (staticE)  return `https://cdn.discordapp.com/emojis/${staticE[2]}.png?size=256`;
-  return null;
-}
 
 export default {
   data: new SlashCommandBuilder()
@@ -49,31 +42,27 @@ export default {
       data: { guildId: interaction.guildId, name: nome, emoji, description: desc, price: preco },
     });
 
-    const emojiUrl = getEmojiCdnUrl(emoji);
-    const isCustom = /<a?:\w+:\d+>/.test(emoji);
-
-    const embed = new EmbedBuilder()
-      .setColor(0x57F287)
-      .setTitle('🐾 Pet Criado com Sucesso!')
-      .setDescription(
-        `**${isCustom ? nome : `${emoji} ${nome}`}** agora está disponível na loja!\n` +
-        (emojiUrl ? '*A imagem do emoji já é usada automaticamente nas interações.*' : '')
-      )
-      .addFields(
-        { name: '💰 Preço',      value: `**${preco.toLocaleString('pt-BR')} ${COIN()}**`, inline: true },
-        { name: '📝 Descrição',  value: desc ?? '—',                                     inline: true },
-        { name: '🆔 ID Interno', value: `\`${pet.id}\``,                                 inline: false },
-      )
-      .setFooter({ text: 'Os membros já podem comprar esse pet em /loja painel' });
-
-    if (emojiUrl) embed.setImage(emojiUrl);
-
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    return interaction.reply({
+      ...buildPetPanel({
+        title: '🐾 Pet criado com sucesso',
+        body:
+          `**${petDisplayName(pet)}** agora está disponível na loja!\n\n` +
+          `💰 **Preço:** ${preco.toLocaleString('pt-BR')} ${COIN()}\n` +
+          `📝 **Descrição:** ${desc ?? '—'}\n` +
+          `🆔 **ID interno:** \`${pet.id}\`\n\n` +
+          'Os membros já podem comprar este pet em `/loja painel`.',
+        pet,
+        includeActions: false,
+      }),
+      ephemeral: true,
+    });
   },
 
   async executePrefix(message) {
-    return message.reply({
-      embeds: [new EmbedBuilder().setColor(0x9B4FD6).setDescription('🐾 Use `/criar-pet` para adicionar um pet à loja.\nEste comando requer o slash command para configurar todos os campos.')],
-    });
+    return message.reply(buildPetPanel({
+      title: '🐾 Criar pet',
+      body: 'Use `/criar-pet` para adicionar um pet à loja.\nEste comando requer o slash command para configurar todos os campos.',
+      includeActions: false,
+    }));
   },
 };

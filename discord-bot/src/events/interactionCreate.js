@@ -40,6 +40,7 @@ import {
   COLOR_MAP,
 } from '../utils/containerSessions.js';
 import { handleShopInteraction } from '../utils/shopHandlers.js';
+import { handlePetButton } from '../commands/general/pet.js';
 import { handleVipButton, handleVipConfigModal } from '../commands/loja/vip.js';
 import { handleFishingInteraction } from '../commands/economia/pescaria.js';
 import { handleBJHit, handleBJStand, handleMinesCell, handleMinesCashout } from '../utils/gameHandlers.js';
@@ -1058,6 +1059,11 @@ export default {
       // ── BUTTONS ────────────────────────────────────────────────────────────
       if (interaction.isButton()) {
         const { customId } = interaction;
+
+        // ── PET: ações rápidas do painel V2 ───────────────────────────────
+        if (customId.startsWith('pet_action:')) {
+          return handlePetButton(interaction);
+        }
 
         // ── PESCA: loja, venda e inventário ──────────────────────────────
         if (customId.startsWith('fish_')) {
