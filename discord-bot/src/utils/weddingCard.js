@@ -1,9 +1,8 @@
 import {
   ActionRowBuilder,
   AttachmentBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   EmbedBuilder,
+  StringSelectMenuBuilder,
 } from 'discord.js';
 import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
 import path from 'path';
@@ -379,14 +378,21 @@ export async function buildWeddingCardPayload({ left, right, stats }) {
   const pair = `${left.id}_${right.id}`;
 
   const controls = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`casar_manage_${pair}`)
-      .setLabel('Gerenciar')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`casar_refresh_${pair}`)
-      .setLabel('Atualizar')
-      .setStyle(ButtonStyle.Secondary),
+    new StringSelectMenuBuilder()
+      .setCustomId(`casar_action_${pair}`)
+      .setPlaceholder('Escolha uma ação para o casamento')
+      .addOptions(
+        {
+          label: 'Gerenciar casamento',
+          value: 'manage',
+          description: 'Abrir as opções de gerenciamento',
+        },
+        {
+          label: 'Atualizar cartão',
+          value: 'refresh',
+          description: 'Recalcular as estatísticas do casal',
+        },
+      ),
   );
 
   return {

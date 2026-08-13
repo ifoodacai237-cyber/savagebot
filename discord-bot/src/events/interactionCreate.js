@@ -212,6 +212,87 @@ function idList(...values) {
   )];
 }
 
+async function handleWeddingCardAction(interaction, action, leftId, rightId) {
+  const isPairMember = interaction.user.id === leftId || interaction.user.id === rightId;
+  if (!isPairMember) {
+    return interaction.reply({
+      content: '❌ Apenas uma das pessoas do casal pode usar esta ação.',
+      ephemeral: true,
+    });
+  }
+
+  if (action === 'refresh') {
+    await interaction.deferUpdate();
+  } else if (action === 'manage') {
+    await interaction.deferReply({ ephemeral: true });
+  } else {
+    return interaction.reply({
+      content: '❌ Ação de casamento inválida.',
+      ephemeral: true,
+    });
+  }
+
+  if (action === 'manage') {
+    const partnerId = interaction.user.id === leftId ? rightId : leftId;
+    const partner = await interaction.client.users.fetch(partnerId).catch(() => null);
+    const partnerName = partner?.globalName ?? partner?.username ?? 'seu/sua parceiro(a)';
+    const divorceRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`divorciar_confirm_${interaction.user.id}_${partnerId}`)
+        .setLabel('Confirmar divórcio')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(`divorciar_cancel_${interaction.user.id}`)
+        .setLabel('Cancelar')
+        .setStyle(ButtonStyle.Secondary),
+    );
+    return interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xED4245)
+          .setTitle('💔 Gerenciar casamento')
+          .setDescription(
+            `Você realmente quer se divorciar de **${partnerName}**?\n\n` +
+            'Essa ação remove o vínculo dos dois perfis e não pode ser desfeita automaticamente.',
+          ),
+      ],
+      components: [divorceRow],
+    });
+  }
+
+  const [leftUser, rightUser, leftMember, rightMember, leftProfile] = await Promise.all([
+    interaction.client.users.fetch(leftId),
+    interaction.client.users.fetch(rightId),
+    interaction.guild.members.fetch(leftId).catch(() => null),
+    interaction.guild.members.fetch(rightId).catch(() => null),
+    prisma.userProfile.findUnique({ where: { userId: leftId } }),
+  ]);
+  const stats = await getMarriageStats(leftId, rightId, leftProfile?.marriedAt);
+  return interaction.editReply(await buildWeddingCardPayload({
+    left: {
+      id: leftId,
+      displayName: leftMember?.displayName ?? leftUser.globalName ?? leftUser.username,
+      username: leftUser.username,
+      avatarUrl: leftUser.displayAvatarURL({
+        extension: 'png',
+        forceStatic: true,
+        size: 256,
+      }),
+    },
+    right: {
+      id: rightId,
+      displayName: rightMember?.displayName ?? rightUser.globalName ?? rightUser.username,
+      username: rightUser.username,
+      avatarUrl: rightUser.displayAvatarURL({
+        extension: 'png',
+        forceStatic: true,
+        size: 256,
+      }),
+    },
+    stats,
+  }));
+}
+
 function isPartnershipTicket(label = '') {
   return /\b(parceria|parcerias|partner|partnership)\b/i.test(label);
 }
@@ -442,6 +523,11 @@ export default {
       if (interaction.isStringSelectMenu()) {
         if (interaction.customId === 'fish_rod_select' || interaction.customId === 'fish_sell_select') {
           return handleFishingInteraction(interaction);
+        }
+
+        if (interaction.customId.startsWith('casar_action_')) {
+          const [, , leftId, rightId] = interaction.customId.split('_');
+          return handleWeddingCardAction(interaction, interaction.values[0], leftId, rightId);
         }
 
         // ── MONTAR-MENSAGEM: Menu publicado ──────────────────────────────
@@ -1362,79 +1448,7 @@ export default {
         // ── CASAR: Atualizar / Gerenciar ──────────────────────────────────
         if (customId.startsWith('casar_refresh_') || customId.startsWith('casar_manage_')) {
           const [, action, leftId, rightId] = customId.split('_');
-          const isPairMember = interaction.user.id === leftId || interaction.user.id === rightId;
-          if (!isPairMember) {
-            return interaction.reply({
-              content: '❌ Apenas uma das pessoas do casal pode usar este botão.',
-              ephemeral: true,
-            });
-          }
-
-          if (action === 'refresh') {
-            await interaction.deferUpdate();
-          } else {
-            await interaction.deferReply({ ephemeral: true });
-          }
-
-          if (action === 'manage') {
-            const partnerId = interaction.user.id === leftId ? rightId : leftId;
-            const partner = await interaction.client.users.fetch(partnerId).catch(() => null);
-            const partnerName = partner?.globalName ?? partner?.username ?? 'seu/sua parceiro(a)';
-            const divorceRow = new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId(`divorciar_confirm_${interaction.user.id}_${partnerId}`)
-                .setLabel('Confirmar divórcio')
-                .setStyle(ButtonStyle.Danger),
-              new ButtonBuilder()
-                .setCustomId(`divorciar_cancel_${interaction.user.id}`)
-                .setLabel('Cancelar')
-                .setStyle(ButtonStyle.Secondary),
-            );
-            return interaction.editReply({
-              embeds: [
-                new EmbedBuilder()
-                  .setColor(0xED4245)
-                  .setTitle('💔 Gerenciar casamento')
-                  .setDescription(
-                    `Você realmente quer se divorciar de **${partnerName}**?\n\n` +
-                    'Essa ação remove o vínculo dos dois perfis e não pode ser desfeita automaticamente.',
-                  ),
-              ],
-              components: [divorceRow],
-            });
-          }
-
-          const [leftUser, rightUser, leftMember, rightMember, leftProfile] = await Promise.all([
-            interaction.client.users.fetch(leftId),
-            interaction.client.users.fetch(rightId),
-            interaction.guild.members.fetch(leftId).catch(() => null),
-            interaction.guild.members.fetch(rightId).catch(() => null),
-            prisma.userProfile.findUnique({ where: { userId: leftId } }),
-          ]);
-          const stats = await getMarriageStats(leftId, rightId, leftProfile?.marriedAt);
-          return interaction.editReply(await buildWeddingCardPayload({
-            left: {
-              id: leftId,
-              displayName: leftMember?.displayName ?? leftUser.globalName ?? leftUser.username,
-              username: leftUser.username,
-              avatarUrl: leftUser.displayAvatarURL({
-                extension: 'png',
-                forceStatic: true,
-                size: 256,
-              }),
-            },
-            right: {
-              id: rightId,
-              displayName: rightMember?.displayName ?? rightUser.globalName ?? rightUser.username,
-              username: rightUser.username,
-              avatarUrl: rightUser.displayAvatarURL({
-                extension: 'png',
-                forceStatic: true,
-                size: 256,
-              }),
-            },
-            stats,
-          }));
+          return handleWeddingCardAction(interaction, action, leftId, rightId);
         }
 
         // ── DIVORCIAR: confirmar / cancelar ────────────────────────────────
@@ -3876,7 +3890,9 @@ export default {
       const marriageInteraction =
         interaction.commandName === 'casamento'
         || interaction.customId?.startsWith('casar_accept_')
-        || interaction.customId?.startsWith('casar_refresh_');
+        || interaction.customId?.startsWith('casar_refresh_')
+        || interaction.customId?.startsWith('casar_manage_')
+        || interaction.customId?.startsWith('casar_action_');
       const legacyErrorPayload = {
         embeds: [errorEmbed('Ocorreu um erro interno. Tente novamente.')],
         components: [],
