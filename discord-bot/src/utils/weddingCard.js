@@ -6,13 +6,12 @@ import {
   EmbedBuilder,
 } from 'discord.js';
 import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import path from 'path';
+import fs from 'fs';
 import prisma from '../database/client.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const FONTS_DIR = join(__dirname, '../../fonts');
+const FONTS_DIR = path.join(process.cwd(), 'fonts');
+const BACKGROUND_PATH = path.join(process.cwd(), 'assets', 'wedding-background.png');
 const FONT = 'WeddingFont';
 
 let fontsRegistered = false;
@@ -21,12 +20,18 @@ function registerWeddingFonts() {
   if (fontsRegistered) return;
 
   try {
+    const regularPath = path.join(FONTS_DIR, 'Roboto-Regular.ttf');
+    const boldPath = path.join(FONTS_DIR, 'Roboto-Bold.ttf');
+    if (!fs.existsSync(regularPath) || !fs.existsSync(boldPath)) {
+      throw new Error(`Fontes não encontradas em ${FONTS_DIR}`);
+    }
+
     const regular = GlobalFonts.registerFromPath(
-      join(FONTS_DIR, 'Roboto-Regular.ttf'),
+      regularPath,
       FONT,
     );
     const bold = GlobalFonts.registerFromPath(
-      join(FONTS_DIR, 'Roboto-Bold.ttf'),
+      boldPath,
       FONT,
     );
 
@@ -47,6 +52,24 @@ const DARK = '#351329';
 const MUTED = '#87516b';
 
 const imageCache = new Map();
+
+async function fetchImageBuffer(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Falha ao baixar imagem: ${res.statusText}`);
+  const arrayBuffer = await res.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+async function loadWeddingBackground() {
+  if (!fs.existsSync(BACKGROUND_PATH)) return null;
+
+  try {
+    return await loadImage(fs.readFileSync(BACKGROUND_PATH));
+  } catch (error) {
+    console.error('[CASAMENTO BACKGROUND] Falha ao carregar fundo local:', error);
+    return null;
+  }
+}
 
 function createFallbackAvatar() {
   const avatar = createCanvas(256, 256);
@@ -71,14 +94,7 @@ async function fetchImage(url) {
   if (imageCache.has(url)) return imageCache.get(url);
 
   try {
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'SlowBot/2.0' },
-      signal: AbortSignal.timeout(7000),
-    });
-    if (!response.ok) {
-      throw new Error(`Avatar retornou HTTP ${response.status}`);
-    }
-    const image = await loadImage(Buffer.from(await response.arrayBuffer()));
+    const image = await loadImage(await fetchImageBuffer(url));
     if (imageCache.size >= 80) imageCache.delete(imageCache.keys().next().value);
     imageCache.set(url, image);
     return image;
@@ -184,9 +200,10 @@ async function renderWeddingCard({ left, right, stats }) {
   try {
     const canvas = createCanvas(WIDTH, HEIGHT);
     const ctx = canvas.getContext('2d');
-    const [leftImage, rightImage] = await Promise.all([
+    const [leftImage, rightImage, backgroundImage] = await Promise.all([
       fetchImage(left.avatarUrl),
       fetchImage(right.avatarUrl),
+      loadWeddingBackground(),
     ]);
 
     ctx.fillStyle = '#f8c1db';
@@ -200,6 +217,23 @@ async function renderWeddingCard({ left, right, stats }) {
     ctx.save();
     roundRect(ctx, 30, 28, WIDTH - 60, HEIGHT - 56, 28);
     ctx.clip();
+    if (backgroundImage) {
+      const backgroundScale = Math.max(
+        (WIDTH - 60) / backgroundImage.width,
+        (HEIGHT - 56) / backgroundImage.height,
+      );
+      const backgroundWidth = backgroundImage.width * backgroundScale;
+      const backgroundHeight = backgroundImage.height * backgroundScale;
+      ctx.globalAlpha = 0.18;
+      ctx.drawImage(
+        backgroundImage,
+        WIDTH / 2 - backgroundWidth / 2,
+        HEIGHT / 2 - backgroundHeight / 2,
+        backgroundWidth,
+        backgroundHeight,
+      );
+      ctx.globalAlpha = 1;
+    }
     const bg = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT);
     bg.addColorStop(0, 'rgba(255,255,255,0.18)');
     bg.addColorStop(0.5, 'rgba(255,216,237,0.20)');
@@ -297,6 +331,7 @@ async function renderWeddingCard({ left, right, stats }) {
 
     return canvas.toBuffer('image/png');
   } catch (error) {
+    console.error("ERRO DETALHADO NO CANVAS:", error);
     console.error('[CASAMENTO CANVAS] Falha durante o desenho do cartão:', error);
     throw error;
   }

@@ -87,13 +87,21 @@ export default {
         id: interaction.user.id,
         displayName: member?.displayName ?? interaction.user.globalName ?? interaction.user.username,
         username: interaction.user.username,
-        avatarUrl: interaction.user.displayAvatarURL({ extension: 'png', size: 256 }),
+        avatarUrl: interaction.user.displayAvatarURL({
+          extension: 'png',
+          forceStatic: true,
+          size: 256,
+        }),
       },
       right: {
         id: partner.id,
         displayName: partnerMember?.displayName ?? partner.globalName ?? partner.username,
         username: partner.username,
-        avatarUrl: partner.displayAvatarURL({ extension: 'png', size: 256 }),
+        avatarUrl: partner.displayAvatarURL({
+          extension: 'png',
+          forceStatic: true,
+          size: 256,
+        }),
       },
       stats,
     });
