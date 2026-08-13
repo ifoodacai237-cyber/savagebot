@@ -3,10 +3,10 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ContainerBuilder,
-  MediaGalleryBuilder,
-  MediaGalleryItemBuilder,
   MessageFlags,
+  SectionBuilder,
   TextDisplayBuilder,
+  ThumbnailBuilder,
 } from 'discord.js';
 
 export function getPetEmojiUrl(emojiStr) {
@@ -28,11 +28,8 @@ export function petDisplayName(pet) {
   return isCustomPetEmoji(pet.emoji) ? pet.name : `${pet.emoji} ${pet.name}`;
 }
 
-function petMedia(pet) {
-  if (!pet) return [];
-
-  const urls = [pet.imageUrl, getPetEmojiUrl(pet.emoji)].filter(Boolean);
-  return [...new Set(urls)].slice(0, 2);
+function petThumbnailUrl(pet) {
+  return pet?.imageUrl || getPetEmojiUrl(pet?.emoji);
 }
 
 export function buildPetActionRows({ includeShop = true } = {}) {
@@ -61,18 +58,18 @@ export function buildPetPanel({
   includeShop = true,
   extraRows = [],
 } = {}) {
-  const container = new ContainerBuilder();
-  container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`## ${title}\n\n${body}`),
-  );
+  const container = new ContainerBuilder().setAccentColor(0x9B4FD6);
+  const text = new TextDisplayBuilder().setContent(`## ${title}\n\n${body}`);
+  const thumbnailUrl = petThumbnailUrl(pet);
 
-  const media = petMedia(pet);
-  if (media.length) {
-    container.addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(
-        ...media.map(url => new MediaGalleryItemBuilder().setURL(url)),
-      ),
+  if (thumbnailUrl) {
+    container.addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(text)
+        .setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnailUrl)),
     );
+  } else {
+    container.addTextDisplayComponents(text);
   }
 
   return {

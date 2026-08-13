@@ -108,8 +108,15 @@ function noPetPayload() {
   });
 }
 
+async function deferPetInteraction(interaction, options = {}) {
+  if (typeof interaction.isButton === 'function' && interaction.isButton()) {
+    return interaction.deferUpdate();
+  }
+  return interaction.deferReply(options);
+}
+
 async function handleBrincar(interaction) {
-  await interaction.deferReply();
+  await deferPetInteraction(interaction);
 
   const userId  = interaction.user.id;
   const guildId = interaction.guildId;
@@ -152,7 +159,7 @@ async function handleBrincar(interaction) {
 }
 
 async function handleAlimentar(interaction) {
-  await interaction.deferReply();
+  await deferPetInteraction(interaction);
 
   const userId  = interaction.user.id;
   const guildId = interaction.guildId;
@@ -195,7 +202,7 @@ async function handleAlimentar(interaction) {
 }
 
 async function handleAcariciar(interaction) {
-  await interaction.deferReply();
+  await deferPetInteraction(interaction);
 
   const userId  = interaction.user.id;
   const guildId = interaction.guildId;
@@ -238,7 +245,7 @@ async function handleAcariciar(interaction) {
 }
 
 async function handleStatus(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await deferPetInteraction(interaction, { ephemeral: true });
 
   const userId  = interaction.user.id;
   const guildId = interaction.guildId;
