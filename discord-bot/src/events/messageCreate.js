@@ -25,7 +25,7 @@ import {
   isGroqConfigured,
 } from '../utils/aiManager.js';
 
-const PREFIX = 'savage ';
+const PREFIXES = ['savage ', 's '];
 
 const IMAGE_INTENT_REGEX = /\b(imagem|foto|desenh\w*|ilustra[çc][ãa]o|wallpaper|logo|arte)\b/i;
 
@@ -87,7 +87,7 @@ function getLoadedCommandCatalog(client) {
 function parseDirectAdminCommand(prompt, client) {
   const normalized = prompt
     .replace(/^\/+/, '')
-    .replace(/^savage\s+/i, '')
+    .replace(/^(?:savage|s)\s+/i, '')
     .trim();
   const [name, ...args] = normalized.split(/\s+/).filter(Boolean);
   if (!name || !client.prefixCmds.has(name.toLowerCase())) return null;
@@ -235,7 +235,7 @@ function buildTicketServerContext(message, cfg) {
     cfg.partnerEnabled
       ? `Parcerias: sistema ativo no canal <#${cfg.partnerChannel}>${cfg.partnerResponsibleRole ? `, para membros com o cargo <@&${cfg.partnerResponsibleRole}>` : ''}. Para registrar, envie um convite Discord nesse canal e, se houver representante, mencione-o. O bot publica a parceria automaticamente.`
       : 'Parcerias: sistema atualmente desativado ou sem canal configurado.',
-    'Ajuda: use `/ajuda` para abrir a central de comandos. Comandos de texto usam o prefixo `savage `.',
+    'Ajuda: use `/ajuda` para abrir a central de comandos. Comandos de texto usam os prefixos `savage ` ou `s `.',
     'Economia: `/eco saldo`, `/eco daily`, `/eco trabalho`, `/eco pagar`, `/eco depositar`, `/eco sacar`, `/eco top` e `/eco roubar` quando permitido.',
     'Loja e perfil: `/loja painel` mostra a loja; `/perfil` mostra o perfil; `/bio` altera a bio; `/pet` gerencia o pet.',
     'Pesca: `/pescar` inicia uma pescaria; `/pesca loja` compra varas; `/pesca inventario` mostra capturas; `/pesca vender` vende peixes por coins. Há cooldown de 45 minutos entre pescarias.',
@@ -618,15 +618,16 @@ export default {
 
     // ── PREFIX COMMANDS ──────────────────────────────────────────────────────
     // GF também aceita o formato curto `.gf @usuário`, como os membros usam
-    // no canal, sem mudar o prefixo `savage ` dos outros comandos.
+    // no canal, sem mudar os prefixos `savage ` e `s ` dos outros comandos.
     const isShortGf = /^\.gf(?:\s|$)/i.test(message.content);
-    if (!message.content.toLowerCase().startsWith(PREFIX) && !isShortGf) return;
+    const prefix = PREFIXES.find(candidate => message.content.toLowerCase().startsWith(candidate));
+    if (!prefix && !isShortGf) return;
 
     if (processedMessages.has(message.id)) return;
     processedMessages.add(message.id);
     setTimeout(() => processedMessages.delete(message.id), 10_000);
 
-    const commandText = isShortGf ? message.content.slice(3) : message.content.slice(PREFIX.length);
+    const commandText = isShortGf ? message.content.slice(3) : message.content.slice(prefix.length);
     const args        = commandText.trim().split(/\s+/);
     const commandName = args.shift().toLowerCase();
     const cmd         = client.prefixCmds.get(commandName);

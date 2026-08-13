@@ -216,9 +216,9 @@ async function startPrefixModeration(message, action, {
 }
 
 function prefixUsage(action) {
-  if (action === 'ban') return 'Uso: `savage ban @usuario [dias] [motivo]`';
-  if (action === 'kick') return 'Uso: `savage kick @usuario [motivo]`';
-  return 'Uso: `savage mute @usuario <minutos> [motivo]`';
+  if (action === 'ban') return 'Uso: `savage ban @usuario [dias] [motivo]` ou `s ban @usuario [dias] [motivo]`';
+  if (action === 'kick') return 'Uso: `savage kick @usuario [motivo]` ou `s kick @usuario [motivo]`';
+  return 'Uso: `savage mute @usuario <minutos> [motivo]` ou `s mute @usuario <minutos> [motivo]`';
 }
 
 function parsePrefixModeration(message, action, args) {
