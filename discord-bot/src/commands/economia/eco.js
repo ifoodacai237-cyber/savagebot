@@ -3,9 +3,12 @@ import {
   AttachmentBuilder,
   ContainerBuilder,
   TextDisplayBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
   MessageFlags,
   PermissionFlagsBits,
 } from 'discord.js';
+import { fileURLToPath } from 'node:url';
 import prisma from '../../database/client.js';
 import { Prisma } from '@prisma/client';
 import { getEmoji } from '../../utils/emojiManager.js';
@@ -30,6 +33,25 @@ function v2Err(text) {
   const c = new ContainerBuilder()
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(`❌  ${text}`));
   return { components: [c], flags: MessageFlags.IsComponentsV2, ephemeral: true };
+}
+
+function trabalhoPayload(text) {
+  const attachment = new AttachmentBuilder(
+    fileURLToPath(new URL('../../assets/trabalho-banner.jpg', import.meta.url)),
+    { name: 'trabalho-banner.jpg' },
+  );
+  const c = new ContainerBuilder()
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(text))
+    .addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder().setURL('attachment://trabalho-banner.jpg'),
+      ),
+    );
+  return {
+    components: [c],
+    files: [attachment],
+    flags: MessageFlags.IsComponentsV2,
+  };
 }
 
 // ─── Eco helpers ──────────────────────────────────────────────────────────────
@@ -311,7 +333,7 @@ const cmdTrabalho = {
       where: { userId_guildId: { userId: interaction.user.id, guildId: interaction.guildId } },
       data:  { balance: { increment: amount }, lastWork: new Date() },
     });
-    return interaction.reply(v2Rich(
+    return interaction.reply(trabalhoPayload(
       `## 💼 Trabalho Concluído!\n` +
       `**${msg}** e ganhou ${COIN()} **${amount.toLocaleString('pt-BR')}**!\n\n` +
       `${CLK()} Volte em **1 hora** para trabalhar novamente.`
@@ -332,7 +354,7 @@ const cmdTrabalho = {
       where: { userId_guildId: { userId: message.author.id, guildId: message.guildId } },
       data:  { balance: { increment: amount }, lastWork: new Date() },
     });
-    return message.reply(v2Rich(
+    return message.reply(trabalhoPayload(
       `## 💼 Trabalho Concluído!\n` +
       `**${msg}** e ganhou ${COIN()} **${amount.toLocaleString('pt-BR')}**!\n\n` +
       `${CLK()} Volte em **1 hora** para trabalhar novamente.`

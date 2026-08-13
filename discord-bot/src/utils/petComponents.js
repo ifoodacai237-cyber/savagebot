@@ -58,7 +58,7 @@ export function buildPetPanel({
   includeShop = true,
   extraRows = [],
 } = {}) {
-  const container = new ContainerBuilder().setAccentColor(0x9B4FD6);
+  const container = new ContainerBuilder();
   const text = new TextDisplayBuilder().setContent(`## ${title}\n\n${body}`);
   const thumbnailUrl = petThumbnailUrl(pet);
 
