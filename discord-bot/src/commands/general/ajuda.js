@@ -2,14 +2,11 @@ import {
   SlashCommandBuilder,
   ContainerBuilder,
   TextDisplayBuilder,
-  SeparatorBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   MessageFlags,
 } from 'discord.js';
-
-const COLOR = 0x9B4FD6;
 
 // ─── Definição das categorias ─────────────────────────────────────────────────
 
@@ -20,14 +17,9 @@ const CATEGORIES = [
     description: 'Comandos de economia',
     emoji: '💰',
     title: '💰 Comandos de Economia',
-    commands: [
-      { cmd: '/eco daily',              desc: 'Colete sua recompensa diária de moedas.' },
-      { cmd: '/eco trabalho',           desc: 'Trabalhe e ganhe moedas (cooldown: 1h).' },
-      { cmd: '/eco pagar [usuário] [valor]', desc: 'Transfira moedas para outro usuário.' },
-      { cmd: '/eco depositar [valor]',  desc: 'Deposite moedas no banco (use "tudo" para tudo).' },
-      { cmd: '/eco sacar [valor]',      desc: 'Saque moedas do banco.' },
-      { cmd: '/eco top',                desc: 'Veja o ranking de economia do servidor.' },
-      { cmd: '/jogo',                   desc: 'Apostas e jogos de cassino.' },
+    commandNames: [
+      'saldo', 'daily', 'trabalho', 'roubar', 'pagar', 'top', 'depositar',
+      'sacar', 'pescar', 'pesca', 'carteira', 'jogo',
     ],
   },
   {
@@ -36,15 +28,7 @@ const CATEGORIES = [
     description: 'Banners, pets e personalização',
     emoji: '🛒',
     title: '🛒 Loja & Perfil',
-    commands: [
-      { cmd: '/loja painel',            desc: 'Envia o painel da loja no canal.' },
-      { cmd: '/perfil',                 desc: 'Veja seu card de perfil com banner equipado.' },
-      { cmd: '/pet brincar',            desc: 'Brinque com seu pet e ganhe 150–300 moedas (CD: 4h).' },
-      { cmd: '/pet alimentar',          desc: 'Alimente seu pet e ganhe 80–160 moedas (CD: 2h).' },
-      { cmd: '/pet acariciar',          desc: 'Faça carinho no seu pet e ganhe 40–100 moedas (CD: 1h).' },
-      { cmd: '/pet status',             desc: 'Veja os cooldowns das interações do seu pet.' },
-      { cmd: '/conquista listar',       desc: 'Veja todas as conquistas e seu progresso.' },
-    ],
+    commandNames: ['loja', 'vip', 'perfil', 'bio', 'pet', 'conquista'],
   },
   {
     value: 'interacao',
@@ -52,16 +36,7 @@ const CATEGORIES = [
     description: 'Comandos de interação social',
     emoji: '💬',
     title: '💬 Comandos de Interação',
-    commands: [
-      { cmd: '/kiss @usuário',  desc: 'Beije alguém especial.' },
-      { cmd: '/hug @usuário',   desc: 'Dê um abraço quentinho.' },
-      { cmd: '/pat @usuário',   desc: 'Faça carinho em alguém.' },
-      { cmd: '/bite @usuário',  desc: 'Morda alguém (carinhosamente).' },
-      { cmd: '/poke @usuário',  desc: 'Cutuque alguém.' },
-      { cmd: '/push @usuário',  desc: 'Empurre alguém (de brincadeira).' },
-      { cmd: '/slap @usuário',  desc: 'Dê um tapinha.' },
-      { cmd: '/punch @usuário', desc: 'Dê um socão.' },
-    ],
+    commandNames: ['interacao', 'amigo', 'casamento', 'casar', 'divorciar'],
   },
   {
     value: 'utilidades',
@@ -69,15 +44,8 @@ const CATEGORIES = [
     description: 'Comandos gerais e ferramentas',
     emoji: '🔧',
     title: '🔧 Utilidades',
-    commands: [
-      { cmd: '/ping',               desc: 'Veja a latência do bot.' },
-      { cmd: '/call',               desc: 'Faz o bot entrar em call 24/7.' },
-      { cmd: '/musica',             desc: 'Toca uma música do YouTube no canal de voz.' },
-      { cmd: '/radio',              desc: 'Liga o rádio do servidor no canal de voz.' },
-      { cmd: '/instagram perfil (usuário)', desc: 'Veja o perfil de alguém no estilo Instagram.' },
-      { cmd: '/tellonym',           desc: 'Envie ou receba mensagens anônimas.' },
-      { cmd: '/ticket painel',      desc: 'Envia o painel de abertura de tickets.' },
-      { cmd: '/container criar',    desc: 'Crie mensagens personalizadas com containers.' },
+    commandNames: [
+      'ajuda', 'ping', 'call', 'musica', 'radio', 'instagram', 'ia', 'quest',
     ],
   },
   {
@@ -86,19 +54,11 @@ const CATEGORIES = [
     description: 'Comandos exclusivos para admins',
     emoji: '⚙️',
     title: '⚙️ Administração',
-    commands: [
-      { cmd: '/boas-vindas',            desc: 'Configura o sistema de boas-vindas do servidor.' },
-      { cmd: '/loja config',            desc: 'Abre o painel de administração da loja.' },
-      { cmd: '/criar-banner [nome] [imagem] [preço]', desc: 'Cria um banner personalizado para a loja.' },
-      { cmd: '/remover-banner',         desc: 'Remove um banner personalizado da loja.' },
-      { cmd: '/criar-pet',              desc: 'Adiciona um pet à venda na loja.' },
-      { cmd: '/editar-pet',             desc: 'Edita um pet existente na loja.' },
-      { cmd: '/conquista emoji',        desc: 'Personaliza o emoji de uma conquista.' },
-      { cmd: '/ticket config',          desc: 'Configura o sistema de tickets.' },
-      { cmd: '/instagram ativar/desativar', desc: 'Ativa ou desativa o feed do Instagram.' },
-      { cmd: '/instagram cor [hex]',    desc: 'Altera a cor dos posts do Instagram.' },
-      { cmd: '/tellonym config',        desc: 'Configura o módulo de mensagens anônimas.' },
-      { cmd: '/sync',                   desc: 'Sincroniza os slash commands com o Discord.' },
+    commandNames: [
+      'boas-vindas', 'container', 'criar-banner', 'criar-pet', 'drop',
+      'editar-mensagem', 'editar-pet', 'montar-mensagem', 'painel-cargos',
+      'painel', 'personalizar', 'remover-banner', 'status', 'sync',
+      'parceria', 'tellonym', 'ticket',
     ],
   },
 ];
@@ -123,26 +83,62 @@ function buildSelectMenu() {
   return new ActionRowBuilder().addComponents(sel);
 }
 
-function buildInitialContainer(botUser) {
-  const catList = CATEGORIES.map(c => `${c.emoji} **${c.label}** — ${c.description}`).join('\n');
+function formatOptions(options = []) {
+  return options
+    .filter(option => option.type !== 1 && option.type !== 2)
+    .map(option => option.required ? `<${option.name}>` : `[${option.name}]`)
+    .join(' ');
+}
+
+function commandEntries(commandName, client) {
+  const command = client?.commands?.get(commandName);
+  const data = command?.data?.toJSON?.();
+  if (!data) return [];
+
+  const subcommands = (data.options ?? []).filter(option => option.type === 1);
+  if (!subcommands.length) {
+    return [{
+      cmd: `/${data.name}${formatOptions(data.options) ? ` ${formatOptions(data.options)}` : ''}`,
+      desc: data.description,
+    }];
+  }
+
+  return subcommands.map(subcommand => {
+    const options = formatOptions(subcommand.options);
+    return {
+      cmd: `/${data.name} ${subcommand.name}${options ? ` ${options}` : ''}`,
+      desc: subcommand.description,
+    };
+  });
+}
+
+function categoryEntries(category, client) {
+  return category.commandNames.flatMap(commandName => commandEntries(commandName, client));
+}
+
+function buildInitialContainer(client) {
+  const catList = CATEGORIES
+    .map(c => `${c.emoji} **${c.label}** — ${c.description} (${categoryEntries(c, client).length})`)
+    .join('\n');
   const text = `## 📖 Central de Ajuda\n\nSelecione uma categoria abaixo para ver os comandos disponíveis.\n\n${catList}\n\n-# [] = Obrigatório  () = Opcional`;
 
-  const c = new ContainerBuilder().setAccentColor(COLOR);
+  const c = new ContainerBuilder();
   c.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
   return c;
 }
 
-function buildCategoryContainer(catValue) {
+function buildCategoryContainer(catValue, client) {
   const cat = CATEGORIES.find(c => c.value === catValue);
   if (!cat) return null;
 
-  const lines = cat.commands
-    .map(c => `↳ \`${c.cmd}\`\n  ↪ ${c.desc}`)
-    .join('\n');
+  const entries = categoryEntries(cat, client);
+  const lines = entries.length
+    ? entries.map(c => `↳ \`${c.cmd}\`\n  ↪ ${c.desc}`).join('\n')
+    : '*Nenhum comando disponível nesta categoria.*';
 
   const text = `## ${cat.title}\n\n**\`[]\` = Obrigatório  \`()\` = Opcional**\n\n${lines}\n\n-# Use /ajuda para voltar ao menu`;
 
-  const c = new ContainerBuilder().setAccentColor(COLOR);
+  const c = new ContainerBuilder();
   c.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
   return c;
 }
@@ -161,12 +157,12 @@ export default {
   aliases: ['help', 'comandos'],
 
   async execute(interaction) {
-    const container = buildInitialContainer(interaction.client.user);
+    const container = buildInitialContainer(interaction.client);
     return interaction.reply({ ...v2HelpPayload(container), ephemeral: true });
   },
 
   async executePrefix(message) {
-    const container = buildInitialContainer(message.client.user);
+    const container = buildInitialContainer(message.client);
     return message.reply(v2HelpPayload(container));
   },
 };
@@ -175,7 +171,7 @@ export default {
 
 export async function handleAjudaCatSel(interaction) {
   const catValue  = interaction.values[0];
-  const container = buildCategoryContainer(catValue);
+  const container = buildCategoryContainer(catValue, interaction.client);
   if (!container) return interaction.update({ content: '❌ Categoria não encontrada.', components: [] });
 
   return interaction.update(v2HelpPayload(container));
