@@ -386,7 +386,6 @@ export async function buildWeddingCardPayload({ left, right, stats }) {
     new ButtonBuilder()
       .setCustomId(`casar_refresh_${pair}`)
       .setLabel('Atualizar')
-      .setEmoji('⟳')
       .setStyle(ButtonStyle.Secondary),
   );
 

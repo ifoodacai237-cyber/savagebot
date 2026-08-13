@@ -13,7 +13,6 @@ function buildDivorceConfirmation(userId, partnerId, partnerName) {
     new ButtonBuilder()
       .setCustomId(`divorciar_confirm_${userId}_${partnerId}`)
       .setLabel('Confirmar divórcio')
-      .setEmoji('💔')
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
       .setCustomId(`divorciar_cancel_${userId}`)

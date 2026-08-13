@@ -1384,7 +1384,6 @@ export default {
               new ButtonBuilder()
                 .setCustomId(`divorciar_confirm_${interaction.user.id}_${partnerId}`)
                 .setLabel('Confirmar divórcio')
-                .setEmoji('💔')
                 .setStyle(ButtonStyle.Danger),
               new ButtonBuilder()
                 .setCustomId(`divorciar_cancel_${interaction.user.id}`)
@@ -1418,13 +1417,21 @@ export default {
               id: leftId,
               displayName: leftMember?.displayName ?? leftUser.globalName ?? leftUser.username,
               username: leftUser.username,
-              avatarUrl: leftUser.displayAvatarURL({ extension: 'png', size: 256 }),
+              avatarUrl: leftUser.displayAvatarURL({
+                extension: 'png',
+                forceStatic: true,
+                size: 256,
+              }),
             },
             right: {
               id: rightId,
               displayName: rightMember?.displayName ?? rightUser.globalName ?? rightUser.username,
               username: rightUser.username,
-              avatarUrl: rightUser.displayAvatarURL({ extension: 'png', size: 256 }),
+              avatarUrl: rightUser.displayAvatarURL({
+                extension: 'png',
+                forceStatic: true,
+                size: 256,
+              }),
             },
             stats,
           }));
@@ -1580,13 +1587,21 @@ export default {
               id: proposerId,
               displayName: proposerMember?.displayName ?? proposerUser.globalName ?? proposerUser.username,
               username: proposerUser.username,
-              avatarUrl: proposerUser.displayAvatarURL({ extension: 'png', size: 256 }),
+              avatarUrl: proposerUser.displayAvatarURL({
+                extension: 'png',
+                forceStatic: true,
+                size: 256,
+              }),
             },
             right: {
               id: targetId,
               displayName: targetMember?.displayName ?? targetUser.globalName ?? targetUser.username,
               username: targetUser.username,
-              avatarUrl: targetUser.displayAvatarURL({ extension: 'png', size: 256 }),
+              avatarUrl: targetUser.displayAvatarURL({
+                extension: 'png',
+                forceStatic: true,
+                size: 256,
+              }),
             },
             stats,
           }));
