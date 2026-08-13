@@ -33,6 +33,11 @@ const REQUIRED_EMOJIS = [
   { name: 'fish_legendary', asset: 'fish-legendary.gif', mime: 'image/gif', animated: true, fallback: '🐉' },
   { name: 'fish_rod',       asset: 'fish-rod.png',       mime: 'image/png',  fallback: '🎣' },
   { name: 'fish_shark',     asset: 'fish-shark.png',     mime: 'image/png',  fallback: '🦈' },
+  // ── Interações dos pets ─────────────────────────────────────────────────────
+  { name: 'pet_heart', asset: 'pet-heart.png', mime: 'image/png', fallback: '❤️' },
+  { name: 'pet_time',  asset: 'pet-time.png',  mime: 'image/png', fallback: '⏱️' },
+  { name: 'pet_food',  asset: 'pet-food.png',  mime: 'image/png', fallback: '🌮' },
+  { name: 'pet_ball',  asset: 'pet-ball.png',  mime: 'image/png', fallback: '🎾' },
 ];
 
 const cache = new Map();

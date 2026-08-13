@@ -8,6 +8,19 @@ import {
   TextDisplayBuilder,
   ThumbnailBuilder,
 } from 'discord.js';
+import { getEmoji } from './emojiManager.js';
+
+const PET_HEART = () => getEmoji('pet_heart');
+const PET_TIME  = () => getEmoji('pet_time');
+const PET_FOOD  = () => getEmoji('pet_food');
+const PET_BALL  = () => getEmoji('pet_ball');
+
+export const petInteractionEmojis = {
+  heart: PET_HEART,
+  time: PET_TIME,
+  food: PET_FOOD,
+  ball: PET_BALL,
+};
 
 export function getPetEmojiUrl(emojiStr) {
   const animated = emojiStr?.match(/<a:(\w+):(\d+)>/);
@@ -34,10 +47,10 @@ function petThumbnailUrl(pet) {
 
 export function buildPetActionRows({ includeShop = true } = {}) {
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('pet_action:brincar').setLabel('Brincar').setEmoji('🎾').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('pet_action:alimentar').setLabel('Alimentar').setEmoji('🍖').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('pet_action:acariciar').setLabel('Acariciar').setEmoji('💜').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('pet_action:status').setLabel('Status').setEmoji('📋').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('pet_action:brincar').setLabel('Brincar').setEmoji(PET_BALL()).setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('pet_action:alimentar').setLabel('Alimentar').setEmoji(PET_FOOD()).setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('pet_action:acariciar').setLabel('Acariciar').setEmoji(PET_HEART()).setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('pet_action:status').setLabel('Status').setEmoji(PET_TIME()).setStyle(ButtonStyle.Secondary),
   );
 
   if (!includeShop) return [row];

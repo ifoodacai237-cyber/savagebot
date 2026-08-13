@@ -2,8 +2,12 @@ import { SlashCommandBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
 
 import { getEmoji } from '../../utils/emojiManager.js';
-import { buildPetPanel, petDisplayName } from '../../utils/petComponents.js';
+import { buildPetPanel, petDisplayName, petInteractionEmojis } from '../../utils/petComponents.js';
 const COIN = () => getEmoji('futecoins');
+const PET_HEART = () => petInteractionEmojis.heart();
+const PET_TIME  = () => petInteractionEmojis.time();
+const PET_FOOD  = () => petInteractionEmojis.food();
+const PET_BALL  = () => petInteractionEmojis.ball();
 
 const PLAY_CD  = 4 * 60 * 60 * 1000;
 const FEED_CD  = 2 * 60 * 60 * 1000;
@@ -132,7 +136,7 @@ async function handleBrincar(interaction) {
   if (diff < PLAY_CD) {
     return interaction.editReply(buildPetPanel({
       title: `${petDisplayName(pet)} está descansando`,
-      body: `Seu pet precisa descansar depois de tanto brincar.\n\n⏳ Próxima brincadeira em **${formatMs(PLAY_CD - diff)}**.\n\nTente alimentar ou acariciar enquanto isso.`,
+      body: `Seu pet precisa descansar depois de tanto brincar.\n\n${PET_TIME()} Próxima brincadeira em **${formatMs(PLAY_CD - diff)}**.\n\nTente alimentar ou acariciar enquanto isso.`,
       pet,
     }));
   }
@@ -147,13 +151,13 @@ async function handleBrincar(interaction) {
   const reacao = pickRand(BRINCAR_REACOES);
 
   return interaction.editReply(buildPetPanel({
-    title: `🎾 Brincadeira com ${petDisplayName(pet)}`,
+    title: `${PET_BALL()} Brincadeira com ${petDisplayName(pet)}`,
     body:
       `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
       `Seu pet ficou tão feliz que te deu **+${reward.toLocaleString('pt-BR')} ${COIN()}**!\n\n` +
       `💰 **Ganhou:** +${reward.toLocaleString('pt-BR')} ${COIN()}\n` +
       `👛 **Carteira:** ${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN()}\n\n` +
-      `⏳ Próxima brincadeira em ${formatMs(PLAY_CD)}.`,
+      `${PET_TIME()} Próxima brincadeira em ${formatMs(PLAY_CD)}.`,
     pet,
   }));
 }
@@ -175,7 +179,7 @@ async function handleAlimentar(interaction) {
   if (diff < FEED_CD) {
     return interaction.editReply(buildPetPanel({
       title: `${petDisplayName(pet)} está satisfeito`,
-      body: `Seu pet ainda está de barriga cheia!\n\n⏳ Próxima alimentação em **${formatMs(FEED_CD - diff)}**.\n\nTente brincar ou acariciar enquanto isso.`,
+      body: `Seu pet ainda está de barriga cheia!\n\n${PET_TIME()} Próxima alimentação em **${formatMs(FEED_CD - diff)}**.\n\nTente brincar ou acariciar enquanto isso.`,
       pet,
     }));
   }
@@ -190,13 +194,13 @@ async function handleAlimentar(interaction) {
   const reacao = pickRand(ALIMENTAR_REACOES);
 
   return interaction.editReply(buildPetPanel({
-    title: `🍖 Alimentando ${petDisplayName(pet)}`,
+    title: `${PET_FOOD()} Alimentando ${petDisplayName(pet)}`,
     body:
       `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
       `Como agradecimento, você ganhou **+${reward.toLocaleString('pt-BR')} ${COIN()}**!\n\n` +
       `💰 **Ganhou:** +${reward.toLocaleString('pt-BR')} ${COIN()}\n` +
       `👛 **Carteira:** ${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN()}\n\n` +
-      `⏳ Próxima alimentação em ${formatMs(FEED_CD)}.`,
+      `${PET_TIME()} Próxima alimentação em ${formatMs(FEED_CD)}.`,
     pet,
   }));
 }
@@ -218,7 +222,7 @@ async function handleAcariciar(interaction) {
   if (diff < PET_CD) {
     return interaction.editReply(buildPetPanel({
       title: `${petDisplayName(pet)} precisa de um tempo`,
-      body: `Seu pet está descansando após o último carinho.\n\n⏳ Próximo carinho em **${formatMs(PET_CD - diff)}**.\n\nTente brincar ou alimentar enquanto isso.`,
+      body: `Seu pet está descansando após o último carinho.\n\n${PET_TIME()} Próximo carinho em **${formatMs(PET_CD - diff)}**.\n\nTente brincar ou alimentar enquanto isso.`,
       pet,
     }));
   }
@@ -233,13 +237,13 @@ async function handleAcariciar(interaction) {
   const reacao = pickRand(ACARICIAR_REACOES);
 
   return interaction.editReply(buildPetPanel({
-    title: `💜 Carinho em ${petDisplayName(pet)}`,
+    title: `${PET_HEART()} Carinho em ${petDisplayName(pet)}`,
     body:
       `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
       `O carinho valeu **+${reward.toLocaleString('pt-BR')} ${COIN()}**!\n\n` +
       `💰 **Ganhou:** +${reward.toLocaleString('pt-BR')} ${COIN()}\n` +
       `👛 **Carteira:** ${(eco.balance + reward).toLocaleString('pt-BR')} ${COIN()}\n\n` +
-      `⏳ Próximo carinho em ${formatMs(PET_CD)}.`,
+      `${PET_TIME()} Próximo carinho em ${formatMs(PET_CD)}.`,
     pet,
   }));
 }
@@ -267,9 +271,9 @@ async function handleStatus(interaction) {
     title: `${petDisplayName(pet)} — Status`,
     body:
       `Cooldowns das interações com seu pet:\n\n` +
-      `🎾 ${cdLine(eco.lastPetPlay, PLAY_CD, 'Brincar')} (até **300 ${COIN()}**)\n` +
-      `🍖 ${cdLine(eco.lastPetFeed, FEED_CD, 'Alimentar')} (até **160 ${COIN()}**)\n` +
-      `💜 ${cdLine(eco.lastPetPet, PET_CD, 'Acariciar')} (até **100 ${COIN()}**)\n\n` +
+      `${PET_BALL()} ${cdLine(eco.lastPetPlay, PLAY_CD, 'Brincar')} (até **300 ${COIN()}**)\n` +
+      `${PET_FOOD()} ${cdLine(eco.lastPetFeed, FEED_CD, 'Alimentar')} (até **160 ${COIN()}**)\n` +
+      `${PET_HEART()} ${cdLine(eco.lastPetPet, PET_CD, 'Acariciar')} (até **100 ${COIN()}**)\n\n` +
       `Use os botões abaixo para interagir sem precisar digitar outro comando.`,
     pet,
   }));
@@ -327,10 +331,10 @@ export default {
       title: '🐾 Interações de Pet',
       body:
         '**Subcomandos disponíveis:**\n\n' +
-        '`pet brincar` — 🎾 Brinque (+150–300 moedas, CD: 4h)\n' +
-        '`pet alimentar` — 🍖 Alimente (+80–160 moedas, CD: 2h)\n' +
-        '`pet acariciar` — 💜 Faça carinho (+40–100 moedas, CD: 1h)\n' +
-        '`pet status` — 📋 Ver cooldowns\n\n' +
+        '`pet brincar` — ' + PET_BALL() + ' Brinque (+150–300 moedas, CD: 4h)\n' +
+        '`pet alimentar` — ' + PET_FOOD() + ' Alimente (+80–160 moedas, CD: 2h)\n' +
+        '`pet acariciar` — ' + PET_HEART() + ' Faça carinho (+40–100 moedas, CD: 1h)\n' +
+        '`pet status` — ' + PET_TIME() + ' Ver cooldowns\n\n' +
         'Você também pode usar os botões abaixo.',
     }));
   },
