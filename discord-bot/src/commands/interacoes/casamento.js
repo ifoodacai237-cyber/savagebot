@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
 import prisma from '../../database/client.js';
-import { errorEmbed } from '../../utils/embed.js';
+import { v2Error } from '../../utils/embed.js';
 import { buildWeddingCardPayload, getMarriageStats } from '../../utils/weddingCard.js';
 
 async function findMarriageProfile(userId) {
@@ -56,16 +56,12 @@ export default {
     const profile = await findMarriageProfile(interaction.user.id);
 
     if (!profile?.marriedTo) {
-      return interaction.editReply({
-        embeds: [errorEmbed('Você não está casado(a) com ninguém.')],
-      });
+      return interaction.editReply(v2Error('Você não está casado(a) com ninguém.'));
     }
 
     const partner = await interaction.client.users.fetch(profile.marriedTo).catch(() => null);
     if (!partner) {
-      return interaction.editReply({
-        embeds: [errorEmbed('Não consegui encontrar a outra pessoa do casamento.')],
-      });
+      return interaction.editReply(v2Error('Não consegui encontrar a outra pessoa do casamento.'));
     }
 
     const [member, partnerMember] = await Promise.all([
@@ -105,12 +101,6 @@ export default {
       },
       stats,
     });
-    const [attachment] = payload.files;
-
-    return interaction.editReply({
-      embeds: payload.embeds,
-      components: payload.components,
-      files: [attachment],
-    });
+    return interaction.editReply(payload);
   },
 };

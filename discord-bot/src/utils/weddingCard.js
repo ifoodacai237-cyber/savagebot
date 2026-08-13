@@ -1,13 +1,13 @@
 import {
   ActionRowBuilder,
   AttachmentBuilder,
-  EmbedBuilder,
   StringSelectMenuBuilder,
 } from 'discord.js';
 import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
 import path from 'path';
 import fs from 'fs';
 import prisma from '../database/client.js';
+import { v2Payload, v2Rich } from './embed.js';
 
 const FONTS_DIR = path.join(process.cwd(), 'fonts');
 const BACKGROUND_PATH = path.join(process.cwd(), 'assets', 'wedding-background.png');
@@ -397,15 +397,15 @@ export async function buildWeddingCardPayload({ left, right, stats }) {
 
   return {
     files: [attachment],
-    embeds: [
-      new EmbedBuilder()
-        .setTitle('💍 Cartão de casamento')
-        .setDescription(
-          `<@${left.id}> e <@${right.id}> · nível ${stats.level} · ${stats.xp} XP`,
-        )
-        .setImage('attachment://casamento-card.png')
-        .setFooter({ text: 'Use Atualizar para recalcular as estatísticas.' }),
-    ],
-    components: [controls],
+    ...v2Payload(
+      v2Rich({
+        text:
+          `## 💍 Cartão de casamento\n` +
+          `<@${left.id}> e <@${right.id}> · nível ${stats.level} · ${stats.xp} XP\n\n` +
+          `*Use Atualizar para recalcular as estatísticas.*`,
+        imageUrl: 'attachment://casamento-card.png',
+      }),
+      controls,
+    ),
   };
 }
