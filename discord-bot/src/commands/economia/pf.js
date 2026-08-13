@@ -80,6 +80,7 @@ function editMenu() {
 
 export default {
   name: 'pf',
+  aliases: ['carteira'],
 
   data: new SlashCommandBuilder()
     .setName('carteira')

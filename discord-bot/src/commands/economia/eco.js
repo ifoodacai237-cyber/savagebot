@@ -209,7 +209,7 @@ const cmdSaldo = {
     .setDescription('💰 Veja seu saldo de coins (ou de outro membro)')
     .addUserOption(o => o.setName('usuario').setDescription('Membro alvo (opcional)')),
   name: 'saldo',
-  aliases: ['eco', 'economia', 'dinheiro', 'bal', 'carteira'],
+  aliases: ['eco', 'economia', 'dinheiro', 'bal'],
 
   async execute(interaction) {
     const target    = interaction.options.getUser('usuario') ?? interaction.user;
