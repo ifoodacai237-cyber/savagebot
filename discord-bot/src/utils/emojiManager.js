@@ -38,6 +38,8 @@ const REQUIRED_EMOJIS = [
   { name: 'pet_time',  asset: 'pet-time.png',  mime: 'image/png', fallback: '⏱️' },
   { name: 'pet_food',  asset: 'pet-food.png',  mime: 'image/png', fallback: '🌮' },
   { name: 'pet_ball',  asset: 'pet-ball.png',  mime: 'image/png', fallback: '🎾' },
+  // ── Moderação ────────────────────────────────────────────────────────────────
+  { name: 'mod_heart', asset: 'mod-heart.png', mime: 'image/png', fallback: '❤️' },
 ];
 
 const cache = new Map();
