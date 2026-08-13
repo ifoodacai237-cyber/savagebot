@@ -489,7 +489,7 @@ export async function handleInstaCfgBtn(interaction) {
     insta_cfg_canal:  { customId: 'insta_cfg_modal_canal',  title: 'Canal do Feed',         label: 'ID do canal',     max: 30, ph: '123456789012345678' },
     insta_cfg_cor:    { customId: 'insta_cfg_modal_cor',    title: 'Cor da barra lateral',  label: 'Hex sem #',       max: 6,  ph: 'E1306C' },
     insta_cfg_emoji:  { customId: 'insta_cfg_modal_emoji',  title: 'Emoji de curtir',       label: 'Emoji',           max: 32, ph: '💜' },
-    insta_cfg_handle: { customId: 'insta_cfg_modal_handle', title: '@ do Instagram',        label: '@ do Instagram',  max: 50, ph: 'fallen.angels' },
+    insta_cfg_handle: { customId: 'insta_cfg_modal_handle', title: '@ do Instagram',        label: '@ do Instagram',  max: 50, ph: 'savage.angels' },
   };
 
   const def = MODAL_MAP[customId];

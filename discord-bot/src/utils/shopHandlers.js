@@ -156,7 +156,7 @@ async function handleLojaAdminAddCargo(interaction) {
         .setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('123456789012345678')
     ),
     new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('price').setLabel('Preço (em FallenCoins)')
+      new TextInputBuilder().setCustomId('price').setLabel('Preço (em SavageCoins)')
         .setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('500')
     ),
     new ActionRowBuilder().addComponents(
@@ -2399,7 +2399,7 @@ async function handleWalletFundoPresetSel(interaction) {
       create: { userId: interaction.user.id, walletBg: null },
       update: { walletBg: null },
     });
-    return interaction.update({ content: '✅ Fundo removido! Use `fallen pf` para ver.', components: [] });
+    return interaction.update({ content: '✅ Fundo removido! Use `savage pf` para ver.', components: [] });
   }
 
   const bg = WALLET_BACKGROUNDS.find(b => b.key === key);
@@ -2412,7 +2412,7 @@ async function handleWalletFundoPresetSel(interaction) {
   });
 
   return interaction.update({
-    content: `✅ Fundo **${bg.name}** equipado! Use \`fallen pf\` para ver.`,
+    content: `✅ Fundo **${bg.name}** equipado! Use \`savage pf\` para ver.`,
     components: [],
   });
 }
@@ -2442,7 +2442,7 @@ async function handleWalletFundoReset(interaction) {
     update: { walletBg: null },
   });
   return interaction.reply({
-    content: '✅ Fundo da carteira removido! Use `fallen pf` para ver.',
+    content: '✅ Fundo da carteira removido! Use `savage pf` para ver.',
     ephemeral: true,
   });
 }
@@ -2471,7 +2471,7 @@ async function handleWalletFundoModal(interaction) {
   });
 
   return interaction.reply({
-    content: `✅ Fundo da carteira definido!\nUse \`fallen pf\` para ver o resultado.`,
+    content: `✅ Fundo da carteira definido!\nUse \`savage pf\` para ver o resultado.`,
     ephemeral: true,
   });
 }

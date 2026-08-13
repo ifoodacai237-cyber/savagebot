@@ -50,6 +50,6 @@ export default {
       await sendPanel(message.channel, message.guildId);
       return message.reply({ embeds: [successEmbed('Painel Enviado', 'O painel de tickets foi enviado.')] });
     }
-    return message.reply({ embeds: [errorEmbed('Use: `fallen ticket painel` ou `/ticket config`')] });
+    return message.reply({ embeds: [errorEmbed('Use: `savage ticket painel` ou `/ticket config`')] });
   },
 };

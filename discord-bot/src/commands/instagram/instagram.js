@@ -33,7 +33,7 @@ export default {
     .addSubcommand(sub =>
       sub.setName('handle')
         .setDescription('Define o @ do Instagram do servidor (exibe botão de link nos posts)')
-        .addStringOption(o => o.setName('arroba').setDescription('@ do Instagram, ex: fallen.angels ou @fallen.angels').setRequired(false))
+        .addStringOption(o => o.setName('arroba').setDescription('@ do Instagram, ex: savage.angels ou @savage.angels').setRequired(false))
     )
     .addSubcommand(sub =>
       sub.setName('perfil')
@@ -143,7 +143,7 @@ export default {
           { name: '📥 Entrou no servidor', value: joinedAt ? `<t:${Math.floor(joinedAt.getTime() / 1000)}:R>` : '*(desconhecido)*', inline: true },
           { name: '🏷️ Cargos',         value: roles,                                                inline: false },
         )
-        .setFooter({ text: `Fallen Bot · Instagram • ${displayName}` })
+        .setFooter({ text: `Savage Bot · Instagram • ${displayName}` })
         .setTimestamp();
 
       return interaction.editReply({ embeds: [embed] });
@@ -188,11 +188,11 @@ export default {
           { name: '📥 Entrou no servidor', value: joinedAt ? `<t:${Math.floor(joinedAt.getTime() / 1000)}:R>` : '*(desconhecido)*', inline: true },
           { name: '🏷️ Cargos',         value: roles,                                                inline: false },
         )
-        .setFooter({ text: `Fallen Bot · Instagram • ${displayName}` })
+        .setFooter({ text: `Savage Bot · Instagram • ${displayName}` })
         .setTimestamp();
 
       return message.reply({ embeds: [embed] });
     }
-    return message.reply({ embeds: [errorEmbed('Use: `fallen instagram ativar`, `fallen instagram desativar` ou `fallen instagram perfil [@user]`')] });
+    return message.reply({ embeds: [errorEmbed('Use: `savage instagram ativar`, `savage instagram desativar` ou `savage instagram perfil [@user]`')] });
   },
 };

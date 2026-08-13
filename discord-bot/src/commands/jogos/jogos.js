@@ -60,7 +60,7 @@ export default {
     const guildId = message.guildId;
 
     const help = () => message.reply({
-      embeds: [errorEmbed('**Uso:** `fallen jogo <subcomando> <aposta> [extra]`\n**Subcomandos:** `blackjack <aposta>`, `mines <aposta> [bombas]`')],
+      embeds: [errorEmbed('**Uso:** `savage jogo <subcomando> <aposta> [extra]`\n**Subcomandos:** `blackjack <aposta>`, `mines <aposta> [bombas]`')],
     });
 
     const eco = await getEco(userId, guildId).catch(() => null);
@@ -68,18 +68,18 @@ export default {
 
     const send = opts => message.reply(opts);
 
-    // Chamada direta: "fallen blackjack 500" ou "fallen bj 500"
+    // Chamada direta: "savage blackjack 500" ou "savage bj 500"
     if (calledAs === 'blackjack' || calledAs === 'bj') {
       const bet = parseBet(args[0], eco.balance);
-      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `fallen blackjack 500`')] });
+      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `savage blackjack 500`')] });
       return startBlackjack(message, bet, opts => message.reply(opts));
     }
 
-    // Chamada direta: "fallen mines 500 3"
+    // Chamada direta: "savage mines 500 3"
     if (calledAs === 'mines') {
       const bet   = parseBet(args[0], eco.balance);
       const bombs = parseInt(args[1]) || 3;
-      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `fallen mines 500 3`')] });
+      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `savage mines 500 3`')] });
       return startMines(message, bet, bombs, opts => message.reply(opts));
     }
 
@@ -88,14 +88,14 @@ export default {
 
     if (sub === 'blackjack' || sub === 'bj') {
       const bet = parseBet(args[1], eco.balance);
-      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `fallen jogo blackjack 500`')] });
+      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `savage jogo blackjack 500`')] });
       return startBlackjack(message, bet, opts => message.reply(opts));
     }
 
     if (sub === 'mines' || sub === 'm') {
       const bet   = parseBet(args[1], eco.balance);
       const bombs = parseInt(args[2]) || 3;
-      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `fallen jogo mines 500 3`')] });
+      if (!bet || bet <= 0) return send({ embeds: [errorEmbed('Aposta inválida. Ex: `savage jogo mines 500 3`')] });
       return startMines(message, bet, bombs, opts => message.reply(opts));
     }
 

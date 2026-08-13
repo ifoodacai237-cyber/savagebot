@@ -27,7 +27,7 @@ export default {
       opt.setName('emoji').setDescription('Novo emoji (unicode 🐱 ou custom <:nome:id>)').setRequired(false).setMaxLength(100)
     )
     .addIntegerOption(opt =>
-      opt.setName('preco').setDescription('Novo preço em FallenCoins').setRequired(false).setMinValue(1)
+      opt.setName('preco').setDescription('Novo preço em SavageCoins').setRequired(false).setMinValue(1)
     )
     .addStringOption(opt =>
       opt.setName('descricao').setDescription('Nova descrição').setRequired(false).setMaxLength(200)

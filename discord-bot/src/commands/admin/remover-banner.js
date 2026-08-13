@@ -46,7 +46,7 @@ export default {
       .setColor(0xED4245)
       .setTitle('🗑️ Remover Banner da Loja')
       .setDescription(`**Selecione qual banner deseja remover:**\n\n${lines}`)
-      .setFooter({ text: 'Fallen Bot · Admin da Loja' });
+      .setFooter({ text: 'Savage Bot · Admin da Loja' });
 
     return interaction.editReply({
       embeds: [embed],

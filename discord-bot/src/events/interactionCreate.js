@@ -399,7 +399,7 @@ const TELLONYM_MODAL_FIELDS = {
   titulo: { label: 'Título do painel',           db: 'tellonymTitle',  placeholder: '💌 Tellonym (deixe vazio para remover)',         isUrl: false, isLong: false },
   banner: { label: 'URL da imagem do banner',    db: 'tellonymBanner', placeholder: 'https://... ou discord.com/channels/... (deixe vazio para remover)', isUrl: true, isLong: false },
   thumb:  { label: 'URL da thumbnail',           db: 'tellonymThumb',  placeholder: 'https://... ou discord.com/channels/... (deixe vazio para remover)', isUrl: true, isLong: false },
-  rodape: { label: 'Texto do rodapé',            db: 'tellonymFooter', placeholder: 'Fallen Bot · Tellonym (deixe vazio para remover)',  isUrl: false, isLong: false },
+  rodape: { label: 'Texto do rodapé',            db: 'tellonymFooter', placeholder: 'Savage Bot · Tellonym (deixe vazio para remover)',  isUrl: false, isLong: false },
   texto:  { label: 'Texto principal do painel',  db: 'tellonymText',   placeholder: 'Clique no botão para enviar uma mensagem... (deixe vazio para remover o texto)', isUrl: false, isLong: true },
 };
 
@@ -416,7 +416,7 @@ const PARTNER_MODAL_FIELDS = {
   cor:      { label: 'Cor (hex, ex: A020F0)',    db: 'partnerColor',     isUrl: false, isLong: false, placeholder: 'A020F0 (deixe vazio para padrão)' },
   imagem:   { label: 'URL da imagem/banner',      db: 'partnerImage',     isUrl: true,  isLong: false, placeholder: 'https://... (deixe vazio para padrão)' },
   thumb:    { label: 'URL da thumbnail',          db: 'partnerThumbnail', isUrl: true,  isLong: false, placeholder: 'https://... (deixe vazio para padrão)' },
-  footer:   { label: 'Rodapé do embed',           db: 'partnerFooter',    isUrl: false, isLong: false, placeholder: 'Fallen Bot · Parcerias' },
+  footer:   { label: 'Rodapé do embed',           db: 'partnerFooter',    isUrl: false, isLong: false, placeholder: 'Savage Bot · Parcerias' },
   mensagem: { label: 'Mensagem de agradecimento', db: 'partnerMessage',   isUrl: false, isLong: true,  placeholder: '★ Obrigado por fortalecer nossa comunidade!' },
 };
 

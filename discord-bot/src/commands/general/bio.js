@@ -40,7 +40,7 @@ export default {
     const texto = args.join(' ').trim();
 
     if (!texto) {
-      return message.reply('❌ Escreva o texto da bio. Exemplo: `fallen bio Amo anime!`');
+      return message.reply('❌ Escreva o texto da bio. Exemplo: `savage bio Amo anime!`');
     }
 
     if (texto.length > MAX_BIO) {
@@ -59,7 +59,7 @@ export default {
           .setColor(0x9B4FD6)
           .setTitle('✅ Bio atualizada!')
           .setDescription(`> ${texto}`)
-          .setFooter({ text: 'Use /perfil ou fallen perfil para visualizar.' }),
+          .setFooter({ text: 'Use /perfil ou savage perfil para visualizar.' }),
       ],
     });
   },

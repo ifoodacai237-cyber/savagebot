@@ -12,7 +12,7 @@ async function validateImageUrl(imageUrl) {
     const resp = await fetch(imageUrl, {
       method: 'HEAD',
       signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FallenBot/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SavageBot/1.0)' },
       redirect: 'follow',
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);

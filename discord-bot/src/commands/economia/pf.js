@@ -99,7 +99,7 @@ export default {
   async executePrefix(message, args) {
     const sub = args[0]?.toLowerCase();
 
-    // fallen pf vip @user 30d @cargo
+    // savage pf vip @user 30d @cargo
     if (sub === 'vip') {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild))
         return message.reply('❌ Você precisa da permissão **Gerenciar Servidor**.');
@@ -109,7 +109,7 @@ export default {
       const tempoStr   = args.find(a => /^\d+[dhm]$/i.test(a));
 
       if (!target || !roleTarget)
-        return message.reply('❌ Use: `fallen pf vip @user 30d @cargo`');
+        return message.reply('❌ Use: `savage pf vip @user 30d @cargo`');
 
       const ms = parseDuration(tempoStr ?? '');
       if (!ms) return message.reply('❌ Formato inválido. Use: 30d, 12h, 60m');
@@ -131,7 +131,7 @@ export default {
       );
     }
 
-    // fallen pf [@user] → view carteira (sem botões de edição)
+    // savage pf [@user] → view carteira (sem botões de edição)
     const target = message.mentions.users.first() ?? message.author;
     const file   = await buildWalletCard(target.id, message.guildId, message.guild, target);
     return message.reply({ files: [file] });
