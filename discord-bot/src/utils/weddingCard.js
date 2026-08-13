@@ -399,7 +399,6 @@ export async function buildWeddingCardPayload({ left, right, stats }) {
     files: [attachment],
     embeds: [
       new EmbedBuilder()
-        .setColor(0xf44598)
         .setTitle('💍 Cartão de casamento')
         .setDescription(
           `<@${left.id}> e <@${right.id}> · nível ${stats.level} · ${stats.xp} XP`,

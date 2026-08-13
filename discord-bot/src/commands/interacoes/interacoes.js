@@ -1,6 +1,5 @@
 import {
   SlashCommandBuilder,
-  EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
@@ -231,20 +230,13 @@ function mentionUser(user) {
 function buildGfPayload(fromUser, toUser, gifUrl, streak) {
   const fromMention = mentionUser(fromUser);
   const toMention = mentionUser(toUser);
-  const embed = new EmbedBuilder()
-    .setColor(0xF2C94C)
-    .setTitle('GF')
-    .setDescription(
-      `${fromMention} fez GF com ${toMention}.\n` +
-      `Streak ${streak}x • +18 XP para cada um\n` +
-      `GF ${streak}x. A sala ficou pronta para a cena pós-ending de anime.`,
-    )
-    .addFields({
-      name: 'Sequência',
-      value: 'A cada 10x seguidas esse par ganha bônus extra de XP social.',
-    });
-
-  if (gifUrl) embed.setImage(gifUrl);
+  const text =
+    `## GF\n` +
+    `${fromMention} fez GF com ${toMention}.\n` +
+    `Streak ${streak}x • +18 XP para cada um\n` +
+    `GF ${streak}x. A sala ficou pronta para a cena pós-ending de anime.\n\n` +
+    `**Sequência**\n` +
+    `A cada 10x seguidas esse par ganha bônus extra de XP social.`;
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -253,7 +245,10 @@ function buildGfPayload(fromUser, toUser, gifUrl, streak) {
       .setStyle(ButtonStyle.Secondary),
   );
 
-  return { embeds: [embed], components: [row] };
+  return v2Payload(
+    v2Rich({ text, imageUrl: gifUrl }),
+    row,
+  );
 }
 
 export async function buildInteractionEmbed(type, fromUser, toUser, isRetribution = false) {
