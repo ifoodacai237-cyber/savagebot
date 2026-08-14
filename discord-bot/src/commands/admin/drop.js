@@ -11,6 +11,7 @@ import { BANNERS, buildBannerUrl } from '../../utils/shopData.js';
 import { setPending } from '../../utils/dropSessions.js';
 
 const DROP_ROLE_OPTIONS = ['cargo1', 'cargo2', 'cargo3', 'cargo4', 'cargo5'];
+const DROP_CONFIGURATOR_ID = '1527094211176828951';
 
 function addLaunchOptions(subcommand) {
   return subcommand
@@ -63,7 +64,6 @@ async function canLaunchDrop(interaction) {
     select: { dropAllowedRoles: true },
   });
   const allowedRoleIds = configuredDropRoleIds(config);
-  const isAdministrator = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
   const hasManageGuild = interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild);
 
   if (!allowedRoleIds.length) {
@@ -78,7 +78,7 @@ async function canLaunchDrop(interaction) {
   }
 
   const hasAllowedRole = allowedRoleIds.some(roleId => interaction.member?.roles?.cache?.has(roleId));
-  if (!isAdministrator && !hasAllowedRole) {
+  if (!hasAllowedRole) {
     await interaction.reply({
       content: '❌ Você não possui um dos cargos autorizados para lançar drops.',
       ephemeral: true,
@@ -89,9 +89,9 @@ async function canLaunchDrop(interaction) {
 }
 
 async function configureDropRoles(interaction) {
-  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+  if (interaction.user.id !== DROP_CONFIGURATOR_ID) {
     return interaction.reply({
-      content: '❌ Você precisa da permissão **Gerenciar Servidor** para configurar os cargos do drop.',
+      content: '❌ Apenas o responsável autorizado pode configurar os cargos permitidos para lançar drops.',
       ephemeral: true,
     });
   }
@@ -108,7 +108,7 @@ async function configureDropRoles(interaction) {
       update: { dropAllowedRoles: null },
     });
     return interaction.reply({
-      content: '✅ Restrição de cargos removida. Agora apenas quem tem **Gerenciar Servidor** pode lançar drops.',
+      content: '✅ Restrição de cargos removida. Agora quem tiver **Gerenciar Servidor** poderá lançar drops.',
       ephemeral: true,
     });
   }
@@ -136,7 +136,7 @@ async function configureDropRoles(interaction) {
   });
 
   return interaction.reply({
-    content: `✅ Apenas estes cargos poderão lançar drops: ${roleIds.map(roleId => `<@&${roleId}>`).join(', ')}.\nAdministradores continuam autorizados.`,
+    content: `✅ Apenas estes cargos poderão lançar drops: ${roleIds.map(roleId => `<@&${roleId}>`).join(', ')}.\nNenhum administrador fora desses cargos poderá usar o comando.`,
     ephemeral: true,
   });
 }
