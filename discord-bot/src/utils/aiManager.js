@@ -1,6 +1,3 @@
-// Pollinations AI — gratuito, sem API key, suporta texto e imagem
-
-const TEXT_API = 'https://text.pollinations.ai/';
 const IMAGE_API = 'https://image.pollinations.ai/prompt/';
 const GROQ_API = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -78,9 +75,13 @@ function trimForDiscord(text, max = 1900) {
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
 }
 
-// ─── Chat via Pollinations Text ─────────────────────────────────────────────
+// ─── Chat geral via Groq ────────────────────────────────────────────────────
 
 export async function askAI({ guildId, userId, prompt, serverName, serverContext }) {
+  if (!isGroqConfigured()) {
+    throw new Error('GROQ_API_KEY não configurada');
+  }
+
   const session = getSession(guildId, userId);
   pushHistory(session, 'user', prompt);
 
@@ -105,24 +106,37 @@ export async function askAI({ guildId, userId, prompt, serverName, serverContext
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 30_000);
 
-  let answer;
   try {
-    const res = await fetch(TEXT_API, {
+    const res = await fetch(GROQ_API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'openai', messages, stream: false }),
+      headers: {
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages,
+        temperature: 0.75,
+        max_tokens: 500,
+        stream: false,
+      }),
       signal: controller.signal,
     });
 
-    if (!res.ok) throw new Error(`Pollinations texto retornou ${res.status}`);
-    answer = (await res.text()).trim();
-    if (!answer) throw new Error('Resposta vazia da Pollinations');
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error(`Groq retornou ${res.status}: ${detail.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    const answer = data?.choices?.[0]?.message?.content?.trim();
+    if (!answer) throw new Error('Resposta vazia do Groq');
+    const trimmedAnswer = trimForDiscord(answer);
+    pushHistory(session, 'assistant', trimmedAnswer);
+    return trimmedAnswer;
   } finally {
     clearTimeout(timer);
   }
-
-  pushHistory(session, 'assistant', answer);
-  return answer;
 }
 
 // ─── Atendimento de tickets via Groq ─────────────────────────────────────────

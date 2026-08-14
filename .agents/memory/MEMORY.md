@@ -4,7 +4,7 @@
 - [Radio — Streams Diretos](radio-streams.md) — rádio usa FFmpeg + ilovemusic.de (MP3 direto), não YouTube. play-dl falha em Replit com "Sign in to confirm you're not a bot". StreamType.Raw com PCM s16le.
 - [Welcome System](welcome-system.md) — sistema de boas-vindas com painel wcfg_, evento guildMemberAdd.js, comando /boas-vindas. Campos no GuildConfig: welcomeChannel/Color/Banner/Thumb/Footer/Title/Text/Roles/Channels.
 - [FUT card system removed](discord-bot-personalization-ai.md) — sistema FUT (fut.js, futManager.js etc.) foi totalmente removido do bot; não recriar sem pedido explícito.
-- [Personalização por servidor + IA](discord-bot-personalization-ai.md) — /personalizar usa PATCH /guilds/{id}/members/@me (avatar/banner/bio por servidor); /ia usa chave própria da OpenAI (não o proxy do Replit) pois o bot roda na Railway.
+- [Personalização por servidor + IA](discord-bot-personalization-ai.md) — /personalizar usa PATCH por servidor; texto da IA usa Groq direto (não Pollinations/Replit), pois o bot roda na Railway.
 - [Sniper de usernames — REMOVIDO](sniper-username-forum.md) — sistema todo (checker/monitor/comandos/tabelas) foi apagado a pedido do usuário; não recriar sem pedido explícito novo.
 - [Edit tool $ bug](edit-tool-dollar-quote-bug.md) — a literal `$` in old_string/new_string silently corrupts files (String.replace special token); use `"$"` instead of `'$` etc.
 - [Bot só roda no Railway](bot-railway-guard.md) — index.js tem guard que encerra se RAILWAY_ENVIRONMENT_NAME e RAILWAY_PROJECT_ID não estiverem definidos; workflow Discord Bot foi removido do Replit para evitar instância dupla.

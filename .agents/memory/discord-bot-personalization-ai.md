@@ -15,19 +15,18 @@ global identity for every guild. Implemented in `discord-bot/src/utils/botProfil
 via `/personalizar` (icone/banner/bio/resetar/ver), values mirrored into `GuildConfig`
 (`botIconUrl`, `botBannerUrl`, `botBio`) so admins can view current settings.
 
-## AI feature uses the user's own OpenAI key, not Replit's AI proxy
+## AI provider must be direct and Railway-compatible
 
-The `/ia` command (chat via `gpt-5.4` + image gen via `gpt-image-1`) uses the OpenAI SDK with
-the user's own `OPENAI_API_KEY` secret, NOT Replit's built-in AI Integrations proxy.
+The bot's general chat and ticket support use the Groq OpenAI-compatible API with the directly
+configured `GROQ_API_KEY`; image generation remains a separate Pollinations image request.
 
-**Why:** `fallen-angels-bot` deploys externally to Railway (see railway-deploy-lessons.md) —
-it does not run inside Replit's own hosting in production. Replit's AI Integrations proxy
-(`AI_INTEGRATIONS_OPENAI_BASE_URL`) is only reachable from within the Replit environment, so it
-would break once deployed to Railway. Any future AI feature on this bot must keep using a
-directly-configured provider key, not the Replit AI proxy.
+**Why:** `fallen-angels-bot` deploys externally to Railway (see railway-deploy-lessons.md), so
+Replit's AI Integrations proxy is not available in production. The legacy Pollinations text
+endpoint can return `402 Payment Required` because its anonymous text budget is exhausted.
 
-**How to apply:** If adding more AI features to this bot, reuse `discord-bot/src/utils/aiManager.js`
-(has short-term per-user/per-guild chat session memory) rather than re-deriving the OpenAI client.
+**How to apply:** Keep text AI on a directly configured provider key and reuse
+`discord-bot/src/utils/aiManager.js` for its short-term per-user/per-guild chat history. Never
+expose provider keys in logs or chat.
 
 ## Railway secrets are separate
 
