@@ -9,9 +9,10 @@ const PET_TIME  = () => petInteractionEmojis.time();
 const PET_FOOD  = () => petInteractionEmojis.food();
 const PET_BALL  = () => petInteractionEmojis.ball();
 
-const PLAY_CD  = 4 * 60 * 60 * 1000;
-const FEED_CD  = 2 * 60 * 60 * 1000;
-const PET_CD   = 60 * 60 * 1000;
+const PET_INTERACTION_CD = 20 * 60 * 1000;
+const PLAY_CD  = PET_INTERACTION_CD;
+const FEED_CD  = PET_INTERACTION_CD;
+const PET_CD   = PET_INTERACTION_CD;
 
 const PLAY_MIN = 150, PLAY_MAX = 300;
 const FEED_MIN = 80,  FEED_MAX = 160;
@@ -293,11 +294,11 @@ export default {
     .setName('pet')
     .setDescription('🐾 Interaja com seu pet e ganhe moedas!')
     .addSubcommand(s =>
-      s.setName('brincar').setDescription('🎾 Brinque com seu pet e ganhe 150–300 moedas (CD: 4h)'))
+     s.setName('brincar').setDescription('🎾 Brinque com seu pet e ganhe 150–300 moedas (CD: 20 min)'))
     .addSubcommand(s =>
-      s.setName('alimentar').setDescription('🍖 Alimente seu pet e ganhe 80–160 moedas (CD: 2h)'))
+     s.setName('alimentar').setDescription('🍖 Alimente seu pet e ganhe 80–160 moedas (CD: 20 min)'))
     .addSubcommand(s =>
-      s.setName('acariciar').setDescription('💜 Faça carinho no seu pet e ganhe 40–100 moedas (CD: 1h)'))
+     s.setName('acariciar').setDescription('💜 Faça carinho no seu pet e ganhe 40–100 moedas (CD: 20 min)'))
     .addSubcommand(s =>
       s.setName('status').setDescription('📋 Veja os cooldowns das interações do seu pet')),
 
@@ -331,9 +332,9 @@ export default {
       title: '🐾 Interações de Pet',
       body:
         '**Subcomandos disponíveis:**\n\n' +
-        '`pet brincar` — ' + PET_BALL() + ' Brinque (+150–300 moedas, CD: 4h)\n' +
-        '`pet alimentar` — ' + PET_FOOD() + ' Alimente (+80–160 moedas, CD: 2h)\n' +
-        '`pet acariciar` — ' + PET_HEART() + ' Faça carinho (+40–100 moedas, CD: 1h)\n' +
+         '`pet brincar` — ' + PET_BALL() + ' Brinque (+150–300 moedas, CD: 20 min)\n' +
+         '`pet alimentar` — ' + PET_FOOD() + ' Alimente (+80–160 moedas, CD: 20 min)\n' +
+         '`pet acariciar` — ' + PET_HEART() + ' Faça carinho (+40–100 moedas, CD: 20 min)\n' +
         '`pet status` — ' + PET_TIME() + ' Ver cooldowns\n\n' +
         'Você também pode usar os botões abaixo.',
     }));

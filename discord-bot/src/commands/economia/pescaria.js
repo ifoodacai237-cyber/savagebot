@@ -25,7 +25,7 @@ const FISH_SEAL = () => getEmoji('fish_seal');
 const FISH_LEGENDARY = () => getEmoji('fish_legendary');
 const FISH_ROD = () => getEmoji('fish_rod');
 const FISH_SHARK = () => getEmoji('fish_shark');
-const FISH_CD = 45 * 60 * 1000;
+const FISH_CD = 1 * 60 * 1000;
 const SHARK_BATTLE_START_HP = 12;
 const SHARK_REWARD_MIN = 8000;
 const SHARK_REWARD_MAX = 12000;
@@ -260,7 +260,7 @@ export function buildFishingShopPayload() {
       `Compre uma vara melhor para aumentar suas chances de capturar peixes raros.\n` +
       `Os peixes ficam no seu balde até você decidir vender.\n\n` +
       `**Como funciona**\n` +
-      `\`/pescar\` → uma pescaria a cada 45 minutos\n` +
+      `\`/pescar\` → uma pescaria a cada 1 minuto\n` +
       `\`/pesca inventario\` → veja suas capturas\n` +
       `\`/pesca vender\` → transforme peixes em ${COIN()}`
     ));
@@ -604,7 +604,7 @@ async function handleLegendaryChoice(interaction, choice) {
     return interaction.update(await fishingArtworkPayload(
       `## ${FISH_LEGENDARY()} A carpa lendária escapou!\n` +
       `Você escolheu uma posição errada e perdeu esta oportunidade. A bênção da foca foi consumida.\n\n` +
-      `${FISH_ROD()} Você poderá pescar novamente em **45 minutos**.`,
+       `${FISH_ROD()} Você poderá pescar novamente em **1 minuto**.`,
       'legendary',
       [],
       { large: true },
@@ -624,7 +624,7 @@ async function handleLegendaryChoice(interaction, choice) {
     `## ${FISH_LEGENDARY()} Carpa lendária fisgada!\n` +
     `Você venceu a tentativa especial e guardou a captura no seu inventário.\n\n` +
     `${COIN()} Valor de venda: **2.400** ${COIN()}\n` +
-    `${FISH_ROD()} Próxima pescaria em **45 minutos**.`,
+       `${FISH_ROD()} Próxima pescaria em **1 minuto**.`,
     'legendary',
     [],
     { large: true },
@@ -688,7 +688,7 @@ async function executeFishing(userId, guildId, isAdmin, reply) {
         `## ${FISH_SEAL()} Uma foca apareceu!\n` +
         `Ela encontrou você no mar e avisou que um **peixe lendário virá na sua próxima pescaria**.\n\n` +
         `${rodEmoji(rod)} Vara usada: **${rod.name}**\n` +
-        `${FISH_ROD()} A bênção da foca está guardada. Próxima pescaria em **45 minutos**.`,
+        `${FISH_ROD()} A bênção da foca está guardada. Próxima pescaria em **1 minuto**.`,
         'seal',
       ));
     }
@@ -714,7 +714,7 @@ async function executeFishing(userId, guildId, isAdmin, reply) {
       `${rodEmoji(rod)} Vara usada: **${rod.name}**\n` +
       sharkCoins + `\n\n` +
       `Use **/pesca vender** quando quiser trocar seus peixes por coins.\n` +
-      `${FISH_ROD()} Próxima pescaria em **45 minutos**.`,
+       `${FISH_ROD()} Próxima pescaria em **1 minuto**.`,
       fish.artwork,
     ));
   } catch (error) {
@@ -733,7 +733,7 @@ async function executeFishing(userId, guildId, isAdmin, reply) {
 const cmdPescar = {
   data: new SlashCommandBuilder()
     .setName('pescar')
-    .setDescription('Pesque peixes para vender por coins (45 min cooldown)'),
+    .setDescription('Pesque peixes para vender por coins (1 min cooldown)'),
   name: 'pescar',
   aliases: ['pesca', 'pescaria', 'fishing'],
 

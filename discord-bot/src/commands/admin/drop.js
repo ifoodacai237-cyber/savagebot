@@ -10,11 +10,12 @@ import prisma from '../../database/client.js';
 import { BANNERS, buildBannerUrl } from '../../utils/shopData.js';
 import { setPending } from '../../utils/dropSessions.js';
 
-export default {
-  data: new SlashCommandBuilder()
-    .setName('drop')
-    .setDescription('🎁 Lança um drop no canal — a primeira pessoa a clicar ganha o prêmio')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+const DROP_ROLE_OPTIONS = ['cargo1', 'cargo2', 'cargo3', 'cargo4', 'cargo5'];
+
+function addLaunchOptions(subcommand) {
+  return subcommand
+    .setName('lancar')
+    .setDescription('Lança um drop no canal')
     .addStringOption(opt =>
       opt.setName('tipo')
         .setDescription('O que vai cair no drop')
@@ -46,10 +47,125 @@ export default {
     .addStringOption(opt =>
       opt.setName('imagem')
         .setDescription('URL de imagem para exibir no drop'),
+    );
+}
+
+function configuredDropRoleIds(config) {
+  return String(config?.dropAllowedRoles ?? '')
+    .split(',')
+    .map(id => id.trim())
+    .filter(Boolean);
+}
+
+async function canLaunchDrop(interaction) {
+  const config = await prisma.guildConfig.findUnique({
+    where: { guildId: interaction.guildId },
+    select: { dropAllowedRoles: true },
+  });
+  const allowedRoleIds = configuredDropRoleIds(config);
+  const isAdministrator = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+  const hasManageGuild = interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild);
+
+  if (!allowedRoleIds.length) {
+    if (!hasManageGuild) {
+      await interaction.reply({
+        content: '❌ Apenas membros com **Gerenciar Servidor** podem lançar drops. Um administrador pode liberar cargos em `/drop cargos`.',
+        ephemeral: true,
+      });
+      return false;
+    }
+    return true;
+  }
+
+  const hasAllowedRole = allowedRoleIds.some(roleId => interaction.member?.roles?.cache?.has(roleId));
+  if (!isAdministrator && !hasAllowedRole) {
+    await interaction.reply({
+      content: '❌ Você não possui um dos cargos autorizados para lançar drops.',
+      ephemeral: true,
+    });
+    return false;
+  }
+  return true;
+}
+
+async function configureDropRoles(interaction) {
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+    return interaction.reply({
+      content: '❌ Você precisa da permissão **Gerenciar Servidor** para configurar os cargos do drop.',
+      ephemeral: true,
+    });
+  }
+
+  const clear = interaction.options.getBoolean('limpar') ?? false;
+  const roles = DROP_ROLE_OPTIONS
+    .map(optionName => interaction.options.getRole(optionName))
+    .filter(Boolean);
+
+  if (clear) {
+    await prisma.guildConfig.upsert({
+      where: { guildId: interaction.guildId },
+      create: { guildId: interaction.guildId, dropAllowedRoles: null },
+      update: { dropAllowedRoles: null },
+    });
+    return interaction.reply({
+      content: '✅ Restrição de cargos removida. Agora apenas quem tem **Gerenciar Servidor** pode lançar drops.',
+      ephemeral: true,
+    });
+  }
+
+  if (!roles.length) {
+    return interaction.reply({
+      content: '❌ Selecione pelo menos um cargo ou use `limpar: Sim` para remover a restrição.',
+      ephemeral: true,
+    });
+  }
+
+  const invalidRole = roles.find(role => role.managed || role.id === interaction.guildId);
+  if (invalidRole) {
+    return interaction.reply({
+      content: '❌ Cargos integrados do Discord e o cargo @everyone não podem ser autorizados.',
+      ephemeral: true,
+    });
+  }
+
+  const roleIds = [...new Set(roles.map(role => role.id))];
+  await prisma.guildConfig.upsert({
+    where: { guildId: interaction.guildId },
+    create: { guildId: interaction.guildId, dropAllowedRoles: roleIds.join(',') },
+    update: { dropAllowedRoles: roleIds.join(',') },
+  });
+
+  return interaction.reply({
+    content: `✅ Apenas estes cargos poderão lançar drops: ${roleIds.map(roleId => `<@&${roleId}>`).join(', ')}.\nAdministradores continuam autorizados.`,
+    ephemeral: true,
+  });
+}
+
+export default {
+  data: new SlashCommandBuilder()
+    .setName('drop')
+    .setDescription('🎁 Cria drops e configura os cargos autorizados')
+    .addSubcommand(addLaunchOptions)
+    .addSubcommand(sub =>
+      sub
+        .setName('cargos')
+        .setDescription('Escolhe os cargos autorizados a lançar drops')
+        .addRoleOption(opt => opt.setName('cargo1').setDescription('Primeiro cargo autorizado'))
+        .addRoleOption(opt => opt.setName('cargo2').setDescription('Segundo cargo autorizado'))
+        .addRoleOption(opt => opt.setName('cargo3').setDescription('Terceiro cargo autorizado'))
+        .addRoleOption(opt => opt.setName('cargo4').setDescription('Quarto cargo autorizado'))
+        .addRoleOption(opt => opt.setName('cargo5').setDescription('Quinto cargo autorizado'))
+        .addBooleanOption(opt =>
+          opt.setName('limpar').setDescription('Remove a restrição e volta a exigir Gerenciar Servidor'),
+        ),
     ),
   name: 'drop',
 
   async execute(interaction) {
+    const subcommand = interaction.options.getSubcommand();
+    if (subcommand === 'cargos') return configureDropRoles(interaction);
+    if (!(await canLaunchDrop(interaction))) return;
+
     const tipo      = interaction.options.getString('tipo');
     const quantidade = interaction.options.getInteger('quantidade');
     const descricao = interaction.options.getString('descricao');
@@ -188,6 +304,6 @@ export default {
   },
 
   async executePrefix(message) {
-    return message.reply('🎁 Use `/drop` para lançar um drop no canal.');
+    return message.reply('🎁 Use `/drop lancar` para lançar um drop ou `/drop cargos` para configurar os cargos autorizados.');
   },
 };

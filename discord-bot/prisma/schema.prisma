@@ -158,6 +158,7 @@ model GuildConfig {
   botBio       String?
 
   aiChannelId  String?
+  dropAllowedRoles String?
 }
 
 model VipPlan {
