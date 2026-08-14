@@ -29,7 +29,7 @@ const PREFIXES = ['savage ', 's '];
 
 const IMAGE_INTENT_REGEX = /\b(imagem|foto|desenh\w*|ilustra[çc][ãa]o|wallpaper|logo|arte)\b/i;
 
-async function handleAIMention(message, client) {
+async function handleAIMention(message, client, cfg = null) {
   if (!isAIConfigured()) {
     await message.reply('🤖 A IA ainda não está configurada neste bot. Peça a um administrador para configurar a variável GROQ_API_KEY no Railway.').catch(() => {});
     return;
@@ -53,7 +53,13 @@ async function handleAIMention(message, client) {
       const file = new AttachmentBuilder(buffer, { name: 'ia-imagem.png' });
       await message.reply({ content: `🖼️ **Prompt:** ${prompt}`, files: [file] });
     } else {
-      const resposta = await askAI({ guildId: message.guildId, userId: message.author.id, prompt });
+      const resposta = await askAI({
+        guildId: message.guildId,
+        userId: message.author.id,
+        prompt,
+        serverName: message.guild?.name,
+        serverContext: message.guildId ? buildTicketServerContext(message, cfg) : null,
+      });
       const chunks = resposta.match(/[\s\S]{1,1990}/g) ?? [resposta];
       for (const chunk of chunks) {
         await message.reply(chunk);
@@ -131,12 +137,7 @@ async function handleAdminAIMention(message, client) {
   if (!message.member?.permissions.has(PermissionFlagsBits.Administrator)) return false;
 
   const prompt = getMentionPrompt(message, client);
-  if (!prompt) {
-    await message.reply(
-      'Use uma instrução administrativa, por exemplo: `fechar ticket`, `/ticket painel` ou `envie o painel de tickets`.',
-    ).catch(() => {});
-    return true;
-  }
+  if (!prompt) return false;
 
   if (/^(fechar|fecha|encerra|encerrar)\s+(este\s+|o\s+|um\s+)?ticket\b/i.test(prompt)) {
     return closeTicketFromAdmin(message);
@@ -159,8 +160,7 @@ async function handleAdminAIMention(message, client) {
   }
 
   if (!isGroqConfigured()) {
-    await message.reply('A chave Groq não está disponível no Railway para interpretar esse comando.').catch(() => {});
-    return true;
+    return false;
   }
 
   try {
@@ -172,19 +172,14 @@ async function handleAdminAIMention(message, client) {
     });
 
     if (!parsed?.command || !client.prefixCmds.has(parsed.command)) {
-      await message.reply(
-        'Não identifiquei um comando válido. Use o nome do comando, como `/ticket painel`, ou descreva a ação com mais detalhes.',
-      ).catch(() => {});
-      return true;
+      return false;
     }
 
     const command = client.prefixCmds.get(parsed.command);
     await command.executePrefix(message, parsed.args, client, parsed.command);
   } catch (err) {
     console.error('[IA ADMIN]', err?.message ?? err);
-    await message.reply(
-      'Não consegui executar esse comando agora. Verifique o nome e os argumentos e tente novamente.',
-    ).catch(() => {});
+    return false;
   }
   return true;
 }
@@ -333,17 +328,18 @@ export default {
     // ── INSTAGRAM AUTO-POST ──────────────────────────────────────────────────
     if (message.guildId) {
       const cfg = await getGuildCfg(message.guildId);
+      const botMentioned = message.mentions.has(client.user);
 
       // ── CONTROLE ADMINISTRATIVO POR MENÇÃO ─────────────────────────────────
-      // Apenas administradores podem acionar comandos naturais mencionando o bot.
-      if (message.mentions.has(client.user) && await handleAdminAIMention(message, client)) return;
+      // Administradores ainda podem acionar comandos naturais mencionando o bot.
+      if (botMentioned && await handleAdminAIMention(message, client)) return;
 
       // ── ATENDIMENTO AUTOMÁTICO NOS TICKETS ────────────────────────────────
       if (await handleTicketAI(message, cfg)) return;
 
-      // ── IA POR MENÇÃO EM CANAL DEDICADO ─────────────────────────────────────
-      if (cfg?.aiChannelId && message.channelId === cfg.aiChannelId && message.mentions.has(client.user)) {
-        await handleAIMention(message, client);
+      // ── IA POR MENÇÃO EM QUALQUER CANAL ────────────────────────────────────
+      if (botMentioned) {
+        await handleAIMention(message, client, cfg);
         return;
       }
 
@@ -614,6 +610,12 @@ export default {
 
         return;
       }
+    }
+
+    // Menções em mensagens diretas também recebem resposta.
+    if (!message.guildId && message.mentions.has(client.user)) {
+      await handleAIMention(message, client);
+      return;
     }
 
     // ── PREFIX COMMANDS ──────────────────────────────────────────────────────
