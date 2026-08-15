@@ -7,16 +7,19 @@ const IMAGE_FILES = Object.freeze({
   common: 'fish-common.jpg',
   seal: 'seal.jpg',
   shark: 'shark-common.jpg',
-  legendary: 'carp-legendary.jpg',
-  angryShark: 'shark-angry.jpg',
+  legendary: 'carp-legendary.png',
+  angryShark: 'shark-angry.png',
+  piranha: 'piranha-rubra.png',
+  betta: 'betta-fogo.png',
+  marlin: 'marlin-neon.png',
 });
 
 const animalCache = new Map();
 const backgroundPromise = loadImage(path.join(ASSET_DIR, 'background.jpg'));
 
-function isWhite(pixel, threshold = 228) {
+function isWhite(pixel, threshold = 238) {
   const [r, g, b] = pixel;
-  return r >= threshold && g >= threshold && b >= threshold && Math.max(r, g, b) - Math.min(r, g, b) < 30;
+  return r >= threshold && g >= threshold && b >= threshold && Math.max(r, g, b) - Math.min(r, g, b) < 38;
 }
 
 function removeConnectedWhiteBackground(source) {

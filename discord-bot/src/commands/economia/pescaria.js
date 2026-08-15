@@ -32,6 +32,7 @@ const SHARK_REWARD_MAX = 12000;
 const LEGENDARY_ROUNDS = 2;
 const LEGENDARY_BATTLE_MS = 10 * 60 * 1000;
 const LEGENDARY_CHOICES = ['left', 'center', 'right'];
+const fishAbilityClaims = new Map();
 
 function fishEmoji(fish) {
   return fish?.emoji?.() ?? fish?.emoji ?? FISH_COMMON();
@@ -42,9 +43,12 @@ function rodEmoji(rod) {
 }
 
 export const FISH = Object.freeze([
-  { key: 'peixe_comum', name: 'Peixe comum', emoji: FISH_COMMON, value: 80, chance: 70, rarity: 0, artwork: 'common', description: 'O peixe mais comum e fácil de conseguir.' },
-  { key: 'tubarao_comum', name: 'Tubarão comum', emoji: FISH_SHARK, value: 650, chance: 20, rarity: 1, artwork: 'shark', description: 'Um tubarão que vale muitas coins.' },
-  { key: 'carpa_lendaria', name: 'Carpa lendária', emoji: FISH_LEGENDARY, value: 2400, chance: 0, rarity: 0, artwork: 'legendary', description: 'Uma carpa lendária, extremamente valiosa.' },
+  { key: 'peixe_comum', name: 'Peixe comum', emoji: FISH_COMMON, value: 80, chance: 60, rarity: 0, artwork: 'common', description: 'O peixe mais comum e fácil de conseguir.' },
+  { key: 'tubarao_comum', name: 'Tubarão comum', emoji: FISH_SHARK, value: 650, chance: 16, rarity: 1, artwork: 'shark', description: 'Um tubarão que vale muitas coins.' },
+  { key: 'carpa_lendaria', name: 'Carpa Solar lendária', emoji: FISH_LEGENDARY, value: 2400, chance: 1.5, rarity: 2.2, artwork: 'legendary', description: 'Uma carpa dourada que pode aparecer por conta própria — e ainda exige duas escolhas certeiras.' },
+  { key: 'piranha_rubra', name: 'Piranha Rubra', emoji: () => '🐡', value: 560, chance: 7, rarity: 1.2, artwork: 'piranha', ability: 'piranha', description: 'Uma mordida nervosa que transforma respeito em coins.' },
+  { key: 'betta_fogo', name: 'Betta de Fogo', emoji: () => '🐠', value: 420, chance: 6, rarity: 1.1, artwork: 'betta', ability: 'betta', description: 'Dança com as nadadeiras e chama a sorte para perto.' },
+  { key: 'marlin_neon', name: 'Agulhão Neon', emoji: () => '🐟', value: 900, chance: 3.5, rarity: 2, artwork: 'marlin', ability: 'marlin', description: 'Um velocista do oceano que encurta a espera da próxima pescaria.' },
   { key: 'escama_lendaria', name: 'Escama lendária', emoji: FISH_LEGENDARY, value: 0, chance: 0, rarity: 0, sellable: false, description: 'Uma escama obtida ao derrotar o tubarão raivoso.' },
   // Mantém capturas antigas vendáveis e visíveis após a evolução do sistema.
   { key: 'sardinha', name: 'Sardinha', emoji: FISH_COMMON, value: 80, chance: 0, rarity: 0, artwork: 'common', legacy: true, description: 'Captura antiga.' },
@@ -64,6 +68,24 @@ export const RODS = Object.freeze([
 
 const FISH_BY_KEY = new Map(FISH.map(fish => [fish.key, fish]));
 const ROD_BY_KEY = new Map(RODS.map(rod => [rod.key, rod]));
+
+const FISH_ABILITIES = Object.freeze({
+  piranha: {
+    label: 'Domar a mordida',
+    emoji: '🩸',
+    hint: 'A Piranha Rubra ainda está rosnando. Clique no botão para transformar a mordida em uma gorjeta.',
+  },
+  betta: {
+    label: 'Fazer a dança',
+    emoji: '✨',
+    hint: 'O Betta de Fogo está fazendo charme. Clique no botão e ele pode chamar uma maré lendária.',
+  },
+  marlin: {
+    label: 'Pegar carona',
+    emoji: '⚡',
+    hint: 'O Agulhão Neon quer correr com você. Clique no botão para encurtar a espera da próxima pescaria.',
+  },
+});
 
 function v2(text, { ephemeral = false, components = [] } = {}) {
   const container = new ContainerBuilder()
@@ -118,12 +140,13 @@ function chooseOutcome(luck = 0, sealBlessing = false) {
 
   const weighted = [
     ...FISH.filter(fish => fish.chance > 0).map(fish => ({
-      type: 'catch',
+      type: fish.key === 'carpa_lendaria' ? 'legendary' : 'catch',
       fish,
       weight: fish.chance * (1 + fish.rarity * luck),
     })),
     { type: 'seal', artwork: 'seal', weight: 3 * (1 + luck * 0.4) },
-    { type: 'angry_shark', artwork: 'angryShark', weight: 1 * (1 + luck * 0.8) },
+    // Aumenta a aparição do encontro especial sem transformar a pescaria em batalha toda hora.
+    { type: 'angry_shark', artwork: 'angryShark', weight: 2.4 * (1 + luck * 0.8) },
   ];
   const total = weighted.reduce((sum, item) => sum + item.weight, 0);
   let roll = Math.random() * total;
@@ -327,6 +350,20 @@ export function buildFishSellSelectPayload(catches) {
   });
 }
 
+function buildFishAbilityComponents(fish, userId) {
+  const ability = FISH_ABILITIES[fish.ability];
+  if (!ability) return [];
+
+  const token = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const button = new ButtonBuilder()
+    .setCustomId(`fish_ability:${userId}:${fish.key}:${token}`)
+    .setLabel(ability.label)
+    .setEmoji(ability.emoji)
+    .setStyle(ButtonStyle.Primary);
+
+  return [new ActionRowBuilder().addComponents(button)];
+}
+
 async function sellFish(userId, guildId, fishKey = 'all') {
   return prisma.$transaction(async tx => {
     const rows = await tx.fishingCatch.findMany({
@@ -359,6 +396,10 @@ export async function handleFishingInteraction(interaction) {
   const { customId } = interaction;
   const userId = interaction.user.id;
   const guildId = interaction.guildId;
+
+  if (customId.startsWith('fish_ability:')) {
+    return handleFishAbility(interaction);
+  }
 
   if (customId === 'fish_shop') {
     return interaction.reply(buildFishingShopPayload());
@@ -679,6 +720,86 @@ async function handleSharkAttack(interaction) {
   ));
 }
 
+async function handleFishAbility(interaction) {
+  const [, ownerId, fishKey, token] = interaction.customId.split(':');
+  if (interaction.user.id !== ownerId) {
+    return interaction.reply(fishingError('Essa interação pertence a quem fisgou o peixe.'));
+  }
+
+  const fish = FISH_BY_KEY.get(fishKey);
+  const ability = fish ? FISH_ABILITIES[fish.ability] : null;
+  if (!fish || !ability || !token) {
+    return interaction.reply(fishingError('Essa habilidade de pesca não existe mais.'));
+  }
+
+  if (fishAbilityClaims.has(token)) {
+    return interaction.reply(fishingError('Esse peixe já usou sua habilidade nesta pescaria.'));
+  }
+  fishAbilityClaims.set(token, Date.now());
+  setTimeout(() => fishAbilityClaims.delete(token), 15 * 60 * 1000).unref?.();
+
+  try {
+    const result = await prisma.$transaction(async tx => {
+      const profile = await getFishingProfile(ownerId, interaction.guildId, tx);
+      const caught = await tx.fishingCatch.findUnique({
+        where: { userId_guildId_fishKey: { userId: ownerId, guildId: interaction.guildId, fishKey } },
+      });
+      if (!caught?.quantity) return { status: 'missing' };
+
+      if (fish.ability === 'piranha') {
+        const bonus = 180;
+        await tx.economy.upsert({
+          where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
+          create: { userId: ownerId, guildId: interaction.guildId, balance: bonus },
+          update: { balance: { increment: bonus } },
+        });
+        return { status: 'piranha', bonus };
+      }
+
+      if (fish.ability === 'betta') {
+        if (profile.sealBlessing) return { status: 'already_blessed' };
+        await tx.fishingProfile.update({
+          where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
+          data: { sealBlessing: true },
+        });
+        return { status: 'betta' };
+      }
+
+      const nextFishingAt = new Date(Date.now() - Math.floor(FISH_CD * 0.75));
+      await tx.fishingProfile.update({
+        where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
+        data: {
+          lastFishing: profile.lastFishing && profile.lastFishing < nextFishingAt
+            ? profile.lastFishing
+            : nextFishingAt,
+        },
+      });
+      return { status: 'marlin' };
+    });
+
+    if (result.status === 'missing') {
+      return interaction.update(fishingUpdateError('Esse peixe não está mais no seu balde.'));
+    }
+
+    let text;
+    if (result.status === 'piranha') {
+      text = `## 🩸 Mordida domada!\nA **${fish.name}** respeitou sua coragem e deixou uma gorjeta de **+${result.bonus.toLocaleString('pt-BR')}** ${COIN()} na sua carteira.\n\nEla continua no seu balde — hoje vocês fizeram as pazes.`;
+    } else if (result.status === 'already_blessed') {
+      text = '## ✨ O Betta já estava brilhando!\nA próxima pescaria já tinha uma bênção guardada. O peixe fez uma dancinha extra e ficou todo convencido.';
+    } else if (result.status === 'betta') {
+      text = `## ✨ Dança do Betta de Fogo!\nAs nadadeiras do **${fish.name}** chamaram a foca lendária. Sua próxima pescaria terá uma oportunidade garantida de carpa lendária.`;
+    } else {
+      text = `## ⚡ Carona no Agulhão Neon!\nO **${fish.name}** puxou sua linha pela correnteza. A próxima espera foi reduzida para **15 segundos**.`;
+    }
+
+    return interaction.update(await fishingArtworkPayload(text, fish.artwork));
+  } catch (error) {
+    fishAbilityClaims.delete(token);
+    console.error('[PESCA HABILIDADE]', error);
+    return interaction.update(fishingUpdateError('A habilidade escapou junto com a maré. Tente novamente.'));
+  }
+}
+
 async function executeFishing(userId, guildId, isAdmin, reply) {
   try {
     const result = await catchFish(userId, guildId, isAdmin);
@@ -705,6 +826,7 @@ async function executeFishing(userId, guildId, isAdmin, reply) {
     }
 
     const fish = outcome.fish;
+    const ability = FISH_ABILITIES[fish.ability];
     const sharkCoins = result.coinReward
       ? `\n${COIN()} O tubarão trouxe **${result.coinReward.toLocaleString('pt-BR')}** ${COIN()} direto para sua carteira!`
       : `\n${COIN()} Valor de venda: **${fish.value.toLocaleString('pt-BR')}** ${COIN()}`;
@@ -714,8 +836,10 @@ async function executeFishing(userId, guildId, isAdmin, reply) {
       `${rodEmoji(rod)} Vara usada: **${rod.name}**\n` +
       sharkCoins + `\n\n` +
       `Use **/pesca vender** quando quiser trocar seus peixes por coins.\n` +
-       `${FISH_ROD()} Próxima pescaria em **1 minuto**.`,
+       `${FISH_ROD()} Próxima pescaria em **1 minuto**.` +
+       (ability ? `\n\n${ability.hint}` : ''),
       fish.artwork,
+      buildFishAbilityComponents(fish, userId),
     ));
   } catch (error) {
     if (error?.message === 'cooldown') return reply(fishingError(`A maré ainda não virou. Aguarde **${msToHuman(error.remaining)}** para pescar novamente.`));
