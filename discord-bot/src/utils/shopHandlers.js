@@ -1336,7 +1336,12 @@ async function handleCarouselBack(interaction) {
 // ─── 🛒 Comprar ────────────────────────────────────────────────────────────────
 
 async function handleComprar(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  // The payload below uses Components V2. The V2 flag must be present on the
+  // deferred response itself; adding it only in editReply leaves Discord's
+  // "thinking..." response stuck because message flags cannot be changed later.
+  await interaction.deferReply({
+    flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+  });
 
   const [[roles, pets], allBanners] = await Promise.all([
     Promise.all([

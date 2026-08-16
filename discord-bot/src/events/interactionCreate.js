@@ -968,12 +968,12 @@ export default {
             return interaction.reply({ embeds: [embed], ephemeral: true });
           }
 
-          return handleShopInteraction(interaction, client);
+          return await handleShopInteraction(interaction, client);
         }
 
         // ── CARTEIRA: Menu de personalização ─────────────────────────────────
         if (interaction.customId === 'wallet_menu') {
-          return handleShopInteraction(interaction, client);
+          return await handleShopInteraction(interaction, client);
         }
 
         // ── PAINEL CENTRAL: Seleção de módulo ───────────────────────────────
@@ -995,7 +995,7 @@ export default {
           interaction.customId.startsWith('wallet_fundo') ||
           interaction.customId.startsWith('wallet_ring')
         ) {
-          return handleShopInteraction(interaction, client);
+          return await handleShopInteraction(interaction, client);
         }
 
         // ── Carregar preset de Ticket ──────────────────────────────────────
@@ -1226,7 +1226,7 @@ export default {
           customId.startsWith('wallet_fundo') ||
           customId.startsWith('wallet_ring')
         ) {
-          return handleShopInteraction(interaction, client);
+          return await handleShopInteraction(interaction, client);
         }
 
         // ── PAINEL CENTRAL: Navegação ───────────────────────────────────
