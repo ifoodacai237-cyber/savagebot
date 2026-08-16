@@ -523,7 +523,13 @@ export default {
 
       // ── STRING SELECT MENUS ────────────────────────────────────────────────
       if (interaction.isStringSelectMenu()) {
-        if (interaction.customId === 'fish_rod_select' || interaction.customId === 'fish_sell_select') {
+        if (
+          interaction.customId === 'fish_rod_select' ||
+          interaction.customId === 'fish_sell_select' ||
+          interaction.customId === 'fish_spot_select' ||
+          interaction.customId === 'fish_bait_buy_select' ||
+          interaction.customId === 'fish_bait_equip_select'
+        ) {
           return handleFishingInteraction(interaction);
         }
 

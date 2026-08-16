@@ -87,6 +87,206 @@ const FISH_ABILITIES = Object.freeze({
   },
 });
 
+const FISHING_SPOTS = Object.freeze([
+  {
+    key: 'lago',
+    name: 'Lago Tranquilo',
+    emoji: '🌿',
+    description: 'Águas calmas, peixes comuns e uma boa chance de respirar.',
+    fishMultipliers: { peixe_comum: 1.3, betta_fogo: 1.15 },
+    sharkMultiplier: 0.65,
+    treasureMultiplier: 0.9,
+  },
+  {
+    key: 'recife',
+    name: 'Recife Colorido',
+    emoji: '🪸',
+    description: 'Um recife cheio de cores onde peixes habilidosos adoram se esconder.',
+    fishMultipliers: { piranha_rubra: 1.35, betta_fogo: 1.35 },
+    sharkMultiplier: 0.9,
+    treasureMultiplier: 1.1,
+  },
+  {
+    key: 'mar_aberto',
+    name: 'Mar Aberto',
+    emoji: '🌊',
+    description: 'Correntes fortes, peixes velozes e encontros que podem render muito.',
+    fishMultipliers: { tubarao_comum: 1.3, marlin_neon: 1.45 },
+    sharkMultiplier: 1.25,
+    treasureMultiplier: 1.15,
+  },
+  {
+    key: 'abismo',
+    name: 'Abismo Azul',
+    emoji: '🌀',
+    description: 'O lugar mais perigoso: mais raridades, mais tesouros e mais dentes.',
+    fishMultipliers: { carpa_lendaria: 1.35, marlin_neon: 1.2 },
+    sharkMultiplier: 1.45,
+    treasureMultiplier: 1.35,
+  },
+]);
+
+const FISHING_CONDITIONS = Object.freeze([
+  {
+    key: 'maré_dourada',
+    name: 'Maré dourada',
+    emoji: '✨',
+    description: 'A luz refletida na água atrai peixes lendários.',
+    fishMultipliers: { carpa_lendaria: 1.8 },
+    treasureMultiplier: 1.1,
+  },
+  {
+    key: 'maré_vermelha',
+    name: 'Maré vermelha',
+    emoji: '🩸',
+    description: 'As Piranhas Rubras estão agitadas e mordendo tudo.',
+    fishMultipliers: { piranha_rubra: 1.8 },
+    sharkMultiplier: 1.15,
+  },
+  {
+    key: 'tempestade',
+    name: 'Tempestade elétrica',
+    emoji: '⛈️',
+    description: 'O mar ficou perigoso, mas os encontros especiais estão mais próximos.',
+    fishMultipliers: { marlin_neon: 1.5 },
+    sharkMultiplier: 1.35,
+    treasureMultiplier: 1.25,
+  },
+  {
+    key: 'águas_calmas',
+    name: 'Águas calmas',
+    emoji: '💧',
+    description: 'A correnteza descansou e a próxima espera fica mais curta.',
+    fishMultipliers: { peixe_comum: 1.2, betta_fogo: 1.2 },
+    cooldownMultiplier: 0.75,
+  },
+  {
+    key: 'correnteza_neon',
+    name: 'Correnteza neon',
+    emoji: '⚡',
+    description: 'As águas brilham e o Agulhão Neon aparece com mais frequência.',
+    fishMultipliers: { marlin_neon: 2 },
+    treasureMultiplier: 1.15,
+  },
+]);
+
+const FISHING_BAITS = Object.freeze([
+  {
+    key: 'minhoca',
+    name: 'Minhoca fresca',
+    emoji: '🪱',
+    price: 180,
+    pack: 3,
+    description: 'Aumenta a chance de peixe comum e nunca deixa a linha vazia.',
+    fishMultipliers: { peixe_comum: 1.45 },
+  },
+  {
+    key: 'brilhante',
+    name: 'Isca brilhante',
+    emoji: '🌟',
+    price: 700,
+    pack: 2,
+    description: 'Atrai peixes raros e aumenta a chance da Carpa Solar.',
+    fishMultipliers: { carpa_lendaria: 1.8, marlin_neon: 1.25, piranha_rubra: 1.15 },
+  },
+  {
+    key: 'carne',
+    name: 'Carne fresca',
+    emoji: '🥩',
+    price: 900,
+    pack: 2,
+    description: 'O cheiro chama tubarões comuns e o Tubarão raivoso.',
+    fishMultipliers: { tubarao_comum: 1.5 },
+    sharkMultiplier: 1.8,
+  },
+  {
+    key: 'eletrica',
+    name: 'Isca elétrica',
+    emoji: '🔋',
+    price: 1000,
+    pack: 2,
+    description: 'Faz o Agulhão Neon cortar a água na sua direção.',
+    fishMultipliers: { marlin_neon: 2.1 },
+    treasureMultiplier: 1.15,
+  },
+  {
+    key: 'dourada',
+    name: 'Isca dourada',
+    emoji: '🪙',
+    price: 2500,
+    pack: 1,
+    description: 'Muito rara: aumenta bastante a chance de encontrar a Carpa Solar.',
+    fishMultipliers: { carpa_lendaria: 3 },
+  },
+]);
+
+const FISHING_MISSIONS = Object.freeze([
+  { key: 'casts', name: 'Lançador de linha', target: 3, reward: 900, description: 'Faça 3 pescarias.' },
+  { key: 'rare', name: 'Olho de pescador', target: 2, reward: 1400, description: 'Capture 2 peixes raros.' },
+  { key: 'treasure', name: 'Caçador de tesouros', target: 1, reward: 1800, description: 'Encontre 1 tesouro.' },
+  { key: 'ability', name: 'Peixe de estimação', target: 1, reward: 1100, description: 'Use a habilidade de 1 peixe.' },
+]);
+
+const FISHING_TREASURES = Object.freeze([
+  { key: 'bau_coins', name: 'Baú submerso', emoji: '🧰', kind: 'coins', min: 450, max: 950 },
+  { key: 'perola', name: 'Pérola do recife', emoji: '🫧', kind: 'coins', min: 700, max: 1500 },
+  { key: 'isca_brilhante', name: 'Isca brilhante', emoji: '🌟', kind: 'bait', baitKey: 'brilhante', quantity: 1 },
+  { key: 'isca_dourada', name: 'Isca dourada', emoji: '🪙', kind: 'bait', baitKey: 'dourada', quantity: 1 },
+]);
+
+function stableHash(value) {
+  let hash = 0;
+  for (const char of String(value)) hash = ((hash << 5) - hash + char.charCodeAt(0)) | 0;
+  return Math.abs(hash);
+}
+
+function getFishingSpot(key) {
+  return FISHING_SPOTS.find(spot => spot.key === key) ?? FISHING_SPOTS[0];
+}
+
+function getFishingCondition(guildId, now = Date.now()) {
+  const hour = Math.floor(now / (60 * 60 * 1000));
+  return FISHING_CONDITIONS[(stableHash(guildId) + hour) % FISHING_CONDITIONS.length];
+}
+
+function getFishingBait(key) {
+  return FISHING_BAITS.find(bait => bait.key === key) ?? null;
+}
+
+function getFishingMission(profile, userId, guildId, now = Date.now()) {
+  const date = new Date(now).toISOString().slice(0, 10);
+  const key = profile.dailyMissionDate === date && profile.dailyMissionKey
+    ? profile.dailyMissionKey
+    : FISHING_MISSIONS[stableHash(`${userId}:${guildId}:${date}`) % FISHING_MISSIONS.length].key;
+  return {
+    date,
+    mission: FISHING_MISSIONS.find(item => item.key === key) ?? FISHING_MISSIONS[0],
+    progress: profile.dailyMissionDate === date ? profile.dailyMissionProgress : 0,
+    claimed: profile.dailyMissionDate === date ? profile.dailyMissionClaimed : false,
+  };
+}
+
+function missionDelta(missionKey, outcome, event = null) {
+  if (missionKey === 'casts') return 1;
+  if (missionKey === 'rare') {
+    return outcome?.type === 'legendary' || (outcome?.type === 'catch' && (outcome.fish?.rarity ?? 0) >= 1) ? 1 : 0;
+  }
+  if (missionKey === 'treasure') return outcome?.type === 'treasure' ? 1 : 0;
+  if (missionKey === 'ability') return event === 'ability' ? 1 : 0;
+  return 0;
+}
+
+function missionUpdateData(profile, userId, guildId, outcome, now = Date.now(), event = null) {
+  const state = getFishingMission(profile, userId, guildId, now);
+  const progress = Math.min(state.mission.target, state.progress + missionDelta(state.mission.key, outcome, event));
+  return {
+    dailyMissionDate: state.date,
+    dailyMissionKey: state.mission.key,
+    dailyMissionProgress: progress,
+    dailyMissionClaimed: state.claimed,
+  };
+}
+
 function v2(text, { ephemeral = false, components = [] } = {}) {
   const container = new ContainerBuilder()
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
@@ -120,6 +320,10 @@ function msToHuman(ms) {
   return `${minutes}m ${seconds}s`;
 }
 
+function fishingCooldownLabel(condition) {
+  return msToHuman(Math.floor(FISH_CD * (condition?.cooldownMultiplier ?? 1)));
+}
+
 function formatFish(fish, quantity = null) {
   const amount = quantity === null ? '' : ` × **${quantity}**`;
   if (fish.key === 'escama_lendaria') {
@@ -128,7 +332,7 @@ function formatFish(fish, quantity = null) {
   return `${fishEmoji(fish)} **${fish.name}**${amount} — ${fish.value.toLocaleString('pt-BR')} ${COIN()} cada`;
 }
 
-function chooseOutcome(luck = 0, sealBlessing = false) {
+function chooseOutcome(luck = 0, sealBlessing = false, spot = FISHING_SPOTS[0], condition = FISHING_CONDITIONS[0], bait = null) {
   if (sealBlessing) {
     return {
       type: 'legendary',
@@ -142,11 +346,30 @@ function chooseOutcome(luck = 0, sealBlessing = false) {
     ...FISH.filter(fish => fish.chance > 0).map(fish => ({
       type: fish.key === 'carpa_lendaria' ? 'legendary' : 'catch',
       fish,
-      weight: fish.chance * (1 + fish.rarity * luck),
+      weight: fish.chance *
+        (1 + fish.rarity * luck) *
+        (spot.fishMultipliers?.[fish.key] ?? 1) *
+        (condition.fishMultipliers?.[fish.key] ?? 1) *
+        (bait?.fishMultipliers?.[fish.key] ?? 1),
     })),
     { type: 'seal', artwork: 'seal', weight: 3 * (1 + luck * 0.4) },
-    // Aumenta a aparição do encontro especial sem transformar a pescaria em batalha toda hora.
-    { type: 'angry_shark', artwork: 'angryShark', weight: 2.4 * (1 + luck * 0.8) },
+    {
+      type: 'angry_shark',
+      artwork: 'angryShark',
+      weight: 2.4 *
+        (1 + luck * 0.8) *
+        (spot.sharkMultiplier ?? 1) *
+        (condition.sharkMultiplier ?? 1) *
+        (bait?.sharkMultiplier ?? 1),
+    },
+    {
+      type: 'treasure',
+      artwork: 'legendary',
+      weight: 2 *
+        (spot.treasureMultiplier ?? 1) *
+        (condition.treasureMultiplier ?? 1) *
+        (bait?.treasureMultiplier ?? 1),
+    },
   ];
   const total = weighted.reduce((sum, item) => sum + item.weight, 0);
   let roll = Math.random() * total;
@@ -157,10 +380,21 @@ function chooseOutcome(luck = 0, sealBlessing = false) {
   return weighted[0];
 }
 
-async function catchFish(userId, guildId, isAdmin = false) {
+function chooseTreasure() {
+  const treasure = FISHING_TREASURES[Math.floor(Math.random() * FISHING_TREASURES.length)];
+  if (treasure.kind !== 'coins') return treasure;
+  return {
+    ...treasure,
+    amount: Math.floor(treasure.min + Math.random() * (treasure.max - treasure.min + 1)),
+  };
+}
+
+async function catchFish(userId, guildId, isAdmin = false, requestedSpotKey = null) {
   return prisma.$transaction(async tx => {
     const profile = await getFishingProfile(userId, guildId, tx);
     const now = Date.now();
+    const spot = getFishingSpot(requestedSpotKey ?? profile.selectedSpotKey);
+    const condition = getFishingCondition(guildId, now);
     if (profile.sharkBattleHp > 0) {
       const error = new Error('shark_battle');
       throw error;
@@ -181,17 +415,28 @@ async function catchFish(userId, guildId, isAdmin = false) {
       });
     }
     const elapsed = now - (profile.lastFishing?.getTime() ?? 0);
-    if (!isAdmin && elapsed < FISH_CD) {
+    const cooldown = Math.floor(FISH_CD * (condition.cooldownMultiplier ?? 1));
+    if (!isAdmin && elapsed < cooldown) {
       const error = new Error('cooldown');
-      error.remaining = FISH_CD - elapsed;
+      error.remaining = cooldown - elapsed;
       throw error;
     }
 
+    const activeBait = getFishingBait(profile.activeBaitKey);
+    const baitRow = activeBait
+      ? await tx.fishingItem.findUnique({
+        where: { userId_guildId_itemKey: { userId, guildId, itemKey: activeBait.key } },
+      })
+      : null;
+    const bait = activeBait && baitRow?.quantity > 0 ? activeBait : null;
     const rod = ROD_BY_KEY.get(profile.rodKey) ?? RODS[0];
-    const outcome = chooseOutcome(rod.luck, profile.sealBlessing);
+    const outcome = chooseOutcome(rod.luck, profile.sealBlessing, spot, condition, bait);
+    if (outcome.type === 'treasure') outcome.treasure = chooseTreasure();
     const updateData = {
       lastFishing: new Date(now),
       sealBlessing: false,
+      selectedSpotKey: spot.key,
+      ...missionUpdateData(profile, userId, guildId, outcome, now),
     };
 
     if (outcome.type === 'seal') {
@@ -212,6 +457,7 @@ async function catchFish(userId, guildId, isAdmin = false) {
       updateData.legendaryBattleChoice = outcome.choice;
       updateData.legendaryBattleExpiresAt = new Date(now + LEGENDARY_BATTLE_MS);
     }
+    if (bait && baitRow.quantity <= 1) updateData.activeBaitKey = null;
 
     await tx.fishingProfile.update({
       where: { userId_guildId: { userId, guildId } },
@@ -233,10 +479,34 @@ async function catchFish(userId, guildId, isAdmin = false) {
         });
       }
     }
+    if (bait) {
+      await tx.fishingItem.update({
+        where: { userId_guildId_itemKey: { userId, guildId, itemKey: bait.key } },
+        data: { quantity: { decrement: 1 } },
+      });
+    }
+    if (outcome.type === 'treasure') {
+      if (outcome.treasure.kind === 'coins') {
+        await tx.economy.upsert({
+          where: { userId_guildId: { userId, guildId } },
+          create: { userId, guildId, balance: outcome.treasure.amount },
+          update: { balance: { increment: outcome.treasure.amount } },
+        });
+      } else {
+        await tx.fishingItem.upsert({
+          where: { userId_guildId_itemKey: { userId, guildId, itemKey: outcome.treasure.baitKey } },
+          create: { userId, guildId, itemKey: outcome.treasure.baitKey, quantity: outcome.treasure.quantity },
+          update: { quantity: { increment: outcome.treasure.quantity } },
+        });
+      }
+    }
 
     return {
       outcome,
       rod,
+      spot,
+      condition,
+      bait,
       battleReward: updateData.sharkBattleReward ?? 0,
       coinReward: outcome.type === 'catch' && outcome.fish.key === 'tubarao_comum'
         ? outcome.fish.value
@@ -246,15 +516,21 @@ async function catchFish(userId, guildId, isAdmin = false) {
 }
 
 async function getInventory(userId, guildId) {
-  const [profile, catches] = await Promise.all([
+  const [profile, catches, items] = await Promise.all([
     getFishingProfile(userId, guildId),
     prisma.fishingCatch.findMany({ where: { userId, guildId, quantity: { gt: 0 } } }),
+    prisma.fishingItem.findMany({ where: { userId, guildId, quantity: { gt: 0 } } }),
   ]);
-  return { profile, catches };
+  return { profile, catches, items };
 }
 
-function buildInventoryText(userId, guildId, { profile, catches }) {
+function buildInventoryText(userId, guildId, { profile, catches, items = [] }) {
   const rod = ROD_BY_KEY.get(profile.rodKey) ?? RODS[0];
+  const spot = getFishingSpot(profile.selectedSpotKey);
+  const condition = getFishingCondition(guildId);
+  const activeBait = items.some(item => item.itemKey === profile.activeBaitKey)
+    ? getFishingBait(profile.activeBaitKey)
+    : null;
   const lines = catches
     .map(row => {
       const fish = FISH_BY_KEY.get(row.fishKey);
@@ -265,13 +541,151 @@ function buildInventoryText(userId, guildId, { profile, catches }) {
     const fish = FISH_BY_KEY.get(row.fishKey);
     return sum + (fish?.sellable === false ? 0 : fish?.value ?? 0) * row.quantity;
   }, 0);
+  const baitLines = items
+    .map(row => {
+      const bait = getFishingBait(row.itemKey);
+      return bait ? `${bait.emoji} **${bait.name}** × **${row.quantity}**${bait.key === activeBait?.key ? ' — equipada' : ''}` : null;
+    })
+    .filter(Boolean);
+  const mission = getFishingMission(profile, userId, guildId);
 
   return (
     `## ${FISH_ROD()} Inventário de pesca\n` +
     `${rodEmoji(rod)} Vara equipada: **${rod.name}**\n` +
+    `${spot.emoji} Ponto: **${spot.name}**\n` +
+    `${condition.emoji} Maré atual: **${condition.name}**\n` +
+    `${activeBait ? `${activeBait.emoji} Isca equipada: **${activeBait.name}**` : '🪱 Isca equipada: **nenhuma**'}\n` +
     `${FISH_COMMON()} Capturas totais: **${profile.totalCaught.toLocaleString('pt-BR')}**\n\n` +
     (lines.length ? lines.join('\n') : '*Seu balde está vazio. Vá pescar para começar.*') +
+    `\n\n**Iscas no bolso**\n` +
+    (baitLines.length ? baitLines.join('\n') : '*Você ainda não possui iscas. Visite a loja de pesca.*') +
+    `\n\n**Missão de hoje**\n${mission.mission.description} — **${mission.progress}/${mission.mission.target}**` +
     `\n\n${COIN()} Valor estimado para venda: **${estimated.toLocaleString('pt-BR')}** ${COIN()}`
+  );
+}
+
+function buildCollectionText(catches) {
+  const owned = new Map(catches.map(row => [row.fishKey, row.quantity]));
+  const lines = FISH
+    .filter(fish => !fish.legacy || owned.has(fish.key))
+    .map(fish => owned.has(fish.key)
+      ? `✅ ${fishEmoji(fish)} **${fish.name}** × **${owned.get(fish.key)}** — ${fish.description}`
+      : `⬜ ??? **${fish.name}** — ainda não descoberto`);
+  const discovered = FISH.filter(fish => owned.has(fish.key)).length;
+  return (
+    `## 📖 Livro de pesca\n` +
+    `Você descobriu **${discovered}/${FISH.length}** espécies e troféus.\n\n` +
+    lines.join('\n')
+  );
+}
+
+export function buildFishingSpotsPayload(currentSpotKey) {
+  const current = getFishingSpot(currentSpotKey);
+  const options = FISHING_SPOTS.map(spot => {
+    const option = new StringSelectMenuOptionBuilder()
+      .setLabel(`${spot.name}${spot.key === current.key ? ' (atual)' : ''}`)
+      .setValue(`fish_spot:${spot.key}`)
+      .setDescription(spot.description)
+      .setEmoji(spot.emoji);
+    if (spot.key === current.key) option.setDefault(true);
+    return option;
+  });
+  return v2(
+    `## 🧭 Pontos de pesca\n` +
+    `Escolha onde sua próxima linha vai cair. O ponto escolhido fica salvo para as próximas pescarias.`,
+    {
+      ephemeral: true,
+      components: [
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('fish_spot_select')
+            .setPlaceholder('Escolha um ponto de pesca')
+            .addOptions(options),
+        ),
+      ],
+    },
+  );
+}
+
+export function buildFishingBaitShopPayload() {
+  const options = FISHING_BAITS.map(bait => new StringSelectMenuOptionBuilder()
+    .setLabel(`${bait.name} — pacote com ${bait.pack}`)
+    .setValue(`fish_buybait:${bait.key}`)
+    .setDescription(`${bait.price.toLocaleString('pt-BR')} coins · ${bait.description}`)
+    .setEmoji(bait.emoji));
+  return v2(
+    `## 🪱 Loja de iscas\n` +
+    `Cada pescaria consome uma unidade da isca equipada. Sem isca, você continua pescando normalmente.\n\n` +
+    FISHING_BAITS.map(bait => `${bait.emoji} **${bait.name}** — ${bait.price.toLocaleString('pt-BR')} coins`).join('\n'),
+    {
+      ephemeral: true,
+      components: [
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('fish_bait_buy_select')
+            .setPlaceholder('Escolha um pacote de isca')
+            .addOptions(options),
+        ),
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('fish_bait_equip')
+            .setLabel('Equipar uma isca que já tenho')
+            .setEmoji('🎣')
+            .setStyle(ButtonStyle.Secondary),
+        ),
+      ],
+    },
+  );
+}
+
+export function buildFishingBaitEquipPayload(items, activeBaitKey = null) {
+  const options = items
+    .map(row => {
+      const bait = getFishingBait(row.itemKey);
+      if (!bait) return null;
+      const option = new StringSelectMenuOptionBuilder()
+        .setLabel(`${bait.name} × ${row.quantity}`)
+        .setValue(`fish_equipbait:${bait.key}`)
+        .setDescription(bait.description)
+        .setEmoji(bait.emoji);
+      if (bait.key === activeBaitKey) option.setDefault(true);
+      return option;
+    })
+    .filter(Boolean);
+  options.push(new StringSelectMenuOptionBuilder()
+    .setLabel('Pescar sem isca')
+    .setValue('fish_equipbait:none')
+    .setDescription('Não consome itens e usa as chances normais.')
+    .setEmoji('🎣'));
+  return v2('## 🪱 Equipar isca\nEscolha a isca que será consumida nas próximas pescarias.', {
+    ephemeral: true,
+    components: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('fish_bait_equip_select')
+          .setPlaceholder('Escolha sua isca ativa')
+          .addOptions(options),
+      ),
+    ],
+  });
+}
+
+function buildDailyMissionPayload(profile, userId, guildId) {
+  const state = getFishingMission(profile, userId, guildId);
+  const completed = state.progress >= state.mission.target;
+  const claimButton = new ButtonBuilder()
+    .setCustomId('fish_mission_claim')
+    .setLabel(state.claimed ? 'Recompensa resgatada' : 'Resgatar recompensa')
+    .setEmoji('🎁')
+    .setStyle(ButtonStyle.Success)
+    .setDisabled(!completed || state.claimed);
+  return v2(
+    `## 🎯 Missão de pesca\n` +
+    `**${state.mission.name}**\n` +
+    `${state.mission.description}\n\n` +
+    `Progresso: **${state.progress}/${state.mission.target}**\n` +
+    `Recompensa: **${state.mission.reward.toLocaleString('pt-BR')}** ${COIN()}`,
+    { ephemeral: true, components: [new ActionRowBuilder().addComponents(claimButton)] },
   );
 }
 
@@ -285,15 +699,26 @@ export function buildFishingShopPayload() {
       `**Como funciona**\n` +
       `\`/pescar\` → uma pescaria a cada 1 minuto\n` +
       `\`/pesca inventario\` → veja suas capturas\n` +
-      `\`/pesca vender\` → transforme peixes em ${COIN()}`
+      `\`/pesca vender\` → transforme peixes em ${COIN()}\n` +
+      `\`/pesca iscas\` → compre e equipe iscas\n` +
+      `\`/pesca pontos\` → escolha seu ponto de pesca\n` +
+      `\`/pesca colecao\` → complete o livro de espécies\n` +
+      `\`/pesca missoes\` → resgate sua missão diária`
     ));
 
   const buttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('fish_buy').setLabel('Comprar vara').setEmoji(FISH_ROD()).setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('fish_bait_shop').setLabel('Comprar iscas').setEmoji('🪱').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('fish_spots').setLabel('Pontos de pesca').setEmoji('🧭').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('fish_collection').setLabel('Livro de pesca').setEmoji('📖').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('fish_missions').setLabel('Missão diária').setEmoji('🎯').setStyle(ButtonStyle.Success),
+  );
+  const secondaryButtons = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('fish_sell').setLabel('Vender peixes').setEmoji(FISH_COMMON()).setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId('fish_inventory').setLabel('Meu inventário').setEmoji(FISH_COMMON()).setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('fish_bait_equip').setLabel('Equipar isca').setEmoji('🪱').setStyle(ButtonStyle.Secondary),
   );
-  return { components: [container, buttons], flags: MessageFlags.IsComponentsV2 };
+  return { components: [container, buttons, secondaryButtons], flags: MessageFlags.IsComponentsV2 };
 }
 
 export function buildRodSelectPayload(currentRodKey) {
@@ -303,7 +728,7 @@ export function buildRodSelectPayload(currentRodKey) {
       const owned = rod.key === currentRodKey;
       const option = new StringSelectMenuOptionBuilder()
         .setLabel(`${rod.name}${owned ? ' (equipada)' : ''}`)
-        .setValue(`buyrod:${rod.key}`)
+        .setValue(`fish_buyrod:${rod.key}`)
         .setDescription(owned ? 'Você já possui esta vara.' : `${rod.price.toLocaleString('pt-BR')} coins · ${rod.description}`)
         .setEmoji(rodEmoji(rod));
       if (owned) option.setDefault(true);
@@ -326,7 +751,7 @@ export function buildFishSellSelectPayload(catches) {
       if (!fish || fish.sellable === false) return null;
       return new StringSelectMenuOptionBuilder()
         .setLabel(`${fish.name} × ${row.quantity}`)
-        .setValue(`sellfish:${fish.key}`)
+        .setValue(`fish_sellfish:${fish.key}`)
         .setDescription(`Vender tudo por ${(fish.value * row.quantity).toLocaleString('pt-BR')} coins`)
         .setEmoji(fishEmoji(fish));
     })
@@ -335,7 +760,7 @@ export function buildFishSellSelectPayload(catches) {
     options.push(
       new StringSelectMenuOptionBuilder()
         .setLabel('Vender tudo')
-        .setValue('sellfish:all')
+        .setValue('fish_sellfish:all')
         .setDescription('Vende todos os peixes vendáveis do seu balde'),
     );
   }
@@ -392,6 +817,35 @@ async function sellFish(userId, guildId, fishKey = 'all') {
   });
 }
 
+async function claimFishingMission(userId, guildId) {
+  return prisma.$transaction(async tx => {
+    const profile = await getFishingProfile(userId, guildId, tx);
+    const state = getFishingMission(profile, userId, guildId);
+    if (state.claimed) return { status: 'claimed', mission: state.mission };
+    if (state.progress < state.mission.target) {
+      return { status: 'incomplete', mission: state.mission, progress: state.progress };
+    }
+    const claim = await tx.fishingProfile.updateMany({
+      where: {
+        userId,
+        guildId,
+        dailyMissionDate: state.date,
+        dailyMissionKey: state.mission.key,
+        dailyMissionProgress: { gte: state.mission.target },
+        dailyMissionClaimed: false,
+      },
+      data: { dailyMissionClaimed: true },
+    });
+    if (!claim.count) return { status: 'claimed', mission: state.mission };
+    await tx.economy.upsert({
+      where: { userId_guildId: { userId, guildId } },
+      create: { userId, guildId, balance: state.mission.reward },
+      update: { balance: { increment: state.mission.reward } },
+    });
+    return { status: 'claimed', mission: state.mission };
+  });
+}
+
 export async function handleFishingInteraction(interaction) {
   const { customId } = interaction;
   const userId = interaction.user.id;
@@ -408,6 +862,44 @@ export async function handleFishingInteraction(interaction) {
   if (customId === 'fish_inventory') {
     const inventory = await getInventory(userId, guildId);
     return interaction.reply(v2(buildInventoryText(userId, guildId, inventory), { ephemeral: true }));
+  }
+
+  if (customId === 'fish_collection') {
+    const catches = await prisma.fishingCatch.findMany({ where: { userId, guildId, quantity: { gt: 0 } } });
+    return interaction.reply(v2(buildCollectionText(catches), { ephemeral: true }));
+  }
+
+  if (customId === 'fish_missions') {
+    const profile = await getFishingProfile(userId, guildId);
+    return interaction.reply(buildDailyMissionPayload(profile, userId, guildId));
+  }
+
+  if (customId === 'fish_mission_claim') {
+    const result = await claimFishingMission(userId, guildId);
+    if (result.status === 'incomplete') {
+      return interaction.update(fishingUpdateError(`Sua missão ainda está em **${result.progress}/${result.mission.target}**.`));
+    }
+    if (result.status === 'claimed') {
+      return interaction.update(v2(
+        `## 🎁 Recompensa resgatada!\n` +
+        `Você recebeu **${result.mission.reward.toLocaleString('pt-BR')}** ${COIN()} pela missão **${result.mission.name}**.`,
+        { ephemeral: true },
+      ));
+    }
+  }
+
+  if (customId === 'fish_bait_shop') {
+    return interaction.reply(buildFishingBaitShopPayload());
+  }
+
+  if (customId === 'fish_bait_equip') {
+    const { profile, items } = await getInventory(userId, guildId);
+    return interaction.reply(buildFishingBaitEquipPayload(items, profile.activeBaitKey));
+  }
+
+  if (customId === 'fish_spots') {
+    const profile = await getFishingProfile(userId, guildId);
+    return interaction.reply(buildFishingSpotsPayload(profile.selectedSpotKey));
   }
 
   if (customId === 'fish_buy') {
@@ -431,10 +923,79 @@ export async function handleFishingInteraction(interaction) {
     return handleLegendaryChoice(interaction, customId.split(':')[1]);
   }
 
+  if (customId === 'fish_spot_select') {
+    const spotKey = interaction.values[0].replace('fish_spot:', '');
+    const spot = FISHING_SPOTS.find(item => item.key === spotKey);
+    if (!spot) return interaction.update(fishingUpdateError('Esse ponto de pesca não existe.'));
+    await prisma.fishingProfile.upsert({
+      where: { userId_guildId: { userId, guildId } },
+      create: { userId, guildId, selectedSpotKey: spot.key },
+      update: { selectedSpotKey: spot.key },
+    });
+    return interaction.update(v2(
+      `## ${spot.emoji} Ponto escolhido!\nSua próxima pescaria será no **${spot.name}**.\n\n${spot.description}`,
+      { ephemeral: true },
+    ));
+  }
+
+  if (customId === 'fish_bait_buy_select') {
+    const baitKey = interaction.values[0].replace('fish_buybait:', '');
+    const bait = getFishingBait(baitKey);
+    if (!bait) return interaction.update(fishingUpdateError('Essa isca não existe.'));
+    const result = await prisma.$transaction(async tx => {
+      const economy = await tx.economy.upsert({
+        where: { userId_guildId: { userId, guildId } },
+        create: { userId, guildId },
+        update: {},
+      });
+      if (economy.balance < bait.price) return { status: 'funds', balance: economy.balance };
+      await tx.economy.update({
+        where: { userId_guildId: { userId, guildId } },
+        data: { balance: { decrement: bait.price } },
+      });
+      await tx.fishingItem.upsert({
+        where: { userId_guildId_itemKey: { userId, guildId, itemKey: bait.key } },
+        create: { userId, guildId, itemKey: bait.key, quantity: bait.pack },
+        update: { quantity: { increment: bait.pack } },
+      });
+      return { status: 'bought' };
+    });
+    if (result.status === 'funds') {
+      return interaction.update(fishingUpdateError(`Saldo insuficiente. Você tem **${result.balance.toLocaleString('pt-BR')}** ${COIN()}.`));
+    }
+    return interaction.update(v2(
+      `## ${bait.emoji} Isca comprada!\nVocê recebeu **${bait.pack}x ${bait.name}**.\n\n${bait.description}\n\nUse **Equipar isca** para ativá-la.`,
+      { ephemeral: true },
+    ));
+  }
+
+  if (customId === 'fish_bait_equip_select') {
+    const baitKey = interaction.values[0].replace('fish_equipbait:', '');
+    if (baitKey !== 'none') {
+      const bait = getFishingBait(baitKey);
+      const item = await prisma.fishingItem.findUnique({
+        where: { userId_guildId_itemKey: { userId, guildId, itemKey: baitKey } },
+      });
+      if (!bait || !item?.quantity) return interaction.update(fishingUpdateError('Você não possui essa isca.'));
+      await prisma.fishingProfile.upsert({
+        where: { userId_guildId: { userId, guildId } },
+        create: { userId, guildId, activeBaitKey: baitKey },
+        update: { activeBaitKey: baitKey },
+      });
+      return interaction.update(v2(`## ${bait.emoji} Isca equipada!\nA próxima pescaria consumirá uma unidade de **${bait.name}**.`, { ephemeral: true }));
+    }
+    await prisma.fishingProfile.upsert({
+      where: { userId_guildId: { userId, guildId } },
+      create: { userId, guildId },
+      update: { activeBaitKey: null },
+    });
+    return interaction.update(v2('## 🎣 Isca removida!\nVocê voltará a pescar usando as chances normais.', { ephemeral: true }));
+  }
+
   if (customId === 'fish_rod_select' || customId === 'fish_sell_select') {
     const value = interaction.values[0];
     if (customId === 'fish_rod_select') {
-      const rodKey = value.replace('buyrod:', '');
+      const rodKey = value.replace('fish_buyrod:', '').replace('buyrod:', '');
       const rod = ROD_BY_KEY.get(rodKey);
       if (!rod) return interaction.update(fishingUpdateError('Essa vara não existe.'));
 
@@ -466,7 +1027,7 @@ export async function handleFishingInteraction(interaction) {
     return interaction.update(v2(`## ${rodEmoji(rod)} Vara comprada\n${rodEmoji(rod)} Você equipou a **${rod.name}**!\n\n${rod.description}`, { ephemeral: true }));
     }
 
-    const fishKey = value.replace('sellfish:', '');
+    const fishKey = value.replace('fish_sellfish:', '').replace('sellfish:', '');
     const result = await sellFish(userId, guildId, fishKey);
     if (!result.count) return interaction.update(fishingUpdateError('Você não possui esses peixes para vender.'));
     return interaction.update(v2(
@@ -753,6 +1314,10 @@ async function handleFishAbility(interaction) {
           create: { userId: ownerId, guildId: interaction.guildId, balance: bonus },
           update: { balance: { increment: bonus } },
         });
+        await tx.fishingProfile.update({
+          where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
+          data: missionUpdateData(profile, ownerId, interaction.guildId, null, Date.now(), 'ability'),
+        });
         return { status: 'piranha', bonus };
       }
 
@@ -760,7 +1325,10 @@ async function handleFishAbility(interaction) {
         if (profile.sealBlessing) return { status: 'already_blessed' };
         await tx.fishingProfile.update({
           where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
-          data: { sealBlessing: true },
+          data: {
+            sealBlessing: true,
+            ...missionUpdateData(profile, ownerId, interaction.guildId, null, Date.now(), 'ability'),
+          },
         });
         return { status: 'betta' };
       }
@@ -772,6 +1340,7 @@ async function handleFishAbility(interaction) {
           lastFishing: profile.lastFishing && profile.lastFishing < nextFishingAt
             ? profile.lastFishing
             : nextFishingAt,
+          ...missionUpdateData(profile, ownerId, interaction.guildId, null, Date.now(), 'ability'),
         },
       });
       return { status: 'marlin' };
@@ -800,29 +1369,48 @@ async function handleFishAbility(interaction) {
   }
 }
 
-async function executeFishing(userId, guildId, isAdmin, reply) {
+async function executeFishing(userId, guildId, isAdmin, reply, requestedSpotKey = null) {
   try {
-    const result = await catchFish(userId, guildId, isAdmin);
-    const { outcome, rod } = result;
+    const result = await catchFish(userId, guildId, isAdmin, requestedSpotKey);
+    const { outcome, rod, spot, condition, bait } = result;
+    const contextText =
+      `${spot.emoji} Ponto: **${spot.name}** · ${condition.emoji} **${condition.name}**\n` +
+      `${bait ? `${bait.emoji} Isca usada: **${bait.name}**` : '🎣 Sem isca equipada'}`;
     if (outcome.type === 'seal') {
       return reply(await fishingArtworkPayload(
         `## ${FISH_SEAL()} Uma foca apareceu!\n` +
         `Ela encontrou você no mar e avisou que um **peixe lendário virá na sua próxima pescaria**.\n\n` +
         `${rodEmoji(rod)} Vara usada: **${rod.name}**\n` +
-        `${FISH_ROD()} A bênção da foca está guardada. Próxima pescaria em **1 minuto**.`,
+        `${contextText}\n` +
+        `${FISH_ROD()} A bênção da foca está guardada. Próxima pescaria em **${fishingCooldownLabel(condition)}**.`,
         'seal',
       ));
     }
     if (outcome.type === 'legendary') {
       const battle = legendaryBattlePayload(1);
-      return reply(await fishingArtworkPayload(battle.text, battle.artwork, battle.components, { large: true }));
+      return reply(await fishingArtworkPayload(`${battle.text}\n\n${contextText}`, battle.artwork, battle.components, { large: true }));
     }
     if (outcome.type === 'angry_shark') {
       const battle = sharkBattlePayload({
         hp: SHARK_BATTLE_START_HP,
         reward: result.battleReward,
       });
-      return reply(await fishingArtworkPayload(battle.text, battle.artwork, battle.components));
+      return reply(await fishingArtworkPayload(`${battle.text}\n\n${contextText}`, battle.artwork, battle.components));
+    }
+    if (outcome.type === 'treasure') {
+      const treasure = outcome.treasure;
+      const rewardText = treasure.kind === 'coins'
+        ? `Você encontrou **${treasure.amount.toLocaleString('pt-BR')}** ${COIN()}`
+        : `Você encontrou **${treasure.quantity}x ${getFishingBait(treasure.baitKey)?.name ?? treasure.name}**`;
+      return reply(await fishingArtworkPayload(
+        `## ${treasure.emoji} Tesouro encontrado!\n` +
+        `A linha puxou algo que não era peixe: **${treasure.name}**.\n\n` +
+        `${rewardText}.\n${contextText}\n\n` +
+        `A maré muda em **1 hora**. Volte para descobrir o próximo evento.`,
+        'legendary',
+        [],
+        { large: true },
+      ));
     }
 
     const fish = outcome.fish;
@@ -834,9 +1422,10 @@ async function executeFishing(userId, guildId, isAdmin, reply) {
       `## ${FISH_ROD()} Pescaria concluída!\n` +
       `${fishEmoji(fish)} Você pescou um **${fish.name}**!\n` +
       `${rodEmoji(rod)} Vara usada: **${rod.name}**\n` +
+      `${contextText}\n` +
       sharkCoins + `\n\n` +
       `Use **/pesca vender** quando quiser trocar seus peixes por coins.\n` +
-       `${FISH_ROD()} Próxima pescaria em **1 minuto**.` +
+       `${FISH_ROD()} Próxima pescaria em **${fishingCooldownLabel(condition)}**.` +
        (ability ? `\n\n${ability.hint}` : ''),
       fish.artwork,
       buildFishAbilityComponents(fish, userId),
@@ -857,18 +1446,24 @@ async function executeFishing(userId, guildId, isAdmin, reply) {
 const cmdPescar = {
   data: new SlashCommandBuilder()
     .setName('pescar')
-    .setDescription('Pesque peixes para vender por coins (1 min cooldown)'),
+    .setDescription('Pesque peixes para vender por coins (1 min cooldown)')
+    .addStringOption(option => option
+      .setName('ponto')
+      .setDescription('Escolha onde jogar a linha')
+      .setRequired(false)
+      .addChoices(...FISHING_SPOTS.map(spot => ({ name: spot.name, value: spot.key })))),
   name: 'pescar',
   aliases: ['pesca', 'pescaria', 'fishing'],
 
   async execute(interaction) {
     const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ?? false;
-    return executeFishing(interaction.user.id, interaction.guildId, isAdmin, payload => interaction.reply(payload));
+    const spotKey = interaction.options.getString('ponto');
+    return executeFishing(interaction.user.id, interaction.guildId, isAdmin, payload => interaction.reply(payload), spotKey);
   },
 
-  async executePrefix(message) {
+  async executePrefix(message, args) {
     const isAdmin = message.member?.permissions?.has(PermissionFlagsBits.Administrator) ?? false;
-    return executeFishing(message.author.id, message.guildId, isAdmin, payload => message.reply(payload));
+    return executeFishing(message.author.id, message.guildId, isAdmin, payload => message.reply(payload), args[0]?.toLowerCase());
   },
 };
 
@@ -878,7 +1473,11 @@ const cmdPesca = {
     .setDescription('Loja e inventário do sistema de pesca')
     .addSubcommand(s => s.setName('loja').setDescription('Abre a loja de varas'))
     .addSubcommand(s => s.setName('inventario').setDescription('Veja seus peixes e sua vara'))
-    .addSubcommand(s => s.setName('vender').setDescription('Venda seus peixes por coins')),
+    .addSubcommand(s => s.setName('vender').setDescription('Venda seus peixes por coins'))
+    .addSubcommand(s => s.setName('iscas').setDescription('Compre e equipe iscas'))
+    .addSubcommand(s => s.setName('pontos').setDescription('Escolha seu ponto de pesca'))
+    .addSubcommand(s => s.setName('colecao').setDescription('Veja seu livro de espécies'))
+    .addSubcommand(s => s.setName('missoes').setDescription('Veja e resgate sua missão diária')),
   name: 'pesca',
   aliases: ['lojapesca', 'loja-pesca'],
 
@@ -888,6 +1487,21 @@ const cmdPesca = {
     if (sub === 'inventario') {
       const inventory = await getInventory(interaction.user.id, interaction.guildId);
       return interaction.reply(v2(buildInventoryText(interaction.user.id, interaction.guildId, inventory), { ephemeral: true }));
+    }
+    if (sub === 'iscas') return interaction.reply(buildFishingBaitShopPayload());
+    if (sub === 'pontos') {
+      const profile = await getFishingProfile(interaction.user.id, interaction.guildId);
+      return interaction.reply(buildFishingSpotsPayload(profile.selectedSpotKey));
+    }
+    if (sub === 'colecao') {
+      const catches = await prisma.fishingCatch.findMany({
+        where: { userId: interaction.user.id, guildId: interaction.guildId, quantity: { gt: 0 } },
+      });
+      return interaction.reply(v2(buildCollectionText(catches), { ephemeral: true }));
+    }
+    if (sub === 'missoes') {
+      const profile = await getFishingProfile(interaction.user.id, interaction.guildId);
+      return interaction.reply(buildDailyMissionPayload(profile, interaction.user.id, interaction.guildId));
     }
     const { catches } = await getInventory(interaction.user.id, interaction.guildId);
     if (!catches.length) return interaction.reply(fishingError('Seu balde está vazio. Pesque algo antes de vender.'));
@@ -904,6 +1518,21 @@ const cmdPesca = {
     if (sub === 'inventario' || sub === 'inventário' || sub === 'inv') {
       const inventory = await getInventory(message.author.id, message.guildId);
       return message.reply(v2(buildInventoryText(message.author.id, message.guildId, inventory)));
+    }
+    if (sub === 'iscas' || sub === 'isca') return message.reply(buildFishingBaitShopPayload());
+    if (sub === 'pontos' || sub === 'ponto') {
+      const profile = await getFishingProfile(message.author.id, message.guildId);
+      return message.reply(buildFishingSpotsPayload(profile.selectedSpotKey));
+    }
+    if (sub === 'colecao' || sub === 'coleção' || sub === 'livro') {
+      const catches = await prisma.fishingCatch.findMany({
+        where: { userId: message.author.id, guildId: message.guildId, quantity: { gt: 0 } },
+      });
+      return message.reply(v2(buildCollectionText(catches)));
+    }
+    if (sub === 'missoes' || sub === 'missão' || sub === 'missao') {
+      const profile = await getFishingProfile(message.author.id, message.guildId);
+      return message.reply(buildDailyMissionPayload(profile, message.author.id, message.guildId));
     }
     return message.reply(buildFishingShopPayload());
   },

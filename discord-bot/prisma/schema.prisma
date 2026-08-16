@@ -210,6 +210,8 @@ model FishingProfile {
   userId           String
   guildId          String
   rodKey           String   @default("bambu")
+  activeBaitKey    String?
+  selectedSpotKey  String   @default("lago")
   lastFishing      DateTime?
   totalCaught      Int      @default(0)
   sealBlessing     Boolean  @default(false)
@@ -219,6 +221,10 @@ model FishingProfile {
   legendaryBattleRound       Int      @default(0)
   legendaryBattleChoice      String?
   legendaryBattleExpiresAt   DateTime?
+  dailyMissionDate     String?
+  dailyMissionKey      String?
+  dailyMissionProgress Int      @default(0)
+  dailyMissionClaimed  Boolean  @default(false)
 
   @@unique([userId, guildId])
 }
@@ -231,6 +237,17 @@ model FishingCatch {
   quantity Int    @default(0)
 
   @@unique([userId, guildId, fishKey])
+  @@index([userId, guildId])
+}
+
+model FishingItem {
+  id       String @id @default(cuid())
+  userId   String
+  guildId  String
+  itemKey  String
+  quantity Int    @default(0)
+
+  @@unique([userId, guildId, itemKey])
   @@index([userId, guildId])
 }
 

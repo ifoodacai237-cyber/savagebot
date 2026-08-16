@@ -233,7 +233,7 @@ function buildTicketServerContext(message, cfg) {
     'Ajuda: use `/ajuda` para abrir a central de comandos. Comandos de texto usam os prefixos `savage ` ou `s `.',
     'Economia: `/eco saldo`, `/eco daily`, `/eco trabalho`, `/eco pagar`, `/eco depositar`, `/eco sacar`, `/eco top` e `/eco roubar` quando permitido.',
     'Loja e perfil: `/loja painel` mostra a loja; `/perfil` mostra o perfil; `/bio` altera a bio; `/pet` gerencia o pet.',
-    'Pesca: `/pescar` inicia uma pescaria; `/pesca loja` compra varas; `/pesca inventario` mostra capturas; `/pesca vender` vende peixes por coins. Há cooldown de 1 minuto entre pescarias.',
+    'Pesca: `/pescar` inicia uma pescaria; `/pesca loja` abre varas e iscas; `/pesca pontos` escolhe o local; `/pesca colecao` mostra o livro; `/pesca missoes` traz a missão diária; `/pesca inventario` mostra capturas; `/pesca vender` vende peixes por coins. Há cooldown de 1 minuto entre pescarias.',
     'Jogos: `/jogo` abre os jogos e apostas disponíveis.',
     'Música e voz: `/musica` toca música, `/radio` liga o rádio e `/call` mantém o bot em call quando permitido.',
     'Social e utilidades: `/instagram`, `/tellonym`, `/conquista`, `/quest` e os comandos de interação como `/kiss`, `/hug` e `/pat`.',
