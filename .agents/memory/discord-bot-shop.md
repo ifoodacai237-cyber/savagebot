@@ -35,6 +35,14 @@ description: Shop system (loja) for Slow bot — banners, roles, profile cards, 
 
 All shop/profile interactions dispatched from `interactionCreate.js` → `handleShopInteraction()` in `shopHandlers.js`.
 
+## Interaction timing
+
+Purchase confirmation and execution acknowledge the Discord interaction before querying or writing Prisma, then finish with `editReply`.
+
+**Why:** The Discord interaction window is short; slow Railway database access can otherwise make a valid shop button appear as “This interaction failed”.
+
+**How to apply:** Keep this defer-first pattern for any new shop purchase, gifting, or other database-backed button action. If the final payload uses Components V2, include `IsComponentsV2` in the initial `deferReply`; it cannot be added only during `editReply`.
+
 ## Preview-before-equip pattern (ring/frame/color)
 
 Ring color presets, frames, and custom hex colors (both ring and border) render a
