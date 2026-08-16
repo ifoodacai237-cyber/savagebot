@@ -1465,25 +1465,35 @@ async function handleItemSel(interaction) {
 async function handleBuyConfirm(interaction) {
   const ref         = interaction.customId.slice('shop_buy_'.length);
   const [type, key] = ref.split(':');
+
+  // A consulta do item/saldo pode demorar mais que os 3s permitidos pelo
+  // Discord. Confirme o recebimento antes de acessar o banco para evitar
+  // que o botão apareça como "A interação falhou".
+  await interaction.deferReply({ ephemeral: true });
+
   const eco         = await getEco(interaction.user.id, interaction.guildId);
   let name, price;
   let petForPayload = null;
 
   if (type === 'role') {
     const item = await prisma.shopRole.findUnique({ where: { id: key } });
-    if (!item) return interaction.reply({ content: '❌ Item não encontrado.', ephemeral: true });
+    if (!item) return interaction.editReply({ content: '❌ Item não encontrado.' });
     name = item.name; price = item.price;
   } else if (type === 'pet') {
     petForPayload = await prisma.pet.findUnique({ where: { id: key } });
-    if (!petForPayload) return interaction.reply({ content: '❌ Pet não encontrado.', ephemeral: true });
+    if (!petForPayload) return interaction.editReply({ content: '❌ Pet não encontrado.' });
     name = petDisplayName(petForPayload); price = petForPayload.price;
   } else {
     const b = await resolveBannerForGuild(key, interaction.guildId);
-    if (!b) return interaction.reply({ content: '❌ Banner não encontrado.', ephemeral: true });
+    if (!b) return interaction.editReply({ content: '❌ Banner não encontrado.' });
     name = b.name; price = b.price;
   }
 
-  if (eco.balance < price) return interaction.reply({ content: `❌ Saldo insuficiente! Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**.`, ephemeral: true });
+  if (eco.balance < price) {
+    return interaction.editReply({
+      content: `❌ Saldo insuficiente! Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**.`,
+    });
+  }
 
   if (type === 'pet') {
     const row = new ActionRowBuilder().addComponents(
@@ -1491,7 +1501,7 @@ async function handleBuyConfirm(interaction) {
       new ButtonBuilder().setCustomId('shop_cancel').setLabel('Cancelar').setEmoji('❌').setStyle(ButtonStyle.Danger),
     );
 
-    return interaction.reply({
+    return interaction.editReply({
       ...buildPetPanel({
         title: '⚠️ Confirmar compra',
         body:
@@ -1503,7 +1513,6 @@ async function handleBuyConfirm(interaction) {
         includeActions: false,
         extraRows: [row],
       }),
-      ephemeral: true,
     });
   }
 
@@ -1519,43 +1528,48 @@ async function handleBuyConfirm(interaction) {
     new ButtonBuilder().setCustomId('shop_cancel').setLabel('Cancelar').setEmoji('❌').setStyle(ButtonStyle.Danger),
   );
 
-  return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+  return interaction.editReply({ embeds: [embed], components: [row] });
 }
 
 async function handleBuyExecute(interaction, client) {
   const ref         = interaction.customId.slice('shop_ok_'.length);
   const [type, key] = ref.split(':');
+
+  // Acknowledge the confirmation button before the purchase queries and
+  // writes. This prevents the second step from timing out as well.
+  await interaction.deferUpdate();
+
   const eco         = await getEco(interaction.user.id, interaction.guildId);
   let name, price, itemRef, roleId;
   let petForPayload = null;
 
   if (type === 'role') {
     const item = await prisma.shopRole.findUnique({ where: { id: key } });
-    if (!item) return interaction.update({ content: '❌ Item não encontrado.', embeds: [], components: [] });
+    if (!item) return interaction.editReply({ content: '❌ Item não encontrado.', embeds: [], components: [] });
     name = item.name; price = item.price; itemRef = item.roleId; roleId = item.roleId;
   } else if (type === 'pet') {
     petForPayload = await prisma.pet.findUnique({ where: { id: key } });
-    if (!petForPayload) return interaction.update({
+    if (!petForPayload) return interaction.editReply({
       components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent('❌ Pet não encontrado.'))],
       flags: MessageFlags.IsComponentsV2,
     });
     name = petDisplayName(petForPayload); price = petForPayload.price; itemRef = petForPayload.id;
   } else {
     const b = await resolveBannerForGuild(key, interaction.guildId);
-    if (!b) return interaction.update({ content: '❌ Banner não encontrado.', embeds: [], components: [] });
+    if (!b) return interaction.editReply({ content: '❌ Banner não encontrado.', embeds: [], components: [] });
     name = b.name; price = b.price; itemRef = b.key;
   }
 
   if (eco.balance < price) {
     if (type === 'pet') {
-      return interaction.update(buildPetPanel({
+      return interaction.editReply(buildPetPanel({
         title: '❌ Saldo insuficiente',
         body: `Você precisa de **${price.toLocaleString('pt-BR')} ${COIN()}**, mas possui apenas **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**.`,
         pet: petForPayload,
         includeActions: false,
       }));
     }
-    return interaction.update({ content: '❌ Saldo insuficiente!', embeds: [], components: [] });
+    return interaction.editReply({ content: '❌ Saldo insuficiente!', embeds: [], components: [] });
   }
 
   const exists = await prisma.userPurchase.findUnique({
@@ -1563,14 +1577,14 @@ async function handleBuyExecute(interaction, client) {
   });
   if (exists) {
     if (type === 'pet') {
-      return interaction.update(buildPetPanel({
+      return interaction.editReply(buildPetPanel({
         title: '✅ Pet já adquirido',
         body: `Você já possui **${name}**. Use \`/perfil\` → **Meu Pet** para equipá-lo.`,
         pet: petForPayload,
         includeActions: true,
       }));
     }
-    return interaction.update({ content: '✅ Você já possui este item!', embeds: [], components: [] });
+    return interaction.editReply({ content: '✅ Você já possui este item!', embeds: [], components: [] });
   }
 
   await prisma.economy.update({
@@ -1590,7 +1604,7 @@ async function handleBuyExecute(interaction, client) {
   };
 
   if (type === 'pet') {
-    return interaction.update(buildPetPanel({
+    return interaction.editReply(buildPetPanel({
       title: '✅ Compra realizada!',
       body:
         `Você comprou **${name}** com sucesso!\n` +
@@ -1608,7 +1622,7 @@ async function handleBuyExecute(interaction, client) {
       (tipByType[type] ?? '')
     ).setTimestamp();
 
-  return interaction.update({ embeds: [embed], components: [] });
+  return interaction.editReply({ embeds: [embed], components: [] });
 }
 
 // ─── 🖼️ Vitrine ───────────────────────────────────────────────────────────────
