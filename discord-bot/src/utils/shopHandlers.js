@@ -1324,17 +1324,20 @@ function _buildComprarPayload(roles, allBanners, pets) {
 }
 
 async function handleCarouselBack(interaction) {
+  await interaction.deferUpdate();
   const [roles, pets, allBanners] = await Promise.all([
     prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } }),
     prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
     getAllBannersForGuild(interaction.guildId),
   ]);
-  return interaction.update(_buildComprarPayload(roles, allBanners, pets));
+  return interaction.editReply(_buildComprarPayload(roles, allBanners, pets));
 }
 
 // ─── 🛒 Comprar ────────────────────────────────────────────────────────────────
 
 async function handleComprar(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
   const [[roles, pets], allBanners] = await Promise.all([
     Promise.all([
       prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } }),
@@ -1342,10 +1345,12 @@ async function handleComprar(interaction) {
     ]),
     getAllBannersForGuild(interaction.guildId),
   ]);
-  return interaction.reply({ ..._buildComprarPayload(roles, allBanners, pets), ephemeral: true });
+  return interaction.editReply(_buildComprarPayload(roles, allBanners, pets));
 }
 
 async function handleTypeSel(interaction) {
+  await interaction.deferUpdate();
+
   const type = interaction.values[0];
   const [eco, cfg] = await Promise.all([
     getEco(interaction.user.id, interaction.guildId),
@@ -1362,10 +1367,10 @@ async function handleTypeSel(interaction) {
       prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } }),
       prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'role' } }),
     ]);
-    if (!roles.length) return interaction.update(errPayload('❌ Nenhum cargo cadastrado ainda.'));
+    if (!roles.length) return interaction.editReply(errPayload('❌ Nenhum cargo cadastrado ainda.'));
     const ownedSet = new Set(allOwned.map(o => o.itemRef));
     const r = roles[0];
-    return interaction.update(buildRoleCarousel(r, 0, roles.length, eco, ownedSet.has(r.roleId), cfg));
+    return interaction.editReply(buildRoleCarousel(r, 0, roles.length, eco, ownedSet.has(r.roleId), cfg));
   }
 
   if (type === 'banners') {
@@ -1373,10 +1378,10 @@ async function handleTypeSel(interaction) {
       getAllBannersForGuild(interaction.guildId),
       prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } }),
     ]);
-    if (!allBanners.length) return interaction.update(errPayload('❌ Nenhum banner disponível.'));
+    if (!allBanners.length) return interaction.editReply(errPayload('❌ Nenhum banner disponível.'));
     const ownedSet = new Set(allOwned.map(o => o.itemRef));
     const b = allBanners[0];
-    return interaction.update(await buildBannerCarousel(b, 0, allBanners.length, eco, ownedSet.has(b.key), cfg));
+    return interaction.editReply(await buildBannerCarousel(b, 0, allBanners.length, eco, ownedSet.has(b.key), cfg));
   }
 
   if (type === 'pets') {
@@ -1384,20 +1389,22 @@ async function handleTypeSel(interaction) {
       prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
       prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'pet' } }),
     ]);
-    if (!pets.length) return interaction.update(errPayload('❌ Nenhum pet cadastrado ainda.'));
+    if (!pets.length) return interaction.editReply(errPayload('❌ Nenhum pet cadastrado ainda.'));
     const ownedSet = new Set(allOwned.map(o => o.itemRef));
     const p = pets[0];
-    return interaction.update(await buildPetCarousel(p, 0, pets.length, eco, ownedSet.has(p.id), cfg));
+    return interaction.editReply(await buildPetCarousel(p, 0, pets.length, eco, ownedSet.has(p.id), cfg));
   }
 }
 
 async function handleItemSel(interaction) {
+  await interaction.deferUpdate();
+
   const [itemType, ref] = interaction.values[0].split(':');
   const eco = await getEco(interaction.user.id, interaction.guildId);
 
   if (itemType === 'role') {
     const item = await prisma.shopRole.findUnique({ where: { id: ref } });
-    if (!item) return interaction.update({ content: '❌ Cargo não encontrado.', embeds: [], components: [] });
+    if (!item) return interaction.editReply({ content: '❌ Cargo não encontrado.', embeds: [], components: [] });
     const owned    = !!(await prisma.userPurchase.findUnique({ where: { userId_itemType_itemRef: { userId: interaction.user.id, itemType: 'role', itemRef: item.roleId } } }));
     const canAfford = eco.balance >= item.price;
 
@@ -1416,7 +1423,7 @@ async function handleItemSel(interaction) {
 
   if (itemType === 'banner') {
     const b = await resolveBannerForGuild(ref, interaction.guildId);
-    if (!b) return interaction.update({ content: '❌ Banner não encontrado.', embeds: [], components: [] });
+    if (!b) return interaction.editReply({ content: '❌ Banner não encontrado.', embeds: [], components: [] });
     const owned    = !!(await prisma.userPurchase.findUnique({ where: { userId_itemType_itemRef: { userId: interaction.user.id, itemType: 'banner', itemRef: b.key } } }));
     const canAfford = eco.balance >= b.price;
 
@@ -1430,12 +1437,12 @@ async function handleItemSel(interaction) {
       .setStyle(owned ? ButtonStyle.Secondary : ButtonStyle.Success)
       .setDisabled(owned || !canAfford);
 
-    return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(btn)] });
+    return interaction.editReply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(btn)] });
   }
 
   if (itemType === 'pet') {
     const pet = await prisma.pet.findUnique({ where: { id: ref } });
-    if (!pet) return interaction.update({
+    if (!pet) return interaction.editReply({
       components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent('❌ Pet não encontrado.'))],
       flags: MessageFlags.IsComponentsV2,
     });
@@ -1448,7 +1455,7 @@ async function handleItemSel(interaction) {
       .setStyle(owned ? ButtonStyle.Secondary : ButtonStyle.Success)
       .setDisabled(owned || !canAfford);
 
-    return interaction.update(buildPetPanel({
+    return interaction.editReply(buildPetPanel({
       title: `${petDisplayName(pet)} — detalhes`,
       body:
         `${pet.description ?? 'Um pet exclusivo do servidor.'}\n\n` +
