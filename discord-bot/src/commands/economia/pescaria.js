@@ -45,7 +45,7 @@ function rodEmoji(rod) {
 export const FISH = Object.freeze([
   { key: 'peixe_comum', name: 'Peixe comum', emoji: FISH_COMMON, value: 80, chance: 60, rarity: 0, artwork: 'common', description: 'O peixe mais comum e fácil de conseguir.' },
   { key: 'tubarao_comum', name: 'Tubarão comum', emoji: FISH_SHARK, value: 650, chance: 16, rarity: 1, artwork: 'shark', description: 'Um tubarão que vale muitas coins.' },
-  { key: 'carpa_lendaria', name: 'Carpa Solar lendária', emoji: FISH_LEGENDARY, value: 2400, chance: 1.5, rarity: 2.2, artwork: 'legendary', description: 'Uma carpa dourada que pode aparecer por conta própria — e ainda exige duas escolhas certeiras.' },
+  { key: 'carpa_lendaria', name: 'Carpa Solar lendária', emoji: FISH_LEGENDARY, value: 2400, chance: 5, rarity: 2.2, artwork: 'legendary', description: 'Uma carpa dourada rara que pode aparecer por conta própria — e ainda exige duas escolhas certeiras.' },
   { key: 'piranha_rubra', name: 'Piranha Rubra', emoji: () => '🐡', value: 560, chance: 7, rarity: 1.2, artwork: 'piranha', ability: 'piranha', description: 'Uma mordida nervosa que transforma respeito em coins.' },
   { key: 'betta_fogo', name: 'Betta de Fogo', emoji: () => '🐠', value: 420, chance: 6, rarity: 1.1, artwork: 'betta', ability: 'betta', description: 'Dança com as nadadeiras e chama a sorte para perto.' },
   { key: 'marlin_neon', name: 'Agulhão Neon', emoji: () => '🐟', value: 900, chance: 3.5, rarity: 2, artwork: 'marlin', ability: 'marlin', description: 'Um velocista do oceano que encurta a espera da próxima pescaria.' },
