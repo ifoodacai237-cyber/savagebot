@@ -6,27 +6,27 @@ const LOCAL_EMOJI_DIR = fileURLToPath(new URL('../../assets/emojis/', import.met
 
 const REQUIRED_EMOJIS = [
   // ── Originais ──────────────────────────────────────────────────────────────
-  { name: 'f_3bat',              sourceId: '1420292544255889451', animated: true  },
-  { name: 'c_flymoney',          sourceId: '997485969303420978',  animated: false },
+  { name: 'f_3bat',              sourceId: '1420292544255889451', animated: true,  fallback: '🦇' },
+  { name: 'c_flymoney',          sourceId: '997485969303420978',  animated: false, fallback: '💸' },
   // ── Moeda principal (usada em todo o bot) ───────────────────────────────────
-  { name: 'emoji_1',             sourceId: '1516993823665033286', animated: true  },
+  { name: 'emoji_1',             sourceId: '1516993823665033286', animated: true,  fallback: '🪙' },
   // ── Painel principal ────────────────────────────────────────────────────────
-  { name: 'rx_bran',             sourceId: '1531143576556277780', animated: false },
-  { name: 's7aaranha',           sourceId: '1527850818743697440', animated: false },
+  { name: 'rx_bran',             sourceId: '1531143576556277780', animated: false, fallback: '🪽' },
+  { name: 's7aaranha',           sourceId: '1527850818743697440', animated: false, fallback: '🕷️' },
   // ── Economia (/daily, /work, /top) ──────────────────────────────────────────
-  { name: 'futecoins',           sourceId: '1526801406378508358', animated: false },
-  { name: 'calendario',          sourceId: '1526801404851781742', animated: false },
-  { name: '4branco_estrela',     sourceId: '1526801408307761303', animated: false },
-  { name: 'relogio',             sourceId: '1526801409595412644', animated: false },
+  { name: 'futecoins',           sourceId: '1526801406378508358', animated: false, fallback: '🪙' },
+  { name: 'calendario',          sourceId: '1526801404851781742', animated: false, fallback: '📅' },
+  { name: '4branco_estrela',     sourceId: '1526801408307761303', animated: false, fallback: '⭐' },
+  { name: 'relogio',             sourceId: '1526801409595412644', animated: false, fallback: '⏰' },
   // ── Jogos (Mines / Blackjack) ────────────────────────────────────────────────
-  { name: 'p_bom',               sourceId: '997485486803271720',  animated: false },
-  { name: 'Diamante',            sourceId: '1482392803299430451', animated: true  },
-  { name: '05_angels',           sourceId: '1510663251598512279', animated: true  },
-  { name: 'dinheiro_kingbuxx',   sourceId: '1452430513519198281', animated: false },
+  { name: 'p_bom',               sourceId: '997485486803271720',  animated: false, fallback: '💣' },
+  { name: 'Diamante',            sourceId: '1482392803299430451', animated: true,  fallback: '💎' },
+  { name: '05_angels',           sourceId: '1510663251598512279', animated: true,  fallback: '✨' },
+  { name: 'dinheiro_kingbuxx',   sourceId: '1452430513519198281', animated: false, fallback: '💰' },
   // ── Loja ────────────────────────────────────────────────────────────────────
-  { name: 'carrinho',            sourceId: '1384004945820516432', animated: false },
-  { name: '01_angels',           sourceId: '1507552059682197504', animated: false },
-  { name: '01_angels_animated',  sourceId: '1508985653642395728', animated: true  },
+  { name: 'carrinho',            sourceId: '1384004945820516432', animated: false, fallback: '🛒' },
+  { name: '01_angels',           sourceId: '1507552059682197504', animated: false, fallback: '😇' },
+  { name: '01_angels_animated',  sourceId: '1508985653642395728', animated: true,  fallback: '✨' },
   { name: 'shop_category',       asset: 'shop-category.webp',      mime: 'image/webp', fallback: '🖤' },
   // ── Pesca ────────────────────────────────────────────────────────────────────
   { name: 'fish_common',    asset: 'fish-common.png',    mime: 'image/png',  fallback: '🐟' },
@@ -86,17 +86,18 @@ export async function initEmojis(client) {
         console.log(`✅ Emoji registrado na aplicação: ${def.name}`);
       } catch (err) {
         console.warn(`⚠️  Falha ao registrar emoji ${def.name}:`, err.message);
-        cache.set(def.name, def.fallback ?? `<${def.animated ? 'a' : ''}:${def.name}:${def.sourceId}>`);
+        cache.set(def.name, def.fallback ?? '🔹');
       }
     }
   } catch (err) {
     console.warn('⚠️  Falha ao inicializar application emojis:', err.message);
     for (const def of REQUIRED_EMOJIS) {
-      cache.set(def.name, def.fallback ?? `<${def.animated ? 'a' : ''}:${def.name}:${def.sourceId}>`);
+      cache.set(def.name, def.fallback ?? '🔹');
     }
   }
 }
 
 export function getEmoji(name) {
-  return cache.get(name) ?? `:${name}:`;
+  const def = REQUIRED_EMOJIS.find(item => item.name === name);
+  return cache.get(name) ?? def?.fallback ?? '🔹';
 }
