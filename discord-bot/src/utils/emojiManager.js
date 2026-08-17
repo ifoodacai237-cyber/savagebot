@@ -27,6 +27,7 @@ const REQUIRED_EMOJIS = [
   { name: 'carrinho',            sourceId: '1384004945820516432', animated: false },
   { name: '01_angels',           sourceId: '1507552059682197504', animated: false },
   { name: '01_angels_animated',  sourceId: '1508985653642395728', animated: true  },
+  { name: 'shop_category',       asset: 'shop-category.webp',      mime: 'image/webp', fallback: '🖤' },
   // ── Pesca ────────────────────────────────────────────────────────────────────
   { name: 'fish_common',    asset: 'fish-common.png',    mime: 'image/png',  fallback: '🐟' },
   { name: 'fish_seal',      asset: 'fish-seal.png',      mime: 'image/png',  fallback: '🦭' },

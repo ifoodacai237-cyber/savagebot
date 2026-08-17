@@ -23,6 +23,7 @@ import { buildPetPanel, petDisplayName } from './petComponents.js';
 const SHOP_COLOR = 0x000000;
 const DIVIDER    = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
 const COIN       = () => getEmoji('futecoins');
+const SHOP_CATEGORY_EMOJI = () => getEmoji('shop_category');
 
 function formatK(n) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
@@ -1297,25 +1298,33 @@ async function handleCarouselPetNav(interaction) {
   return interaction.editReply(await buildPetCarousel(p, safeIdx, pets.length, eco, ownedSet.has(p.id), cfg));
 }
 
-function _buildComprarPayload(roles, allBanners, pets) {
-  const c = new ContainerBuilder();
-  c.addTextDisplayComponents(new TextDisplayBuilder().setContent([
-    `${getEmoji('carrinho')} **O que deseja comprar?**`,
-    'Selecione uma categoria abaixo.',
-    '',
-    `👑 **Cargos** — ${roles.length} disponível(is)`,
-    `🖼️ **Banners** — ${allBanners.length} banner(s)`,
-    `🐾 **Pets** — ${pets.length} pet(s)`,
-  ].join('\n')));
-
+function buildShopTypeSelect(roles, allBanners, pets) {
   const sel = new StringSelectMenuBuilder()
     .setCustomId('shop_type_sel')
     .setPlaceholder('Escolha a categoria')
     .addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('Cargos').setValue('roles').setDescription(`${roles.length} cargos disponíveis`).setEmoji('👑'),
-      new StringSelectMenuOptionBuilder().setLabel('Banners').setValue('banners').setDescription(`${allBanners.length} banners disponíveis`).setEmoji('🖼️'),
-      new StringSelectMenuOptionBuilder().setLabel('Pets').setValue('pets').setDescription(`${pets.length} pets disponíveis`).setEmoji('🐾'),
+      new StringSelectMenuOptionBuilder().setLabel('Cargos').setValue('roles').setDescription(`${roles.length} cargos disponíveis`).setEmoji(SHOP_CATEGORY_EMOJI()),
+      new StringSelectMenuOptionBuilder().setLabel('Banners').setValue('banners').setDescription(`${allBanners.length} banners disponíveis`).setEmoji(SHOP_CATEGORY_EMOJI()),
+      new StringSelectMenuOptionBuilder().setLabel('Pets').setValue('pets').setDescription(`${pets.length} pets disponíveis`).setEmoji(SHOP_CATEGORY_EMOJI()),
     );
+  return sel;
+}
+
+function _buildComprarPayload(roles, allBanners, pets) {
+  const summary = [
+    'Selecione uma categoria abaixo.',
+    '',
+    `${SHOP_CATEGORY_EMOJI()} **Cargos** — ${roles.length} disponível(is)`,
+    `${SHOP_CATEGORY_EMOJI()} **Banners** — ${allBanners.length} banner(s)`,
+    `${SHOP_CATEGORY_EMOJI()} **Pets** — ${pets.length} pet(s)`,
+  ].join('\n');
+  const sel = buildShopTypeSelect(roles, allBanners, pets);
+
+  const c = new ContainerBuilder();
+  c.addTextDisplayComponents(new TextDisplayBuilder().setContent([
+    `${getEmoji('carrinho')} **O que deseja comprar?**`,
+    summary,
+  ].join('\n')));
 
   return {
     components: [c, new ActionRowBuilder().addComponents(sel)],
@@ -1336,17 +1345,11 @@ async function handleCarouselBack(interaction) {
 // ─── 🛒 Comprar ────────────────────────────────────────────────────────────────
 
 async function handleComprar(interaction) {
-  // A component update acknowledges the click immediately. This also makes
-  // the message a Components V2 message before the slower database queries;
-  // deferReply cannot carry the V2 flag in Discord's interaction API.
-  await interaction.update({
-    embeds: [],
-    components: [
-      new ContainerBuilder().addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`${getEmoji('carrinho')} **Carregando a loja...**`),
-      ),
-    ],
-    flags: MessageFlags.IsComponentsV2,
+  // Keep the fixed public panel untouched. The actual store opens privately.
+  // The reply must be marked as Components V2 before the first edit; Discord
+  // does not allow changing a normal message into a V2 message afterwards.
+  await interaction.deferReply({
+    flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
   });
 
   const [[roles, pets], allBanners] = await Promise.all([
@@ -1360,6 +1363,8 @@ async function handleComprar(interaction) {
 }
 
 async function handleTypeSel(interaction) {
+  // Acknowledge immediately, then replace the private V2 store message once
+  // the selected category has finished loading.
   await interaction.deferUpdate();
 
   const type = interaction.values[0];
@@ -1487,7 +1492,11 @@ async function handleBuyConfirm(interaction) {
   // A consulta do item/saldo pode demorar mais que os 3s permitidos pelo
   // Discord. Confirme o recebimento antes de acessar o banco para evitar
   // que o botão apareça como "A interação falhou".
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply(
+    type === 'pet'
+      ? { flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }
+      : { ephemeral: true },
+  );
 
   const eco         = await getEco(interaction.user.id, interaction.guildId);
   let name, price;
