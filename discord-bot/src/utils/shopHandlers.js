@@ -1336,11 +1336,17 @@ async function handleCarouselBack(interaction) {
 // ─── 🛒 Comprar ────────────────────────────────────────────────────────────────
 
 async function handleComprar(interaction) {
-  // The payload below uses Components V2. The V2 flag must be present on the
-  // deferred response itself; adding it only in editReply leaves Discord's
-  // "thinking..." response stuck because message flags cannot be changed later.
-  await interaction.deferReply({
-    flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+  // A component update acknowledges the click immediately. This also makes
+  // the message a Components V2 message before the slower database queries;
+  // deferReply cannot carry the V2 flag in Discord's interaction API.
+  await interaction.update({
+    embeds: [],
+    components: [
+      new ContainerBuilder().addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(`${getEmoji('carrinho')} **Carregando a loja...**`),
+      ),
+    ],
+    flags: MessageFlags.IsComponentsV2,
   });
 
   const [[roles, pets], allBanners] = await Promise.all([
