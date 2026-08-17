@@ -31,6 +31,16 @@ function formatK(n) {
   return String(n);
 }
 
+function safeHttpUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Button style helpers ──────────────────────────────────────────────────────
 
 function btnStyleFromStr(str, def = ButtonStyle.Secondary) {
@@ -1204,11 +1214,12 @@ function buildRoleCarousel(r, index, total, eco, owned, cfg = null) {
   };
 }
 
-async function buildPetCarousel(p, index, total, eco, owned, cfg = null) {
+async function buildPetCarousel(p, index, total, eco, owned, cfg = null, { includeImage = true } = {}) {
   const styles    = getBtnStyles(cfg);
   const canAfford = eco.balance >= p.price;
   const petEmoji  = typeof p.emoji === 'string' && p.emoji.trim() ? p.emoji.trim() : '🐾';
   const petName   = p.name || 'Pet';
+  const imageUrl  = safeHttpUrl(p.imageUrl);
 
   const c = new ContainerBuilder();
   c.addTextDisplayComponents(new TextDisplayBuilder().setContent([
@@ -1218,10 +1229,10 @@ async function buildPetCarousel(p, index, total, eco, owned, cfg = null) {
     `👛 Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`,
   ].filter(Boolean).join('\n')));
 
-  if (typeof p.imageUrl === 'string' && /^https?:\/\//i.test(p.imageUrl)) {
+  if (includeImage && imageUrl) {
     const { MediaGalleryBuilder, MediaGalleryItemBuilder } = await import('discord.js');
     c.addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(p.imageUrl)),
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(imageUrl)),
     );
   }
 
@@ -1245,6 +1256,19 @@ async function buildPetCarousel(p, index, total, eco, owned, cfg = null) {
     ],
     flags: MessageFlags.IsComponentsV2,
   };
+}
+
+async function editPetCarousel(interaction, p, index, total, eco, owned, cfg = null) {
+  const payload = await buildPetCarousel(p, index, total, eco, owned, cfg);
+
+  try {
+    return await interaction.editReply(payload);
+  } catch (error) {
+    if (!safeHttpUrl(p.imageUrl)) throw error;
+    return interaction.editReply(
+      await buildPetCarousel(p, index, total, eco, owned, cfg, { includeImage: false }),
+    );
+  }
 }
 
 async function handleCarouselBannerNav(interaction) {
@@ -1297,7 +1321,7 @@ async function handleCarouselPetNav(interaction) {
   const safeIdx  = Math.min(index, pets.length - 1);
   const ownedSet = new Set(allOwned.map(o => o.itemRef));
   const p        = pets[safeIdx];
-  return interaction.editReply(await buildPetCarousel(p, safeIdx, pets.length, eco, ownedSet.has(p.id), cfg));
+  return editPetCarousel(interaction, p, safeIdx, pets.length, eco, ownedSet.has(p.id), cfg);
 }
 
 function buildShopTypeSelect(roles, allBanners, pets) {
@@ -1412,7 +1436,7 @@ async function handleTypeSel(interaction) {
       if (!pets.length) return interaction.editReply(errPayload('❌ Nenhum pet cadastrado ainda.'));
       const ownedSet = new Set(allOwned.map(o => o.itemRef));
       const p = pets[0];
-      return interaction.editReply(await buildPetCarousel(p, 0, pets.length, eco, ownedSet.has(p.id), cfg));
+      return editPetCarousel(interaction, p, 0, pets.length, eco, ownedSet.has(p.id), cfg);
     }
 
     return interaction.editReply(errPayload('❌ Categoria inválida. Abra a loja novamente.'));
