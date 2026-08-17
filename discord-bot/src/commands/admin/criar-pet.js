@@ -50,7 +50,7 @@ export default {
           `💰 **Preço:** ${preco.toLocaleString('pt-BR')} ${COIN()}\n` +
           `📝 **Descrição:** ${desc ?? '—'}\n` +
           `🆔 **ID interno:** \`${pet.id}\`\n\n` +
-          'Os membros já podem comprar este pet em `/loja painel`.',
+          'Os membros já podem comprar este pet em `/loja painel enviar`.',
         pet,
         includeActions: false,
       }),

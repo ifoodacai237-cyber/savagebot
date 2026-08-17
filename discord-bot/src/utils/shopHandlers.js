@@ -1207,16 +1207,18 @@ function buildRoleCarousel(r, index, total, eco, owned, cfg = null) {
 async function buildPetCarousel(p, index, total, eco, owned, cfg = null) {
   const styles    = getBtnStyles(cfg);
   const canAfford = eco.balance >= p.price;
+  const petEmoji  = typeof p.emoji === 'string' && p.emoji.trim() ? p.emoji.trim() : '🐾';
+  const petName   = p.name || 'Pet';
 
   const c = new ContainerBuilder();
   c.addTextDisplayComponents(new TextDisplayBuilder().setContent([
-    `${p.emoji} **${p.name}**`,
+    `${petEmoji} **${petName}**`,
     p.description || '',
     `▶ Valor: **${p.price.toLocaleString('pt-BR')} (${formatK(p.price)}) ${COIN()}**`,
     `👛 Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`,
   ].filter(Boolean).join('\n')));
 
-  if (p.imageUrl) {
+  if (typeof p.imageUrl === 'string' && /^https?:\/\//i.test(p.imageUrl)) {
     const { MediaGalleryBuilder, MediaGalleryItemBuilder } = await import('discord.js');
     c.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(p.imageUrl)),
@@ -1363,52 +1365,68 @@ async function handleComprar(interaction) {
 }
 
 async function handleTypeSel(interaction) {
-  // Acknowledge immediately, then replace the private V2 store message once
-  // the selected category has finished loading.
-  await interaction.deferUpdate();
-
-  const type = interaction.values[0];
-  const [eco, cfg] = await Promise.all([
-    getEco(interaction.user.id, interaction.guildId),
-    getCfg(interaction.guildId),
-  ]);
-
   const errPayload = (msg) => ({
     components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(msg))],
     flags: MessageFlags.IsComponentsV2,
   });
 
-  if (type === 'roles') {
-    const [roles, allOwned] = await Promise.all([
-      prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } }),
-      prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'role' } }),
-    ]);
-    if (!roles.length) return interaction.editReply(errPayload('❌ Nenhum cargo cadastrado ainda.'));
-    const ownedSet = new Set(allOwned.map(o => o.itemRef));
-    const r = roles[0];
-    return interaction.editReply(buildRoleCarousel(r, 0, roles.length, eco, ownedSet.has(r.roleId), cfg));
-  }
+  try {
+    // Update immediately so Discord acknowledges the select interaction before
+    // the database queries. The loading message stays in the private V2 store.
+    await interaction.update({
+      components: [
+        new ContainerBuilder().addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`${SHOP_CATEGORY_EMOJI()} **Carregando a categoria...**`),
+        ),
+      ],
+      flags: MessageFlags.IsComponentsV2,
+    });
 
-  if (type === 'banners') {
-    const [allBanners, allOwned] = await Promise.all([
-      getAllBannersForGuild(interaction.guildId),
-      prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } }),
+    const type = interaction.values[0];
+    const [eco, cfg] = await Promise.all([
+      getEco(interaction.user.id, interaction.guildId),
+      getCfg(interaction.guildId),
     ]);
-    if (!allBanners.length) return interaction.editReply(errPayload('❌ Nenhum banner disponível.'));
-    const ownedSet = new Set(allOwned.map(o => o.itemRef));
-    const b = allBanners[0];
-    return interaction.editReply(await buildBannerCarousel(b, 0, allBanners.length, eco, ownedSet.has(b.key), cfg));
-  }
 
-  if (type === 'pets') {
-    const [pets, allOwned] = await Promise.all([
-      prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
-      prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'pet' } }),
-    ]);
-    if (!pets.length) return interaction.editReply(errPayload('❌ Nenhum pet cadastrado ainda.'));
-    const ownedSet = new Set(allOwned.map(o => o.itemRef));
-    const p = pets[0];
-    return interaction.editReply(await buildPetCarousel(p, 0, pets.length, eco, ownedSet.has(p.id), cfg));
+    if (type === 'roles') {
+      const [roles, allOwned] = await Promise.all([
+        prisma.shopRole.findMany({ where: { guildId: interaction.guildId, active: true } }),
+        prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'role' } }),
+      ]);
+      if (!roles.length) return interaction.editReply(errPayload('❌ Nenhum cargo cadastrado ainda.'));
+      const ownedSet = new Set(allOwned.map(o => o.itemRef));
+      const r = roles[0];
+      return interaction.editReply(buildRoleCarousel(r, 0, roles.length, eco, ownedSet.has(r.roleId), cfg));
+    }
+
+    if (type === 'banners') {
+      const [allBanners, allOwned] = await Promise.all([
+        getAllBannersForGuild(interaction.guildId),
+        prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'banner' } }),
+      ]);
+      if (!allBanners.length) return interaction.editReply(errPayload('❌ Nenhum banner disponível.'));
+      const ownedSet = new Set(allOwned.map(o => o.itemRef));
+      const b = allBanners[0];
+      return interaction.editReply(await buildBannerCarousel(b, 0, allBanners.length, eco, ownedSet.has(b.key), cfg));
+    }
+
+    if (type === 'pets') {
+      const [pets, allOwned] = await Promise.all([
+        prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
+        prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'pet' } }),
+      ]);
+      if (!pets.length) return interaction.editReply(errPayload('❌ Nenhum pet cadastrado ainda.'));
+      const ownedSet = new Set(allOwned.map(o => o.itemRef));
+      const p = pets[0];
+      return interaction.editReply(await buildPetCarousel(p, 0, pets.length, eco, ownedSet.has(p.id), cfg));
+    }
+
+    return interaction.editReply(errPayload('❌ Categoria inválida. Abra a loja novamente.'));
+  } catch (error) {
+    console.error('[SHOP CATEGORY]', error);
+    const payload = errPayload('❌ Não foi possível carregar essa categoria. Tente novamente.');
+    if (interaction.deferred || interaction.replied) return interaction.editReply(payload).catch(() => {});
+    return interaction.reply({ ...payload, ephemeral: true }).catch(() => {});
   }
 }
 

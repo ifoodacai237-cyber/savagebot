@@ -103,18 +103,36 @@ export default {
   data: new SlashCommandBuilder()
     .setName('loja')
     .setDescription('🛒 Sistema de loja do servidor')
-    .addSubcommand(s =>
-      s.setName('painel').setDescription('📢 Envia o painel da loja no canal atual'))
+    .addSubcommandGroup(group =>
+      group
+        .setName('painel')
+        .setDescription('📢 Publicação do painel da loja')
+        .addSubcommand(s =>
+          s.setName('enviar').setDescription('📢 Envia o painel da loja no canal atual'))
+        .addSubcommand(s =>
+          s.setName('config').setDescription('📌 Publica o painel fixo neste canal (apenas admins)')))
     .addSubcommand(s =>
       s.setName('config').setDescription('⚙️ Abre o painel de administração da loja (apenas admins)')),
 
   async execute(interaction) {
+    const group = interaction.options.getSubcommandGroup(false);
     const sub = interaction.options.getSubcommand();
 
-    if (sub === 'painel') {
+    if (group === 'painel' && sub === 'enviar') {
       const cfg     = await getCfg(interaction.guildId);
       const payload = buildShopMain(interaction.guild, cfg);
       return interaction.reply(payload);
+    }
+
+    if (group === 'painel' && sub === 'config') {
+      const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+      if (!isAdmin) {
+        return interaction.reply({ content: '❌ Apenas administradores podem publicar o painel fixo da loja.', ephemeral: true });
+      }
+
+      const cfg = await getCfg(interaction.guildId);
+      await interaction.channel.send(buildShopMain(interaction.guild, cfg));
+      return interaction.reply({ content: '✅ Painel fixo da loja publicado neste canal.', ephemeral: true });
     }
 
     if (sub === 'config') {
@@ -129,7 +147,16 @@ export default {
   },
 
   async executePrefix(message, args) {
-    const sub = args[0]?.toLowerCase() ?? 'painel';
+    const sub   = args[0]?.toLowerCase() ?? 'painel';
+    const action = args[1]?.toLowerCase();
+
+    if ((sub === 'painel' || sub === 'p' || sub === 'panel') && action === 'config') {
+      const isAdmin = message.member?.permissions.has(PermissionFlagsBits.Administrator);
+      if (!isAdmin) return message.reply({ content: '❌ Apenas administradores podem publicar o painel fixo da loja.' });
+      const cfg = await getCfg(message.guildId);
+      await message.channel.send(buildShopMain(message.guild, cfg));
+      return message.reply('✅ Painel fixo da loja publicado neste canal.');
+    }
 
     if (sub === 'painel' || sub === 'p' || sub === 'panel') {
       const cfg = await getCfg(message.guildId);
