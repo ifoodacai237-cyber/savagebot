@@ -12,10 +12,21 @@ const IMAGE_FILES = Object.freeze({
   piranha: 'piranha-rubra.png',
   betta: 'betta-fogo.png',
   marlin: 'marlin-neon.png',
+  lobster: 'lobster.jpg',
+  starfish: 'starfish.jpg',
+  octopus: 'octopus.jpg',
+  turtle: 'turtle.jpg',
+  orca: 'orca.jpg',
 });
 
 const animalCache = new Map();
-const backgroundPromise = loadImage(path.join(ASSET_DIR, 'background.jpg'));
+const BACKGROUND_FILES = Object.freeze({
+  default: 'background.jpg',
+  lago: 'scene-lago.jpg',
+  recife: 'scene-recife.jpg',
+  mar_aberto: 'scene-mar-aberto.jpg',
+});
+const backgroundCache = new Map();
 
 function isWhite(pixel, threshold = 238) {
   const [r, g, b] = pixel;
@@ -104,11 +115,35 @@ async function getAnimal(assetKey) {
   return animalCache.get(assetKey);
 }
 
-export async function composeFishingArtwork(assetKey) {
-  const [background, animal] = await Promise.all([backgroundPromise, getAnimal(assetKey)]);
+async function getBackground(sceneKey = 'default') {
+  const fileName = BACKGROUND_FILES[sceneKey] ?? BACKGROUND_FILES.default;
+  if (!backgroundCache.has(fileName)) {
+    backgroundCache.set(fileName, loadImage(path.join(ASSET_DIR, fileName)));
+  }
+  return backgroundCache.get(fileName);
+}
+
+function drawCover(context, image, width, height) {
+  const scale = Math.max(width / image.width, height / image.height);
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
+  const x = (width - drawWidth) / 2;
+  const y = (height - drawHeight) / 2;
+  context.drawImage(image, x, y, drawWidth, drawHeight);
+}
+
+export async function composeFishingScene(sceneKey = 'default') {
+  const background = await getBackground(sceneKey);
+  const canvas = createCanvas(736, 736);
+  drawCover(canvas.getContext('2d'), background, canvas.width, canvas.height);
+  return canvas.toBuffer('image/png');
+}
+
+export async function composeFishingArtwork(assetKey, sceneKey = 'default') {
+  const [background, animal] = await Promise.all([getBackground(sceneKey), getAnimal(assetKey)]);
   const canvas = createCanvas(background.width, background.height);
   const context = canvas.getContext('2d');
-  context.drawImage(background, 0, 0, canvas.width, canvas.height);
+  drawCover(context, background, canvas.width, canvas.height);
 
   const maxWidth = canvas.width * (assetKey === 'angryShark' ? 0.66 : 0.58);
   const maxHeight = canvas.height * (assetKey === 'angryShark' ? 0.66 : 0.58);

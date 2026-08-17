@@ -17,7 +17,7 @@ import {
 } from 'discord.js';
 import prisma from '../../database/client.js';
 import { getEmoji } from '../../utils/emojiManager.js';
-import { composeFishingArtwork } from '../../utils/fishingArtwork.js';
+import { composeFishingArtwork, composeFishingScene } from '../../utils/fishingArtwork.js';
 
 const COIN = () => getEmoji('futecoins');
 const FISH_COMMON = () => getEmoji('fish_common');
@@ -43,12 +43,17 @@ function rodEmoji(rod) {
 }
 
 export const FISH = Object.freeze([
-  { key: 'peixe_comum', name: 'Peixe comum', emoji: FISH_COMMON, value: 80, chance: 60, rarity: 0, artwork: 'common', description: 'O peixe mais comum e fácil de conseguir.' },
-  { key: 'tubarao_comum', name: 'Tubarão comum', emoji: FISH_SHARK, value: 650, chance: 16, rarity: 1, artwork: 'shark', description: 'Um tubarão que vale muitas coins.' },
-  { key: 'carpa_lendaria', name: 'Carpa Solar lendária', emoji: FISH_LEGENDARY, value: 2400, chance: 5, rarity: 2.2, artwork: 'legendary', description: 'Uma carpa dourada rara que pode aparecer por conta própria — e ainda exige duas escolhas certeiras.' },
-  { key: 'piranha_rubra', name: 'Piranha Rubra', emoji: () => '🐡', value: 560, chance: 7, rarity: 1.2, artwork: 'piranha', ability: 'piranha', description: 'Uma mordida nervosa que transforma respeito em coins.' },
-  { key: 'betta_fogo', name: 'Betta de Fogo', emoji: () => '🐠', value: 420, chance: 6, rarity: 1.1, artwork: 'betta', ability: 'betta', description: 'Dança com as nadadeiras e chama a sorte para perto.' },
+  { key: 'peixe_comum', name: 'Peixe comum', emoji: FISH_COMMON, value: 80, chance: 48, rarity: 0, artwork: 'common', description: 'O peixe mais comum e fácil de conseguir.' },
+  { key: 'tubarao_comum', name: 'Tubarão comum', emoji: FISH_SHARK, value: 650, chance: 13, rarity: 1, artwork: 'shark', description: 'Um tubarão que vale muitas coins.' },
+  { key: 'carpa_lendaria', name: 'Carpa Solar lendária', emoji: FISH_LEGENDARY, value: 2400, chance: 4, rarity: 2.2, artwork: 'legendary', description: 'Uma carpa dourada rara que pode aparecer por conta própria — e ainda exige duas escolhas certeiras.' },
+  { key: 'piranha_rubra', name: 'Piranha Rubra', emoji: () => '🐡', value: 560, chance: 6, rarity: 1.2, artwork: 'piranha', ability: 'piranha', description: 'Uma mordida nervosa que transforma respeito em coins.' },
+  { key: 'betta_fogo', name: 'Betta de Fogo', emoji: () => '🐠', value: 420, chance: 5, rarity: 1.1, artwork: 'betta', ability: 'betta', description: 'Dança com as nadadeiras e chama a sorte para perto.' },
   { key: 'marlin_neon', name: 'Agulhão Neon', emoji: () => '🐟', value: 900, chance: 3.5, rarity: 2, artwork: 'marlin', ability: 'marlin', description: 'Um velocista do oceano que encurta a espera da próxima pescaria.' },
+  { key: 'lagosta_espinhosa', name: 'Lagosta Espinhosa', emoji: () => '🦞', value: 760, chance: 7, rarity: 1.4, artwork: 'lobster', ability: 'lobster', description: 'Uma pinça dourada que recompensa quem tem coragem de segurá-la.' },
+  { key: 'estrela_do_mar', name: 'Estrela do Mar', emoji: () => '⭐', value: 500, chance: 5.5, rarity: 1.2, artwork: 'starfish', ability: 'starfish', description: 'Faça um pedido: esta estrela pode abrir uma maré lendária.' },
+  { key: 'polvo_rosa', name: 'Polvo Rosa', emoji: () => '🐙', value: 1100, chance: 4.5, rarity: 1.8, artwork: 'octopus', ability: 'octopus', description: 'Oito tentáculos, oito chances de encontrar uma isca especial.' },
+  { key: 'tartaruga_marinha', name: 'Tartaruga Marinha', emoji: () => '🐢', value: 1300, chance: 3.5, rarity: 2, artwork: 'turtle', ability: 'turtle', description: 'Um casco antigo que ensina a esperar menos pela próxima maré.' },
+  { key: 'orca', name: 'Orca da Maré', emoji: () => '🐋', value: 3000, chance: 1.5, rarity: 3, artwork: 'orca', ability: 'orca', description: 'Um chamado raro que traz tesouro e coins para o pescador.' },
   { key: 'escama_lendaria', name: 'Escama lendária', emoji: FISH_LEGENDARY, value: 0, chance: 0, rarity: 0, sellable: false, description: 'Uma escama obtida ao derrotar o tubarão raivoso.' },
   // Mantém capturas antigas vendáveis e visíveis após a evolução do sistema.
   { key: 'sardinha', name: 'Sardinha', emoji: FISH_COMMON, value: 80, chance: 0, rarity: 0, artwork: 'common', legacy: true, description: 'Captura antiga.' },
@@ -85,6 +90,31 @@ const FISH_ABILITIES = Object.freeze({
     emoji: '⚡',
     hint: 'O Agulhão Neon quer correr com você. Clique no botão para encurtar a espera da próxima pescaria.',
   },
+  lobster: {
+    label: 'Apertar a pinça',
+    emoji: '🦞',
+    hint: 'A Lagosta Espinhosa ainda está segurando sua linha. Aperte a pinça e transforme a captura em uma gorjeta.',
+  },
+  starfish: {
+    label: 'Fazer um pedido',
+    emoji: '🌟',
+    hint: 'A Estrela do Mar está brilhando. Faça um pedido para tentar chamar a próxima maré lendária.',
+  },
+  octopus: {
+    label: 'Usar oito tentáculos',
+    emoji: '🐙',
+    hint: 'O Polvo Rosa encontrou algo entre as pedras. Use os oito tentáculos para revelar uma isca especial.',
+  },
+  turtle: {
+    label: 'Ativar o casco',
+    emoji: '🛡️',
+    hint: 'A Tartaruga Marinha conhece uma corrente secreta. Ative o casco para reduzir a espera da próxima pescaria.',
+  },
+  orca: {
+    label: 'Chamar a matilha',
+    emoji: '🌊',
+    hint: 'A Orca da Maré está chamando outras orcas. Responda ao chamado para receber um tesouro de alto mar.',
+  },
 });
 
 const FISHING_SPOTS = Object.freeze([
@@ -93,7 +123,8 @@ const FISHING_SPOTS = Object.freeze([
     name: 'Lago Tranquilo',
     emoji: '🌿',
     description: 'Águas calmas, peixes comuns e uma boa chance de respirar.',
-    fishMultipliers: { peixe_comum: 1.3, betta_fogo: 1.15 },
+    scene: 'lago',
+    fishMultipliers: { peixe_comum: 1.3, betta_fogo: 1.15, tartaruga_marinha: 0.65, estrela_do_mar: 0.5 },
     sharkMultiplier: 0.65,
     treasureMultiplier: 0.9,
   },
@@ -102,7 +133,8 @@ const FISHING_SPOTS = Object.freeze([
     name: 'Recife Colorido',
     emoji: '🪸',
     description: 'Um recife cheio de cores onde peixes habilidosos adoram se esconder.',
-    fishMultipliers: { piranha_rubra: 1.35, betta_fogo: 1.35 },
+    scene: 'recife',
+    fishMultipliers: { piranha_rubra: 1.35, betta_fogo: 1.35, lagosta_espinhosa: 1.6, estrela_do_mar: 1.45, polvo_rosa: 1.35 },
     sharkMultiplier: 0.9,
     treasureMultiplier: 1.1,
   },
@@ -111,7 +143,8 @@ const FISHING_SPOTS = Object.freeze([
     name: 'Mar Aberto',
     emoji: '🌊',
     description: 'Correntes fortes, peixes velozes e encontros que podem render muito.',
-    fishMultipliers: { tubarao_comum: 1.3, marlin_neon: 1.45 },
+    scene: 'mar_aberto',
+    fishMultipliers: { tubarao_comum: 1.3, marlin_neon: 1.45, estrela_do_mar: 1.2, polvo_rosa: 1.35, tartaruga_marinha: 1.45, orca: 1.6 },
     sharkMultiplier: 1.25,
     treasureMultiplier: 1.15,
   },
@@ -120,7 +153,7 @@ const FISHING_SPOTS = Object.freeze([
     name: 'Abismo Azul',
     emoji: '🌀',
     description: 'O lugar mais perigoso: mais raridades, mais tesouros e mais dentes.',
-    fishMultipliers: { carpa_lendaria: 1.35, marlin_neon: 1.2 },
+    fishMultipliers: { carpa_lendaria: 1.35, marlin_neon: 1.2, polvo_rosa: 1.6, tartaruga_marinha: 1.1, orca: 1.4 },
     sharkMultiplier: 1.45,
     treasureMultiplier: 1.35,
   },
@@ -932,9 +965,11 @@ export async function handleFishingInteraction(interaction) {
       create: { userId, guildId, selectedSpotKey: spot.key },
       update: { selectedSpotKey: spot.key },
     });
-    return interaction.update(v2(
-      `## ${spot.emoji} Ponto escolhido!\nSua próxima pescaria será no **${spot.name}**.\n\n${spot.description}`,
-      { ephemeral: true },
+    return interaction.update(await fishingArtworkPayload(
+      `## ${spot.emoji} Ponto escolhido!\nSua próxima pescaria será no **${spot.name}**.\n\n${spot.description}\n\nA paisagem deste ponto foi salva para as próximas capturas.`,
+      null,
+      [],
+      { ephemeral: true, large: true, scene: spot.scene },
     ));
   }
 
@@ -1098,8 +1133,11 @@ function legendaryBattlePayload(round) {
   };
 }
 
-async function fishingArtworkPayload(text, artwork, components = [], { large = false } = {}) {
-  const file = new AttachmentBuilder(await composeFishingArtwork(artwork), {
+async function fishingArtworkPayload(text, artwork, components = [], { large = false, scene = 'default' } = {}) {
+  const artworkBuffer = artwork
+    ? await composeFishingArtwork(artwork, scene)
+    : await composeFishingScene(scene);
+  const file = new AttachmentBuilder(artworkBuffer, {
     name: 'fishing-result.png',
   });
   const container = new ContainerBuilder();
@@ -1302,10 +1340,11 @@ async function handleFishAbility(interaction) {
   try {
     const result = await prisma.$transaction(async tx => {
       const profile = await getFishingProfile(ownerId, interaction.guildId, tx);
+      const scene = getFishingSpot(profile.selectedSpotKey).scene;
       const caught = await tx.fishingCatch.findUnique({
         where: { userId_guildId_fishKey: { userId: ownerId, guildId: interaction.guildId, fishKey } },
       });
-      if (!caught?.quantity) return { status: 'missing' };
+      if (!caught?.quantity) return { status: 'missing', scene };
 
       if (fish.ability === 'piranha') {
         const bonus = 180;
@@ -1318,11 +1357,11 @@ async function handleFishAbility(interaction) {
           where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
           data: missionUpdateData(profile, ownerId, interaction.guildId, null, Date.now(), 'ability'),
         });
-        return { status: 'piranha', bonus };
+        return { status: 'piranha', bonus, scene };
       }
 
       if (fish.ability === 'betta') {
-        if (profile.sealBlessing) return { status: 'already_blessed' };
+        if (profile.sealBlessing) return { status: 'already_blessed', scene };
         await tx.fishingProfile.update({
           where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
           data: {
@@ -1330,20 +1369,75 @@ async function handleFishAbility(interaction) {
             ...missionUpdateData(profile, ownerId, interaction.guildId, null, Date.now(), 'ability'),
           },
         });
-        return { status: 'betta' };
+        return { status: 'betta', scene };
       }
 
-      const nextFishingAt = new Date(Date.now() - Math.floor(FISH_CD * 0.75));
-      await tx.fishingProfile.update({
-        where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
-        data: {
-          lastFishing: profile.lastFishing && profile.lastFishing < nextFishingAt
-            ? profile.lastFishing
-            : nextFishingAt,
-          ...missionUpdateData(profile, ownerId, interaction.guildId, null, Date.now(), 'ability'),
-        },
-      });
-      return { status: 'marlin' };
+      if (fish.ability === 'marlin' || fish.ability === 'turtle') {
+        const waitMs = fish.ability === 'turtle' ? 20 * 1000 : 15 * 1000;
+        const nextFishingAt = new Date(Date.now() - (FISH_CD - waitMs));
+        await tx.fishingProfile.update({
+          where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
+          data: {
+            lastFishing: profile.lastFishing && profile.lastFishing < nextFishingAt
+              ? profile.lastFishing
+              : nextFishingAt,
+            ...missionUpdateData(profile, ownerId, interaction.guildId, null, Date.now(), 'ability'),
+          },
+        });
+        return { status: fish.ability, waitMs, scene };
+      }
+
+      if (fish.ability === 'lobster') {
+        const bonus = 350;
+        await tx.economy.upsert({
+          where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
+          create: { userId: ownerId, guildId: interaction.guildId, balance: bonus },
+          update: { balance: { increment: bonus } },
+        });
+        await tx.fishingProfile.update({
+          where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
+          data: missionUpdateData(profile, ownerId, interaction.guildId, null, Date.now(), 'ability'),
+        });
+        return { status: 'lobster', bonus, scene };
+      }
+
+      if (fish.ability === 'starfish') {
+        if (profile.sealBlessing) return { status: 'already_blessed', scene };
+        await tx.fishingProfile.update({
+          where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
+          data: {
+            sealBlessing: true,
+            ...missionUpdateData(profile, ownerId, interaction.guildId, null, Date.now(), 'ability'),
+          },
+        });
+        return { status: 'starfish', scene };
+      }
+
+      if (fish.ability === 'octopus' || fish.ability === 'orca') {
+        const bait = fish.ability === 'octopus'
+          ? getFishingBait(['brilhante', 'eletrica'][Math.floor(Math.random() * 2)])
+          : getFishingBait('brilhante');
+        const bonus = fish.ability === 'orca' ? 1200 : 0;
+        if (bonus) {
+          await tx.economy.upsert({
+            where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
+            create: { userId: ownerId, guildId: interaction.guildId, balance: bonus },
+            update: { balance: { increment: bonus } },
+          });
+        }
+        await tx.fishingItem.upsert({
+          where: { userId_guildId_itemKey: { userId: ownerId, guildId: interaction.guildId, itemKey: bait.key } },
+          create: { userId: ownerId, guildId: interaction.guildId, itemKey: bait.key, quantity: 1 },
+          update: { quantity: { increment: 1 } },
+        });
+        await tx.fishingProfile.update({
+          where: { userId_guildId: { userId: ownerId, guildId: interaction.guildId } },
+          data: missionUpdateData(profile, ownerId, interaction.guildId, null, Date.now(), 'ability'),
+        });
+        return { status: fish.ability, bait, bonus, scene };
+      }
+
+      return { status: 'unknown', scene };
     });
 
     if (result.status === 'missing') {
@@ -1354,14 +1448,26 @@ async function handleFishAbility(interaction) {
     if (result.status === 'piranha') {
       text = `## 🩸 Mordida domada!\nA **${fish.name}** respeitou sua coragem e deixou uma gorjeta de **+${result.bonus.toLocaleString('pt-BR')}** ${COIN()} na sua carteira.\n\nEla continua no seu balde — hoje vocês fizeram as pazes.`;
     } else if (result.status === 'already_blessed') {
-      text = '## ✨ O Betta já estava brilhando!\nA próxima pescaria já tinha uma bênção guardada. O peixe fez uma dancinha extra e ficou todo convencido.';
+      text = `## ✨ ${fish.name} já estava brilhando!\nA próxima pescaria já tinha uma bênção guardada. O animal fez uma festa extra e ficou todo convencido.`;
     } else if (result.status === 'betta') {
       text = `## ✨ Dança do Betta de Fogo!\nAs nadadeiras do **${fish.name}** chamaram a foca lendária. Sua próxima pescaria terá uma oportunidade garantida de carpa lendária.`;
-    } else {
+    } else if (result.status === 'marlin') {
       text = `## ⚡ Carona no Agulhão Neon!\nO **${fish.name}** puxou sua linha pela correnteza. A próxima espera foi reduzida para **15 segundos**.`;
+    } else if (result.status === 'turtle') {
+      text = `## 🛡️ Casco protetor ativado!\nA **${fish.name}** abriu uma corrente tranquila. Sua próxima espera foi reduzida para **20 segundos**.`;
+    } else if (result.status === 'lobster') {
+      text = `## 🦞 Pinça da sorte!\nA **${fish.name}** respeitou sua coragem e deixou uma gorjeta de **+${result.bonus.toLocaleString('pt-BR')}** ${COIN()} na sua carteira.`;
+    } else if (result.status === 'starfish') {
+      text = `## 🌟 Pedido realizado!\nA **${fish.name}** brilhou no seu balde. Sua próxima pescaria terá uma oportunidade garantida de carpa lendária.`;
+    } else if (result.status === 'octopus') {
+      text = `## 🐙 Oito tentáculos, uma descoberta!\nO **${fish.name}** encontrou uma **${result.bait.name}** escondida entre as pedras e guardou a isca no seu bolso.`;
+    } else if (result.status === 'orca') {
+      text = `## 🌊 Chamado da matilha!\nA **${fish.name}** chamou a maré inteira. Você recebeu **+${result.bonus.toLocaleString('pt-BR')}** ${COIN()} e uma **${result.bait.name}**.`;
+    } else {
+      text = '## 🌊 A habilidade se perdeu na correnteza!\nO animal escapou antes de completar a interação.';
     }
 
-    return interaction.update(await fishingArtworkPayload(text, fish.artwork));
+    return interaction.update(await fishingArtworkPayload(text, fish.artwork, [], { large: true, scene: result.scene }));
   } catch (error) {
     fishAbilityClaims.delete(token);
     console.error('[PESCA HABILIDADE]', error);
@@ -1384,18 +1490,20 @@ async function executeFishing(userId, guildId, isAdmin, reply, requestedSpotKey 
         `${contextText}\n` +
         `${FISH_ROD()} A bênção da foca está guardada. Próxima pescaria em **${fishingCooldownLabel(condition)}**.`,
         'seal',
+        [],
+        { large: true, scene: spot.scene },
       ));
     }
     if (outcome.type === 'legendary') {
       const battle = legendaryBattlePayload(1);
-      return reply(await fishingArtworkPayload(`${battle.text}\n\n${contextText}`, battle.artwork, battle.components, { large: true }));
+      return reply(await fishingArtworkPayload(`${battle.text}\n\n${contextText}`, battle.artwork, battle.components, { large: true, scene: spot.scene }));
     }
     if (outcome.type === 'angry_shark') {
       const battle = sharkBattlePayload({
         hp: SHARK_BATTLE_START_HP,
         reward: result.battleReward,
       });
-      return reply(await fishingArtworkPayload(`${battle.text}\n\n${contextText}`, battle.artwork, battle.components));
+      return reply(await fishingArtworkPayload(`${battle.text}\n\n${contextText}`, battle.artwork, battle.components, { large: true, scene: spot.scene }));
     }
     if (outcome.type === 'treasure') {
       const treasure = outcome.treasure;
@@ -1409,7 +1517,7 @@ async function executeFishing(userId, guildId, isAdmin, reply, requestedSpotKey 
         `A maré muda em **1 hora**. Volte para descobrir o próximo evento.`,
         'legendary',
         [],
-        { large: true },
+        { large: true, scene: spot.scene },
       ));
     }
 
@@ -1429,6 +1537,7 @@ async function executeFishing(userId, guildId, isAdmin, reply, requestedSpotKey 
        (ability ? `\n\n${ability.hint}` : ''),
       fish.artwork,
       buildFishAbilityComponents(fish, userId),
+       { large: true, scene: spot.scene },
     ));
   } catch (error) {
     if (error?.message === 'cooldown') return reply(fishingError(`A maré ainda não virou. Aguarde **${msToHuman(error.remaining)}** para pescar novamente.`));
