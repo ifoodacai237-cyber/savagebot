@@ -97,6 +97,12 @@ Ao testar RAILWAY_TOKEN via `Project-Access-Token` header na query `projectToken
 
 Se o serviço Railway está conectado ao repositório GitHub (deploy automático por push), atualizar a branch `main` no GitHub (via push normal ou GitHub API) já dispara o build no Railway sozinho — não é necessário um RAILWAY_TOKEN válido para isso. O token só é necessário para verificar status/logs ou forçar um redeploy manual via API/CLI.
 
+## Regra: `repository forbidden` no Snapshot code acontece antes do build
+
+Quando o Railway falha em `Initialization > Snapshot code` com `repository forbidden`, o commit não foi sequer baixado; nenhum ajuste no código ou no comando de build pode corrigir essa etapa.
+
+**Como aplicar:** Reautorizar o app do Railway no GitHub para o repositório conectado e conferir se o serviço aponta para a organização/repositório e branch corretos antes de tentar outro deploy.
+
 ## Como buscar FutggId para novos jogadores
 
 O CDN do FUT.GG (`cdn.futgg.com`) é inacessível da rede do Replit (timeout/000). Para encontrar futggId de jogadores:
