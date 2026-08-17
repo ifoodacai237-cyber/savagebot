@@ -1133,6 +1133,11 @@ async function handleGiftBuyExecute(interaction, client) {
 // ─── 🛒 Carousel builders (Components V2) ────────────────────────────────────
 
 function _navBtns(prevId, nextId, voltarId, styles) {
+  // With a single item both calculated navigation IDs are identical. Discord
+  // rejects the entire payload when two components share a custom_id, even if
+  // the buttons have different labels. There is no navigation to expose then.
+  if (prevId && prevId === nextId) return [];
+
   return [
     new ButtonBuilder().setCustomId(prevId).setLabel('Anterior').setEmoji('◀').setStyle(btnStyleFromStr(styles.nav)),
     new ButtonBuilder().setCustomId(nextId).setLabel('Próxima').setEmoji('▶').setStyle(btnStyleFromStr(styles.nav)),
