@@ -12,6 +12,7 @@ const IMAGE_FILES = Object.freeze({
   piranha: 'piranha-rubra.png',
   betta: 'betta-fogo.png',
   marlin: 'marlin-neon.png',
+  treasure: 'treasure.jpg',
   lobster: 'lobster.jpg',
   starfish: 'starfish.jpg',
   octopus: 'octopus.jpg',

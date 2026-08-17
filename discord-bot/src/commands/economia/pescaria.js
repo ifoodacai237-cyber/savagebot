@@ -397,7 +397,7 @@ function chooseOutcome(luck = 0, sealBlessing = false, spot = FISHING_SPOTS[0], 
     },
     {
       type: 'treasure',
-      artwork: 'legendary',
+      artwork: 'treasure',
       weight: 2 *
         (spot.treasureMultiplier ?? 1) *
         (condition.treasureMultiplier ?? 1) *
@@ -1515,7 +1515,7 @@ async function executeFishing(userId, guildId, isAdmin, reply, requestedSpotKey 
         `A linha puxou algo que não era peixe: **${treasure.name}**.\n\n` +
         `${rewardText}.\n${contextText}\n\n` +
         `A maré muda em **1 hora**. Volte para descobrir o próximo evento.`,
-        'legendary',
+        'treasure',
         [],
         { large: true, scene: spot.scene },
       ));
