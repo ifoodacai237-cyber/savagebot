@@ -3911,6 +3911,14 @@ export default {
         || interaction.customId?.startsWith('casar_refresh_')
         || interaction.customId?.startsWith('casar_manage_')
         || interaction.customId?.startsWith('casar_action_');
+      const v2Interaction =
+        interaction.message?.flags?.has?.(MessageFlags.IsComponentsV2)
+        || interaction.customId === 'shop_comprar'
+        || interaction.customId === 'shop_type_sel'
+        || interaction.customId === 'profile_pet_btn'
+        || interaction.customId === 'profile_pet_sel'
+        || interaction.customId?.startsWith('shop_buy_pet:')
+        || interaction.customId?.startsWith('shop_ok_pet:');
       const legacyErrorPayload = {
         embeds: [errorEmbed('Ocorreu um erro interno. Tente novamente.')],
         components: [],
@@ -3919,6 +3927,18 @@ export default {
         ? {
             embeds: [errorEmbed('O cartão de casamento não pôde ser gerado. Tente novamente.')],
             components: [],
+          }
+        : v2Interaction
+        ? {
+            components: [
+              new ContainerBuilder().addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                  '## ❌ Não foi possível concluir esta ação\n\n' +
+                  'O painel não conseguiu carregar os dados agora. Abra a loja ou o perfil novamente e tente mais uma vez.',
+                ),
+              ),
+            ],
+            flags: MessageFlags.IsComponentsV2,
           }
         : legacyErrorPayload;
       if (interaction.deferred)

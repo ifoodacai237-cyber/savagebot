@@ -1371,16 +1371,10 @@ async function handleTypeSel(interaction) {
   });
 
   try {
-    // Update immediately so Discord acknowledges the select interaction before
-    // the database queries. The loading message stays in the private V2 store.
-    await interaction.update({
-      components: [
-        new ContainerBuilder().addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`${SHOP_CATEGORY_EMOJI()} **Carregando a categoria...**`),
-        ),
-      ],
-      flags: MessageFlags.IsComponentsV2,
-    });
+    // Acknowledge the select without changing the message format. The private
+    // shop message is already Components V2, so an intermediate update with
+    // flags can make Discord reject the following edit on older interactions.
+    await interaction.deferUpdate();
 
     const type = interaction.values[0];
     const [eco, cfg] = await Promise.all([
@@ -1522,21 +1516,37 @@ async function handleBuyConfirm(interaction) {
 
   if (type === 'role') {
     const item = await prisma.shopRole.findUnique({ where: { id: key } });
-    if (!item) return interaction.editReply({ content: '❌ Item não encontrado.' });
+    if (!item) return interaction.editReply({ content: '❌ Item não encontrado. Abra a loja novamente para atualizar a lista.' });
     name = item.name; price = item.price;
   } else if (type === 'pet') {
     petForPayload = await prisma.pet.findUnique({ where: { id: key } });
-    if (!petForPayload) return interaction.editReply({ content: '❌ Pet não encontrado.' });
+    if (!petForPayload) return interaction.editReply({
+      ...buildPetPanel({
+        title: '❌ Pet não encontrado',
+        body: 'Esse pet não está mais disponível na loja. Abra a loja novamente para atualizar a lista.',
+        includeActions: false,
+      }),
+    });
     name = petDisplayName(petForPayload); price = petForPayload.price;
   } else {
     const b = await resolveBannerForGuild(key, interaction.guildId);
-    if (!b) return interaction.editReply({ content: '❌ Banner não encontrado.' });
+    if (!b) return interaction.editReply({ content: '❌ Banner não encontrado. Abra a loja novamente para atualizar a lista.' });
     name = b.name; price = b.price;
   }
 
   if (eco.balance < price) {
+    if (type !== 'pet') {
+      return interaction.editReply({
+        content: `❌ Saldo insuficiente! Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**.`,
+      });
+    }
     return interaction.editReply({
-      content: `❌ Saldo insuficiente! Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**.`,
+      ...buildPetPanel({
+        title: '❌ Saldo insuficiente',
+        body: `Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**, mas precisa de **${price.toLocaleString('pt-BR')} ${COIN()}**.`,
+        pet: petForPayload,
+        includeActions: false,
+      }),
     });
   }
 
@@ -2171,6 +2181,10 @@ async function handleRingRemove(interaction, mode) {
 // ─── 🐾 Pet do Perfil ─────────────────────────────────────────────────────────
 
 async function handleProfilePetBtn(interaction) {
+  await interaction.deferReply({
+    flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+  });
+
   const [owned, profile] = await Promise.all([
     prisma.userPurchase.findMany({ where: { userId: interaction.user.id, itemType: 'pet' } }),
     prisma.userProfile.findUnique({ where: { userId: interaction.user.id } }),
@@ -2180,14 +2194,13 @@ async function handleProfilePetBtn(interaction) {
     const shopBtn = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('shop_comprar').setLabel('Abrir loja de pets').setEmoji('🛍️').setStyle(ButtonStyle.Primary),
     );
-    return interaction.reply({
+    return interaction.editReply({
       ...buildPetPanel({
         title: '🐾 Meu Pet',
         body: 'Você ainda não possui nenhum pet.\n\nAbra a loja para escolher um companheiro e depois volte aqui para equipá-lo.',
         includeActions: false,
         extraRows: [shopBtn],
       }),
-      ephemeral: true,
     });
   }
 
@@ -2212,7 +2225,7 @@ async function handleProfilePetBtn(interaction) {
     }),
   ];
 
-  return interaction.reply({
+  return interaction.editReply({
     ...buildPetPanel({
       title: '🐾 Meu Pet',
       body: 'Selecione um companheiro para exibir no seu perfil.',
@@ -2223,13 +2236,33 @@ async function handleProfilePetBtn(interaction) {
         ),
       ],
     }),
-    ephemeral: true,
   });
 }
 
 async function handleProfilePetSel(interaction) {
   const val       = interaction.values[0];
   const activePet = val === 'none' ? null : val;
+
+  await interaction.deferUpdate();
+
+  if (activePet) {
+    const owned = await prisma.userPurchase.findUnique({
+      where: {
+        userId_itemType_itemRef: {
+          userId: interaction.user.id,
+          itemType: 'pet',
+          itemRef: activePet,
+        },
+      },
+    });
+    if (!owned) {
+      return interaction.editReply(buildPetPanel({
+        title: '❌ Pet indisponível',
+        body: 'Esse pet não está mais no seu inventário. Abra o menu novamente para atualizar a lista.',
+        includeActions: false,
+      }));
+    }
+  }
 
   await prisma.userProfile.upsert({
     where:  { userId: interaction.user.id },
@@ -2238,7 +2271,7 @@ async function handleProfilePetSel(interaction) {
   });
 
   if (!activePet) {
-    return interaction.update(buildPetPanel({
+    return interaction.editReply(buildPetPanel({
       title: '✅ Pet removido',
       body: 'Seu perfil voltou a ficar sem pet equipado.',
       includeActions: false,
@@ -2246,7 +2279,7 @@ async function handleProfilePetSel(interaction) {
   }
 
   const pet = await prisma.pet.findUnique({ where: { id: activePet } }).catch(() => null);
-  return interaction.update(buildPetPanel({
+  return interaction.editReply(buildPetPanel({
     title: '✅ Pet equipado',
     body: `**${pet ? petDisplayName(pet) : 'Seu pet'}** agora aparece no seu perfil.\n\nUse \`/perfil\` para conferir o card.`,
     pet,
