@@ -63,13 +63,16 @@ export function resolvePetEmoji(emojiStr, emojiSource = null) {
   const custom = raw.match(/^<a?:([^:>\s]+):(\d+)>$/);
   if (custom) {
     const emoji = findGuildEmoji(emojiSource, custom[1], custom[2]);
-    return emoji?.toString() ?? '🐾';
+    // Keep the original Discord markup when the guild cache is not available.
+    // Discord can still render a valid custom emoji from its `<:name:id>` form;
+    // falling back to 🐾 hides which pet the member is viewing.
+    return emoji?.toString() ?? raw;
   }
 
   const shortcode = raw.match(/^:([^:\s]+):$/);
   if (shortcode) {
     const emoji = findGuildEmoji(emojiSource, shortcode[1]);
-    return emoji?.toString() ?? '🐾';
+    return emoji?.toString() ?? raw;
   }
 
   if (/^[\p{L}\p{N}_-]+$/u.test(raw)) {

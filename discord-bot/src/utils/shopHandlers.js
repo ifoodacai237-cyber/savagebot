@@ -1219,14 +1219,14 @@ function buildRoleCarousel(r, index, total, eco, owned, cfg = null) {
   };
 }
 
-async function buildPetCarousel(p, index, total, eco, owned, cfg = null, { includeImage = true } = {}) {
+async function buildPetCarousel(p, index, total, eco, owned, cfg = null, emojiSource = null, { includeImage = true } = {}) {
   const styles    = getBtnStyles(cfg);
   const canAfford = eco.balance >= p.price;
   const imageUrl  = safeHttpUrl(p.imageUrl);
 
   const c = new ContainerBuilder();
   c.addTextDisplayComponents(new TextDisplayBuilder().setContent([
-    `**${petDisplayName(p)}**`,
+    `**${petDisplayName(p, emojiSource)}**`,
     p.description || '',
     `▶ Valor: **${p.price.toLocaleString('pt-BR')} (${formatK(p.price)}) ${COIN()}**`,
     `👛 Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`,
@@ -1262,14 +1262,14 @@ async function buildPetCarousel(p, index, total, eco, owned, cfg = null, { inclu
 }
 
 async function editPetCarousel(interaction, p, index, total, eco, owned, cfg = null) {
-  const payload = await buildPetCarousel(p, index, total, eco, owned, cfg);
+  const payload = await buildPetCarousel(p, index, total, eco, owned, cfg, interaction.guild);
 
   try {
     return await interaction.editReply(payload);
   } catch (error) {
     if (!safeHttpUrl(p.imageUrl)) throw error;
     return interaction.editReply(
-      await buildPetCarousel(p, index, total, eco, owned, cfg, { includeImage: false }),
+      await buildPetCarousel(p, index, total, eco, owned, cfg, interaction.guild, { includeImage: false }),
     );
   }
 }
@@ -1511,7 +1511,7 @@ async function handleItemSel(interaction) {
       .setDisabled(owned || !canAfford);
 
     return interaction.editReply(buildPetPanel({
-      title: `${petDisplayName(pet)} — detalhes`,
+      title: `${petDisplayName(pet, interaction.guild)} — detalhes`,
       body:
         `${pet.description ?? 'Um pet exclusivo do servidor.'}\n\n` +
         `💰 **Preço:** ${pet.price.toLocaleString('pt-BR')} ${COIN()}\n` +
@@ -1554,7 +1554,7 @@ async function handleBuyConfirm(interaction) {
         includeActions: false,
       }),
     });
-    name = petDisplayName(petForPayload); price = petForPayload.price;
+    name = petDisplayName(petForPayload, interaction.guild); price = petForPayload.price;
   } else {
     const b = await resolveBannerForGuild(key, interaction.guildId);
     if (!b) return interaction.editReply({ content: '❌ Banner não encontrado. Abra a loja novamente para atualizar a lista.' });
@@ -1635,7 +1635,7 @@ async function handleBuyExecute(interaction, client) {
       components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent('❌ Pet não encontrado.'))],
       flags: MessageFlags.IsComponentsV2,
     });
-    name = petDisplayName(petForPayload); price = petForPayload.price; itemRef = petForPayload.id;
+    name = petDisplayName(petForPayload, interaction.guild); price = petForPayload.price; itemRef = petForPayload.id;
   } else {
     const b = await resolveBannerForGuild(key, interaction.guildId);
     if (!b) return interaction.editReply({ content: '❌ Banner não encontrado.', embeds: [], components: [] });

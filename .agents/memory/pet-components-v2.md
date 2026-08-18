@@ -14,3 +14,9 @@ Ao usar `deferReply` com `MessageFlags.IsComponentsV2`, todo caminho posterior d
 **Why:** O Discord rejeita misturar `content`/`embeds` com uma resposta já marcada como Components V2, o que deixa a interação presa no carregamento ou exibe apenas o erro genérico.
 
 **How to apply:** Antes de adicionar um retorno em `/loja`, compra de pet ou `/perfil` → `Meu Pet`, confirme se a interação foi iniciada como V2 e mantenha o payload no mesmo formato até o fim.
+
+Ao exibir o nome de um pet, preserve a marcação original de emoji personalizado (`<:nome:id>`/`<a:nome:id>`) quando o cache de emojis do servidor não estiver disponível; na loja, passe o guild da interação para resolver emojis por nome/ID.
+
+**Why:** Substituir um emoji personalizado não resolvido por `🐾` impede o membro de identificar qual pet está comprando.
+
+**How to apply:** Use `petDisplayName(pet, interaction.guild)` em carrosséis, detalhes e confirmações de compra; mantenha o fallback para a marcação original, não para uma patinha genérica.
