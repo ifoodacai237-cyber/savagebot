@@ -18,7 +18,7 @@ import prisma from '../database/client.js';
 import { getEmoji } from './emojiManager.js';
 import { WALLET_BACKGROUNDS, RING_PRESETS, getRing, FRAME_PRESETS, getFrame, buildBannerUrl } from './shopData.js';
 import { renderRingPreview } from './ringPreview.js';
-import { buildPetPanel, petDisplayName, resolvePetEmoji } from './petComponents.js';
+import { buildPetPanel, petDisplayName } from './petComponents.js';
 
 const SHOP_COLOR = 0x000000;
 const DIVIDER    = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
@@ -1219,16 +1219,14 @@ function buildRoleCarousel(r, index, total, eco, owned, cfg = null) {
   };
 }
 
-async function buildPetCarousel(p, index, total, eco, owned, cfg = null, { includeImage = true, guild = null } = {}) {
+async function buildPetCarousel(p, index, total, eco, owned, cfg = null, { includeImage = true } = {}) {
   const styles    = getBtnStyles(cfg);
   const canAfford = eco.balance >= p.price;
-  const petEmoji  = resolvePetEmoji(p.emoji, guild);
-  const petName   = p.name || 'Pet';
   const imageUrl  = safeHttpUrl(p.imageUrl);
 
   const c = new ContainerBuilder();
   c.addTextDisplayComponents(new TextDisplayBuilder().setContent([
-    `${petEmoji} **${petName}**`,
+    `**${petDisplayName(p)}**`,
     p.description || '',
     `▶ Valor: **${p.price.toLocaleString('pt-BR')} (${formatK(p.price)}) ${COIN()}**`,
     `👛 Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`,
@@ -1264,15 +1262,14 @@ async function buildPetCarousel(p, index, total, eco, owned, cfg = null, { inclu
 }
 
 async function editPetCarousel(interaction, p, index, total, eco, owned, cfg = null) {
-  const emojiSource = interaction.client ?? interaction.guild;
-  const payload = await buildPetCarousel(p, index, total, eco, owned, cfg, { guild: emojiSource });
+  const payload = await buildPetCarousel(p, index, total, eco, owned, cfg);
 
   try {
     return await interaction.editReply(payload);
   } catch (error) {
     if (!safeHttpUrl(p.imageUrl)) throw error;
     return interaction.editReply(
-      await buildPetCarousel(p, index, total, eco, owned, cfg, { includeImage: false, guild: emojiSource }),
+      await buildPetCarousel(p, index, total, eco, owned, cfg, { includeImage: false }),
     );
   }
 }
