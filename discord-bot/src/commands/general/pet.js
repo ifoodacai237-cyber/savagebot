@@ -136,7 +136,7 @@ async function handleBrincar(interaction) {
 
   if (diff < PLAY_CD) {
     return interaction.editReply(buildPetPanel({
-      title: `${petDisplayName(pet)} está descansando`,
+      title: `${petDisplayName(pet, interaction.guild)} está descansando`,
       body: `Seu pet precisa descansar depois de tanto brincar.\n\n${PET_TIME()} Próxima brincadeira em **${formatMs(PLAY_CD - diff)}**.\n\nTente alimentar ou acariciar enquanto isso.`,
       pet,
     }));
@@ -152,7 +152,7 @@ async function handleBrincar(interaction) {
   const reacao = pickRand(BRINCAR_REACOES);
 
   return interaction.editReply(buildPetPanel({
-    title: `${PET_BALL()} Brincadeira com ${petDisplayName(pet)}`,
+    title: `${PET_BALL()} Brincadeira com ${petDisplayName(pet, interaction.guild)}`,
     body:
       `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
       `Seu pet ficou tão feliz que te deu **+${reward.toLocaleString('pt-BR')} ${COIN()}**!\n\n` +
@@ -179,7 +179,7 @@ async function handleAlimentar(interaction) {
 
   if (diff < FEED_CD) {
     return interaction.editReply(buildPetPanel({
-      title: `${petDisplayName(pet)} está satisfeito`,
+      title: `${petDisplayName(pet, interaction.guild)} está satisfeito`,
       body: `Seu pet ainda está de barriga cheia!\n\n${PET_TIME()} Próxima alimentação em **${formatMs(FEED_CD - diff)}**.\n\nTente brincar ou acariciar enquanto isso.`,
       pet,
     }));
@@ -195,7 +195,7 @@ async function handleAlimentar(interaction) {
   const reacao = pickRand(ALIMENTAR_REACOES);
 
   return interaction.editReply(buildPetPanel({
-    title: `${PET_FOOD()} Alimentando ${petDisplayName(pet)}`,
+    title: `${PET_FOOD()} Alimentando ${petDisplayName(pet, interaction.guild)}`,
     body:
       `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
       `Como agradecimento, você ganhou **+${reward.toLocaleString('pt-BR')} ${COIN()}**!\n\n` +
@@ -222,7 +222,7 @@ async function handleAcariciar(interaction) {
 
   if (diff < PET_CD) {
     return interaction.editReply(buildPetPanel({
-      title: `${petDisplayName(pet)} precisa de um tempo`,
+      title: `${petDisplayName(pet, interaction.guild)} precisa de um tempo`,
       body: `Seu pet está descansando após o último carinho.\n\n${PET_TIME()} Próximo carinho em **${formatMs(PET_CD - diff)}**.\n\nTente brincar ou alimentar enquanto isso.`,
       pet,
     }));
@@ -238,7 +238,7 @@ async function handleAcariciar(interaction) {
   const reacao = pickRand(ACARICIAR_REACOES);
 
   return interaction.editReply(buildPetPanel({
-    title: `${PET_HEART()} Carinho em ${petDisplayName(pet)}`,
+    title: `${PET_HEART()} Carinho em ${petDisplayName(pet, interaction.guild)}`,
     body:
       `**${interaction.user.displayName ?? interaction.user.username}** ${acao} **${pet.name}**, que ${reacao}\n\n` +
       `O carinho valeu **+${reward.toLocaleString('pt-BR')} ${COIN()}**!\n\n` +
@@ -269,7 +269,7 @@ async function handleStatus(interaction) {
   }
 
   return interaction.editReply(buildPetPanel({
-    title: `${petDisplayName(pet)} — Status`,
+    title: `${petDisplayName(pet, interaction.guild)} — Status`,
     body:
       `Cooldowns das interações com seu pet:\n\n` +
       `${PET_BALL()} ${cdLine(eco.lastPetPlay, PLAY_CD, 'Brincar')} (até **300 ${COIN()}**)\n` +

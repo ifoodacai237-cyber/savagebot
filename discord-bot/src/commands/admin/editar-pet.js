@@ -70,7 +70,7 @@ export default {
 
     return interaction.reply({
       ...buildPetPanel({
-        title: `✏️ ${petDisplayName(updated)} atualizado`,
+        title: `✏️ ${petDisplayName(updated, interaction.guild)} atualizado`,
         body:
           `${changes.join('\n')}\n\n` +
           `💰 **Preço atual:** ${updated.price.toLocaleString('pt-BR')} ${COIN()}\n` +

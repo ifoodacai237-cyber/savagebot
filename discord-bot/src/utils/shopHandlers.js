@@ -2308,7 +2308,7 @@ async function handleProfilePetSel(interaction) {
   const pet = await prisma.pet.findUnique({ where: { id: activePet } }).catch(() => null);
   return interaction.editReply(buildPetPanel({
     title: '✅ Pet equipado',
-    body: `**${pet ? petDisplayName(pet) : 'Seu pet'}** agora aparece no seu perfil.\n\nUse \`/perfil\` para conferir o card.`,
+    body: `**${pet ? petDisplayName(pet, interaction.guild) : 'Seu pet'}** agora aparece no seu perfil.\n\nUse \`/perfil\` para conferir o card.`,
     pet,
     includeActions: true,
   }));

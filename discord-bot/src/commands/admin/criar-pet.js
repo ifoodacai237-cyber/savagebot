@@ -46,7 +46,7 @@ export default {
       ...buildPetPanel({
         title: '🐾 Pet criado com sucesso',
         body:
-          `**${petDisplayName(pet)}** agora está disponível na loja!\n\n` +
+          `**${petDisplayName(pet, interaction.guild)}** agora está disponível na loja!\n\n` +
           `💰 **Preço:** ${preco.toLocaleString('pt-BR')} ${COIN()}\n` +
           `📝 **Descrição:** ${desc ?? '—'}\n` +
           `🆔 **ID interno:** \`${pet.id}\`\n\n` +
