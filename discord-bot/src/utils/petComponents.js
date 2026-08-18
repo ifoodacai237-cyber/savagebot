@@ -36,9 +36,28 @@ export function isCustomPetEmoji(emojiStr) {
   return /<a?:\w+:\d+>/.test(emojiStr ?? '');
 }
 
-export function petDisplayName(pet) {
+export function resolvePetEmoji(emojiStr, guild = null) {
+  const raw = typeof emojiStr === 'string' ? emojiStr.trim() : '';
+  if (!raw) return '🐾';
+
+  const custom = raw.match(/^<a?:([^:>\s]+):(\d+)>$/);
+  if (custom) {
+    const emoji = guild?.emojis?.cache?.get(custom[2]);
+    return emoji?.toString() ?? raw;
+  }
+
+  const shortcode = raw.match(/^:([^:\s]+):$/);
+  if (shortcode) {
+    const emoji = guild?.emojis?.cache?.find(item => item.name === shortcode[1]);
+    return emoji?.toString() ?? '🐾';
+  }
+
+  return raw;
+}
+
+export function petDisplayName(pet, guild = null) {
   if (!pet) return 'seu pet';
-  return isCustomPetEmoji(pet.emoji) ? pet.name : `${pet.emoji} ${pet.name}`;
+  return `${resolvePetEmoji(pet.emoji, guild)} ${pet.name}`;
 }
 
 function petThumbnailUrl(pet) {

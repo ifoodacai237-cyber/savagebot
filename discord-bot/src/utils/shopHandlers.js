@@ -18,7 +18,7 @@ import prisma from '../database/client.js';
 import { getEmoji } from './emojiManager.js';
 import { WALLET_BACKGROUNDS, RING_PRESETS, getRing, FRAME_PRESETS, getFrame, buildBannerUrl } from './shopData.js';
 import { renderRingPreview } from './ringPreview.js';
-import { buildPetPanel, petDisplayName } from './petComponents.js';
+import { buildPetPanel, petDisplayName, resolvePetEmoji } from './petComponents.js';
 
 const SHOP_COLOR = 0x000000;
 const DIVIDER    = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
@@ -1219,10 +1219,10 @@ function buildRoleCarousel(r, index, total, eco, owned, cfg = null) {
   };
 }
 
-async function buildPetCarousel(p, index, total, eco, owned, cfg = null, { includeImage = true } = {}) {
+async function buildPetCarousel(p, index, total, eco, owned, cfg = null, { includeImage = true, guild = null } = {}) {
   const styles    = getBtnStyles(cfg);
   const canAfford = eco.balance >= p.price;
-  const petEmoji  = typeof p.emoji === 'string' && p.emoji.trim() ? p.emoji.trim() : '🐾';
+  const petEmoji  = resolvePetEmoji(p.emoji, guild);
   const petName   = p.name || 'Pet';
   const imageUrl  = safeHttpUrl(p.imageUrl);
 
@@ -1264,14 +1264,14 @@ async function buildPetCarousel(p, index, total, eco, owned, cfg = null, { inclu
 }
 
 async function editPetCarousel(interaction, p, index, total, eco, owned, cfg = null) {
-  const payload = await buildPetCarousel(p, index, total, eco, owned, cfg);
+  const payload = await buildPetCarousel(p, index, total, eco, owned, cfg, { guild: interaction.guild });
 
   try {
     return await interaction.editReply(payload);
   } catch (error) {
     if (!safeHttpUrl(p.imageUrl)) throw error;
     return interaction.editReply(
-      await buildPetCarousel(p, index, total, eco, owned, cfg, { includeImage: false }),
+      await buildPetCarousel(p, index, total, eco, owned, cfg, { includeImage: false, guild: interaction.guild }),
     );
   }
 }
