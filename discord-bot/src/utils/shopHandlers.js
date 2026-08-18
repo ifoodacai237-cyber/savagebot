@@ -1252,13 +1252,15 @@ async function buildPetCarousel(p, index, total, eco, owned, cfg = null, emojiSo
 
   const voltarBtn = new ButtonBuilder()
     .setCustomId('shop_car_back').setLabel('Voltar').setEmoji('↩').setStyle(btnStyleFromStr(styles.back));
-  const navButtons = _navBtns(
-    `shop_car_p:${(index - 1 + total) % total}`,
-    `shop_car_p:${(index + 1) % total}`,
-    null,
-    styles,
-    'Próximo pet',
-  );
+  const navButtons = total > 1
+    ? _navBtns(
+        `shop_car_p:prev:${(index - 1 + total) % total}`,
+        `shop_car_p:next:${(index + 1) % total}`,
+        null,
+        styles,
+        'Próximo pet',
+      )
+    : [];
 
   return {
     components: [
@@ -1318,7 +1320,7 @@ async function handleCarouselRoleNav(interaction) {
 
 async function handleCarouselPetNav(interaction) {
   await interaction.deferUpdate();
-  const index = parseInt(interaction.customId.slice('shop_car_p:'.length), 10);
+  const index = parseInt(interaction.customId.slice('shop_car_p:'.length).split(':').pop(), 10);
   const [pets, eco, allOwned, cfg] = await Promise.all([
     prisma.pet.findMany({ where: { guildId: interaction.guildId, active: true } }),
     getEco(interaction.user.id, interaction.guildId),

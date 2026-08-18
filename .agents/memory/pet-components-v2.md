@@ -20,3 +20,9 @@ Ao exibir o nome de um pet, preserve a marcação original de emoji personalizad
 **Why:** Substituir um emoji personalizado não resolvido por `🐾` impede o membro de identificar qual pet está comprando.
 
 **How to apply:** Use `petDisplayName(pet, interaction.guild)` em carrosséis, detalhes e confirmações de compra; mantenha o fallback para a marcação original, não para uma patinha genérica.
+
+Navegação circular com exatamente dois itens precisa de IDs distintos por direção, mesmo quando Anterior e Próximo apontam para o mesmo índice; encode a direção no custom ID e extraia o índice no handler.
+
+**Why:** O Discord rejeita componentes com `custom_id` duplicado, e remover os dois botões deixa o carrossel de dois pets sem navegação.
+
+**How to apply:** Ao criar carrosséis com dois itens, use sufixos como `prev`/`next` nos IDs e mantenha a navegação oculta apenas quando houver um único item.
