@@ -211,3 +211,10 @@ uri = "file://attached_assets/pet-pimentinha-emoji-exato.png"
 type = "image"
 title = "Prévia correta do pet pimentinha"
 description = "Imagem usando exatamente o mesmo emoji de patinhas vermelhas do pet pimentinha."
+
+[[outputs]]
+id = "Sf8ImYXqGRvR6U0sTXzGv"
+uri = "file://attached_assets/pimentinha-emoji-correto.png"
+type = "image"
+title = "Emoji correto do pet pimentinha"
+description = "Recorte da captura mostrando exatamente o emoji vermelho usado pelo pet pimentinha."
