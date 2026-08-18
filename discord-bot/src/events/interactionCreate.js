@@ -992,6 +992,7 @@ export default {
           interaction.customId.startsWith('profile_') ||
           interaction.customId.startsWith('loja_admin_') ||
           interaction.customId.startsWith('banner_admin_') ||
+          interaction.customId.startsWith('remover_banner_') ||
           interaction.customId.startsWith('wallet_fundo') ||
           interaction.customId.startsWith('wallet_ring')
         ) {
@@ -1223,6 +1224,7 @@ export default {
           customId.startsWith('loja_admin_') ||
           customId.startsWith('profile_') ||
           customId.startsWith('banner_admin_') ||
+          customId.startsWith('remover_banner_') ||
           customId.startsWith('wallet_fundo') ||
           customId.startsWith('wallet_ring')
         ) {

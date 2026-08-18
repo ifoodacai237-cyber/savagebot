@@ -36,11 +36,15 @@ export default {
     );
 
     const sel = new StringSelectMenuBuilder()
-      .setCustomId('banner_admin_remove_sel')
+      .setCustomId('remover_banner_sel')
       .setPlaceholder('🗑️ Selecione o banner para remover')
       .addOptions(options);
 
-    const lines = banners.map(b => `> 🖼️ **${b.name}** — \`${b.price.toLocaleString('pt-BR')} coins\``).join('\n');
+    const lines = banners
+      .slice(0, 25)
+      .map(b => `> 🖼️ **${b.name}** — \`${b.price.toLocaleString('pt-BR')} coins\``)
+      .join('\n')
+      .slice(0, 3900);
 
     const embed = new EmbedBuilder()
       .setColor(0xED4245)

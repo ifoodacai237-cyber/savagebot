@@ -472,6 +472,80 @@ async function handleBannerAdminRemoveConfirm(interaction) {
   return interaction.update(buildLojaAdminPayload(cfg));
 }
 
+// ─── Admin: Remover Banner (comando slash legado/V1) ───────────────────────────
+// O comando /remover-banner usa embeds tradicionais. Ele não pode compartilhar
+// os customIds do painel da loja, que atualiza mensagens usando Components V2.
+async function handleStandaloneBannerRemoveSel(interaction) {
+  const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+  if (!isAdmin) return interaction.reply({ content: '❌ Sem permissão.', ephemeral: true });
+
+  const key = interaction.values[0];
+  const banner = await prisma.customBanner.findFirst({
+    where: { key, guildId: interaction.guildId, active: true },
+  });
+
+  if (!banner) {
+    return interaction.update({
+      content: '❌ Banner não encontrado ou já removido.',
+      embeds: [],
+      components: [],
+    });
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(0xED4245)
+    .setTitle('⚠️ Confirmar remoção')
+    .setDescription(`Tem certeza que deseja remover o banner **${banner.name}** da loja?\n\nEssa ação não pode ser desfeita.`)
+    .addFields({ name: 'Preço', value: `${banner.price.toLocaleString('pt-BR')} coins`, inline: true });
+
+  const bannerUrl = buildBannerUrl(banner.imageUrl);
+  if (bannerUrl) embed.setThumbnail(bannerUrl);
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`remover_banner_confirm:${key}`)
+      .setLabel('Sim, remover')
+      .setEmoji('🗑️')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId('remover_banner_cancel')
+      .setLabel('Cancelar')
+      .setEmoji('✖️')
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  return interaction.update({ content: '', embeds: [embed], components: [row] });
+}
+
+async function handleStandaloneBannerRemoveConfirm(interaction) {
+  const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+  if (!isAdmin) return interaction.reply({ content: '❌ Sem permissão.', ephemeral: true });
+
+  const key = interaction.customId.slice('remover_banner_confirm:'.length);
+  const banner = await prisma.customBanner.findFirst({
+    where: { key, guildId: interaction.guildId, active: true },
+  });
+
+  if (!banner) {
+    return interaction.update({
+      content: '❌ Banner não encontrado ou já removido.',
+      embeds: [],
+      components: [],
+    });
+  }
+
+  await prisma.customBanner.update({
+    where: { id: banner.id },
+    data: { active: false },
+  });
+
+  return interaction.update({
+    content: `✅ O banner **${banner.name}** foi removido da loja.`,
+    embeds: [],
+    components: [],
+  });
+}
+
 // ─── Personalização (admin) ───────────────────────────────────────────────────
 
 const LOJA_CFG_FIELDS = {
@@ -821,6 +895,14 @@ export async function handleShopInteraction(interaction, client) {
     if (id === 'loja_admin_add_cargo')           return handleLojaAdminAddCargo(interaction);
     if (id === 'loja_admin_criar_banner')        return handleLojaAdminCriarBanner(interaction);
     if (id === 'loja_admin_gerenciar_banners')   return handleLojaAdminGerenciarBanners(interaction);
+    if (id.startsWith('remover_banner_confirm:')) return handleStandaloneBannerRemoveConfirm(interaction);
+    if (id === 'remover_banner_cancel') {
+      return interaction.update({
+        content: '❌ Remoção cancelada.',
+        embeds: [],
+        components: [],
+      });
+    }
     if (id.startsWith('banner_admin_remove_confirm:')) return handleBannerAdminRemoveConfirm(interaction);
     if (id === 'banner_admin_remove_cancel') {
       const cfg = await getCfg(interaction.guildId);
@@ -842,6 +924,7 @@ export async function handleShopInteraction(interaction, client) {
     if (id.startsWith('shop_gt:'))               return handleGiftTypeSel(interaction);
     if (id.startsWith('shop_gi:'))               return handleGiftItemSel(interaction);
     if (id === 'loja_admin_remove_sel')          return handleLojaAdminRemoveSel(interaction);
+    if (id === 'remover_banner_sel')              return handleStandaloneBannerRemoveSel(interaction);
     if (id === 'banner_admin_remove_sel')        return handleBannerAdminRemoveSel(interaction);
   }
 
