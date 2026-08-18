@@ -1142,7 +1142,7 @@ function _navBtns(prevId, nextId, voltarId, styles) {
 
   return [
     new ButtonBuilder().setCustomId(prevId).setLabel('Anterior').setEmoji('◀').setStyle(btnStyleFromStr(styles.nav)),
-    new ButtonBuilder().setCustomId(nextId).setLabel('Próxima').setEmoji('▶').setStyle(btnStyleFromStr(styles.nav)),
+    new ButtonBuilder().setCustomId(nextId).setLabel('Próximo pet').setEmoji('▶').setStyle(btnStyleFromStr(styles.nav)),
   ];
 }
 
@@ -1252,11 +1252,18 @@ async function buildPetCarousel(p, index, total, eco, owned, cfg = null, emojiSo
 
   const voltarBtn = new ButtonBuilder()
     .setCustomId('shop_car_back').setLabel('Voltar').setEmoji('↩').setStyle(btnStyleFromStr(styles.back));
+  const navButtons = _navBtns(
+    `shop_car_p:${(index - 1 + total) % total}`,
+    `shop_car_p:${(index + 1) % total}`,
+    null,
+    styles,
+  );
 
   return {
     components: [
       c,
-      new ActionRowBuilder().addComponents(..._navBtns(`shop_car_p:${(index - 1 + total) % total}`, `shop_car_p:${(index + 1) % total}`, null, styles), buyBtn),
+      ...(navButtons.length ? [new ActionRowBuilder().addComponents(...navButtons)] : []),
+      new ActionRowBuilder().addComponents(buyBtn),
       new ActionRowBuilder().addComponents(voltarBtn),
     ],
     flags: MessageFlags.IsComponentsV2,
