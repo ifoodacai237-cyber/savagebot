@@ -197,3 +197,10 @@ id = "P-zK4HoaRBZgfKpiPzp_Y"
 uri = "file://attached_assets/thickness_cmp.png"
 type = "image"
 title = "Comparação de espessura — linha do meio (r+30) foi aplicada"
+
+[[outputs]]
+id = "Cah25rCp_1BY2YvvWIdrr"
+uri = "file://attached_assets/pet-shop-preview-after-fix.jpg"
+type = "image"
+title = "Prévia da loja com o emoji do pet"
+description = "Prévia visual da correção aplicada no cartão do pet."
