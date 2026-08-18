@@ -218,3 +218,10 @@ uri = "file://attached_assets/pimentinha-emoji-correto.png"
 type = "image"
 title = "Emoji correto do pet pimentinha"
 description = "Recorte da captura mostrando exatamente o emoji vermelho usado pelo pet pimentinha."
+
+[[outputs]]
+id = "W6KzTq9YONRIOt9jXaWsQ"
+uri = "file://attached_assets/pimentinha-interacao-correta.png"
+type = "image"
+title = "Interação correta do pet pimentinha"
+description = "Cartão de carinho do pimentinha com o emoji vermelho correto e os botões do pet."
