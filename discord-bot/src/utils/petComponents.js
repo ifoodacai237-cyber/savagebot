@@ -36,28 +36,54 @@ export function isCustomPetEmoji(emojiStr) {
   return /<a?:\w+:\d+>/.test(emojiStr ?? '');
 }
 
-export function resolvePetEmoji(emojiStr, guild = null) {
+function normalizedEmojiName(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function findGuildEmoji(source, name, id = null) {
+  const cache = source?.emojis?.cache;
+  if (!cache) return null;
+  if (id) {
+    const byId = cache.get(id);
+    if (byId) return byId;
+  }
+  const target = normalizedEmojiName(name);
+  if (!target) return null;
+  return cache.find(item => normalizedEmojiName(item.name) === target) ?? null;
+}
+
+export function resolvePetEmoji(emojiStr, emojiSource = null) {
   const raw = typeof emojiStr === 'string' ? emojiStr.trim() : '';
   if (!raw) return '🐾';
 
   const custom = raw.match(/^<a?:([^:>\s]+):(\d+)>$/);
   if (custom) {
-    const emoji = guild?.emojis?.cache?.get(custom[2]);
-    return emoji?.toString() ?? raw;
+    const emoji = findGuildEmoji(emojiSource, custom[1], custom[2]);
+    return emoji?.toString() ?? '🐾';
   }
 
   const shortcode = raw.match(/^:([^:\s]+):$/);
   if (shortcode) {
-    const emoji = guild?.emojis?.cache?.find(item => item.name === shortcode[1]);
+    const emoji = findGuildEmoji(emojiSource, shortcode[1]);
     return emoji?.toString() ?? '🐾';
+  }
+
+  if (/^[\p{L}\p{N}_-]+$/u.test(raw)) {
+    const emoji = findGuildEmoji(emojiSource, raw);
+    if (emoji) return emoji.toString();
+    return '🐾';
   }
 
   return raw;
 }
 
-export function petDisplayName(pet, guild = null) {
+export function petDisplayName(pet, emojiSource = null) {
   if (!pet) return 'seu pet';
-  return `${resolvePetEmoji(pet.emoji, guild)} ${pet.name}`;
+  return `${resolvePetEmoji(pet.emoji, emojiSource)} ${pet.name}`;
 }
 
 function petThumbnailUrl(pet) {

@@ -1264,14 +1264,15 @@ async function buildPetCarousel(p, index, total, eco, owned, cfg = null, { inclu
 }
 
 async function editPetCarousel(interaction, p, index, total, eco, owned, cfg = null) {
-  const payload = await buildPetCarousel(p, index, total, eco, owned, cfg, { guild: interaction.guild });
+  const emojiSource = interaction.client ?? interaction.guild;
+  const payload = await buildPetCarousel(p, index, total, eco, owned, cfg, { guild: emojiSource });
 
   try {
     return await interaction.editReply(payload);
   } catch (error) {
     if (!safeHttpUrl(p.imageUrl)) throw error;
     return interaction.editReply(
-      await buildPetCarousel(p, index, total, eco, owned, cfg, { includeImage: false, guild: interaction.guild }),
+      await buildPetCarousel(p, index, total, eco, owned, cfg, { includeImage: false, guild: emojiSource }),
     );
   }
 }
