@@ -204,3 +204,10 @@ uri = "file://attached_assets/pet-shop-preview-after-fix.jpg"
 type = "image"
 title = "Prévia da loja com o emoji do pet"
 description = "Prévia visual da correção aplicada no cartão do pet."
+
+[[outputs]]
+id = "SHqcy7q5AUhL14vH4uHXo"
+uri = "file://attached_assets/pet-pimentinha-emoji-exato.png"
+type = "image"
+title = "Prévia correta do pet pimentinha"
+description = "Imagem usando exatamente o mesmo emoji de patinhas vermelhas do pet pimentinha."
