@@ -428,6 +428,12 @@ async function handleLojaAdminGerenciarBanners(interaction) {
 // ─── Admin: Remover Banner ────────────────────────────────────────────────────
 
 async function handleBannerAdminRemoveSel(interaction) {
+  // Mensagens antigas do /remover-banner ainda usam este customId, mas foram
+  // enviadas como embed tradicional. Só o painel da loja pode receber payload V2.
+  if (!interaction.message?.flags?.has?.(MessageFlags.IsComponentsV2)) {
+    return handleStandaloneBannerRemoveSel(interaction);
+  }
+
   const key    = interaction.values[0];
   const banner = await prisma.customBanner.findFirst({ where: { key, guildId: interaction.guildId, active: true } });
   if (!banner) {
