@@ -62,11 +62,10 @@ export function resolvePetEmoji(emojiStr, emojiSource = null) {
 
   const custom = raw.match(/^<a?:([^:>\s]+):(\d+)>$/);
   if (custom) {
-    const emoji = findGuildEmoji(emojiSource, custom[1], custom[2]);
-    // Keep the original Discord markup when the guild cache is not available.
-    // Discord can still render a valid custom emoji from its `<:name:id>` form;
-    // falling back to 🐾 hides which pet the member is viewing.
-    return emoji?.toString() ?? raw;
+    // Preserve the exact custom emoji markup saved by `/criar-pet`.
+    // Resolving it from the cache can substitute a different fallback; Discord
+    // renders this `<:name:id>`/`<a:name:id>` value directly in message text.
+    return raw;
   }
 
   const shortcode = raw.match(/^:([^:\s]+):$/);
@@ -78,7 +77,8 @@ export function resolvePetEmoji(emojiStr, emojiSource = null) {
   if (/^[\p{L}\p{N}_-]+$/u.test(raw)) {
     const emoji = findGuildEmoji(emojiSource, raw);
     if (emoji) return emoji.toString();
-    return '🐾';
+    // Do not hide an unknown configured value behind a generic paw.
+    return raw;
   }
 
   return raw;
