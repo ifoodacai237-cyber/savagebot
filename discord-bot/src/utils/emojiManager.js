@@ -21,7 +21,7 @@ const REQUIRED_EMOJIS = [
   // ── Jogos (Mines / Blackjack) ────────────────────────────────────────────────
   { name: 'p_bom',               sourceId: '997485486803271720',  animated: false, fallback: '💣' },
   { name: 'Diamante',            sourceId: '1482392803299430451', animated: true,  fallback: '💎' },
-  { name: '05_angels',           sourceId: '1510663251598512279', animated: true,  fallback: '✨' },
+  { name: '05_angels',           sourceId: '1511082383095365752', animated: false, fallback: '<:05_angels:1511082383095365752>' },
   { name: 'dinheiro_kingbuxx',   sourceId: '1452430513519198281', animated: false, fallback: '💰' },
   // ── Loja ────────────────────────────────────────────────────────────────────
   { name: 'carrinho',            sourceId: '1384004945820516432', animated: false, fallback: '🛒' },

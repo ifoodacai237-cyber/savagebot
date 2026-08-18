@@ -15,6 +15,10 @@ const PET_TIME  = () => getEmoji('pet_time');
 const PET_FOOD  = () => getEmoji('pet_food');
 const PET_BALL  = () => getEmoji('pet_ball');
 
+// Emoji oficial do Pimentinha. Este é um emoji customizado do servidor, não o
+// emoji Unicode de gambá que foi usado em um cadastro anterior.
+const PIMENTINHA_EMOJI = '<:05_angels:1511082383095365752>';
+
 export const petInteractionEmojis = {
   heart: PET_HEART,
   time: PET_TIME,
@@ -84,13 +88,21 @@ export function resolvePetEmoji(emojiStr, emojiSource = null) {
   return raw;
 }
 
+function petEmojiValue(pet) {
+  if (!pet) return '';
+  if (String(pet.name ?? '').trim().toLocaleLowerCase('pt-BR') === 'pimentinha') {
+    return PIMENTINHA_EMOJI;
+  }
+  return pet.emoji;
+}
+
 export function petDisplayName(pet, emojiSource = null) {
   if (!pet) return 'seu pet';
-  return `${resolvePetEmoji(pet.emoji, emojiSource)} ${pet.name}`;
+  return `${resolvePetEmoji(petEmojiValue(pet), emojiSource)} ${pet.name}`;
 }
 
 function petThumbnailUrl(pet) {
-  return pet?.imageUrl || getPetEmojiUrl(pet?.emoji);
+  return pet?.imageUrl || getPetEmojiUrl(petEmojiValue(pet));
 }
 
 export function buildPetActionRows({ includeShop = true } = {}) {
