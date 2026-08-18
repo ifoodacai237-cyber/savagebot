@@ -153,6 +153,7 @@ const FISHING_SPOTS = Object.freeze([
     name: 'Abismo Azul',
     emoji: '🌀',
     description: 'O lugar mais perigoso: mais raridades, mais tesouros e mais dentes.',
+    scene: 'abismo',
     fishMultipliers: { carpa_lendaria: 1.35, marlin_neon: 1.2, polvo_rosa: 1.6, tartaruga_marinha: 1.1, orca: 1.4 },
     sharkMultiplier: 1.45,
     treasureMultiplier: 1.35,

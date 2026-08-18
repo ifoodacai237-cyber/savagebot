@@ -26,6 +26,7 @@ const BACKGROUND_FILES = Object.freeze({
   lago: 'scene-lago.jpg',
   recife: 'scene-recife.jpg',
   mar_aberto: 'scene-mar-aberto.jpg',
+  abismo: 'scene-abismo.jpg',
 });
 const backgroundCache = new Map();
 
