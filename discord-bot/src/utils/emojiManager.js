@@ -39,6 +39,8 @@ const REQUIRED_EMOJIS = [
   { name: 'pet_time',  asset: 'pet-time.png',  mime: 'image/png', fallback: '⏱️' },
   { name: 'pet_food',  asset: 'pet-food.png',  mime: 'image/png', fallback: '🌮' },
   { name: 'pet_ball',  asset: 'pet-ball.png',  mime: 'image/png', fallback: '🎾' },
+  { name: 'pet_value',   asset: 'pet-value.webp',   mime: 'image/webp', fallback: '▶️' },
+  { name: 'pet_balance', asset: 'pet-balance.webp', mime: 'image/webp', fallback: '💲' },
   // ── Moderação ────────────────────────────────────────────────────────────────
   { name: 'mod_heart', asset: 'mod-heart.png', mime: 'image/png', fallback: '❤️' },
 ];

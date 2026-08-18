@@ -22,7 +22,9 @@ import { buildPetPanel, petDisplayName } from './petComponents.js';
 
 const SHOP_COLOR = 0x000000;
 const DIVIDER    = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
-const COIN       = () => getEmoji('futecoins');
+const COIN        = () => getEmoji('futecoins');
+const PET_VALUE   = () => getEmoji('pet_value');
+const PET_BALANCE = () => getEmoji('pet_balance');
 const SHOP_CATEGORY_EMOJI = () => getEmoji('shop_category');
 
 function formatK(n) {
@@ -1228,8 +1230,8 @@ async function buildPetCarousel(p, index, total, eco, owned, cfg = null, emojiSo
   c.addTextDisplayComponents(new TextDisplayBuilder().setContent([
     `**${petDisplayName(p, emojiSource)}**`,
     p.description || '',
-    `▶ Valor: **${p.price.toLocaleString('pt-BR')} (${formatK(p.price)}) ${COIN()}**`,
-    `👛 Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`,
+    `${PET_VALUE()} Valor: **${p.price.toLocaleString('pt-BR')} (${formatK(p.price)}) ${COIN()}**`,
+    `${PET_BALANCE()} Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`,
   ].filter(Boolean).join('\n')));
 
   if (includeImage && imageUrl) {
@@ -1514,8 +1516,8 @@ async function handleItemSel(interaction) {
       title: `${petDisplayName(pet, interaction.guild)} — detalhes`,
       body:
         `${pet.description ?? 'Um pet exclusivo do servidor.'}\n\n` +
-        `💰 **Preço:** ${pet.price.toLocaleString('pt-BR')} ${COIN()}\n` +
-        `👛 **Seu saldo:** ${eco.balance.toLocaleString('pt-BR')} ${COIN()}\n\n` +
+        `${PET_VALUE()} **Preço:** ${pet.price.toLocaleString('pt-BR')} ${COIN()}\n` +
+        `${PET_BALANCE()} **Seu saldo:** ${eco.balance.toLocaleString('pt-BR')} ${COIN()}\n\n` +
         'Depois da compra, use `/perfil` → **Meu Pet** para equipar.',
       pet,
       includeActions: false,
@@ -1570,7 +1572,7 @@ async function handleBuyConfirm(interaction) {
     return interaction.editReply({
       ...buildPetPanel({
         title: '❌ Saldo insuficiente',
-        body: `Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**, mas precisa de **${price.toLocaleString('pt-BR')} ${COIN()}**.`,
+        body: `${PET_BALANCE()} Você tem **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**, mas precisa de **${price.toLocaleString('pt-BR')} ${COIN()}**.`,
         pet: petForPayload,
         includeActions: false,
       }),
@@ -1588,8 +1590,8 @@ async function handleBuyConfirm(interaction) {
         title: '⚠️ Confirmar compra',
         body:
           `Comprar **${name}** por **${price.toLocaleString('pt-BR')} ${COIN()}**?\n\n` +
-          `💰 **Saldo atual:** ${eco.balance.toLocaleString('pt-BR')} ${COIN()}\n` +
-          `📉 **Saldo após:** ${(eco.balance - price).toLocaleString('pt-BR')} ${COIN()}\n\n` +
+          `${PET_BALANCE()} **Saldo atual:** ${eco.balance.toLocaleString('pt-BR')} ${COIN()}\n` +
+          `${PET_BALANCE()} **Saldo após:** ${(eco.balance - price).toLocaleString('pt-BR')} ${COIN()}\n\n` +
           'Esta ação não pode ser desfeita.',
         pet: petForPayload,
         includeActions: false,
@@ -1690,7 +1692,7 @@ async function handleBuyExecute(interaction, client) {
       title: '✅ Compra realizada!',
       body:
         `Você comprou **${name}** com sucesso!\n` +
-        `💰 **${price.toLocaleString('pt-BR')} ${COIN()}** debitados.\n\n` +
+        `${PET_VALUE()} **${price.toLocaleString('pt-BR')} ${COIN()}** debitados.\n\n` +
         '🐾 Agora use `/perfil` → **Meu Pet** para equipar seu novo companheiro.',
       pet: petForPayload,
       includeActions: true,

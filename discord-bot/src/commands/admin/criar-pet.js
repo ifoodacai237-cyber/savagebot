@@ -4,6 +4,7 @@ import prisma from '../../database/client.js';
 import { getEmoji } from '../../utils/emojiManager.js';
 import { buildPetPanel, petDisplayName } from '../../utils/petComponents.js';
 const COIN = () => getEmoji('futecoins');
+const PET_VALUE = () => getEmoji('pet_value');
 
 export default {
   data: new SlashCommandBuilder()
@@ -47,7 +48,7 @@ export default {
         title: '🐾 Pet criado com sucesso',
         body:
           `**${petDisplayName(pet, interaction.guild)}** agora está disponível na loja!\n\n` +
-          `💰 **Preço:** ${preco.toLocaleString('pt-BR')} ${COIN()}\n` +
+          `${PET_VALUE()} **Preço:** ${preco.toLocaleString('pt-BR')} ${COIN()}\n` +
           `📝 **Descrição:** ${desc ?? '—'}\n` +
           `🆔 **ID interno:** \`${pet.id}\`\n\n` +
           'Os membros já podem comprar este pet em `/loja painel enviar`.',
