@@ -1134,7 +1134,7 @@ async function handleGiftBuyExecute(interaction, client) {
 
 // ─── 🛒 Carousel builders (Components V2) ────────────────────────────────────
 
-function _navBtns(prevId, nextId, voltarId, styles) {
+function _navBtns(prevId, nextId, voltarId, styles, nextLabel = 'Próximo') {
   // With a single item both calculated navigation IDs are identical. Discord
   // rejects the entire payload when two components share a custom_id, even if
   // the buttons have different labels. There is no navigation to expose then.
@@ -1142,7 +1142,7 @@ function _navBtns(prevId, nextId, voltarId, styles) {
 
   return [
     new ButtonBuilder().setCustomId(prevId).setLabel('Anterior').setEmoji('◀').setStyle(btnStyleFromStr(styles.nav)),
-    new ButtonBuilder().setCustomId(nextId).setLabel('Próximo pet').setEmoji('▶').setStyle(btnStyleFromStr(styles.nav)),
+    new ButtonBuilder().setCustomId(nextId).setLabel(nextLabel).setEmoji('▶').setStyle(btnStyleFromStr(styles.nav)),
   ];
 }
 
@@ -1154,8 +1154,8 @@ async function buildBannerCarousel(b, index, total, eco, owned, cfg = null) {
   const lines = [
     `🖼️ **${b.name}**`,
     b.description || null,
-    `▶ Valor: **${b.price.toLocaleString('pt-BR')} (${formatK(b.price)}) ${COIN()}**`,
-    `👛 Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`,
+    `${PET_VALUE()} Valor: **${b.price.toLocaleString('pt-BR')} (${formatK(b.price)}) ${COIN()}**`,
+    `${PET_BALANCE()} Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`,
   ].filter(Boolean);
   c.addTextDisplayComponents(new TextDisplayBuilder().setContent(lines.join('\n')));
 
@@ -1194,10 +1194,10 @@ function buildRoleCarousel(r, index, total, eco, owned, cfg = null) {
 
   const c = new ContainerBuilder();
   c.addTextDisplayComponents(new TextDisplayBuilder().setContent([
-    `👑 **${r.name}**`,
+    `<@&${r.roleId}>`,
     r.description || 'Cargo exclusivo do servidor.',
-    `▶ Valor: **${r.price.toLocaleString('pt-BR')} (${formatK(r.price)}) ${COIN()}**`,
-    `👛 Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`,
+    `${PET_VALUE()} Valor: **${r.price.toLocaleString('pt-BR')} (${formatK(r.price)}) ${COIN()}**`,
+    `${PET_BALANCE()} Saldo: **${eco.balance.toLocaleString('pt-BR')} ${COIN()}**`,
     `${index + 1} / ${total} cargos`,
   ].join('\n')));
 
@@ -1257,6 +1257,7 @@ async function buildPetCarousel(p, index, total, eco, owned, cfg = null, emojiSo
     `shop_car_p:${(index + 1) % total}`,
     null,
     styles,
+    'Próximo pet',
   );
 
   return {
